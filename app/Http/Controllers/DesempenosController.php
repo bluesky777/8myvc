@@ -69,23 +69,27 @@ use Illuminate\Support\Facades\Request;
  * > candar `destroy`. Lo que sí ahorra es **un cuarto camino que habría que
  * > candar** — una superficie que no existe, no un agujero que se tapa solo.
  *
- * ## Lo que esta fase NO trae, y es una entrega propia con fecha
+ * ## Lo que esta fase NO trajo, y se hizo detrás · **HECHO el 13 sep 2026**
  *
- * **`competencias` y `desempenos_por_defecto` son tablas POR AÑO, y hoy nadie las
- * copia al crear el año siguiente.** El colegio que escriba su plan de área en
- * 2026 lo encontrará **vacío en enero de 2027** y lo reescribirá entero.
+ * **`competencias` y `desempenos_por_defecto` son tablas POR AÑO, y cuando esta
+ * fase entró no las copiaba nadie al crear el año siguiente.** El colegio que
+ * escribiera su plan de área en 2026 lo habría encontrado **vacío en enero de
+ * 2027** y lo habría reescrito entero.
  *
- * No se arregla aquí por un motivo de fontanería y no de criterio: lo hace
- * `YearsController::postStore`, que es de la **Fase 1**, y esta rama sale de un
- * commit anterior a ella — tocarlo desde aquí fabrica un conflicto en vez de
- * arreglar nada. **Va sobre `main`, detrás de las dos.**
+ * No se arregló aquí por un motivo de fontanería y no de criterio: lo hace
+ * `YearsController::postStore`, que es de la **Fase 1**, y esta rama salió de un
+ * commit anterior a ella — tocarlo desde aquí fabricaba un conflicto en vez de
+ * arreglar nada. Fue **sobre `main`, detrás de las dos**:
+ * `YearsController::copiarElPlanDeArea`, con los tres remapeos que hacen falta
+ * —año, periodo y competencia padre—, y sus pruebas en `YearsTest`.
  *
- * Y es de los fallos caros: **no rompe nada hasta enero, y en enero no hay ninguna
+ * Y era de los fallos caros: **no rompe nada hasta enero, y en enero no hay ninguna
  * línea en el log que lo explique**. Es exactamente la §1.bis del doc 28, donde las
  * subunidades por defecto se quedaron sin copiar **durante años** sin que nadie lo
  * viera. `CentinelaDeLasColumnasDelAnioNuevoTest` **no puede cazarlo**: vigila
- * columnas de `years`, no tablas hijas. El centinela que haría falta es el hermano
- * suyo para tablas, con su lista de excepciones y el motivo al lado de cada una.
+ * columnas de `years`, no tablas hijas. El que sí, y que nació de esto, es
+ * `CentinelaDeLasTablasDelAnioNuevoTest`, con su lista de excepciones y el motivo al
+ * lado de cada una (censo de las 23 tablas por año en la §2.bis del 35).
  *
  * ## Y una advertencia del plan que NO se hereda, porque no aplica
  *

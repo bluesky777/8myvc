@@ -60,6 +60,17 @@ use Tests\TestCase;
  * copia el bucle de más abajo las vigila `CentinelaDeLasColumnasDelGrupoCopiadoTest`,
  * que nació el 7 sep 2026 al colarse `grupos.ih` — o sea que este centinela estuvo en
  * verde mientras el mismo fallo que describe pasaba más abajo, en este mismo método.
+ *
+ * **Y son TRES centinelas sobre el mismo método, cada uno con su pregunta**, que es lo
+ * que hay que saber antes de dar por cubierto nada:
+ *
+ *     éste                                     ¿falta alguna COLUMNA de `years`?
+ *     CentinelaDeLasColumnasDelGrupoCopiadoTest ¿falta alguna columna de `grupos`?
+ *     CentinelaDeLasTablasDelAnioNuevoTest      ¿falta alguna TABLA con `year_id`?
+ *
+ * El tercero es del 13 sep 2026 y lo pagaron `competencias` y
+ * `desempenos_por_defecto`. Los tres juntos **siguen sin cubrir** las tablas hijas sin
+ * `year_id`, que es por donde entró `subunidades_por_defecto`.
  */
 class CentinelaDeLasColumnasDelAnioNuevoTest extends TestCase
 {

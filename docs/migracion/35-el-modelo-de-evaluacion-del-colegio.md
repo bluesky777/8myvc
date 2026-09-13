@@ -1203,6 +1203,11 @@ presencia del campo**: los clientes mandan el objeto entero.
 > dejó las subunidades por defecto sin copiar durante años y sin un error en el log.
 > El doc 28 §5.0 ya dijo que ese centinela «no está escrito». **Esta fase lo escribe**,
 > con su lista de excepciones y el motivo al lado de cada una.
+>
+> **HECHO el 13 sep 2026**, detrás de las Fases 2 y 3 y sobre `main`: la copia es
+> `YearsController::copiarElPlanDeArea` y el centinela es
+> `tests/Contrato/CentinelaDeLasTablasDelAnioNuevoTest`. El censo entero está en la
+> §2.bis de aquí abajo.
 
 **Tests de contrato:**
 
@@ -1216,6 +1221,64 @@ presencia del campo**: los clientes mandan el objeto entero.
 - **Un año nuevo hereda competencias y desempeños por defecto** — el test hermano del
   de la §1.bis, y va al lado del suyo, que es donde alguien vendrá a mirar.
 - El alumno del boletín independiente recibe **los suyos**; el normal, los del grupo.
+
+---
+
+### 2.bis · Las 23 tablas por año, y cuáles hereda el año nuevo · **13 sep 2026**
+
+Salió de escribir el centinela de la Fase 3, y se deja aquí porque **la lista no se
+puede reconstruir leyendo `postStore` de arriba abajo**: **cuatro** de las diez que
+copia no nombran su tabla en ninguna parte —`escalas_de_valoracion`, `frases`,
+`grupos` y `periodos` van por Eloquent— y **tres** no están dentro de `postStore`
+sino en dos métodos privados suyos: `periodos` en `crearLosPeriodos`, y `competencias`
+y `desempenos_por_defecto` en `copiarElPlanDeArea`.
+
+Contadas contra la base viva (`information_schema`, no el volcado congelado), que es
+lo único donde aparecen las tablas nuevas:
+
+| | tablas | por qué |
+|---|---|---|
+| **se copian** (10) | `escalas_de_valoracion` · `frases` · `unidades_por_defecto` · `requisitos_matricula` · `dis_configuraciones` · `dis_ordinales` · `grupos` · `periodos` · **`competencias`** · **`desempenos_por_defecto`** | son **lo que el colegio escribió para decir cómo evalúa**: se escriben una vez y valen para siempre, así que no copiarlas obliga a reescribirlas cada enero |
+| **datos del año** (9) | `auditoria` · `contratos` · `dis_libro_rojo` · `dis_procesos` · `horario_versiones` · `piars_actas_acuerdo` · `piars_alumnos` · `piars_grupos` · `vt_votaciones` | **pasaron en un año concreto**. Un proceso disciplinario, un PIAR firmado, una votación o un horario subido no son trabajo que ahorrarle al colegio: copiarlos sería **fabricar historia que no ocurrió** |
+| **muertas** (3) | `default_unidades` · `df_alumnos` · `df_grupos` | ya censadas en el [05](05-codigo-muerto-y-roto.md), cero filas y ningún lector. Su excepción **se borra sola** el día que se borren las tablas |
+| **sin decidir** (1) | `rubricas` | abajo |
+
+La línea que separa las dos primeras filas es **una sola pregunta**: *¿esto lo escribió
+el colegio para decir cómo evalúa, o lo produjo el año al vivirse?*
+
+> **`rubricas` es la única que no contesta esa pregunta**, y por eso no está en ninguna
+> de las dos listas. Tiene las dos caras a la vez: `rubricas.asignatura_id` la ata a una
+> asignatura que el año nuevo vuelve a crear **con otro id** —copiarla tal cual sería la
+> referencia cruzada que `copiarElPlanDeArea` existe para evitar—, pero
+> `es_plantilla = 1` con `asignatura_id` en NULL es **una rúbrica de biblioteca**, sin
+> dueño y escrita para reusarse, y ésa tiene la misma cara que `unidades_por_defecto`.
+>
+> **Y no es un `INSERT` más**: son cuatro tablas hijas —`rubrica_criterios`,
+> `rubrica_niveles`, `rubrica_descriptores` y el enganche de `subunidades`— con sus ids
+> remapeados, y **ninguna lleva `year_id`**, o sea que el centinela nuevo tampoco las
+> vería. No hay hoy ninguna ruta que copie una rúbrica, ni entre años ni dentro del
+> mismo año.
+>
+> Queda **declarada sin decidir y con un test rojo esperándola**
+> (`hay_tablas_por_anio_sin_decidir`, grupo `rojo`), que es como en esta casa una duda
+> deja de disfrazarse de decisión. La pregunta para Joseth es la primera de todas:
+> **¿son las rúbricas de biblioteca (`es_plantilla = 1`) configuración del colegio?**
+
+**Lo que la copia del plan de área tuvo que resolver y las otras nueve tablas no**: sus
+filas **se apuntan entre ellas**. El desempeño cuelga de la competencia
+(`competencia_id`, D10) **y de un periodo** (`periodo_id`, NOT NULL), y las dos cosas
+nacen con ids nuevos. Copiar las dos tablas sin remapear no da ningún error —la clave
+ajena acepta filas de otro año— y el resultado es **200, pantalla llena y rejilla
+vacía**: `GET desempenos/plantilla` los enseña porque filtra por `year_id`, y la
+planilla del docente no encuentra ni uno porque lee por `year_id` **y** `periodo_id`.
+Por eso la copia va **detrás** de `crearLosPeriodos` y no junto a las escalas y las
+frases, que es donde parece que va.
+
+Un desempeño cuyo periodo del año viejo **no tiene equivalente** —un quinto periodo, o
+uno en la papelera— **se queda**, se cuenta y se dice en el log. Medido contra el docker
+de desarrollo el 13 sep 2026 con `tools/probar-el-anio-nuevo-en-el-docker.php`, y de
+paso salió el dato que lo hace probable: **el año 2026 de esa base tiene UN periodo**,
+no cuatro — es el que creó esta misma ruta antes del arreglo del 30 ago 2026.
 
 ---
 
@@ -1412,6 +1475,10 @@ salida.**
 ### Lo que sigue abierto de verdad, y no lo desbloquea ninguna decisión
 
 - **El nombre y la maqueta del boletín nuevo** — espera además la medición de la Fase 5.
+- **¿Las rúbricas de biblioteca (`es_plantilla = 1`) son configuración del colegio?** Si lo
+  son, el año nuevo tiene que heredarlas y eso es una entrega con su plan —cuatro tablas
+  hijas y sus ids—, no una línea en `postStore`. Está declarada en la §2.bis y la vigila
+  un test del grupo `rojo`, no un comentario.
 - **Los dos censos del día del despliegue** (§7). No se pueden correr desde una sesión de
   desarrollo.
 - **Las materias que el MEN no cubre**: Religión, Artes, Ed. Física y Tecnología **nacen vacías**,
