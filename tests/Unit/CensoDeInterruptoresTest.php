@@ -44,9 +44,37 @@ class CensoDeInterruptoresTest extends TestCase
     private const CENSO = [
         'columnas tinyint(1) distintas' => 157,
         'ni se nombran' => 64,
-        'no deciden nada' => 29,
-        'alguien decide con ellas' => 64,
+        'no deciden nada' => 28,
+        'alguien decide con ellas' => 65,
     ];
+
+    /*
+     * ## 13 sep 2026 — `por_defecto` cruzó de «no decide nada» a «alguien decide con
+     * ella», y este centinela cazó el momento exacto
+     *
+     * `29 / 64` pasa a `28 / 65`. **Se movió una sola columna, y está comprobado cuál
+     * es**: `por_defecto` —`unidades` y `subunidades` en el volcado—, que hasta hoy
+     * la **escribían** los dos sembradores y no la **leía** nadie para decidir.
+     *
+     * Lo que la cruza es el candado de la **D14** que trae la Fase 3
+     * (`DesempenosController::exigirElCandado`):
+     *
+     *     if ((int) $fila->por_defecto === 0) {
+     *         return;
+     *     }
+     *
+     * **Es el primer sitio del backend donde esa columna decide algo**, que es
+     * justamente lo que la decisión 14 del doc 28 existía para construir. O sea que
+     * este renglón no registra un accidente: registra que un interruptor dejó de ser
+     * decorativo, que es lo que este caso vino a poder ver.
+     *
+     * > **Y el 49 y el 53 del §105 hay que volver a medirlos**, porque la suma
+     * > `nunca + mudas` baja de **93** a **92** y ésa es la población que aquel
+     * > apartado cruza con los cuatro clientes. **Ningún test de este repositorio
+     * > puede hacerlo** —`myvc_front`, `myvc_front_2`, `myvc_flutter` y un bundle
+     * > construido no están aquí—, así que se anota y se deja fechado, que es lo que
+     * > manda el docblock de arriba.
+     */
 
     /**
      * **Movido el 25 ago 2026 al fundir las cuatro ramas de la noche del 24, y el
@@ -78,7 +106,7 @@ class CensoDeInterruptoresTest extends TestCase
      * precio es este comentario cada vez que se mueva el reparto; es más barato que
      * un guardián que no distingue.
      */
-    private const SIN_LECTOR_EN_EL_BACKEND = 93;
+    private const SIN_LECTOR_EN_EL_BACKEND = 92;
 
     /** Las `tinyint(1)` del volcado, con las tablas donde están. Igual que la herramienta. */
     private function columnasBooleanas(): array
