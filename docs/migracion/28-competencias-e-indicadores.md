@@ -1403,6 +1403,18 @@ se copian de año a año y **no lee nadie** (§3.2).
 
 ## 6. Lo que esto le cuesta al resto del sistema
 
+> **13 sep 2026 — ese 577 ya no es de hoy, y se dice aquí porque es el número que se lee
+> primero.** Desde el 4 sep entraron en `main` **dos** rutas más, cada una con su commit y su
+> documento: `GET horario/versiones/{id}/proyecto` (`09cfd2b`, [23](23-horarios.md) §9) y
+> `GET sincronizacion/huella` (`46c6660`, [34](34-la-huella-de-sincronizacion.md)). `CLAUDE.md`
+> dice **579**, contadas en `.worktrees/e5` el 7 sep — y ese worktree **ya no existe**, así que
+> ese número está heredado y no contado, que es justo lo que su propio recuadro prohíbe. **No se
+> escribe aquí una cifra nueva**: se cuenta con `route:list --json` en el árbol donde se toque, y
+> se dice el árbol. El plan que sale de las decisiones del 13 sep está en
+> [35](35-el-modelo-de-evaluacion-del-colegio.md) §1.1, y cuenta **22** rutas por entrar, no 18
+> ni 20 — las dos que faltaban son el guard propio de `modelo_evaluacion` y el `GET` que lee los
+> desempeños de una asignatura.
+
 - **Rutas.** Hoy hay **577** (contadas con `route:list --json` el 4 sep 2026, **después** de que entraran las nueve de la Entrega 1; decía 568 esa misma mañana y **566** el 2 sep, el día que se escribió esto). **Las 9 de la Entrega 1 ya están dentro de ese 577**, así que lo que queda por entrar de este documento son **18**, no 27. Las entregas 1, 2 y 3 sumaban **hasta 21** (9 + 6 + 6) y
   la **6 añade 4** —el boletín nuevo de §5.6, calcado de `boletines3`—, o sea **25**;
   la **4 y la 5 no añaden ninguna** —la 4 es un valor más en un campo que ya existe y

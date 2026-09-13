@@ -73,6 +73,62 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## EL MODELO DE EVALUACIÓN PASA A SER UNA ELECCIÓN DEL COLEGIO — plan escrito, SIN CÓDIGO (13 sep 2026)
+>
+> **Joseth cerró la noche del 13 sep las nueve decisiones que bloqueaban las competencias**, en una
+> tanda de 22 tomadas una a una con sus alternativas delante:
+> `myvc_front/DECISIONES-MODELO-DE-EVALUACION.md`. Lo que cambia el marco y no estaba en el doc 28:
+> **lo de hoy no se sustituye, se queda como una opción del colegio** —
+> `years.modelo_evaluacion enum('ponderado','competencias') DEFAULT 'ponderado'` — que gobierna **lo
+> que se ve y lo que se escribe** y **ningún cálculo**. Volver atrás es cambiar el enum.
+>
+> **El plan del backend está en [35-el-modelo-de-evaluacion-del-colegio.md](35-el-modelo-de-evaluacion-del-colegio.md).**
+> Siete fases desplegables, **22 rutas** por entrar y **cinco migraciones** — una de ellas, el
+> `ALTER` a `text`, ya está escrita. **No hay una línea de código
+> nuevo**: este commit es el plan y estas dos correcciones.
+>
+> ### Lo que hay que saber sin abrirlo
+>
+> - **La Fase 0 no es «fusionar `fix/frases-asignatura-text`»: es rebasarla y volver a medir.** La
+>   rama está bien y hace lo que dice —tres commits, dos ficheros, ninguna instantánea tocada, y
+>   `frases_asignatura.frase` sigue `varchar(255)` en `main`—, pero su base es **`ab23e2d`, 169
+>   commits por detrás**, con **siete migraciones** en medio. Sus **1.926 verdes son ciertas y son
+>   de aquel árbol**; el propio commit lo dice. Una cifra de pruebas se publica con su orden y con
+>   el hash contra el que corrió.
+> - **Una columna nueva de `years` mueve ~30 instantáneas**, y eso desarma el argumento de
+>   seguridad que se estaba usando. `getIndex` y `getColegio` publican `years` con `SELECT *`, y
+>   **30 de las 125 instantáneas llevan columnas de `years` dentro**. El comportamiento no cambia;
+>   los bytes sí. Es [30](30-lo-que-reparte-una-columna-nueva.md) otra vez, nueve días después.
+> - **Y nadie podría escribir `modelo_evaluacion`**: `putGuardarCambios` nombra **21 columnas** una
+>   a una. Es `profesores.tono` visto **antes** de cometerlo. De ahí sale una ruta que la tanda de
+>   decisiones no contaba, y la pregunta de quién puede llamarla: **los dieciséis `years/*` de
+>   escritura son `auth.personal`, o sea cualquier docente.**
+>
+> ### Lo que espera a Joseth, y sólo una bloquea
+>
+> | | qué | bloquea |
+> |---|---|---|
+> | **D-A** | ¿quién cambia el modelo del año? Ruta propia con `can_edit_plantilla_notas` (propuesta) o dentro de `years/guardar-cambios`, donde lo toca cualquier docente | nada |
+> | **D-B** | los desempeños de «todos los grados» y los de 6.º, ¿acumulan o compiten? (propuesta: acumulan) | nada |
+> | **D-C** | **¿qué premarca la rejilla?** `escalas_de_valoracion` da un **nivel por alumno**; la rejilla necesita un **sí/no por texto**, y **no hay nada que lleve de lo uno a lo otro** | **la Fase 4 entera** |
+>
+> **D-C no es un detalle de implementación y por eso está aquí arriba.** La decisión 10 del doc 28
+> descartó marcar de oficio; la regla barata («se premarcan todos los del que aprobó») **es esa
+> forma otra vez**, con la única diferencia de que no escribe hasta que el docente guarda. La otra
+> salida —un nivel por desempeño— es lo que **D8 descartó** por multiplicar por cuatro la
+> escritura. Las dos están medidas en [35](35-el-modelo-de-evaluacion-del-colegio.md) §1.5.
+>
+> ### Y una casilla vieja de este documento que ya no dice lo que hay
+>
+> La decisión **2** de «LO QUE ESPERA UNA DECISIÓN» contestaba **no** a fundir
+> `fix/frases-asignatura-text`, y el argumento era la **tanda del día 10**: sería la octava
+> migración de una tanda ensayada sobre siete. **Hoy es el 13** y **D22 la pone de paso cero de
+> todo lo demás**. No la tacho porque **no sé si la tanda del día 10 llegó a salir** —no hay
+> casilla que lo diga y no lo puedo comprobar desde aquí—, y eso es exactamente lo que hay que
+> averiguar antes de fundir: *una instrucción no envejece a «hecho», envejece a mentira*, y ésta
+> lleva tres días pudiendo hacerlo.
+
+
 > ## LA FOTO DEL 5 SEP 2026, 07:36 — Y ES UNA FOTO, NO UN ESTADO
 >
 > Recontada con las órdenes de arriba, **no heredada de nadie**. Si la lees más tarde,
