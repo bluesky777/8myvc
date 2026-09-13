@@ -116,6 +116,37 @@
 > > de 29/64—, porque el candado de la D14 es **el primer sitio del backend que la lee para
 > > decidir**. No es un fallo: es lo que la decisión 14 existía para construir.
 >
+> ### ⏳ ESPERA UNA DECISIÓN TUYA — seis respuestas que reparten la fila entera de `years`
+>
+> **No entra en ninguna fase y por eso se escribe aquí**: es cobertura ausente en endpoints
+> **vivos**, descubierta midiendo la Fase 1 pero anterior a ella. Detalle y tablas en
+> [35 §1.3](35-el-modelo-de-evaluacion-del-colegio.md).
+>
+> **Nueve rutas devuelven la fila entera de `years`; tres las vigila una instantánea y seis no.**
+> A las seis, cualquier columna que se añada a esa tabla les sale en la respuesta **sin que nada
+> se ponga rojo** — hoy `modelo_evaluacion`, mañana la siguiente.
+>
+> | sin vigilar | quién puede llamarla |
+> |---|---|
+> | `POST years/store` · `PUT years/guardar-cambios` · `DELETE years/delete/{id}` | `auth.personal` |
+> | `DELETE years/destroy/{id}` · `PUT years/restore/{id}` | `esSuperusuario` |
+> | `PUT myimages/cambiarlogocolegio` | `esAdministrativo` |
+>
+> **La pregunta es una y no urge**: ¿esas seis **ganan las columnas nuevas a propósito**, o alguna
+> debería pasar a columnas nombradas? Lo que no se puede es seguir sin decidirlo, porque hoy la
+> respuesta la da el azar de qué `SELECT` se escribió en 2018.
+>
+> **El noveno —`cambiarlogocolegio`— vive fuera de `YearsController`**, que es donde tres sesiones
+> miramos: cambiar el logo del colegio devuelve el año entero. Censamos esa carpeta **porque la
+> tabla se llama `years`**; no fue contar mal, fue contar bien sobre la carpeta equivocada.
+>
+> > **Y al mirarlo salió otra cosa, que es independiente de la decisión**: las cifras que
+> > dimensionaban esa exposición —«45 personas»— **no se reproducen**. `auth.personal` son **74**
+> > en la base de desarrollo y **71** en la de tests, no 45; y el par de `CLAUDE.md` («2.328
+> > cuentas a 45») tampoco sale: hoy son **2.358**. No es que envejeciera —sólo hay tres cuentas
+> > de personal creadas en 2026—. Está anotado en el 35 como *«no sé de dónde salió el 45»* en vez
+> > de sustituido en silencio. **Ninguna de esas cifras es de producción: son del docker.**
+>
 > ### ✅ FASE 0 HECHA — 13 sep 2026, y el `ALTER` YA ESTÁ EN `main`
 >
 > `frases_asignatura.frase` es **`text`** desde `10a09a8`. Los dos ficheros de

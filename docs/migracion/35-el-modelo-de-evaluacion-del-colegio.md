@@ -320,7 +320,7 @@ de más es legítimo. **Lo es.**
 > | **exposición** — rutas cuya respuesta gana la columna | **9** |
 > | **cobertura** — instantáneas que se mueven | **3** |
 >
-> **Las ocho**, con su ruta, leídas de `HEAD` y no del árbol de trabajo:
+> **Las nueve**, con su ruta, leídas de `HEAD` y no del árbol de trabajo:
 >
 > | método | cómo publica la fila entera | ruta | ¿instantánea? |
 > |---|---|---|---|
@@ -360,14 +360,43 @@ de más es legítimo. **Lo es.**
 > | `DELETE years/delete/{id}` | `auth.personal` — **45** |
 > | `DELETE years/destroy/{id}` | `esSuperusuario` dentro — **11** |
 > | `PUT years/restore/{id}` | `esSuperusuario` dentro — **11** |
+> | **`PUT myimages/cambiarlogocolegio`** | **`esAdministrativo` dentro — 11** |
+>
+> > **Esta tabla tenía cinco filas y sin instantánea son SEIS**: faltaba el noveno camino, que
+> > está en la tabla de arriba como «no» y en la nota de al lado, pero **no en la tabla que
+> > convierte la cuenta en una decisión** — que es la única que alguien va a leer para decidir.
+> > Es la misma forma que el titular de `23d1d98` diciendo «diez» sobre un desglose que suma
+> > doce: *el cuerpo bien y el renglón que se lee, mal*. Añadida el 13 sep 2026.
 >
 > **Los dos que se encontraron primero son los dos mejor cerrados**, y los tres que nadie había
 > nombrado son los de más público: 45 personas y ninguna comprobación más allá del guard de la
 > ruta. *Lo que menos se mira no es lo más escondido: es lo que parece rutinario.*
 >
-> (Los **11** están contados hoy en la base de desarrollo —`is_superuser = 1`, vivos— y coinciden
-> con las «once personas» de `CLAUDE.md`; el aviso llegó diciendo 10. Los **45** son la cifra de
-> `auth.personal` del mismo sitio. **Son de un colegio**, no de los dieciséis.)
+> > **LAS CIFRAS DE ARRIBA ESTÁN REMEDIDAS EL 13 SEP 2026, Y EL `45` NO SE REPRODUCE.**
+> >
+> > | | dev `simonbolivar` | test `simonbolivar_testing` | lo que decía aquí |
+> > |---|---|---|---|
+> > | `auth.personal` | **74** | **71** | 45 |
+> > | `esSuperusuario` | **11** | **10** | 11 |
+> > | `esAdministrativo` | **11** | — | ~10 |
+> >
+> > El `45` estaba escrito como *«la cifra de `auth.personal` de la base de desarrollo»* y **en
+> > esa base hay 74** (53 `Profesor` + 21 `Usuario`, vivos; el criterio del middleware es
+> > `tipo NOT IN ('Alumno','Acudiente')`, `ExigirPersonal::FUERA`). Tampoco sale de la de tests
+> > (71) ni de `profesores` (47). **No es que envejeciera**: sólo hay **tres** cuentas de personal
+> > creadas en 2026 —`ZZTestFirma`, `ZZPruebaCelda`, `coord.academico.prueba`—, así que la base no
+> > ha crecido 29 personas. Viene de `CLAUDE.md` («baja la superficie de 2.328 cuentas a 45») y
+> > **ese par tampoco se reproduce**: hoy son 2.358 cuentas. Queda escrito como lo que es —*no sé
+> > de dónde salió el 45*— en vez de sustituirlo en silencio, porque una cifra que nadie puede
+> > reproducir y otra que alguien cambió sin decirlo se leen igual dentro de un mes.
+> >
+> > **Y `esAdministrativo` no es «los ~10»**: es `is_superuser || Role::isSecretario`, y el rol
+> > `Secretario` tiene **cero titulares** en esa base, así que hoy coincide con los 11 superusuarios
+> > **por población y no por definición** — el colegio que nombre un secretario lo descubre.
+> >
+> > **Cada cifra con su base delante, y ninguna es de producción.** Los 11 son 11 en dev y **10 en
+> > tests**: la misma pregunta contra dos bases da dos respuestas, que es la razón de que aquí vaya
+> > la tabla y no un número. **Son de un colegio y además es el docker**, no de los dieciséis.
 >
 > **Y una trampa descartada por el camino, que casi quita dos de la lista.** El docblock de
 > `YearsTest` dice que `guardar-cambios` *«devuelve el modelo en memoria»*, lo que se lee como
