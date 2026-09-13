@@ -117,6 +117,19 @@ de más es legítimo. **Lo es.**
 > Sigue habiendo que regenerar y leer ese diff, y sigue sin poder usarse como *«no se mueve
 > nada»*; pero el riesgo de la Fase 1 es el que decía la decisión, no el que dije yo.
 >
+> **Y cómo se comprueba de verdad esta terna, que no es corriendo la suite una vez.** Lo aporta
+> `8myvc-c1`, que se llevó la verificación, y son dos trampas encadenadas:
+>
+> 1. **Sin `--filter`.** Un filtro se construye con los nombres de lo que tocaste, y una columna
+>    repartida por `SELECT *` sale en respuestas que **no se llaman como nada de eso** — las tres
+>    de `grupos.ih` vivían en `MuestreoDeLecturasConContextoTest`.
+> 2. **«N rojos» no es «N instantáneas».** Cada test asserta varias y **para en la primera**, así
+>    que la primera pasada cuenta de menos: con `grupos.ih` la suite dijo **2** y los ficheros
+>    eran **3**. El conjunto sale de **regenerar, volver a correr y repetir hasta el verde**, no
+>    de la primera pasada.
+>
+> Hasta que eso corra, **la terna de arriba está razonada y no medida**, y se dice así.
+
 > **Y el fallo es el que este repositorio ya tiene fichado**: *«el primer sitio donde mirar cuando
 > el número sale raro es el detector»*. Aquí el número no salió raro —treinta es perfectamente
 > creíble— y por eso no se miró hasta que se volvió a medir por otro motivo. **Un detector que
