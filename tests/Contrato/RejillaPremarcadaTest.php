@@ -437,6 +437,43 @@ class RejillaPremarcadaTest extends CasoDeContrato
     }
 
     /**
+     * **Y al volver a guardar esa celda, el texto SÍ se rehace.** Es la otra mitad
+     * del caso de arriba, y va escrita porque sin ella el anterior promete de más:
+     * el docente que corrige una errata y guarda espera verla corregida.
+     *
+     * Lo que de verdad protege un boletín de un año pasado **no es la copia, es que
+     * su periodo esté cerrado** —`test_guardar_en_un_periodo_cerrado_no_escribe_nada`—.
+     * Los dos casos juntos dicen la regla entera: *sin guardado nuevo no se mueve una
+     * letra, y en un periodo cerrado no hay guardado nuevo*.
+     */
+    #[Test]
+    public function test_y_al_volver_a_guardar_la_celda_el_texto_se_rehace(): void
+    {
+        $caso = $this->unCaso();
+        $niveles = $this->conLaEscala($caso, [['Bajo', 0, 59], ['Alto', 60, 100]]);
+        $desempeno = $this->unDesempeno($caso, 'Identifica los tipos de triángulo');
+        $this->conDefinitiva($caso, $caso->alumnos[0], 90);
+
+        $cuerpo = $this->cuerpo($caso, [[$caso->alumnos[0], $desempeno, $niveles['Alto']]]);
+        $this->pedir('putJson', 'desempenos/rejilla', $cuerpo)->assertStatus(200);
+
+        DB::table('desempenos')->where('id', $desempeno)
+            ->update(['definicion' => 'Clasifica los triángulos según sus lados']);
+
+        $r = $this->pedir('putJson', 'desempenos/rejilla', $cuerpo);
+
+        $r->assertStatus(200);
+        $this->assertSame(1, $r->json('cambiadas'),
+            'Guardar con el texto del desempeño cambiado tiene que contarse como un cambio: '
+            .'el contador es lo único que le dice al docente que su corrección entró.');
+
+        $this->assertSame('Clasifica los triángulos según sus lados', DB::table('frases_asignatura')
+            ->where('alumno_id', $caso->alumnos[0])
+            ->where('asignatura_id', $caso->asignatura_id)
+            ->whereNull('deleted_at')->value('frase'));
+    }
+
+    /**
      * **Las frases escritas a mano no son celdas, y la rejilla no las toca.**
      *
      * Es la línea que deja a las dos pantallas escribir en la misma tabla. Se ve

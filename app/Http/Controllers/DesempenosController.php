@@ -1214,6 +1214,15 @@ class DesempenosController extends Controller
      *   - `frase` ← **el texto del desempeño, copiado** (D9). Es lo que protege los
      *     boletines viejos: corregir el desempeño en 2028 no cambia lo impreso en
      *     2026 porque lo impreso es esta copia.
+     *
+     *     > **Y la copia se rehace al volver a guardar esa celda, que es la mitad
+     *     > que hay que decir para no prometer de más.** Medido contra el docker:
+     *     > cambiado el texto del desempeño y reguardado el mismo nivel, la celda
+     *     > sale `cambiadas: 1` y `frase` pasa a ser el texto nuevo. Es lo que se
+     *     > quiere —el docente que corrige una errata y guarda espera verla
+     *     > corregida— y **lo que de verdad protege un boletín de un año pasado no
+     *     > es la copia, es que su periodo esté cerrado**: sin un guardado nuevo no
+     *     > se mueve una letra, y un periodo cerrado no admite guardados.
      *   - `desempeno_id` ← de qué casilla salió, que es lo único que permite volver
      *     a pintar la rejilla sin comparar cadenas de 200 caracteres.
      *   - `escala_id` + `nivel` ← el id **y el nombre** del nivel (D23). Dos
