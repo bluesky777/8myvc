@@ -1443,16 +1443,38 @@ poco al `diff`— sino en **campos de la respuesta**, y ahí el reparto es otro.
 
 Medido en la misma petición, tres veces y reproducible:
 
-| | estado | ms | consultas | bytes |
+| | estado | ms † | consultas | bytes |
 |---|---|---|---|---|
 | `boletines` | 200 | 1.406 – 1.877 | **1.061** | 25.007 |
 | `boletines2` | 200 | 1.024 – 1.503 | 924 | 39.013 |
 | `boletines3` | 200 | **15.531 – 15.572** | **762** | 25.980 |
 
+> **† Los ms son una cota POR ARRIBA, y la carga era nuestra.** Se tomaron el 13 sep 2026
+> **con una suite de PHPUnit de este mismo proyecto corriendo dentro del contenedor** —ese
+> día hubo varias, de 1.100 a 1.700 s—, así que la máquina no estaba limpia. Y no era «una
+> VM ajena»: la VM de `Virtualization.framework` que se lleva el 114 % **es el Docker de
+> este repo**. La diferencia no es de matiz — lo ajeno suena a mala suerte y no se puede
+> evitar; **lo propio es reproducible y evitable**, y le dice al que remida cómo tomar la
+> cifra limpia: con `pgrep -af phpunit` vacío.
+>
+> **Las otras dos columnas no son cotas: son exactas.** El número de consultas y los bytes
+> no dependen de la máquina, y son los que sostienen lo de abajo.
+
 > **El tercero tarda diez veces más haciendo TRESCIENTAS consultas menos.** El coste
 > de este boletín no está en el N+1 —que es lo que se supone cuando se lee «24–63 s»—
 > sino en **una** consulta: la de cuatro periodos de `Grupo::detailed_materias_notas_finales`.
 > Es el dato que decide dónde se optimiza, y dice que contar consultas aquí engaña.
+>
+> **Y esto aguanta aunque los ms sean sucios**, que es lo que hay que saber antes de
+> citarlos: los tres se tomaron **bajo la misma carga**, así que el ruido tiende a
+> cancelarse en el **cociente**; y el «diez veces» no se sostiene por la medida sino **por
+> mecanismo** —762 consultas contra 1.061, y una de ellas es la de cuatro periodos—. Lo
+> que **no** se puede citar a pelo es el **15.531 ms** como si fuera lo que ve un usuario:
+> eso hay que remedirlo con la máquina quieta.
+
+> **La regla, que vale para cualquier cifra de tiempo de este repo:** un **✓** contra un
+> umbral, medido con la máquina sucia, es **conservador y vale** —salió bien cargando de
+> más—; un **✕** **no concluye nada** y hay que repetirlo limpio.
 
 **«Llega ahí por accidente»** no es una forma de hablar: `Boletines3Controller:281`
 pasa **`true`** donde los otros pasan una cadena. La primera rama compara con `===` y
@@ -1712,15 +1734,20 @@ asignatura: `marcasDelAlumno` trae todas las celdas del grupo de una vez y
 `faltasPorAsignatura` agrega las ausencias en una. Pedido al docker, con
 `tools/probar-el-boletin-por-competencias-en-el-docker.php`:
 
-| | estado | ms | consultas | bytes |
+| | estado | ms † | consultas | bytes |
 |---|---|---|---|---|
 | `detailed-notas`, **1 alumno** | 200 | 155 | 307 | 12.825 |
 | `detailed-notas-group`, **37 alumnos** | 200 | 117 | **268** | 323.955 |
 
-Contra las **1.061 consultas y 1.406 ms** que la Fase 5 midió en una petición de **UN**
-alumno del primero. Y las dos cifras de arriba son de la **misma** cantidad de trabajo: la
-ruta de un alumno calcula el grupo entero igual, porque el puesto lo exige; lo que cambia
-es a quién se le devuelve.
+> **† Mismo día, mismo contenedor, misma advertencia que en la Fase 5**: los ms son una
+> **cota por arriba** y no se citan a pelo como «lo que tarda para un usuario». Las
+> consultas y los bytes sí son exactos.
+
+Contra las **1.061 consultas** que la Fase 5 midió en una petición de **UN** alumno del
+primero — y **la comparación que vale es ésa, la de consultas**, no la de milisegundos: es
+la que no depende de cómo estuviera la máquina. Y las dos filas de arriba son de la
+**misma** cantidad de trabajo: la ruta de un alumno calcula el grupo entero igual, porque
+el puesto lo exige; lo que cambia es a quién se le devuelve.
 
 **No recalcula definitivas.** `BoletinesController` sí lo hace —fase 3 del
 [10](10-definitivas.md)— y ahí está bien; un boletín nuevo que escribiera al abrirse
@@ -2013,17 +2040,42 @@ lo que hable del reparto del curso.
   desarrollo**. No lo bloquea nada de este plan y este plan no lo desbloquea.
 - **La Entrega 4 del doc 28** —tercer origen `{tipo:"plantilla"}` en `copiar` y sembrar
   al marcar— está aprobada (D18) y **es independiente de estas siete fases**: cero
-  rutas nuevas. ~~Con D5 encima, al marcar se siembran **también los desempeños** del
-  grupo a nombre del alumno, así que su sitio natural es **detrás de la Fase 3**.~~
+  rutas nuevas.
 
-  > **HECHA el 13 sep 2026**, y la frase tachada se retira con una medida delante. La
-  > **Fase 4** —que no existía cuando se escribió— ya resuelve eso por el otro lado:
-  > `DesempenosController::desempenosDeLaRejilla()` lee
-  > `d.alumno_id IS NULL OR d.alumno_id IN (marcados)`, o sea **suma** los del curso y
-  > los del marcado. Sembrarle los del grupo a su nombre le **duplicaría cada columna de
-  > la rejilla, y a todo el grupo**. Al marcar se siembra **la rejilla de notas** —unidades,
-  > subunidades y las notas que el alumno ya tenía— y **los desempeños no se tocan**. Ver
-  > la §6.3 del [19](19-boletin-independiente.md) y `test_marcar_no_siembra_desempenos`.
+  > ### ⚠️ La última línea de D18 NO se puede cumplir, y no por coste: haría daño
+  >
+  > **Medido el 13 sep 2026 por `myvc-front-50` y verificado aquí en el código.** D18 pide que al
+  > marcar a un alumno se le copien **también los desempeños del grupo** a su nombre, «igual que
+  > las unidades». **No es igual, y la diferencia está en cómo se leen las dos tablas:**
+  >
+  > ```
+  > unidades      u.alumno_id <=> :alcance                        <- EXCLUYE: o las suyas o las del grupo
+  > desempenos    d.alumno_id IS NULL OR d.alumno_id IN (…)       <- SUMA: las del grupo Y las suyas
+  > ```
+  >
+  > (`DesempenosController::desempenosDeLaRejilla`, el filtro que arma antes del `SELECT`.)
+  >
+  > Con la lectura aditiva, copiarle al alumno los desempeños del grupo **duplica cada columna de
+  > la rejilla** — y no sólo las suyas: la rejilla es por asignatura, así que el grupo entero vería
+  > cada columna dos veces. **La premisa de D18 era que la lectura excluía, y en esta tabla no.**
+  >
+  > Su agente no la siguió, le puso un test y lo dejó escrito en el código. **Se anota aquí con el
+  > porqué delante y no se borra**: una decisión retirada sin su motivo se vuelve a pedir dentro de
+  > seis meses y parece un olvido en vez de una imposibilidad.
+  >
+  > **Lo que sí se cumplió de D18**, y por eso la decisión no cae entera: el tercer origen
+  > `origen.tipo: "plantilla"` en `POST boletin-independiente/copiar` —llamando a
+  > `AlcanceDeLaPlantilla` y no reescribiendo su precedencia— y que **marcar siembre la rejilla de
+  > notas**. Lo que no se hace es lo de los desempeños.
+
+  ~~Con D5 encima, al marcar se siembran **también los desempeños** del
+  grupo a nombre del alumno~~ — **retirado por el recuadro de arriba**; lo demás de D18 sigue
+  entero y su sitio natural es **detrás de la Fase 3**.
+
+  > **Y está HECHA** *(13 sep 2026)*: el tercer origen, marcar-siembra con sus ocho números y la
+  > previa de la plantilla en `planilla`. Contrato y porqués en las §§6.1-6.3 del
+  > [19](19-boletin-independiente.md); la línea que no se cumple la fija
+  > `test_marcar_no_siembra_desempenos`.
 - **La fase 0 de la Entrega 5** —sacar `nota × % / 100` de sus **18 sitios en 9
   ficheros** a un punto único— está aprobada y **se despliega sola** (D19). No cambia
   ni un resultado y se verifica con las instantáneas tal como están. **No depende de
@@ -2052,53 +2104,37 @@ salida.**
 
 ### D18, REVISADA POR MEDICIÓN el 13 sep 2026 — media decisión no se puede cumplir
 
-**No es un detalle de implementación y por eso está aquí, en la lista de decisiones, y no sólo
-en el controlador que la ejecuta.** D18 se escribió con dos mitades y la primera se entregó
-entera; **la segunda se cumplió a medias a propósito**, y va dicho con el mecanismo delante
-para que dentro de seis meses no parezca un olvido.
+Está en la lista de decisiones y no sólo en el controlador que la ejecuta **porque es una
+decisión la que cae, no una línea de código**. El mecanismo está contado entero en el recuadro
+de la §5; aquí va lo que hace falta para **decidir**, que es otra cosa.
 
 | la mitad de D18 | qué se hizo |
 |---|---|
 | *«el tercer origen `{tipo:"plantilla"}` en `copiar`»* | **hecho**, con la precedencia de `AlcanceDeLaPlantilla` llamada y no reescrita (§6.2 del [19](19-boletin-independiente.md)) |
 | *«y sembrar al marcar»* | **hecho**, con ocho números en la respuesta (§6.3 del 19) |
-| *«y con D5, al marcar se siembran **también los desempeños** del grupo a nombre del alumno»* | **NO se hace, y no se puede hacer sin romper la rejilla** |
+| *«y con D5, al marcar se siembran **también los desempeños**»* | **no se hace: su premisa es falsa en esa tabla** (§5) |
 
-**El mecanismo, medido, no razonado.** `DesempenosController::desempenosDeLaRejilla()` —la Fase
-4, que **no existía el día que se escribió esa línea**— elige las columnas de la rejilla así:
+**La asimetría, que es lo que hay que entender para no volver a pedirlo.** Las dos tablas
+tienen una columna `alumno_id` que se llama igual y **se lee con el operador contrario**:
+`unidades` con `<=>`, que **excluye**, y `desempenos` con un `OR`, que **suma**. De ahí salen
+dos conclusiones opuestas sobre la misma acción:
 
-```sql
-WHERE d.asignatura_id = ? AND d.periodo_id = ?
-  AND (d.alumno_id IS NULL OR d.alumno_id IN (…los marcados…))
-```
+- al marcado **le desaparecen las unidades del curso**, así que **hay que dárselas** — es la
+  §9.1 del 19, «el alumno que se cae por el hueco», y es la mitad de D18 que sí se cumplió;
+- al marcado **no le desaparece ningún desempeño**, así que dárselos **no le añade nada y le
+  duplica todo**.
 
-Es un `OR`, o sea que **suma** los desempeños del curso y los del alumno marcado, con este
-comentario suyo al lado: *«sin esta rama, un alumno con boletín independiente abriría la
-rejilla sin ninguna columna»*. O sea que la Fase 4 **ya resolvió el mismo problema por el otro
-lado**, y lo resolvió bien.
+**Lo que decide es el operador de la lectura, no la columna.** Quien dentro de seis meses vea
+`unidades.alumno_id` y `desempenos.alumno_id` una al lado de la otra va a suponer que se
+gobiernan igual — y ésa es exactamente la suposición que hizo D18.
 
-Con las dos cosas a la vez, copiarle al marcado los desempeños del grupo a su nombre no le da
-columnas que le faltaran: **le duplica cada columna que ya tenía — y se las duplica a todo el
-grupo**, porque las columnas de la rejilla son la unión y la rejilla es de la asignatura entera.
-Un docente abriría la rejilla de 6.º B y vería cada desempeño dos veces por haber marcado a un
-estudiante.
-
-**Por qué las unidades sí y los desempeños no**, que es la asimetría que hace falta entender
-para no volver a pedirlo: `unidades` se lee con alcance **excluyente**
-(`u.alumno_id <=> BoletinIndependiente::alcance()`), así que al marcado **le desaparece** la
-rejilla del curso y hay que dársela — es la §9.1 del 19—. `desempenos` se lee con la **unión**,
-así que al marcado **no le desaparece nada**. Misma columna `alumno_id`, dos operadores
-distintos, y de ahí salen dos conclusiones contrarias. **La que decide es el operador de la
-lectura, no la columna.**
-
-Lo fija `test_marcar_no_siembra_desempenos`, que cuenta los `desempenos` con dueño antes y
-después de marcar y exige que no se muevan. **Lo que sigue en pie de D5 es escribirle
-desempeños SUYOS a un alumno PIAR**: eso es el CRUD de `desempenos` con `alumno_id`, que es una
-decisión del colegio alumno a alumno, y no una siembra automática al marcar.
+**Lo que sigue en pie de D5**: escribirle desempeños **suyos** a un alumno PIAR. Eso es el CRUD
+de `desempenos` con `alumno_id`, una decisión del colegio alumno a alumno, y no una siembra
+automática al marcar.
 
 > **La D18 canónica vive en `myvc_front/DECISIONES-MODELO-DE-EVALUACION.md` §5**, que es del
-> repositorio del front y esta sesión tenía dicho que no lo tocara. Así que **allí sigue la
-> frase entera sin este matiz**: quien tenga el front tiene que llevárselo, y este bloque es el
-> texto que hay que llevarse.
+> repositorio del front, y esta sesión tenía dicho que no lo tocara. **Allí sigue la frase
+> entera sin este matiz**: quien tenga el front tiene que llevárselo.
 
 ### Lo que sigue abierto de verdad, y no lo desbloquea ninguna decisión
 
