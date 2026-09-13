@@ -2050,6 +2050,56 @@ que sí tenía respuesta era *«¿por qué es binaria la celda?»*. **El hallazg
 encajaban— era correcto y sigue siéndolo; lo que estaba mal era el marco en que se buscó la
 salida.**
 
+### D18, REVISADA POR MEDICIÓN el 13 sep 2026 — media decisión no se puede cumplir
+
+**No es un detalle de implementación y por eso está aquí, en la lista de decisiones, y no sólo
+en el controlador que la ejecuta.** D18 se escribió con dos mitades y la primera se entregó
+entera; **la segunda se cumplió a medias a propósito**, y va dicho con el mecanismo delante
+para que dentro de seis meses no parezca un olvido.
+
+| la mitad de D18 | qué se hizo |
+|---|---|
+| *«el tercer origen `{tipo:"plantilla"}` en `copiar`»* | **hecho**, con la precedencia de `AlcanceDeLaPlantilla` llamada y no reescrita (§6.2 del [19](19-boletin-independiente.md)) |
+| *«y sembrar al marcar»* | **hecho**, con ocho números en la respuesta (§6.3 del 19) |
+| *«y con D5, al marcar se siembran **también los desempeños** del grupo a nombre del alumno»* | **NO se hace, y no se puede hacer sin romper la rejilla** |
+
+**El mecanismo, medido, no razonado.** `DesempenosController::desempenosDeLaRejilla()` —la Fase
+4, que **no existía el día que se escribió esa línea**— elige las columnas de la rejilla así:
+
+```sql
+WHERE d.asignatura_id = ? AND d.periodo_id = ?
+  AND (d.alumno_id IS NULL OR d.alumno_id IN (…los marcados…))
+```
+
+Es un `OR`, o sea que **suma** los desempeños del curso y los del alumno marcado, con este
+comentario suyo al lado: *«sin esta rama, un alumno con boletín independiente abriría la
+rejilla sin ninguna columna»*. O sea que la Fase 4 **ya resolvió el mismo problema por el otro
+lado**, y lo resolvió bien.
+
+Con las dos cosas a la vez, copiarle al marcado los desempeños del grupo a su nombre no le da
+columnas que le faltaran: **le duplica cada columna que ya tenía — y se las duplica a todo el
+grupo**, porque las columnas de la rejilla son la unión y la rejilla es de la asignatura entera.
+Un docente abriría la rejilla de 6.º B y vería cada desempeño dos veces por haber marcado a un
+estudiante.
+
+**Por qué las unidades sí y los desempeños no**, que es la asimetría que hace falta entender
+para no volver a pedirlo: `unidades` se lee con alcance **excluyente**
+(`u.alumno_id <=> BoletinIndependiente::alcance()`), así que al marcado **le desaparece** la
+rejilla del curso y hay que dársela — es la §9.1 del 19—. `desempenos` se lee con la **unión**,
+así que al marcado **no le desaparece nada**. Misma columna `alumno_id`, dos operadores
+distintos, y de ahí salen dos conclusiones contrarias. **La que decide es el operador de la
+lectura, no la columna.**
+
+Lo fija `test_marcar_no_siembra_desempenos`, que cuenta los `desempenos` con dueño antes y
+después de marcar y exige que no se muevan. **Lo que sigue en pie de D5 es escribirle
+desempeños SUYOS a un alumno PIAR**: eso es el CRUD de `desempenos` con `alumno_id`, que es una
+decisión del colegio alumno a alumno, y no una siembra automática al marcar.
+
+> **La D18 canónica vive en `myvc_front/DECISIONES-MODELO-DE-EVALUACION.md` §5**, que es del
+> repositorio del front y esta sesión tenía dicho que no lo tocara. Así que **allí sigue la
+> frase entera sin este matiz**: quien tenga el front tiene que llevárselo, y este bloque es el
+> texto que hay que llevarse.
+
 ### Lo que sigue abierto de verdad, y no lo desbloquea ninguna decisión
 
 - ~~**El nombre y la maqueta del boletín nuevo**~~ — **medio cerrado el 13 sep 2026.** El
