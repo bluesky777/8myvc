@@ -1837,11 +1837,28 @@ La Fase 4 los separó y aquí se respetan, porque **son dos averías distintas**
 
 - **`sin_definitiva`** — el alumno no tiene `notas_finales` en esa asignatura y ese
   periodo. No hay nota que traducir.
-- **`sin_banda`** — sí tiene nota y **ninguna banda la cubre**. Es el
-  [36](36-la-nota-decimal-y-las-bandas-enteras.md): la nota es `DECIMAL(7,4)` y las bandas
-  siguen siendo `int`, así que hay un hueco en cada frontera, y **cuatro alumnos del año en
-  curso ya imprimen el nivel vacío hoy**, en los tres boletines, con 200 y sin una línea en
-  el log.
+- **`sin_banda`** — sí tiene nota y **ninguna banda la cubre**.
+
+> **Esto se escribió con el hueco de la frontera abierto, y `bd02f66` lo cerró esa misma
+> tarde.** Decía que `sin_banda` era el [36](36-la-nota-decimal-y-las-bandas-enteras.md)
+> —nota `DECIMAL(7,4)` contra bandas `int`, un hueco en cada frontera, cuatro alumnos del
+> año en curso imprimiendo el nivel vacío— y **eso ya no es así**: con
+> `porc_inicial <= nota AND nota < porc_final + 1`, un 45,5 es ALTO y un 29,5 es BAJO. De
+> las trece definitivas huérfanas de `simonbolivar` quedan **nueve**.
+>
+> **`sin_banda` sigue existiendo, y con dos formas, las dos del colegio y no del
+> redondeo:**
+>
+> 1. **una escala con un agujero de verdad** —`[0,59]` y `[61,100]`, y un 60—, escrita así
+>    por el colegio;
+> 2. **una nota por encima del techo** de la banda más alta: son esas nueve, y son **un
+>    dato malo, no un hueco** — taparlo lo escondería.
+>
+> El caso de contrato se remontó sobre **las dos** el 13 sep 2026, con un alumno por
+> motivo. Antes se apoyaba en la frontera de enteros, así que al cerrarse el hueco **el
+> test se puso en rojo comprobando que existiera algo que se acababa de arreglar**. Lo que
+> se cambió fue el montaje, no la afirmación: `asignaturas_sin_banda` pasó de esperar 1 a
+> esperar **2**, no a esperar 0.
 
 Los dos van en `asignaturas[].motivo_del_nivel` **y contados aparte** en `poblacion`. Eso
 es lo único que hace que un nivel que falta se vea **antes** de que salga el papel, que es
@@ -1915,6 +1932,15 @@ señaló que faltaba.
    anteriores **pasan a decir otra cosa y no hay de dónde sacar la que decían**. La columna
    sólo sirve si está **antes** del primer renombrado. Está apuntada también en
    *«Lo que sigue abierto de verdad»*, al final de este documento.
+
+   > **CONSTRUIDA** *(14 sep 2026)* — `2026_09_14_100000_competencia_congelada`,
+   > `frases_asignatura.competencia` en `text`, anulable y **sin back-fill**. La escribe
+   > `DesempenosController::putRejilla` con las otras tres y la lee
+   > `Informes\BoletinPorCompetenciasController::repartirLasMarcas`, donde **gana la
+   > congelada** y el texto vivo queda de último recurso para las filas anteriores a la
+   > migración, que no la van a tener nunca. La sujeta
+   > `test_renombrar_la_competencia_no_cambia_la_cabecera_ya_impresa`, **visto en rojo
+   > antes de escribir el arreglo**.
 3. **`FraseAsignatura::deAlumno` ya prefiere el texto de hoy** cuando la frase vino del
    catálogo: hace `IFNULL(f.frase, fa.frase)`, o sea que para las frases con `frase_id` el
    congelado **no gana**. Las celdas de la rejilla no tienen `frase_id`, así que la Fase 4
@@ -1968,14 +1994,50 @@ señaló que faltaba.
    daría el primer puesto a cualquiera que pida su propio boletín—. Si algún día se separa,
    son **dos métodos** —el conjunto contra el que se compara y la lista que se imprime—, no
    un `if` más. Eso es entrega propia y no se hizo aquí.
-5. **`EscalaDeValoracion::valoracion` redondea y nunca devuelve nada**
-   (`return (object)['desempenio' => '']`), y el `left join` de
-   `Grupo::detailed_materias_notafinal` **ni redondea ni rellena**. Los tres boletines de
-   hoy usan **las dos reglas en la misma respuesta**: el nivel de la asignatura por el
-   join, `promedio_desempenio` por `valoracion()`. Medido en `simonbolivar`: **4 filas del
-   año 8** donde la misma nota sale sin nivel en la asignatura y con nivel en el promedio.
-   El boletín nuevo usa **una sola regla** —sin redondear, `null` cuando no cae—, que es
-   la que hace que `motivo_del_nivel` signifique algo.
+5. ~~**`EscalaDeValoracion::valoracion` redondea y nunca devuelve nada**~~ — **ARREGLADO
+   el 13 sep 2026 por `bd02f66`, y con más alcance del que este punto le veía.**
+
+   Lo que se midió aquí: `valoracion()` hacía `round($nota)` y devolvía
+   `(object)['desempenio' => '']`, mientras el `left join` de
+   `Grupo::detailed_materias_notafinal` ni redondeaba ni rellenaba, así que los tres
+   boletines usaban **las dos reglas en la misma respuesta** —el nivel de la asignatura
+   por el join, `promedio_desempenio` por `valoracion()`— y **4 filas del año 8** salían
+   sin nivel en la asignatura y con nivel en el promedio.
+
+   `bd02f66` no lo arregló igualando una a la otra: puso **una tercera regla, la buena**,
+   en los trece sitios —`porc_inicial <= nota AND nota < porc_final + 1`—, que **ni
+   redondea ni deja hueco**. El `round()` se fue. Lo que este punto contaba como 4 filas
+   era además la mitad del problema: el otro camino, el de PHP, imprimía **SUPERIOR**
+   donde el colegio había escrito que ALTO llega hasta 45.
+
+   > **Y el barrido de trece aterrizó sobre quince.** `bandaDeLaNota()` de este boletín
+   > (Fase 6) y `DesempenosController:2305` (Fase 4) se escribieron **en paralelo**, con el
+   > censo ya cerrado, y nacieron con `<= porc_final`. Resultado dentro de este módulo:
+   > `Grupo::detailed_materias_notafinal` daba la asignatura con la regla nueva y
+   > `promedio_desempenio` con la vieja — **la misma avería de este punto, dentro de la
+   > respuesta que venía a no repetirla**. Los dos los cerró `dcb00bc`.
+   >
+   > **Cómo se destapó, que es lo que hay que llevarse:** no lo vio la suite —ningún test
+   > miraba esa comparación—, lo vio alguien **leyendo el docblock**. Decía que la regla
+   > *«coincide con lo que el `left join` ya hace, que es lo que no se puede cambiar sin
+   > tocar los boletines de siempre»*, y `bd02f66` había cambiado justo eso: **las dos
+   > mitades de la justificación eran falsas**. Una justificación que dice lo contrario de
+   > lo que hace es peor que ninguna — la ninguna manda a leer el código.
+   >
+   > **Y la lección de método no es «contar mejor»: es que un barrido caduca.** Está
+   > completo cuando se corre e incompleto cuando aterriza, y con cuatro sesiones
+   > escribiendo caduca en minutos. Por eso lo que cierra esto no es otro recuento sino
+   > `CentinelaDeLaReglaDeLaBandaTest`, que falla si alguien vuelve a escribir
+   > `<= porc_final` en `app/` — **tokenizando y no con `grep`**, porque media docena de
+   > docblocks describen la regla vieja para explicar por qué se cambió, éste incluido.
+
+   > **Lo que quedó de esta casa, y era el rojo que este punto dejó vivo:** el caso
+   > `sin definitiva y fuera de escala` se apoyaba en el hueco de la frontera —29,5 con la
+   > escala cortada en 29/30— y al cerrarse el hueco **pasó a comprobar que existiera algo
+   > que se acababa de arreglar**. Remontado sobre las **dos** formas de `sin_banda` que
+   > sobreviven, con un alumno por motivo: espera **2**, no 0. Y con un caso hermano que
+   > mira **las dos mitades de la misma respuesta** —asignatura y promedio— para que el
+   > desalineamiento no pueda volver en silencio.
 6. **`NotaComportamiento::nota_comportamiento` cambia de tipo.** Sin fila devuelve
    `["notas_finales" => []]`, que es un array **no vacío** y por tanto *truthy*: el
    `if ($comportamiento)` de los tres boletines entra, el `->definiciones` de dentro
@@ -2112,6 +2174,11 @@ lo que hable del reparto del curso.
   ~~Con D5 encima, al marcar se siembran **también los desempeños** del
   grupo a nombre del alumno~~ — **retirado por el recuadro de arriba**; lo demás de D18 sigue
   entero y su sitio natural es **detrás de la Fase 3**.
+
+  > **Y está HECHA** *(13 sep 2026)*: el tercer origen, marcar-siembra con sus ocho números y la
+  > previa de la plantilla en `planilla`. Contrato y porqués en las §§6.1-6.3 del
+  > [19](19-boletin-independiente.md); la línea que no se cumple la fija
+  > `test_marcar_no_siembra_desempenos`.
 - **La fase 0 de la Entrega 5** —sacar `nota × % / 100` de sus **18 sitios en 9
   ficheros** a un punto único— está aprobada y **se despliega sola** (D19). No cambia
   ni un resultado y se verifica con las instantáneas tal como están. **No depende de
@@ -2139,6 +2206,40 @@ que sí tenía respuesta era *«¿por qué es binaria la celda?»*. **El hallazg
 encajaban— era correcto y sigue siéndolo; lo que estaba mal era el marco en que se buscó la
 salida.**
 
+### D18, REVISADA POR MEDICIÓN el 13 sep 2026 — media decisión no se puede cumplir
+
+Está en la lista de decisiones y no sólo en el controlador que la ejecuta **porque es una
+decisión la que cae, no una línea de código**. El mecanismo está contado entero en el recuadro
+de la §5; aquí va lo que hace falta para **decidir**, que es otra cosa.
+
+| la mitad de D18 | qué se hizo |
+|---|---|
+| *«el tercer origen `{tipo:"plantilla"}` en `copiar`»* | **hecho**, con la precedencia de `AlcanceDeLaPlantilla` llamada y no reescrita (§6.2 del [19](19-boletin-independiente.md)) |
+| *«y sembrar al marcar»* | **hecho**, con ocho números en la respuesta (§6.3 del 19) |
+| *«y con D5, al marcar se siembran **también los desempeños**»* | **no se hace: su premisa es falsa en esa tabla** (§5) |
+
+**La asimetría, que es lo que hay que entender para no volver a pedirlo.** Las dos tablas
+tienen una columna `alumno_id` que se llama igual y **se lee con el operador contrario**:
+`unidades` con `<=>`, que **excluye**, y `desempenos` con un `OR`, que **suma**. De ahí salen
+dos conclusiones opuestas sobre la misma acción:
+
+- al marcado **le desaparecen las unidades del curso**, así que **hay que dárselas** — es la
+  §9.1 del 19, «el alumno que se cae por el hueco», y es la mitad de D18 que sí se cumplió;
+- al marcado **no le desaparece ningún desempeño**, así que dárselos **no le añade nada y le
+  duplica todo**.
+
+**Lo que decide es el operador de la lectura, no la columna.** Quien dentro de seis meses vea
+`unidades.alumno_id` y `desempenos.alumno_id` una al lado de la otra va a suponer que se
+gobiernan igual — y ésa es exactamente la suposición que hizo D18.
+
+**Lo que sigue en pie de D5**: escribirle desempeños **suyos** a un alumno PIAR. Eso es el CRUD
+de `desempenos` con `alumno_id`, una decisión del colegio alumno a alumno, y no una siembra
+automática al marcar.
+
+> **La D18 canónica vive en `myvc_front/DECISIONES-MODELO-DE-EVALUACION.md` §5**, que es del
+> repositorio del front, y esta sesión tenía dicho que no lo tocara. **Allí sigue la frase
+> entera sin este matiz**: quien tenga el front tiene que llevárselo.
+
 ### Lo que sigue abierto de verdad, y no lo desbloquea ninguna decisión
 
 - ~~**El nombre y la maqueta del boletín nuevo**~~ — **medio cerrado el 13 sep 2026.** El
@@ -2146,11 +2247,24 @@ salida.**
   **maqueta** y **cómo lo llama el colegio en la pantalla** siguen abiertos y son del
   front. La medición de la Fase 5 que esto esperaba está hecha y dice que la división
   entre dato y maqueta cae donde el plan suponía.
-- **La cuarta columna que congelaría el texto de la COMPETENCIA.** Sale de construir la
-  Fase 6: `frases_asignatura` congela el texto del desempeño y **no hay dónde congelar el
-  de su competencia**, así que renombrar una competencia en 2028 cambia la cabecera de un
-  boletín de 2026. Es exactamente el argumento de la tercera columna de la Fase 4, un piso
-  más arriba, y **no lo desbloquea ninguna decisión**: es una entrega con su migración.
+
+  > **Esta viñeta se cayó de `main` el 13 sep y vuelve aquí al fundir D27 el 14.** La quitó
+  > `804c781`, cuyo asunto era retirar **un duplicado de la entrada de la cuarta columna** —y
+  > eso lo hizo bien—; en la misma pasada se llevó también ésta, que **no duplicaba nada** y
+  > que su mensaje no menciona. No es una decisión revertida sino un borrado de paso, y se
+  > restaura porque lo que dice **sigue siendo cierto**: la tabla de la §Fase 6 todavía da la
+  > maqueta *«por decidir»*, así que el documento se habría quedado sin el único sitio donde
+  > quien decide la ve.
+- ~~**La cuarta columna que congelaría el texto de la COMPETENCIA.**~~ **HECHA el 14 sep
+  2026**, y se queda escrita porque el motivo por el que no podía esperar sigue siendo la
+  parte que hay que entender. Decía: sale de construir la Fase 6, `frases_asignatura`
+  congela el texto del desempeño y **no hay dónde congelar el de su competencia**, así que
+  renombrar una competencia en 2028 cambia la cabecera de un boletín de 2026; es
+  exactamente el argumento de la tercera columna de la Fase 4, un piso más arriba, y **no
+  lo desbloquea ninguna decisión**: es una entrega con su migración. Lo es:
+  `2026_09_14_100000_competencia_congelada` más una escritura en `PUT desempenos/rejilla`
+  y una lectura en `Informes\BoletinPorCompetenciasController`. **El comentario que
+  marcaba el sitio ya no dice que falte**: dice cuál de los dos textos gana y por qué.
 - ~~**¿Las rúbricas de biblioteca (`es_plantilla = 1`) son configuración del colegio?**~~ —
   **cerrada el 13 sep 2026: no** (D27). No se copian, y la entrega que habría hecho falta
   —tres tablas de definición, el enganche de `subunidades` y todos sus ids remapeados— no

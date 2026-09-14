@@ -69,6 +69,29 @@ use Illuminate\Support\Facades\Request;
  * frente a `poblacion.desempenos_impresos` dice cuántas casillas quedaron sin mirar,
  * que es la pregunta que el colegio hace antes de imprimir.
  *
+ * ## Lo que se imprime son COPIAS, y son cuatro
+ *
+ * Nada de lo que sale en el bloque de desempeños se lee del catálogo de hoy: las cuatro
+ * cosas están copiadas en `frases_asignatura` el día que el docente marcó la casilla, y
+ * las cuatro por el mismo argumento —**el id pinta y el texto imprime**—, porque las
+ * cuatro tablas de origen son **por año y editables**.
+ *
+ *     texto        ← fa.frase         el desempeño, como estaba         (D9,  Fase 4)
+ *     nivel        ← fa.nivel         la banda, como se llamaba         (D23, Fase 4)
+ *     competencia  ← fa.competencia   la cabecera, como se llamaba      (2026_09_14_100000)
+ *     (el icono)   ← se lee vivo, y es adorno: ver más abajo
+ *
+ * La cuarta llegó **una entrega después** que las otras tres y no por descuido: la
+ * competencia está a **dos saltos** de la celda —`fa.desempeno_id` →
+ * `desempenos.competencia_id` → `competencias`—, así que no se veía desde donde se veían
+ * las otras. Mientras faltó, **renombrar una competencia en 2028 cambiaba la cabecera de
+ * un boletín de 2026**.
+ *
+ * **Y lo que de verdad protege un papel del año pasado no es la copia: es que su periodo
+ * esté cerrado.** La copia se rehace cada vez que esa celda se vuelve a guardar —y eso se
+ * quiere, es el docente corrigiendo una errata—; lo que no puede pasar es que cambie
+ * **sin que nadie guarde**, que es lo que hacía la cabecera.
+ *
  * ## `caritas`: el nivel va en TEXTO, siempre (D17)
  *
  * `grupos.caritas` viaja en `grupo.caritas` y **el icono nunca va solo**: cada
@@ -360,6 +383,20 @@ class BoletinPorCompetenciasController extends Controller
         $competencias = [];
         $sueltos = [];
 
+        /*
+         * **El texto congelado de cada competencia, y por qué va en un array aparte.**
+         *
+         * La cabecera es **una por bloque** y las celdas son varias, así que hace falta
+         * una regla de grupo. Es ésta: **gana la primera copia congelada que aparezca**
+         * en el orden en que se imprime, y el texto vivo sólo cuando ninguna de sus
+         * celdas tiene copia.
+         *
+         * Va en un array local y **no en una clave más del objeto** porque ese objeto se
+         * serializa tal cual: una clave de trabajo ahí dentro se convierte en contrato
+         * del front sin que nadie lo decida.
+         */
+        $congelada = [];
+
         foreach ($marcas as $marca) {
             $fila = $this->filaDelDesempeno($marca, $caritas);
 
@@ -397,14 +434,12 @@ class BoletinPorCompetenciasController extends Controller
                 $competencias[$clave] = (object) [
                     'competencia_id' => $clave,
                     /*
-                     * **Y esto NO está congelado, a diferencia del texto del desempeño.**
-                     * `frases_asignatura` copia `frase` el día que se guarda —es el
-                     * argumento entero de la tercera columna de la Fase 4—, pero **no hay
-                     * dónde copiar el texto de la competencia**: aquí se lee de
-                     * `competencias.definicion`, o sea el de hoy. Renombrar una
-                     * competencia en 2028 **cambia la cabecera de un boletín de 2026**.
-                     * Queda dicho en vez de descubrirse dentro de dos años: taparlo es una
-                     * cuarta columna y una entrega propia.
+                     * **El texto vivo, que aquí es el suelo y no el techo**: lo pisa unas
+                     * líneas más abajo la copia congelada si alguna de las celdas de este
+                     * bloque la tiene. Se pone igualmente porque es lo único que hay para
+                     * las filas escritas **antes** de
+                     * `2026_09_14_100000_competencia_congelada`, que no la van a tener
+                     * nunca — y son las 12.294 que ya estaban.
                      */
                     'definicion' => $marca->definicion_competencia,
                     'codigo_men' => $marca->codigo_men,
@@ -413,8 +448,28 @@ class BoletinPorCompetenciasController extends Controller
                 ];
             }
 
+            if ($marca->competencia_congelada !== null && ! isset($congelada[$clave])) {
+                $congelada[$clave] = $marca->competencia_congelada;
+            }
+
             $conteo['desempenos_impresos']++;
             $competencias[$clave]->desempenos[] = $fila;
+        }
+
+        /*
+         * **Y aquí gana el congelado.** Es la misma regla que `texto` y que `nivel`, que
+         * ya salen de `frases_asignatura` y no del catálogo: *el id pinta y el texto
+         * imprime*. Lo que decide no es cuál es «más correcto» sino **de qué papel
+         * estamos hablando**: un boletín impreso en 2026 dice lo que decía en 2026, y
+         * `CompetenciasController::putUpdate` edita la fila viva, así que el texto de hoy
+         * es el de hoy y no el de entonces.
+         *
+         * `!== null` y no `?:`: la cadena vacía no existe aquí —`putRejilla` copia lo que
+         * hay o deja `null`— y tratarla como ausencia sería decidir por el colegio que una
+         * competencia sin texto se imprime con el texto de otro día.
+         */
+        foreach ($congelada as $clave => $texto) {
+            $competencias[$clave]->definicion = $texto;
         }
 
         $asignatura->competencias = array_values($competencias);
@@ -451,8 +506,14 @@ class BoletinPorCompetenciasController extends Controller
      * Todas las marcas de un alumno en el grupo, **en una consulta**.
      *
      * Los tres boletines de hoy llaman a `FraseAsignatura::deAlumno` **una vez por
-     * asignatura**; aquí es una por alumno y trae además de qué casilla salió cada una
-     * y con qué nivel.
+     * asignatura**; aquí es una por alumno y trae además de qué casilla salió cada una,
+     * con qué nivel y **cómo se llamaba su competencia el día que se marcó**.
+     *
+     * **`fa.competencia` y `c.definicion` viajan las dos, y no es redundancia.** La
+     * primera es la copia congelada —lo que se imprime— y la segunda es el texto vivo,
+     * que es lo único que hay para las filas anteriores a
+     * `2026_09_14_100000_competencia_congelada`. Cuál gana lo decide
+     * `repartirLasMarcas()`, en un solo sitio y por escrito.
      *
      * **`c.id AS competencia_id` y no `d.competencia_id`**, que es la diferencia entre
      * imprimir bien e imprimir una cabecera en blanco: el `left join` filtra
@@ -478,6 +539,7 @@ class BoletinPorCompetenciasController extends Controller
         $consulta = 'SELECT fa.id AS frase_asignatura_id, fa.asignatura_id,
                             IFNULL(f.frase, fa.frase) AS texto,
                             fa.desempeno_id, fa.escala_id, fa.nivel,
+                            fa.competencia AS competencia_congelada,
                             d.tipo AS tipo_desempeno, d.orden AS orden_desempeno,
                             c.id AS competencia_id,
                             c.definicion AS definicion_competencia, c.codigo_men, c.orden AS orden_competencia,
@@ -564,11 +626,27 @@ class BoletinPorCompetenciasController extends Controller
      * O sea que un 29,5 con la escala cortada en 29/30 imprime la asignatura sin nivel y
      * el promedio como «ALTO», en el mismo papel.
      *
-     * Aquí se usa **una sola regla**: sin redondear y con `null` cuando no cae. Es la que
-     * coincide con lo que el `left join` ya hace por asignatura —que es lo que no se
-     * puede cambiar sin tocar los boletines de siempre— y es la que hace que
-     * `motivo_del_nivel` signifique algo: con `''` el hueco del doc 36 queda escondido
-     * detrás de una cadena vacía que parece un nivel.
+     * Aquí se usa **una sola regla**: sin redondear y con `null` cuando no cae, que es
+     * lo que hace que `motivo_del_nivel` signifique algo — con `''` el hueco queda
+     * escondido detrás de una cadena vacía que parece un nivel.
+     *
+     * > ⚠️ **Este párrafo decía que la regla «coincide con lo que el `left join` ya hace
+     * > por asignatura, que es lo que no se puede cambiar sin tocar los boletines de
+     * > siempre». Las dos mitades dejaron de ser ciertas el 13 sep 2026** (`bd02f66`):
+     * > el `left join` **sí** se cambió —en los trece sitios, junto con los boletines de
+     * > siempre— y pasó a `nota < porc_final + 1`, así que esta comparación **se quedó
+     * > sola con la regla vieja** y reintrodujo aquí dentro el doble criterio que el
+     * > doc 36 describe para los boletines viejos: la asignatura sin nivel y el promedio
+     * > con uno, en el mismo papel.
+     * >
+     * > **La alineación era deliberada y por eso el arreglo no era sólo el operador**:
+     * > una justificación que dice lo contrario de lo que hace es peor que ninguna,
+     * > porque la ninguna te manda a leer el código. Lo destapó `myvc-front-50` leyendo
+     * > este docblock, no la suite: **ningún test miraba esta comparación**.
+     * >
+     * > Hoy la alineación la sostiene `CentinelaDeLaReglaDeLaBandaTest`, que falla si
+     * > alguien vuelve a escribir `<= porc_final` en `app/`. **Eso es lo que la hace una
+     * > alineación y no una coincidencia.**
      */
     private function bandaDeLaNota(?float $nota): ?\stdClass
     {
@@ -577,7 +655,7 @@ class BoletinPorCompetenciasController extends Controller
         }
 
         foreach ($this->escalasVal() as $banda) {
-            if ($nota >= $banda->porc_inicial && $nota <= $banda->porc_final) {
+            if ($nota >= $banda->porc_inicial && $nota < $banda->porc_final + 1) {
                 return $banda;
             }
         }

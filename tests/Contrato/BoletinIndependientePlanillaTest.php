@@ -447,4 +447,133 @@ class BoletinIndependientePlanillaTest extends CasoDeContrato
             ->putJson(self::RUTA, [])
             ->assertStatus(422);
     }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // `plantilla_del_colegio`: la vista previa del tercer origen (D18)
+    // ─────────────────────────────────────────────────────────────────────
+
+    /** Una fila de plantilla del año del contexto, dirigida a donde se le diga. */
+    private function filaDePlantilla(object $ctx, string $definicion, ?int $nivelId, ?int $materiaId,
+        int $porcentaje = 100, int $subunidades = 1): int
+    {
+        $id = (int) DB::table('unidades_por_defecto')->insertGetId([
+            'definicion' => $definicion,
+            'porcentaje' => $porcentaje,
+            'year_id' => $ctx->year_id,
+            'nivel_educativo_id' => $nivelId,
+            'materia_id' => $materiaId,
+            'obligatoria' => 0,
+            'orden' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        for ($i = 1; $i <= $subunidades; $i++) {
+            DB::table('subunidades_por_defecto')->insert([
+                'definicion' => $definicion.' · sub '.$i,
+                'porcentaje' => (int) (100 / $subunidades),
+                'unidad_defec_id' => $id,
+                'nota_default' => 0,
+                'obligatoria' => 0,
+                'orden' => $i,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        return $id;
+    }
+
+    /**
+     * **La previa llega en filas, no en ingredientes.**
+     *
+     * El front midió que esta ruta no manda `materia_id` ni `nivel_educativo_id`, que es
+     * por lo que se dirige una fila de plantilla, así que su vista previa de «copiar
+     * desde la plantilla» salió **en palabras**. La salida fácil sería mandarle esos dos
+     * ids para que calcule: eso sería **una segunda regla de precedencia en el
+     * navegador**, y el día que las dos discreparan el colegio vería una plantilla y
+     * `copiar` escribiría otra, sin error en ninguna parte.
+     *
+     * Así que lo que viaja es **el resultado**, y este caso comprueba que es exactamente
+     * el mismo que la copia: misma definición y mismas subunidades.
+     */
+    public function test_la_planilla_trae_la_plantilla_del_colegio_ya_resuelta(): void
+    {
+        $ctx = $this->contexto();
+        $this->filaDePlantilla($ctx, 'La del colegio', null, null, 100, 2);
+
+        $respuesta = $this->planilla($ctx);
+
+        $this->assertArrayHasKey('plantilla_del_colegio', $respuesta,
+            'Sin esto la previa de copiar desde la plantilla sólo se puede escribir en palabras.');
+
+        $plantilla = $respuesta['plantilla_del_colegio'];
+
+        $this->assertNull($plantilla['motivo']);
+        $this->assertCount(1, $plantilla['unidades']);
+        $this->assertSame('La del colegio', $plantilla['unidades'][0]['definicion']);
+        $this->assertCount(2, $plantilla['unidades'][0]['subunidades']);
+        $this->assertSame(100, $plantilla['suma_porcentajes']);
+        $this->assertSame(0, $plantilla['grada'], 'Una fila sin nivel ni materia es la grada 0.');
+    }
+
+    /**
+     * **La previa aplica la MISMA precedencia que la copia**, porque sale del mismo
+     * método. Con una fila general y otra de la materia, se enseña sólo la segunda — y la
+     * general se inserta primero, para que un `ORDER BY id LIMIT 1` se quede con la
+     * equivocada.
+     */
+    public function test_la_previa_aplica_la_precedencia_de_la_plantilla(): void
+    {
+        $ctx = $this->contexto();
+
+        $materiaId = (int) DB::selectOne('SELECT materia_id FROM asignaturas WHERE id = ?',
+            [$ctx->asignatura_id])->materia_id;
+
+        $this->filaDePlantilla($ctx, 'La de siempre', null, null);
+        $this->filaDePlantilla($ctx, 'La de esta materia', null, $materiaId);
+
+        $plantilla = $this->planilla($ctx)['plantilla_del_colegio'];
+
+        $this->assertSame(
+            ['La de esta materia'],
+            array_map(static fn ($u) => $u['definicion'], $plantilla['unidades']),
+            'La previa mezcló gradas o eligió la general: enseñaría una plantilla y `copiar` escribiría otra.'
+        );
+
+        $this->assertSame(1, $plantilla['grada'], 'Una fila con materia y sin nivel es la grada 1.');
+    }
+
+    /**
+     * **Un vacío dice POR QUÉ está vacío**, que es la promesa que esta ruta ya cumple con
+     * los alumnos. Sin plantilla escrita —el caso de todos los colegios hoy: en
+     * `simonbolivar` `unidades_por_defecto` tiene cero filas— la previa llega vacía con
+     * `motivo: "sin_plantilla"`, y no con un `[]` que se lee como «ya lo miré y no hay».
+     */
+    public function test_sin_plantilla_la_previa_dice_el_motivo(): void
+    {
+        $ctx = $this->contexto();
+
+        $plantilla = $this->planilla($ctx)['plantilla_del_colegio'];
+
+        $this->assertSame('sin_plantilla', $plantilla['motivo']);
+        $this->assertSame([], $plantilla['unidades']);
+        $this->assertSame(0, $plantilla['suma_porcentajes']);
+    }
+
+    /**
+     * **Y el reparto que no suma 100 se enseña, no se corrige.** Regla 2 de
+     * `DefinitivasDeAsignatura`: que se vea es lo que lo delata, y verlo **antes** de
+     * copiar es más barato que verlo en la definitiva de un estudiante.
+     */
+    public function test_la_previa_no_corrige_un_reparto_que_no_suma_cien(): void
+    {
+        $ctx = $this->contexto();
+        $this->filaDePlantilla($ctx, 'Media plantilla', null, null, 60);
+
+        $plantilla = $this->planilla($ctx)['plantilla_del_colegio'];
+
+        $this->assertSame(60, $plantilla['suma_porcentajes'],
+            'La previa corrigió la suma por detrás: el reparto malo tiene que verse.');
+    }
 }

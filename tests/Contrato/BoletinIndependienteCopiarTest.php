@@ -631,4 +631,256 @@ class BoletinIndependienteCopiarTest extends CasoDeContrato
         $this->assertNotEquals(200, $r->getStatusCode(), 'Un alumno copió estructura de boletines.');
         $this->assertSame(0, $this->suyasVivas($ctx, $destino));
     }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // El TERCER origen: la plantilla del colegio (Entrega 4, D18)
+    // ─────────────────────────────────────────────────────────────────────
+
+    /** Las dos coordenadas de la asignatura del contexto: por ahí se dirige la plantilla. */
+    private function coordenadas(object $ctx): object
+    {
+        $fila = DB::selectOne(
+            'SELECT a.materia_id, g2.nivel_educativo_id
+               FROM asignaturas a
+               INNER JOIN grupos g ON g.id = a.grupo_id
+               INNER JOIN grados g2 ON g2.id = g.grado_id
+              WHERE a.id = ?',
+            [$ctx->asignatura_id]
+        );
+
+        $this->assertNotNull($fila, 'La asignatura del contexto no llega a un grado: no se puede dirigir la plantilla.');
+
+        return $fila;
+    }
+
+    /** Una fila de plantilla del año, dirigida a donde se le diga, con `$subunidades` dentro. */
+    private function filaDePlantilla(object $ctx, string $definicion, ?int $nivelId, ?int $materiaId,
+        int $porcentaje = 100, int $subunidades = 1): int
+    {
+        $id = (int) DB::table('unidades_por_defecto')->insertGetId([
+            'definicion' => $definicion,
+            'porcentaje' => $porcentaje,
+            'year_id' => $ctx->year_id,
+            'nivel_educativo_id' => $nivelId,
+            'materia_id' => $materiaId,
+            'obligatoria' => 0,
+            'orden' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        for ($i = 1; $i <= $subunidades; $i++) {
+            DB::table('subunidades_por_defecto')->insert([
+                'definicion' => $definicion.' · sub '.$i,
+                'porcentaje' => (int) (100 / $subunidades),
+                'unidad_defec_id' => $id,
+                'nota_default' => 0,
+                'obligatoria' => 0,
+                'orden' => $i,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        return $id;
+    }
+
+    /** Las definiciones de las unidades propias del alumno, en su orden. */
+    private function definicionesSuyas(object $ctx, int $alumnoId): array
+    {
+        return array_map(static fn ($u) => $u->definicion, DB::select(
+            'SELECT definicion FROM unidades
+              WHERE alumno_id = ? AND asignatura_id = ? AND periodo_id = ? AND deleted_at IS NULL
+              ORDER BY orden, id',
+            [$alumnoId, $ctx->asignatura_id, $ctx->periodo_id]
+        ));
+    }
+
+    /**
+     * **La plantilla del colegio se copia, con sus subunidades dentro.**
+     *
+     * Se cuentan las filas y no el 200, por lo mismo que las otras dos ramas: ésta lee
+     * **otra tabla** —`unidades_por_defecto`— y una condición de más deja cero filas
+     * copiadas y un «copiado» en la respuesta.
+     */
+    public function test_origen_plantilla_copia_las_filas_del_colegio(): void
+    {
+        $ctx = $this->contexto();
+        [$destino] = $this->dosAlumnos((int) $ctx->grupo_id);
+
+        $this->marcarIndependiente($destino, (int) $ctx->periodo_id);
+        $this->filaDePlantilla($ctx, 'Plantilla del colegio', null, null, 100, 3);
+
+        $this->assertSame(0, $this->suyasVivas($ctx, $destino));
+
+        $r = $this->copiar($ctx, [
+            'alumnos_destino' => [$destino],
+            'origen' => ['tipo' => 'plantilla'],
+        ]);
+
+        $r->assertStatus(200);
+
+        $this->assertSame(['Plantilla del colegio'], $this->definicionesSuyas($ctx, $destino),
+            'El origen `plantilla` no copió la fila del colegio: si lee `unidades` en vez de '
+            .'`unidades_por_defecto` la consulta devuelve cero filas y la respuesta dice «copiado».');
+
+        $this->assertSame('plantilla', $r->json('origen.tipo'));
+        $this->assertNull($r->json('origen.periodo_id'), 'La plantilla no es de ningún periodo.');
+        $this->assertNull($r->json('origen.alumno_id'));
+        $this->assertSame(1, $r->json('origen.unidades'));
+        $this->assertSame(3, $r->json('origen.subunidades'));
+        $this->assertSame(3, $r->json('destinos.0.copiadas.subunidades'),
+            'Las subunidades de plantilla no viajaron con su unidad.');
+    }
+
+    /**
+     * **La precedencia es la de `AlcanceDeLaPlantilla` y se aplica la GRADA ENTERA.**
+     *
+     * Con una fila general y otra dirigida a la materia de esta asignatura, se copia
+     * **sólo la segunda**. Los dos rojos que este caso caza son distintos:
+     *
+     *   - copiar **las dos** —el fallo de quien lee las candidatas y no resuelve la
+     *     grada— deja al alumno con un reparto del 200 % que nadie escribió;
+     *   - copiar **la general** es haber escrito aquí una segunda regla de precedencia
+     *     que no coincide con la que el colegio ve en su pantalla.
+     *
+     * **La general se inserta PRIMERO a propósito**: así un `ORDER BY id LIMIT 1` —que
+     * es lo que sale solo— se queda con la equivocada. Es el mismo criterio con el que
+     * `AlcanceDeLaPlantillaTest` invierte el orden de inserción.
+     */
+    public function test_origen_plantilla_respeta_la_precedencia_y_no_mezcla_gradas(): void
+    {
+        $ctx = $this->contexto();
+        $coordenadas = $this->coordenadas($ctx);
+        [$destino] = $this->dosAlumnos((int) $ctx->grupo_id);
+
+        $this->marcarIndependiente($destino, (int) $ctx->periodo_id);
+
+        $this->filaDePlantilla($ctx, 'La de siempre', null, null);
+        $this->filaDePlantilla($ctx, 'La de esta materia', null, (int) $coordenadas->materia_id);
+
+        $r = $this->copiar($ctx, [
+            'alumnos_destino' => [$destino],
+            'origen' => ['tipo' => 'plantilla'],
+        ]);
+
+        $r->assertStatus(200);
+
+        $this->assertSame(['La de esta materia'], $this->definicionesSuyas($ctx, $destino),
+            'La precedencia de la plantilla no se respetó: o se copiaron las dos gradas —y la suma '
+            .'sale 200— o ganó la general, que es una segunda regla de precedencia escrita aquí.');
+    }
+
+    /**
+     * **`origen.periodo_id` con `plantilla` es 422, y no un campo que se ignora.**
+     *
+     * La plantilla es del AÑO: `unidades_por_defecto` no tiene `periodo_id`. Un campo que
+     * se manda y se ignora es el que hace creer que se copió otra cosa —aquí, «la
+     * plantilla del periodo 1»—. Y se comprueba que **no escribió nada**: un 422 que ya
+     * hubiera copiado sería peor que el 200.
+     */
+    public function test_origen_plantilla_con_periodo_id_es_422(): void
+    {
+        $ctx = $this->contexto();
+        [$destino] = $this->dosAlumnos((int) $ctx->grupo_id);
+
+        $this->marcarIndependiente($destino, (int) $ctx->periodo_id);
+        $this->filaDePlantilla($ctx, 'Plantilla del colegio', null, null);
+
+        $r = $this->copiar($ctx, [
+            'alumnos_destino' => [$destino],
+            'origen' => ['tipo' => 'plantilla', 'periodo_id' => $ctx->periodo_id],
+        ]);
+
+        $r->assertStatus(422);
+        $this->assertStringContainsString('del AÑO', (string) $r->json('message'));
+        $this->assertSame(0, $this->suyasVivas($ctx, $destino), 'El 422 llegó después de escribir.');
+    }
+
+    /** Y `origen.alumno_id` tampoco: la plantilla no es de nadie. */
+    public function test_origen_plantilla_con_alumno_id_es_422(): void
+    {
+        $ctx = $this->contexto();
+        [$otro, $destino] = $this->dosAlumnos((int) $ctx->grupo_id);
+
+        $this->marcarIndependiente($destino, (int) $ctx->periodo_id);
+        $this->filaDePlantilla($ctx, 'Plantilla del colegio', null, null);
+
+        $r = $this->copiar($ctx, [
+            'alumnos_destino' => [$destino],
+            'origen' => ['tipo' => 'plantilla', 'alumno_id' => $otro],
+        ]);
+
+        $r->assertStatus(422);
+        $this->assertSame(0, $this->suyasVivas($ctx, $destino));
+    }
+
+    /**
+     * **`con_notas` con `plantilla` es 422, y éste es el peligroso.**
+     *
+     * Las subunidades de plantilla viven en `subunidades_por_defecto`, **otra tabla con
+     * su propia secuencia de ids**. Sin este candado, la consulta de `copiarLaNota()`
+     * buscaría en `notas` por un `subunidad_id` que casa con una subunidad **real
+     * cualquiera** y le copiaría al destino la nota de un desconocido, en 200 y sin que
+     * nada lo señale. Es el único 422 de los tres que protege un dato y no una idea.
+     */
+    public function test_origen_plantilla_con_notas_es_422(): void
+    {
+        $ctx = $this->contexto();
+        [$destino] = $this->dosAlumnos((int) $ctx->grupo_id);
+
+        $this->marcarIndependiente($destino, (int) $ctx->periodo_id);
+        $this->filaDePlantilla($ctx, 'Plantilla del colegio', null, null);
+
+        $r = $this->copiar($ctx, [
+            'alumnos_destino' => [$destino],
+            'origen' => ['tipo' => 'plantilla'],
+            'con_notas' => true,
+        ]);
+
+        $r->assertStatus(422);
+        $this->assertStringContainsString('no tiene notas', (string) $r->json('message'),
+            'El 422 que salió es el de los periodos distintos, que aquí diría lo que no es.');
+        $this->assertSame(0, $this->suyasVivas($ctx, $destino));
+    }
+
+    /**
+     * **Sin ninguna fila que le toque, 422 y no un «copiado» de cero.**
+     *
+     * Es el fallo mudo de esta familia dicho en voz alta: copiar cero unidades y
+     * contestar 200 deja al docente con la planilla en blanco creyendo que la montó. Y es
+     * el caso de **todas** las asignaturas de un colegio que no haya escrito su plantilla
+     * —en `simonbolivar`, `unidades_por_defecto` tiene hoy cero filas—.
+     */
+    public function test_origen_plantilla_sin_ninguna_fila_que_le_toque_es_422(): void
+    {
+        $ctx = $this->contexto();
+        [$destino] = $this->dosAlumnos((int) $ctx->grupo_id);
+
+        $this->marcarIndependiente($destino, (int) $ctx->periodo_id);
+
+        $r = $this->copiar($ctx, [
+            'alumnos_destino' => [$destino],
+            'origen' => ['tipo' => 'plantilla'],
+        ]);
+
+        $r->assertStatus(422);
+        $this->assertStringContainsString('plantilla', (string) $r->json('message'));
+        $this->assertSame(0, $this->suyasVivas($ctx, $destino));
+    }
+
+    /** Un `origen.tipo` inventado sigue siendo 422, y el mensaje nombra los tres. */
+    public function test_un_origen_tipo_inventado_nombra_los_tres(): void
+    {
+        $ctx = $this->contexto();
+        [$destino] = $this->dosAlumnos((int) $ctx->grupo_id);
+
+        $r = $this->copiar($ctx, [
+            'alumnos_destino' => [$destino],
+            'origen' => ['tipo' => 'colegio'],
+        ]);
+
+        $r->assertStatus(422);
+        $this->assertStringContainsString('plantilla', (string) $r->json('message'));
+    }
 }

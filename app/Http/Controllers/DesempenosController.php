@@ -1233,6 +1233,13 @@ class DesempenosController extends Controller
      *     columnas y no una, por el mismo motivo que `frase` frente a `frase_id`:
      *     `escalas_de_valoracion` es **editable**, así que renombrar «Básico» en
      *     2028 cambiaría un boletín de 2026 si sólo se guardara el id.
+     *   - `competencia` ← **cómo se llamaba la competencia de ese desempeño**, y aquí
+     *     no hay ningún id que guardar: a la competencia se llega saltando por
+     *     `desempenos.competencia_id`, y ese salto es quien **agrupa**. Esta columna
+     *     sólo **imprime**. Es la cuarta y última de la familia, y la única que se
+     *     copia de una tabla a **dos** saltos de distancia —por eso se le escapó a la
+     *     Fase 4—. Va con `null` cuando el desempeño no tiene competencia (D10), que
+     *     es legal y es el desempeño suelto del boletín.
      *
      * **`escala_id: null` borra la celda** (borrado lógico), que es como el docente
      * dice «a este alumno este desempeño no se le pone». No deja fila, así que el
@@ -1378,6 +1385,26 @@ class DesempenosController extends Controller
             $banda = $escala[$celda['escala_id']];
             $texto = $desempenos[$celda['desempeno_id']]->definicion;
 
+            /*
+             * **Y cómo se llamaba su COMPETENCIA el día que se marcó la casilla**
+             * (`2026_09_14_100000_competencia_congelada`). `null` es lo correcto en
+             * los dos casos en que viene nulo, y son casos distintos:
+             *
+             *   - el desempeño **no cuelga de ninguna competencia**, que es legal por
+             *     **D10** y es el desempeño suelto de la §4.3 del plan del front;
+             *   - o la competencia de la que colgaba **está borrada**, porque el
+             *     `LEFT JOIN` de `desempenosDeLaRejilla()` filtra `c.deleted_at IS
+             *     NULL`. Ahí `null` es exactamente lo que el boletín ya hace con ese
+             *     desempeño: mandarlo a los sueltos, que es donde estaría si nunca
+             *     hubiera tenido competencia.
+             *
+             * Lo que no puede salir de aquí es `''`: el boletín decide si hay copia con
+             * un `!== null`, así que una cadena vacía **pasa por copia** y estampa una
+             * cabecera en blanco encima del texto vivo. `null` dice que no hay nada
+             * congelado, que es la verdad; `''` dice que se llamaba «nada».
+             */
+            $competencia = $desempenos[$celda['desempeno_id']]->competencia;
+
             $valores = [
                 'frase' => $texto,
                 'desempeno_id' => $celda['desempeno_id'],
@@ -1386,6 +1413,7 @@ class DesempenosController extends Controller
                 // migración: sin esta columna, renombrar la escala en 2028 cambia
                 // un boletín de 2026.
                 'nivel' => $banda->desempenio,
+                'competencia' => $competencia,
             ];
 
             if ($fila === null) {
@@ -1408,8 +1436,13 @@ class DesempenosController extends Controller
                 continue;
             }
 
+            // **Las cuatro, y la cuarta no es de adorno**: sin ella, renombrar la
+            // competencia y volver a guardar contestaría `sin_cambio` y dejaría dentro
+            // la copia vieja — o sea que la corrección del colegio no entraría nunca y
+            // el contador diría que no había nada que cambiar.
             if ((int) $fila->escala_id === (int) $banda->id
                 && $fila->nivel === $banda->desempenio
+                && $fila->competencia === $competencia
                 && $fila->frase === $texto) {
                 $conteo['sin_cambio']++;
 
@@ -2265,7 +2298,8 @@ class DesempenosController extends Controller
         }
 
         $filas = DB::select(
-            'SELECT fa.id, fa.alumno_id, fa.desempeno_id, fa.escala_id, fa.nivel, fa.frase
+            'SELECT fa.id, fa.alumno_id, fa.desempeno_id, fa.escala_id, fa.nivel,
+                    fa.competencia, fa.frase
                FROM frases_asignatura fa
               WHERE fa.alumno_id IN ('.implode(', ', array_fill(0, count($alumnoIds), '?')).')
                 AND fa.asignatura_id = ? AND fa.periodo_id = ?
@@ -2287,8 +2321,15 @@ class DesempenosController extends Controller
     }
 
     /**
-     * En qué banda cae una nota. **La forma de `Unidad::deAsignaturaCalculada`
-     * —`porc_inicial <= nota <= porc_final`— y no el método**, que cruza por unidad.
+     * En qué banda cae una nota. **La forma de `Unidad::deAsignaturaCalculada` y no el
+     * método**, que cruza por unidad.
+     *
+     * La regla es `porc_inicial <= nota < porc_final + 1` **desde el 13 sep 2026**
+     * (`bd02f66`, doc 36). Este párrafo decía `porc_inicial <= nota <= porc_final`, que
+     * era la de entonces y **deja un hueco en cada frontera** en cuanto la nota tiene
+     * decimales: `notas_finales.nota` es `decimal(7,4)` y las bandas son `int`, así que
+     * un 45,5 con ALTO hasta 45 y SUPERIOR desde 46 no caía en ninguna. La sostiene
+     * `CentinelaDeLaReglaDeLaBandaTest`.
      *
      * Recorre la escala **ya ordenada por `orden`**, así que con bandas solapadas
      * gana la primera y el resultado es determinista. Un `LEFT JOIN` en SQL
@@ -2302,7 +2343,7 @@ class DesempenosController extends Controller
     private function bandaDeLaNota(float $nota, array $escala): ?object
     {
         foreach ($escala as $banda) {
-            if ((float) $banda->porc_inicial <= $nota && $nota <= (float) $banda->porc_final) {
+            if ((float) $banda->porc_inicial <= $nota && $nota < (float) $banda->porc_final + 1) {
                 return $banda;
             }
         }

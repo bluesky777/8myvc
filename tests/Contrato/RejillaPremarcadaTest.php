@@ -474,6 +474,114 @@ class RejillaPremarcadaTest extends CasoDeContrato
     }
 
     /**
+     * **La CUARTA columna: cómo se llamaba su COMPETENCIA.**
+     *
+     * Es el argumento de `nivel` un piso más arriba, y el que se le escapó a la Fase 4
+     * porque la competencia está a **dos** saltos: `frases_asignatura` guarda de qué
+     * desempeño salió la celda, y a la competencia se llega por
+     * `desempenos.competencia_id`. `CompetenciasController::putUpdate` hace
+     * `UPDATE … SET definicion = …` **sobre la fila viva**, la misma que un boletín de
+     * 2026 alcanzaría por ese salto, así que sin la copia **renombrar una competencia en
+     * 2028 cambia la cabecera de un boletín de 2026**.
+     *
+     * Se ve rojo quitando `'competencia' => $competencia` de `$valores` en `putRejilla`.
+     */
+    #[Test]
+    public function test_renombrar_la_competencia_no_cambia_una_celda_ya_puesta(): void
+    {
+        $caso = $this->unCaso();
+        $niveles = $this->conLaEscala($caso, [['Bajo', 0, 59], ['Alto', 60, 100]]);
+        $competencia = $this->unaCompetencia($caso, 'Resuelve problemas con números racionales');
+        $desempeno = $this->unDesempeno($caso, 'Identifica fracciones equivalentes', null, $competencia);
+        $this->conDefinitiva($caso, $caso->alumnos[0], 90);
+
+        $this->pedir('putJson', 'desempenos/rejilla', $this->cuerpo($caso, [
+            [$caso->alumnos[0], $desempeno, $niveles['Alto']],
+        ]))->assertStatus(200);
+
+        // El colegio le corrige el texto a la competencia, dos años después.
+        DB::table('competencias')->where('id', $competencia)
+            ->update(['definicion' => 'Interpreta y resuelve situaciones con números racionales']);
+
+        $this->assertSame('Resuelve problemas con números racionales',
+            $this->competenciaGuardada($caso, $caso->alumnos[0]),
+            'La celda tiene que llevar copiado el texto de la competencia del día que se guardó. '
+            .'Sin esa copia no hay de dónde sacar lo que decía la cabecera de un boletín ya impreso, '
+            .'y lo que se pierde no se recupera: la columna sólo sirve si está ANTES del renombrado.');
+    }
+
+    /**
+     * **Un desempeño SIN competencia deja la columna a `null`** — ni `''`, ni el texto de
+     * otra, ni una fila a medias.
+     *
+     * El desempeño suelto es legal (**D10**) y es el que la §4.3 del plan del front
+     * imprime al final, debajo de los bloques. `''` sería peor que `null` y no es lo
+     * mismo: el boletín distingue *«esta celda no congeló ninguna competencia»* de
+     * *«se llamaba así»*, y una cadena vacía se cuela por el lado equivocado de esa
+     * pregunta y estampa una cabecera en blanco sobre el texto vivo.
+     */
+    #[Test]
+    public function test_un_desempeno_sin_competencia_deja_la_columna_a_null(): void
+    {
+        $caso = $this->unCaso();
+        $niveles = $this->conLaEscala($caso, [['Bajo', 0, 59], ['Alto', 60, 100]]);
+        $desempeno = $this->unDesempeno($caso, 'Entrega sus trabajos a tiempo');
+        $this->conDefinitiva($caso, $caso->alumnos[0], 90);
+
+        $this->pedir('putJson', 'desempenos/rejilla', $this->cuerpo($caso, [
+            [$caso->alumnos[0], $desempeno, $niveles['Alto']],
+        ]))->assertStatus(200);
+
+        $this->assertNull($this->competenciaGuardada($caso, $caso->alumnos[0]),
+            'Un desempeño suelto no tiene competencia que congelar, y `null` es lo que dice eso. '
+            .'Cualquier otra cosa se imprime.');
+
+        // Y la celda entra igual: lo que no tiene competencia no es una celda rota.
+        $this->assertSame('Entrega sus trabajos a tiempo', DB::table('frases_asignatura')
+            ->where('alumno_id', $caso->alumnos[0])
+            ->where('asignatura_id', $caso->asignatura_id)
+            ->whereNull('deleted_at')->value('frase'));
+    }
+
+    /**
+     * **Y al volver a guardar, la copia de la competencia también se rehace.**
+     *
+     * Es el gemelo de `test_y_al_volver_a_guardar_la_celda_el_texto_se_rehace` y va
+     * escrito por lo mismo: el docente que corrige el texto del plan de área y guarda
+     * espera verlo corregido. Lo que protege un boletín de un año pasado no es la copia,
+     * es que su periodo esté cerrado.
+     *
+     * **Se ve rojo dejando `competencia` fuera de la comparación de `sin_cambio`**: la
+     * llamada contestaría `sin_cambio: 1`, la copia vieja se quedaría dentro y el
+     * contador —que es lo único que le dice al docente que su corrección entró— diría
+     * que no había nada que cambiar.
+     */
+    #[Test]
+    public function test_renombrar_la_competencia_y_reguardar_rehace_la_copia(): void
+    {
+        $caso = $this->unCaso();
+        $niveles = $this->conLaEscala($caso, [['Bajo', 0, 59], ['Alto', 60, 100]]);
+        $competencia = $this->unaCompetencia($caso, 'Resulve problemas con racionales');
+        $desempeno = $this->unDesempeno($caso, 'Identifica fracciones equivalentes', null, $competencia);
+        $this->conDefinitiva($caso, $caso->alumnos[0], 90);
+
+        $cuerpo = $this->cuerpo($caso, [[$caso->alumnos[0], $desempeno, $niveles['Alto']]]);
+        $this->pedir('putJson', 'desempenos/rejilla', $cuerpo)->assertStatus(200);
+
+        DB::table('competencias')->where('id', $competencia)
+            ->update(['definicion' => 'Resuelve problemas con racionales']);
+
+        $r = $this->pedir('putJson', 'desempenos/rejilla', $cuerpo);
+
+        $r->assertStatus(200);
+        $this->assertSame(1, $r->json('cambiadas'),
+            'Guardar con el texto de la competencia cambiado tiene que contarse como un cambio.');
+
+        $this->assertSame('Resuelve problemas con racionales',
+            $this->competenciaGuardada($caso, $caso->alumnos[0]));
+    }
+
+    /**
      * **Las frases escritas a mano no son celdas, y la rejilla no las toca.**
      *
      * Es la línea que deja a las dos pantallas escribir en la misma tabla. Se ve
@@ -1037,19 +1145,61 @@ class RejillaPremarcadaTest extends CasoDeContrato
         return $ids;
     }
 
-    /** Un desempeño de la asignatura; con `$dueno`, del boletín independiente de ése. */
-    private function unDesempeno(object $caso, string $texto = 'Desempeño de prueba', ?int $dueno = null): int
+    /**
+     * Un desempeño de la asignatura; con `$dueno`, del boletín independiente de ése; con
+     * `$competencia`, colgado de ella. **Sin `$competencia` queda suelto, y eso es legal**
+     * (D10): es el caso que el boletín imprime al final.
+     */
+    private function unDesempeno(object $caso, string $texto = 'Desempeño de prueba', ?int $dueno = null, ?int $competencia = null): int
     {
         return (int) DB::table('desempenos')->insertGetId([
             'asignatura_id' => $caso->asignatura_id,
             'periodo_id' => $caso->periodo_id,
             'alumno_id' => $dueno,
+            'competencia_id' => $competencia,
             'definicion' => $texto,
             'orden' => 0,
             'por_defecto' => 0,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+    }
+
+    /**
+     * Una competencia del año, **de la materia y el grado de la asignatura del caso**.
+     *
+     * Las dos columnas no son adorno: `CompetenciasController` sólo acepta colgar un
+     * desempeño de una competencia de su mismo año, y el reparto del boletín se hace por
+     * el id, así que una competencia de otra materia daría un caso que pasa por motivos
+     * que no son el que se quiere comprobar.
+     */
+    private function unaCompetencia(object $caso, string $texto): int
+    {
+        $de = DB::selectOne('SELECT a.materia_id, g.grado_id FROM asignaturas a
+            INNER JOIN grupos g ON g.id = a.grupo_id WHERE a.id = ?', [$caso->asignatura_id]);
+
+        return (int) DB::table('competencias')->insertGetId([
+            'year_id' => $caso->year_id,
+            'materia_id' => $de->materia_id,
+            'grado_id' => $de->grado_id,
+            'definicion' => $texto,
+            'orden' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    /** El texto congelado de la competencia en la celda viva de ese alumno. */
+    private function competenciaGuardada(object $caso, int $alumnoId): ?string
+    {
+        $valor = DB::table('frases_asignatura')
+            ->where('alumno_id', $alumnoId)
+            ->where('asignatura_id', $caso->asignatura_id)
+            ->whereNotNull('desempeno_id')
+            ->whereNull('deleted_at')
+            ->value('competencia');
+
+        return $valor === null ? null : (string) $valor;
     }
 
     private function conDefinitiva(object $caso, int $alumnoId, float $nota): void
