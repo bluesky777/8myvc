@@ -298,34 +298,112 @@ class BoletinPorCompetenciasTest extends CasoDeContrato
 
     // ── Los dos motivos de un nivel vacío ───────────────────────────────────────
 
+    /**
+     * **`sin_definitiva` y `sin_banda` no son la misma avería, y se cuentan aparte.**
+     *
+     * ## Este caso se remontó el 13 sep 2026, y no para relajarlo
+     *
+     * Nació montando **BAJO 0-29 · ALTO 30-100** con una definitiva de **29,5**, o sea
+     * apoyado en el **hueco de la frontera de enteros**: la nota es `decimal(7,4)` y las
+     * bandas son `int`, así que un 29,5 no casaba con ninguna. **`bd02f66` cerró ese
+     * hueco** —`porc_inicial <= nota AND nota < porc_final + 1`—, y con la regla nueva
+     * **29,5 es BAJO**: `sin_banda` pasó de 1 a 0 y este caso se puso en rojo.
+     *
+     * **Lo que estaba mal era el montaje, no la afirmación.** El test seguía comprobando
+     * que existiera un agujero que se acababa de tapar. Bajar el número esperado a 0
+     * habría puesto el verde borrando la mitad de lo que este caso prueba.
+     *
+     * Así que se remonta sobre las **dos formas de `sin_banda` que sobreviven a
+     * `bd02f66`**, y se cubren las dos a la vez porque son distintas y las dos son reales:
+     *
+     * 1. **un agujero de verdad en la escala** —`[0,59]` y `[61,100]`, con un 60—, que es
+     *    algo que el colegio escribió así. Es el montaje que usa
+     *    `RejillaPremarcadaTest`, y por eso aquél siguió verde;
+     * 2. **una nota por encima del techo** de la banda más alta. Son las **nueve** que
+     *    `bd02f66` dejó a la vista al arreglar las otras cuatro: dato malo, no hueco.
+     *
+     * El caso queda **más fuerte que antes**: un alumno por motivo y `sin_banda = 2`.
+     */
     public function test_sin_definitiva_y_fuera_de_escala_se_cuentan_por_separado(): void
     {
         $caso = $this->unCaso();
-        // Una escala **con un agujero** entre 29 y 30: es la forma que el doc 36 midió
-        // en los nueve años del colegio, y es lo único que distingue el caso de una
-        // suposición.
-        $this->conLaEscala($caso, [['BAJO', 0, 29], ['ALTO', 30, 100]]);
 
-        // El primero no tiene definitiva; el segundo la tiene **dentro del hueco**.
-        $this->conDefinitiva($caso, $caso->alumnos[1], 29.5);
+        // Un agujero **de verdad**: el 60 no lo cubre ninguna de las dos. No es la
+        // frontera de enteros —eso lo cerró `bd02f66`—, es lo que el colegio escribió.
+        $this->conLaEscala($caso, [['BAJO', 0, 59], ['ALTO', 61, 100]]);
 
-        $r = $this->pedirDe($caso, [$caso->alumnos[0], $caso->alumnos[1]]);
+        // El primero no tiene definitiva. El segundo cae en el agujero. El tercero se
+        // sale por arriba del techo de la escala.
+        $this->conDefinitiva($caso, $caso->alumnos[1], 60);
+        $this->conDefinitiva($caso, $caso->alumnos[2], 105);
+
+        $r = $this->pedirDe($caso, $caso->alumnos);
         $poblacion = $r->json()[4];
 
         $this->assertSame(1, $poblacion['asignaturas_sin_definitiva']);
-        $this->assertSame(1, $poblacion['asignaturas_sin_banda'],
-            'Una nota que no cae en ninguna banda NO es «sin definitiva»: son dos averías distintas.');
+        $this->assertSame(2, $poblacion['asignaturas_sin_banda'],
+            'Una nota que no cae en ninguna banda NO es «sin definitiva»: son dos averías distintas. '
+            .'Y las dos formas que quedan tras `bd02f66` —el agujero de verdad y el techo— cuentan las dos.');
 
         $sin_definitiva = $this->laAsignaturaDe($caso, $caso->alumnos[0], $r);
-        $sin_banda = $this->laAsignaturaDe($caso, $caso->alumnos[1], $r);
+        $en_el_agujero = $this->laAsignaturaDe($caso, $caso->alumnos[1], $r);
+        $por_encima = $this->laAsignaturaDe($caso, $caso->alumnos[2], $r);
 
         $this->assertSame('sin_definitiva', $sin_definitiva['motivo_del_nivel']);
         $this->assertNull($sin_definitiva['nota_asignatura']);
 
-        $this->assertSame('sin_banda', $sin_banda['motivo_del_nivel']);
-        $this->assertSame(29.5, $sin_banda['nota_asignatura'],
+        // **El `(float)` no es adorno.** La nota viaja como `CAST(… AS DOUBLE)`, pero un
+        // 60,0 se serializa en JSON como `60` y vuelve `int`, mientras que el 29,5 del
+        // montaje anterior volvía `float`. Es la trampa del tipo que ficha 03-tests.md
+        // —«el síntoma era un tipo»—: sin el cast, `assertSame` falla por la forma del
+        // número y el mensaje habla del nivel, que es lo que de verdad se comprueba.
+        $this->assertSame('sin_banda', $en_el_agujero['motivo_del_nivel']);
+        $this->assertSame(60.0, (float) $en_el_agujero['nota_asignatura'],
             'El que cae en el hueco SÍ tiene nota: lo que no tiene es nivel.');
-        $this->assertNull($sin_banda['desempenio']);
+        $this->assertNull($en_el_agujero['desempenio']);
+
+        $this->assertSame('sin_banda', $por_encima['motivo_del_nivel']);
+        $this->assertSame(105.0, (float) $por_encima['nota_asignatura']);
+        $this->assertNull($por_encima['desempenio'],
+            'Por encima del techo tampoco hay banda, y taparlo escondería un dato malo.');
+    }
+
+    /**
+     * **Y la frontera de enteros ya NO es un `sin_banda`** — `bd02f66`, sitio 14.
+     *
+     * Es el reverso del caso de arriba y el que impide que este controlador se quede otra
+     * vez con la regla vieja: con la escala contigua por enteros y un 29,5, la banda llega
+     * **hasta justo antes del primer entero de la siguiente**, así que cae en BAJO.
+     *
+     * Se comprueban **los dos sitios de la misma respuesta**, y ése es el punto: el nivel
+     * de la asignatura sale del `left join` de `Grupo::detailed_materias_notafinal` —que
+     * `bd02f66` arregló— y `promedio_desempenio` sale de `bandaDeLaNota()`, que **nació
+     * con la regla vieja y se quedó fuera de aquel barrido**. Mientras no coincidieran,
+     * el mismo alumno salía BAJO en la asignatura y sin nivel en el promedio, en el mismo
+     * papel.
+     */
+    public function test_la_frontera_de_enteros_ya_no_deja_a_nadie_sin_banda(): void
+    {
+        $caso = $this->unCaso();
+        $this->conLaEscala($caso, [['BAJO', 0, 29], ['ALTO', 30, 100]]);
+
+        $alumno = $caso->alumnos[0];
+        $this->conDefinitiva($caso, $alumno, 29.5);
+
+        $r = $this->pedirDe($caso, [$alumno]);
+        $asignatura = $this->laAsignaturaDe($caso, $alumno, $r);
+
+        $this->assertSame(0, $r->json()[4]['asignaturas_sin_banda'],
+            'Con `nota < porc_final + 1`, un 29,5 entre dos bandas contiguas ya no es un hueco.');
+        $this->assertNull($asignatura['motivo_del_nivel']);
+        $this->assertSame('BAJO', $asignatura['desempenio'],
+            'Y cae en la de abajo: la regla no asciende a nadie.');
+
+        // **Las dos mitades de la respuesta, con la misma regla.** Ésta es la que se
+        // quedó atrás: el único alumno del boletín tiene 29,5 de promedio.
+        $this->assertSame('BAJO', $r->json()[2][0]['promedio_desempenio'],
+            'El promedio usa `bandaDeLaNota()`: si se queda con la regla vieja, el mismo '
+            .'alumno sale BAJO en la asignatura y sin nivel en el promedio.');
     }
 
     // ── Decisión 10 · lo que nadie marcó no se imprime ──────────────────────────

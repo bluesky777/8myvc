@@ -1796,11 +1796,28 @@ La Fase 4 los separó y aquí se respetan, porque **son dos averías distintas**
 
 - **`sin_definitiva`** — el alumno no tiene `notas_finales` en esa asignatura y ese
   periodo. No hay nota que traducir.
-- **`sin_banda`** — sí tiene nota y **ninguna banda la cubre**. Es el
-  [36](36-la-nota-decimal-y-las-bandas-enteras.md): la nota es `DECIMAL(7,4)` y las bandas
-  siguen siendo `int`, así que hay un hueco en cada frontera, y **cuatro alumnos del año en
-  curso ya imprimen el nivel vacío hoy**, en los tres boletines, con 200 y sin una línea en
-  el log.
+- **`sin_banda`** — sí tiene nota y **ninguna banda la cubre**.
+
+> **Esto se escribió con el hueco de la frontera abierto, y `bd02f66` lo cerró esa misma
+> tarde.** Decía que `sin_banda` era el [36](36-la-nota-decimal-y-las-bandas-enteras.md)
+> —nota `DECIMAL(7,4)` contra bandas `int`, un hueco en cada frontera, cuatro alumnos del
+> año en curso imprimiendo el nivel vacío— y **eso ya no es así**: con
+> `porc_inicial <= nota AND nota < porc_final + 1`, un 45,5 es ALTO y un 29,5 es BAJO. De
+> las trece definitivas huérfanas de `simonbolivar` quedan **nueve**.
+>
+> **`sin_banda` sigue existiendo, y con dos formas, las dos del colegio y no del
+> redondeo:**
+>
+> 1. **una escala con un agujero de verdad** —`[0,59]` y `[61,100]`, y un 60—, escrita así
+>    por el colegio;
+> 2. **una nota por encima del techo** de la banda más alta: son esas nueve, y son **un
+>    dato malo, no un hueco** — taparlo lo escondería.
+>
+> El caso de contrato se remontó sobre **las dos** el 13 sep 2026, con un alumno por
+> motivo. Antes se apoyaba en la frontera de enteros, así que al cerrarse el hueco **el
+> test se puso en rojo comprobando que existiera algo que se acababa de arreglar**. Lo que
+> se cambió fue el montaje, no la afirmación: `asignaturas_sin_banda` pasó de esperar 1 a
+> esperar **2**, no a esperar 0.
 
 Los dos van en `asignaturas[].motivo_del_nivel` **y contados aparte** en `poblacion`. Eso
 es lo único que hace que un nivel que falta se vea **antes** de que salga el papel, que es
@@ -1927,14 +1944,32 @@ señaló que faltaba.
    daría el primer puesto a cualquiera que pida su propio boletín—. Si algún día se separa,
    son **dos métodos** —el conjunto contra el que se compara y la lista que se imprime—, no
    un `if` más. Eso es entrega propia y no se hizo aquí.
-5. **`EscalaDeValoracion::valoracion` redondea y nunca devuelve nada**
-   (`return (object)['desempenio' => '']`), y el `left join` de
-   `Grupo::detailed_materias_notafinal` **ni redondea ni rellena**. Los tres boletines de
-   hoy usan **las dos reglas en la misma respuesta**: el nivel de la asignatura por el
-   join, `promedio_desempenio` por `valoracion()`. Medido en `simonbolivar`: **4 filas del
-   año 8** donde la misma nota sale sin nivel en la asignatura y con nivel en el promedio.
-   El boletín nuevo usa **una sola regla** —sin redondear, `null` cuando no cae—, que es
-   la que hace que `motivo_del_nivel` signifique algo.
+5. ~~**`EscalaDeValoracion::valoracion` redondea y nunca devuelve nada**~~ — **ARREGLADO
+   el 13 sep 2026 por `bd02f66`, y con más alcance del que este punto le veía.**
+
+   Lo que se midió aquí: `valoracion()` hacía `round($nota)` y devolvía
+   `(object)['desempenio' => '']`, mientras el `left join` de
+   `Grupo::detailed_materias_notafinal` ni redondeaba ni rellenaba, así que los tres
+   boletines usaban **las dos reglas en la misma respuesta** —el nivel de la asignatura
+   por el join, `promedio_desempenio` por `valoracion()`— y **4 filas del año 8** salían
+   sin nivel en la asignatura y con nivel en el promedio.
+
+   `bd02f66` no lo arregló igualando una a la otra: puso **una tercera regla, la buena**,
+   en los trece sitios —`porc_inicial <= nota AND nota < porc_final + 1`—, que **ni
+   redondea ni deja hueco**. El `round()` se fue. Lo que este punto contaba como 4 filas
+   era además la mitad del problema: el otro camino, el de PHP, imprimía **SUPERIOR**
+   donde el colegio había escrito que ALTO llega hasta 45.
+
+   > **Y este boletín era el sitio CATORCE.** `bandaDeLaNota()` se escribió esa misma
+   > tarde con la regla vieja y entró en `main` **media hora antes** de aquel barrido, así
+   > que su censo de trece no lo alcanzó. Resultado: `Grupo::detailed_materias_notafinal`
+   > daba la asignatura con la regla nueva y `promedio_desempenio` con la vieja —**la misma
+   > avería de este punto, dentro de la respuesta que venía a no repetirla**—. Corregido, y
+   > con un caso que se ha visto en rojo con la regla vieja puesta a mano.
+   >
+   > **La lección es de método y vale para el siguiente barrido:** «los trece sitios» se
+   > cuentan con un `grep` **el día que se funde**, no el día que se escribe. Entre una
+   > cosa y otra cabe una entrega entera — cupo ésta.
 6. **`NotaComportamiento::nota_comportamiento` cambia de tipo.** Sin fila devuelve
    `["notas_finales" => []]`, que es un array **no vacío** y por tanto *truthy*: el
    `if ($comportamiento)` de los tres boletines entra, el `->definiciones` de dentro
