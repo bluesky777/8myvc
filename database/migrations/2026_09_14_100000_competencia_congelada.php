@@ -104,7 +104,7 @@ class CompetenciaCongelada extends Migration
     }
 
     /*
-     * Se pierde de qué se llamaba la competencia y **no se pierde ni una frase**: el
+     * Se pierde cómo se llamaba la competencia y **no se pierde ni una frase**: el
      * texto del desempeño vive en `frase` y el nivel en `nivel`, que esta migración
      * no toca. El boletín vuelve a leer `competencias.definicion` de hoy, que es
      * exactamente lo que hacía antes de esta entrega.

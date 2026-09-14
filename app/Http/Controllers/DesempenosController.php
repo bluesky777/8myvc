@@ -1398,9 +1398,10 @@ class DesempenosController extends Controller
              *     desempeño: mandarlo a los sueltos, que es donde estaría si nunca
              *     hubiera tenido competencia.
              *
-             * Lo que no puede salir de aquí es `''`: la cadena vacía se cuela por el
-             * lado equivocado del `??` que lee el boletín y afirma que la cabecera se
-             * llamaba «nada».
+             * Lo que no puede salir de aquí es `''`: el boletín decide si hay copia con
+             * un `!== null`, así que una cadena vacía **pasa por copia** y estampa una
+             * cabecera en blanco encima del texto vivo. `null` dice que no hay nada
+             * congelado, que es la verdad; `''` dice que se llamaba «nada».
              */
             $competencia = $desempenos[$celda['desempeno_id']]->competencia;
 
