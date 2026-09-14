@@ -564,11 +564,27 @@ class BoletinPorCompetenciasController extends Controller
      * O sea que un 29,5 con la escala cortada en 29/30 imprime la asignatura sin nivel y
      * el promedio como «ALTO», en el mismo papel.
      *
-     * Aquí se usa **una sola regla**: sin redondear y con `null` cuando no cae. Es la que
-     * coincide con lo que el `left join` ya hace por asignatura —que es lo que no se
-     * puede cambiar sin tocar los boletines de siempre— y es la que hace que
-     * `motivo_del_nivel` signifique algo: con `''` el hueco del doc 36 queda escondido
-     * detrás de una cadena vacía que parece un nivel.
+     * Aquí se usa **una sola regla**: sin redondear y con `null` cuando no cae, que es
+     * lo que hace que `motivo_del_nivel` signifique algo — con `''` el hueco queda
+     * escondido detrás de una cadena vacía que parece un nivel.
+     *
+     * > ⚠️ **Este párrafo decía que la regla «coincide con lo que el `left join` ya hace
+     * > por asignatura, que es lo que no se puede cambiar sin tocar los boletines de
+     * > siempre». Las dos mitades dejaron de ser ciertas el 13 sep 2026** (`bd02f66`):
+     * > el `left join` **sí** se cambió —en los trece sitios, junto con los boletines de
+     * > siempre— y pasó a `nota < porc_final + 1`, así que esta comparación **se quedó
+     * > sola con la regla vieja** y reintrodujo aquí dentro el doble criterio que el
+     * > doc 36 describe para los boletines viejos: la asignatura sin nivel y el promedio
+     * > con uno, en el mismo papel.
+     * >
+     * > **La alineación era deliberada y por eso el arreglo no era sólo el operador**:
+     * > una justificación que dice lo contrario de lo que hace es peor que ninguna,
+     * > porque la ninguna te manda a leer el código. Lo destapó `myvc-front-50` leyendo
+     * > este docblock, no la suite: **ningún test miraba esta comparación**.
+     * >
+     * > Hoy la alineación la sostiene `CentinelaDeLaReglaDeLaBandaTest`, que falla si
+     * > alguien vuelve a escribir `<= porc_final` en `app/`. **Eso es lo que la hace una
+     * > alineación y no una coincidencia.**
      */
     private function bandaDeLaNota(?float $nota): ?\stdClass
     {
@@ -577,7 +593,7 @@ class BoletinPorCompetenciasController extends Controller
         }
 
         foreach ($this->escalasVal() as $banda) {
-            if ($nota >= $banda->porc_inicial && $nota <= $banda->porc_final) {
+            if ($nota >= $banda->porc_inicial && $nota < $banda->porc_final + 1) {
                 return $banda;
             }
         }
