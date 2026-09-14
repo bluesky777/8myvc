@@ -473,6 +473,114 @@ class BoletinPorCompetenciasTest extends CasoDeContrato
             'La tercera columna de la Fase 4 existe para esto: sin ella, renombrar en 2028 cambia un boletín de 2026.');
     }
 
+    /**
+     * **La que da sentido a la cuarta columna: renombrar la competencia NO cambia la
+     * cabecera de un boletín ya impreso.**
+     *
+     * Es el gemelo exacto de los dos de arriba, un piso más arriba. Hasta esta entrega,
+     * la cabecera de cada bloque salía de `competencias.definicion` **leída hoy**: la
+     * celda guardaba de qué desempeño salió (`desempeno_id`) y a la competencia se
+     * llegaba saltando por `desempenos.competencia_id`, y ese salto termina en una fila
+     * **editable** — `CompetenciasController::putUpdate` hace `UPDATE … SET definicion`
+     * sobre ella—. O sea que el papel del año pasado empezaba a decir otra cosa.
+     *
+     * **Se ve rojo quitando el congelado de la lectura**: con `repartirLasMarcas()`
+     * dejando `'definicion' => $marca->definicion_competencia` a secas, este caso imprime
+     * el texto nuevo. Medido antes de escribir el arreglo, y ésa es la única forma de
+     * saber que este caso comprueba algo.
+     */
+    public function test_renombrar_la_competencia_no_cambia_la_cabecera_ya_impresa(): void
+    {
+        $caso = $this->unCaso();
+        $escala = $this->conLaEscala($caso, [['BAJO', 0, 29], ['ALTO', 30, 100]]);
+        $alumno = $caso->alumnos[0];
+
+        $competencia = $this->unaCompetencia($caso, 'Resuelve problemas con números racionales');
+        $desempeno = $this->unDesempeno($caso, 'Identifica fracciones equivalentes', $competencia);
+        $this->laCelda($caso, $alumno, $desempeno, $escala['ALTO'], 'ALTO');
+
+        // Dos años después el colegio reescribe la competencia en el plan de área.
+        DB::table('competencias')->where('id', $competencia)
+            ->update(['definicion' => 'Interpreta situaciones con números racionales']);
+
+        $asignatura = $this->laAsignaturaDe($caso, $alumno);
+
+        $this->assertCount(1, $asignatura['competencias']);
+        $this->assertSame('Resuelve problemas con números racionales',
+            $asignatura['competencias'][0]['definicion'],
+            'La cabecera impresa es la copia congelada, no la definición de hoy: es el papel que '
+            .'ya salió, y lo que decía no se puede recuperar de ningún otro sitio.');
+    }
+
+    /**
+     * **Una fila de antes de la cuarta columna imprime la competencia de HOY**, que es lo
+     * único que se puede hacer con ella.
+     *
+     * Las 12.294 filas de `simonbolivar` y todas las celdas guardadas antes de
+     * `2026_09_14_100000_competencia_congelada` tienen `competencia` a `null` y **no la
+     * van a tener nunca**: la migración es anulable y **sin back-fill** a propósito, porque
+     * rellenarlas con el texto de hoy sería afirmar que se guardaron con él.
+     *
+     * Así que el vivo es el suelo y no el techo, y este caso es el que impide que alguien
+     * «limpie» el `definicion` vivo del objeto por redundante.
+     */
+    public function test_una_celda_de_antes_de_la_columna_imprime_la_competencia_de_hoy(): void
+    {
+        $caso = $this->unCaso();
+        $escala = $this->conLaEscala($caso, [['BAJO', 0, 29], ['ALTO', 30, 100]]);
+        $alumno = $caso->alumnos[0];
+
+        $competencia = $this->unaCompetencia($caso, 'La que el colegio tiene escrita hoy');
+        $desempeno = $this->unDesempeno($caso, 'Su desempeño de siempre', $competencia);
+        $this->laCeldaDeAntes($caso, $alumno, $desempeno, $escala['ALTO'], 'ALTO');
+
+        $asignatura = $this->laAsignaturaDe($caso, $alumno);
+
+        $this->assertSame('La que el colegio tiene escrita hoy',
+            $asignatura['competencias'][0]['definicion'],
+            'Sin copia congelada no hay nada que preferir, y la cabecera en blanco no es una opción.');
+    }
+
+    /**
+     * **Y con las dos mezcladas en el mismo bloque, gana la congelada.**
+     *
+     * Es el estado real del día del despliegue y de todo el periodo siguiente: las celdas
+     * de antes sin copia y las de después con ella, **bajo la misma competencia**. La
+     * cabecera es una sola, así que hace falta una regla de grupo, y ésta es la que está
+     * escrita en `repartirLasMarcas()`: *gana la primera copia congelada que aparezca; el
+     * texto vivo, sólo si ninguna de sus celdas tiene*.
+     *
+     * El caso monta la mezcla **con la vieja primero** —`orden` 0 contra 1—, que es donde
+     * un `??` sobre la primera fila daría el texto de hoy y este caso rojo.
+     */
+    public function test_con_una_celda_vieja_y_una_nueva_gana_el_texto_congelado(): void
+    {
+        $caso = $this->unCaso();
+        $escala = $this->conLaEscala($caso, [['BAJO', 0, 29], ['ALTO', 30, 100]]);
+        $alumno = $caso->alumnos[0];
+
+        $competencia = $this->unaCompetencia($caso, 'Como se llamaba cuando se imprimió');
+        $vieja = $this->unDesempeno($caso, 'El desempeño de antes', $competencia, 0);
+        $nueva = $this->unDesempeno($caso, 'El desempeño de después', $competencia, 1);
+
+        $this->laCeldaDeAntes($caso, $alumno, $vieja, $escala['ALTO'], 'ALTO');
+        $this->laCelda($caso, $alumno, $nueva, $escala['ALTO'], 'ALTO');
+
+        DB::table('competencias')->where('id', $competencia)
+            ->update(['definicion' => 'Como la reescribieron después']);
+
+        $asignatura = $this->laAsignaturaDe($caso, $alumno);
+
+        $this->assertSame('Como se llamaba cuando se imprimió',
+            $asignatura['competencias'][0]['definicion'],
+            'Con una sola copia congelada en el bloque ya hay de dónde sacar lo que decía, '
+            .'y es lo que manda: el texto vivo es el último recurso, no el primero.');
+
+        $this->assertSame(['El desempeño de antes', 'El desempeño de después'],
+            array_column($asignatura['competencias'][0]['desempenos'], 'texto'),
+            'Y las dos celdas siguen en el mismo bloque: lo que agrupa es el id, no el texto.');
+    }
+
     // ── `boletin.propio`, y por qué está aquí y no en AutorizacionTest ─────────
 
     /**
@@ -710,20 +818,49 @@ class BoletinPorCompetenciasTest extends CasoDeContrato
         ]);
     }
 
-    /** Una celda guardada, tal como la deja `PUT desempenos/rejilla` (Fase 4). */
+    /**
+     * Una celda guardada, **tal como la deja `PUT desempenos/rejilla`**: con sus cuatro
+     * copias congeladas, no sólo las tres de la Fase 4.
+     *
+     * Que este ayudante copie exactamente lo mismo que la ruta es lo que hace que los
+     * casos de aquí hablen del camino que imprime y no de un montaje: si se quedara con
+     * tres, el caso del renombrado de la competencia **pasaría por el motivo
+     * equivocado** —no habría copia que preferir— y daría verde con el boletín roto.
+     */
     private function laCelda(object $caso, int $alumnoId, int $desempenoId, int $escalaId, string $nivel): void
     {
-        $texto = (string) DB::table('desempenos')->where('id', $desempenoId)->value('definicion');
+        $desempeno = DB::table('desempenos')->where('id', $desempenoId)->first();
 
         DB::table('frases_asignatura')->insert([
             'alumno_id' => $alumnoId,
             'asignatura_id' => $caso->asignatura_id,
             'periodo_id' => $caso->periodo_id,
             // El texto **se copia**, que es lo que protege el boletín ya impreso.
-            'frase' => $texto,
+            'frase' => (string) $desempeno->definicion,
             'desempeno_id' => $desempenoId,
             'escala_id' => $escalaId,
             'nivel' => $nivel,
+            // Y la cuarta: **cómo se llamaba su competencia el día que se marcó**. `null`
+            // cuando el desempeño no tiene (D10) o cuando la tiene borrada.
+            'competencia' => $desempeno->competencia_id === null ? null
+                : DB::table('competencias')->where('id', $desempeno->competencia_id)
+                    ->whereNull('deleted_at')->value('definicion'),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+    }
+
+    /** Una celda escrita **antes** de la cuarta columna: con `competencia` a `null`. */
+    private function laCeldaDeAntes(object $caso, int $alumnoId, int $desempenoId, int $escalaId, string $nivel): void
+    {
+        DB::table('frases_asignatura')->insert([
+            'alumno_id' => $alumnoId,
+            'asignatura_id' => $caso->asignatura_id,
+            'periodo_id' => $caso->periodo_id,
+            'frase' => (string) DB::table('desempenos')->where('id', $desempenoId)->value('definicion'),
+            'desempeno_id' => $desempenoId,
+            'escala_id' => $escalaId,
+            'nivel' => $nivel,
+            'competencia' => null,
             'created_at' => now(), 'updated_at' => now(),
         ]);
     }
