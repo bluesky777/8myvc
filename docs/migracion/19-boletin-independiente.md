@@ -405,6 +405,7 @@ de que exista una sola pantalla, que es como tiene que ir (§10).
 | **5** | **Los boletines.** Las dos funciones de `Unidad`/`Subunidad` con alcance — ya hechas en la fase 1 si el barrido fue completo; aquí sólo se **prueban en negativo** con un alumno marcado | 1 |
 | **6** | **Los puestos** y el interruptor de `years`, con el `puesto: null` de la decisión 6 | 1, 2 |
 | **7** | **El front.** Ver §8. **No se publica hasta que la 1–6 estén DESPLEGADAS** en los quince, no fusionadas | todo lo anterior desplegado |
+| **8** | **La Entrega 4 del [28](28-competencias-e-indicadores.md) (D18)**, hecha el 13 sep 2026: el tercer origen `{"tipo":"plantilla"}` en `copiar` (§6.2), **marcar siembra** con su recuento de ocho números (§6.3) y `plantilla_del_colegio` en `planilla` (§6.1). **Cero rutas nuevas y cero migraciones** — lo único que necesita es la Entrega 1 del 28, que ya está en `main` | 2, 4 |
 
 > ### El criterio «0 sin alcance» era inalcanzable, y la cifra grande no es la población
 >
@@ -588,6 +589,39 @@ La pantalla nueva, entera, en una petición.
   pregunta, sólo hace falta que el endpoint la conteste **en vez de dejársela a
   la pantalla**, que desde el navegador no puede.
 
+#### `plantilla_del_colegio`, la vista previa del TERCER origen — 13 sep 2026
+
+Se añade con D18, y lo pide una medición del front: **esta ruta no manda `materia_id` ni
+`nivel_educativo_id`** —`Asignatura::detallada()` devuelve `materia`, el nombre, y nada del nivel—,
+que es justo por donde se dirige una fila de plantilla. Sin eso, desde el navegador **no se puede
+saber qué filas le tocan a esta asignatura**, y la vista previa de «copiar desde la plantilla» tuvo
+que salir en palabras en vez de en filas.
+
+**La salida fácil sería mandar esos dos ids y que el front calcule. Es la mala**: sería una
+**segunda regla de precedencia, en el navegador**, y el día que las dos dejaran de coincidir el
+colegio vería una plantilla y `copiar` escribiría otra, sin error en ninguna parte. Así que lo que
+viaja es **la respuesta**, salida del mismo método que usa la copia:
+
+```jsonc
+"plantilla_del_colegio": {
+  "motivo": null,                  // null | "sin_grado" | "sin_plantilla"
+  "nivel_educativo_id": 3, "materia_id": 11,
+  "grada": 1,                      // 3 nivel+materia · 2 nivel · 1 materia · 0 la de siempre
+  "suma_porcentajes": 100,         // se enseña y NO se corrige
+  "unidades": [
+    { "definicion": "...", "porcentaje": 40, "obligatoria": 0, "orden": 1,
+      "subunidades": [ { "definicion": "...", "porcentaje": 50, "nota_default": 0,
+                         "obligatoria": 0, "orden": 1 } ] }
+  ]
+}
+```
+
+**El vacío dice por qué está vacío**, como el de los alumnos y por la misma razón: `sin_grado` es que
+la asignatura no llega a un grado vivo, así que no hay nivel con el que dirigir nada; `sin_plantilla`
+es que el colegio no ha escrito ninguna fila que le toque. Aquí **no se aborta** —esto es una lectura
+y no se puede tumbar una pantalla entera por eso—, al revés que en `copiar`, donde los dos casos son
+422 porque ahí lo que seguiría es escribir.
+
 #### `estructura_del_grupo`, para la vista previa de copiar — pedido y aceptado el 31 ago 2026
 
 ```jsonc
@@ -625,7 +659,7 @@ boletín del grupo», desde que ese método recibe el alcance (§5, fase 1).
 periodo que no tiene nada montado** en vez de dejar copiar un vacío. Es el `copiado` con
 `unidades: 0` de la §6.2, pero visto **antes del clic** en vez de después.
 
-### 6.2 · `POST boletin-independiente/copiar` · **DOS orígenes, no uno** — reescrita el 31 ago 2026
+### 6.2 · `POST boletin-independiente/copiar` · **TRES orígenes** — el tercero, el 13 sep 2026
 
 **Encargo de Joseth por `myvc-front-c5`:** *«que se puedan copiar unidades/subunidades tanto de otro
 boletín que se le creó de manera independiente a otro estudiante como de las unidades/sub específicas
@@ -641,6 +675,7 @@ montado**.
   "alumnos_destino": [3311, 3402],
   "origen": { "tipo": "grupo",  "periodo_id": 91 },
   //     o : { "tipo": "alumno", "alumno_id": 2199, "periodo_id": 91 },
+  //     o : { "tipo": "plantilla" },            // SIN periodo y SIN alumno: es del AÑO
   "con_notas": false,
   "si_ya_tiene": "saltar"                        // "saltar" | "anadir" | "reemplazar"
 }
@@ -689,6 +724,50 @@ de siempre. Y el destino se comprueba contra el **periodo de DESTINO**, no el de
 copia a alumnos que van por independiente en `periodo_id`; los demás vuelven como
 `resultado: "no_marcado"`, nunca como 400 — la pantalla los está listando y que uno se desmarque
 entre la carga y el clic es normal.
+
+#### El TERCER origen: `{ "tipo": "plantilla" }` — la Entrega 4, D18 (13 sep 2026)
+
+Aprobado en **D18** *(«el tercer origen `{tipo: "plantilla"}` en `copiar` —cero rutas nuevas— **y**
+sembrar al marcar»)*. Es la plantilla de notas del colegio —la misma que `PUT plantilla-notas/sembrar`
+reparte por todas las asignaturas del año— aplicada **a un solo boletín aparte**. El caso que lo hizo
+existir: el estudiante marcado en una asignatura que el docente **todavía no ha montado**, donde
+copiar «del grupo» copia el vacío.
+
+> **«Cero rutas nuevas» no quería decir cero backend, y eso costó una medición.** El 13 sep el front
+> entregó su mitad creyendo que el origen ya existía y que lo que sobraba era el campo; midió contra
+> el docker y **las dos llamadas daban el mismo 422 del `tipo`**. Buscado en las doce ramas del
+> repositorio: cero coincidencias. Queda escrito porque la frase «un valor más en un selector que ya
+> existe» se lee como si el backend estuviera hecho.
+
+| `origen.tipo` | De qué tabla lee | Qué la dirige |
+|---|---|---|
+| `grupo` | `unidades` | `alumno_id IS NULL` + `periodo_id` |
+| `alumno` | `unidades` | `alumno_id = origen.alumno_id` + `periodo_id` |
+| **`plantilla`** | **`unidades_por_defecto`** | el **año** del token, y `AlcanceDeLaPlantilla` |
+
+**La precedencia no se vuelve a escribir: se llama.** `AlcanceDeLaPlantilla::deAsignatura()` saca las
+dos coordenadas —materia y nivel educativo— y `unidadesPara()` devuelve **la grada más alta entera**
+(§5.7.a del doc 28, decisión 8). Escribir aquí un segundo criterio haría que **el colegio viera una
+plantilla en su pantalla y el boletín aparte recibiera otra**, y ese fallo no da error: da una
+rejilla distinta de la que se vio. Es literalmente lo que aquella clase existe para impedir, dicho en
+su propia cabecera.
+
+**Tres campos se RECHAZAN con 422 en vez de ignorarse**, y el primero es el que el front pidió:
+
+| lo que llega | el 422 dice | por qué |
+|---|---|---|
+| `origen.periodo_id` | *«La plantilla del colegio es del AÑO y no de un periodo»* | `unidades_por_defecto` no tiene `periodo_id`. Un campo que se manda y se ignora es el que hace creer que se copió otra cosa — «la plantilla del periodo 1», que no existe |
+| `origen.alumno_id` | *«no es de ningún alumno»* | lo mismo, por la otra coordenada |
+| `con_notas` | *«La plantilla del colegio no tiene notas»* | **y éste protege un dato.** Las subunidades de plantilla viven en `subunidades_por_defecto`, **otra tabla con su propia secuencia de ids**: sin el candado, `copiarLaNota()` buscaría en `notas` por un `subunidad_id` que casa con una subunidad **real cualquiera** y le copiaría al destino **la nota de un desconocido**, en 200 |
+
+**Y no puede devolver «copiado» de cero filas.** Los dos casos en que la plantilla no da nada se
+cortan **antes de escribir**, con 422 y el motivo delante: la asignatura sin grado vivo (no hay nivel
+con el que dirigir nada) y el colegio sin ninguna fila que le toque —que es lo que `putSembrar()`
+cuenta como `saltadas_sin_plantilla`, y que **hoy es el caso de todas**: `unidades_por_defecto` tiene
+**cero filas en `simonbolivar`** (medido el 13 sep 2026)—.
+
+En la respuesta, `origen.periodo_id` y `origen.alumno_id` llegan **`null`** con este tipo. Es el
+único sitio donde esos dos campos pueden ser nulos, y sólo cuando el cliente pidió `plantilla`.
 
 #### `si_ya_tiene`: tres valores, y `reemplazar` NO borra lo que parece
 
@@ -756,9 +835,82 @@ discrepancia entre lo avisado y lo hecho se vea** en vez de quedarse en que la p
 ### 6.3 · `PUT boletin-independiente/periodo` · **FASE 2**, no fase 4
 
 ```jsonc
-{ "alumno_id": 3311, "periodo_id": 91, "aplica": false }
-→ { "alumno_id": 3311, "periodo_id": 91, "aplica": false }
+{ "alumno_id": 3311, "periodo_id": 91, "aplica": true }
+→ { "alumno_id": 3311, "periodo_id": 91, "aplica": true,
+    "sembrado": {                          // AÑADIDO el 13 sep 2026 (D18)
+      "asignaturas_revisadas": 13,         // las del grupo del alumno en ese periodo
+      "asignaturas_sembradas": 12,
+      "saltadas_porque_ya_tenia": 0,       // tenía estructura propia: no se toca
+      "saltadas_sin_rejilla_del_grupo": 1, // el curso no tiene qué copiar — es la §9.1
+      "unidades": 48, "subunidades": 117,
+      "notas_traidas": 110,                // las que el alumno YA tenía, y se lleva
+      "casillas_nuevas": 7                 // filas de `notas` con `nota_default`
+    } }
 ```
+
+#### MARCAR SIEMBRA — la Entrega 4, D18 (13 sep 2026)
+
+Hasta el 13 sep esta ruta sembraba **sólo al desmarcar**: `sembrarLasNotasQueFaltan()` se llamaba
+con `! $aplica` y nada más. **Es al revés de lo que el colegio espera**, y no es una asimetría
+cosmética: las unidades se leen con alcance **excluyente** —`u.alumno_id <=> alcance()`, y el alcance
+de un marcado es su propio id—, así que **marcar a alguien le dejaba la planilla en blanco en sus
+trece asignaturas**. Es la §9.1, el riesgo grave de este documento, ocurriendo por el camino normal.
+
+Ahora marcar le copia **la rejilla del curso a su nombre, con sus notas**, en todas sus asignaturas
+de ese periodo. Cinco decisiones, con su porqué:
+
+| decisión | por qué |
+|---|---|
+| copia la rejilla **del curso**, no la plantilla del colegio | es la que el alumno venía siguiendo hasta el momento de la marca, y es lo que hace que **se lleve lo suyo** en vez de empezar en blanco (la §9.3 por la otra puerta). La plantilla es una decisión del docente asignatura a asignatura, y para eso está el tercer origen de la §6.2 |
+| `con_notas` en **`true`**, al revés que en `copiar` | allí copiar notas puede ser calificar a un tercero; aquí **las notas que se copian son del propio alumno** |
+| `si_ya_tiene` en **`saltar`** | la pantalla no sabe si ya estaba marcado, así que marcar dos veces pasa de verdad. Con `reemplazar` la segunda llamada le doblaría el reparto en 200 |
+| **no** recalcula definitivas | la rejilla copiada es la misma —misma definición, mismo porcentaje— con las mismas notas, así que la definitiva que saldría es la que ya está guardada. `copiar` sí recalcula, porque allí la estructura nueva puede no tener nada que ver |
+| **sí** siembra con el periodo cerrado | por la §2.4, que es la razón entera de que `periodo_id` venga del cuerpo. Y es lo que ya hacía el camino de desmarcar desde el 31 ago |
+
+**Y NO se siembran los desempeños, aunque D18 diga que sí — porque `unidades` y `desempenos` se leen
+con semánticas OPUESTAS.** No es que salga caro: es que **la premisa de esa línea es falsa en esa
+tabla**. Medido el 13 sep:
+
+```
+unidades     u.alumno_id <=> :alcance                      EXCLUYE: o las suyas o las del grupo
+desempenos   d.alumno_id IS NULL OR d.alumno_id IN (…)     SUMA:    las del grupo Y las suyas
+```
+
+Al marcado **le desaparecen las unidades del curso** —por eso hay que dárselas, y es la §9.1— y **no
+le desaparece ningún desempeño**. Así que sembrárselos no le da columnas que le falten: le duplica
+cada columna que ya tenía, **y se las duplica a todo el grupo**, porque las columnas de la rejilla
+son la unión y la rejilla es de la asignatura entera. El `OR` es de
+`DesempenosController::desempenosDeLaRejilla()` —la Fase 4, que no existía cuando se escribió aquella
+línea— y lleva su propio comentario: *«sin esta rama, un alumno con boletín independiente abriría la
+rejilla sin ninguna columna»*.
+
+**Lo que decide es el operador de la lectura, no la columna.** Cae la última línea de D18, no D18
+entera. Lo fija `test_marcar_no_siembra_desempenos`.
+
+#### El recuento se AÑADE, y los ceros son la mitad del contrato
+
+`sembrado` es un **cuarto campo**: los tres de siempre —`alumno_id`, `periodo_id`, `aplica`— siguen
+ahí con el mismo nombre, el mismo tipo y el mismo valor, así que **el front desplegado no se entera**.
+Añadir es seguro; quitar o renombrar no lo sería.
+
+> **Y el cliente es UNO, no dos.** Buscado el 13 sep 2026 en `~/DESARROLLOS/myvc_flutter`: la app
+> **no llama a ninguna ruta `boletin-independiente/*`** —cero coincidencias fuera de `docs/`, donde
+> tiene un plan escrito y ningún código, con su propia nota de *«no publicar antes del despliegue»*—.
+> Se mide y se dice porque este módulo **sí** comparte contrato con Flutter por otro lado —la §9.3
+> existe justamente porque la app no llama a `/notas` nunca— y de ahí a suponer que también llama a
+> ésta hay un paso que nadie había dado con una medida delante.
+
+**Los ocho números vienen siempre, también en cero, y también al desmarcar.** Un bloque que omitiera
+los campos que valen cero haría indistinguibles *«0 sembradas»* y *«no revisó nada»*, que es
+exactamente lo que el colegio necesita separar. Al desmarcar, `asignaturas_revisadas` es **0** —ahí no
+se revisa ninguna— y `casillas_nuevas` es lo único que puede subir: son las del curso, que ese camino
+ya sembraba desde el 31 ago **y nunca contó**.
+
+**Queda una línea de auditoría por marca**, con el recuento entero dentro y **también cuando siembra
+cero**, por la misma razón que la escribe `putSembrar()`: *«alguien lo apretó y no pasó nada»* es el
+suceso que alguien va a investigar. Va con `crear('unidad')`, que es lo que literalmente se creó y el
+mismo nombre que usa la otra siembra del sistema. **La marca en sí sigue sin auditarse**, como hasta
+hoy: eso es otra decisión.
 
 > **`periodo_id` VA EN EL CUERPO, y esto lo corrigió el front el 31 ago 2026 con razón.** Aquí ponía
 > *«el periodo es el del usuario»*, copiado de `notas/detailed`, y **con esa forma la pantalla 1 no
@@ -783,7 +935,13 @@ discrepancia entre lo avisado y lo hecho se vea** en vez de quedarse en que la p
 
 `INSERT ... ON DUPLICATE KEY UPDATE` sobre `bol_ind_periodos`. **No borra ni una
 fila de `unidades`, `subunidades` ni `notas`, nunca.** Hay un test que apaga y
-enciende el interruptor y cuenta las filas antes y después.
+enciende el interruptor y comprueba que **ninguna de las filas que existían
+desapareció ni quedó con `deleted_at`**.
+
+> Ese caso decía antes *«el total de `unidades` es el mismo»*, y era cierto **sólo porque marcar no
+> creaba nada**. Con D18 el total sube, así que la igualdad habría fijado la ausencia de la función
+> en vez de la promesa del colegio. Se guardan los ids de antes y se buscan uno a uno: cambió de
+> forma y no de fondo, y la forma nueva es más fuerte que la vieja.
 
 **Subió de la fase 4 a la fase 2 el 31 ago 2026, y no es una reordenación de comodidad:** con la
 decisión 7 ésta es **la única escritura de la marca que hay**. `PUT alumnos/guardar-valor` salió del
@@ -1430,7 +1588,8 @@ lo que los hace encontrar cosas es **mirar el resultado y no el estado**.
 | `BolIndependienteVuelveALaPlanillaTest` | con `aplica=0`, el alumno vuelve a `alumnos` en `notas/detailed`, **con sus notas del grupo creadas** (§9.3) y con el badge |
 | `BolIndependienteBoletinTest` | el boletín del independiente trae **sus** subunidades y **ninguna** del grupo. Y el del compañero de al lado, ninguna de las suyas |
 | `BolIndependientePuestosTest` | el interruptor en los dos valores, **comprobando que el puesto de un tercero cambia** — que es el efecto que nadie espera (§7) |
-| `BolIndependienteCopiarTest` | copiar con y sin notas, un destino que ya tiene estructura (`saltado`) y uno que dejó de estar marcado |
+| `BolIndependienteCopiarTest` | copiar con y sin notas, un destino que ya tiene estructura (`saltado`) y uno que dejó de estar marcado. **Y desde el 13 sep, el tercer origen**: que copie las filas del colegio, que aplique la precedencia de `AlcanceDeLaPlantilla` —con la fila general insertada **primero**, para que un `ORDER BY id LIMIT 1` se quede con la equivocada— y los tres 422 de los campos prohibidos |
+| `BoletinIndependientePeriodoTest`, la parte de D18 | **marcar siembra**: que le quede la rejilla del curso a su nombre, que **se lleve una nota reconocible** —contar notas no valdría, porque el sembrado crea casillas y el total subiría igual con las notas perdidas—, que marcar dos veces no le duplique nada, que no toque lo que el docente le montó a mano, que los **ocho** números vengan siempre y que **no se siembren desempeños** |
 | `SuperficieDeUnTokenTest` | el barrido que ya existe: que un docente no pueda escribirle estructura a un alumno de un grupo que no es suyo |
 
 Y el que no es un test sino una herramienta: **`tools/unidades-sin-alcance.py`,

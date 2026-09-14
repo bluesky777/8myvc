@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Models\Asignatura;
+use App\Services\Auditoria;
 use App\Services\BoletinIndependiente;
 use App\Services\DefinitivasDeAsignatura;
+use App\Support\AlcanceDeLaPlantilla;
 use App\Support\Autoriza;
 use App\Support\Reloj;
 use Illuminate\Support\Facades\DB;
@@ -33,12 +35,75 @@ class BoletinIndependienteController extends Controller
     use ResuelveElUsuario;
 
     /**
+     * El recuento de lo que escribe una llamada, **con los ocho campos y en cero**.
+     *
+     * Está declarado en un sitio y no armado en cada rama a propósito: los ceros son la
+     * mitad del contrato. *«0 sembradas»* tiene que poder distinguirse de *«no revisó
+     * nada»*, y un bloque que omitiera los campos que valen cero los haría iguales para
+     * el que los pinta. Es la misma forma que `PlantillaNotasController::putSembrar()`.
+     *
+     * | campo | qué cuenta |
+     * |---|---|
+     * | `asignaturas_revisadas` | las del grupo del alumno en ese periodo. **Cero al desmarcar**, que ahí no se revisa ninguna |
+     * | `asignaturas_sembradas` | en cuántas le quedó rejilla propia nueva |
+     * | `saltadas_porque_ya_tenia` | ya tenía estructura propia y **no se toca** |
+     * | `saltadas_sin_rejilla_del_grupo` | el curso no tiene qué copiar. **Es la §9.1**: el alumno que se cae por el hueco, y el único número que el colegio tiene que mirar |
+     * | `unidades` · `subunidades` | filas creadas a su nombre |
+     * | `notas_traidas` | las que el alumno **ya tenía** en la rejilla del curso y se llevó consigo |
+     * | `casillas_nuevas` | filas de `notas` con `nota_default` para lo que quedaba sin casilla. Al desmarcar es **lo único que sube**, y son las del curso |
+     *
+     * Las tres primeras cuadran: `revisadas = sembradas + las dos saltadas`.
+     */
+    private const SEMBRADO_EN_CERO = [
+        'asignaturas_revisadas' => 0,
+        'asignaturas_sembradas' => 0,
+        'saltadas_porque_ya_tenia' => 0,
+        'saltadas_sin_rejilla_del_grupo' => 0,
+        'unidades' => 0,
+        'subunidades' => 0,
+        'notas_traidas' => 0,
+        'casillas_nuevas' => 0,
+    ];
+
+    /**
      * `PUT boletin-independiente/periodo` — «este alumno, en este periodo, va aparte».
      *
      * ```jsonc
-     * { "alumno_id": 3311, "periodo_id": 91, "aplica": false }
-     * → { "alumno_id": 3311, "periodo_id": 91, "aplica": false }
+     * { "alumno_id": 3311, "periodo_id": 91, "aplica": true }
+     * → { "alumno_id": 3311, "periodo_id": 91, "aplica": true,
+     *    "sembrado": { "asignaturas_revisadas": 13, "asignaturas_sembradas": 12,
+     *                  "saltadas_porque_ya_tenia": 0, "saltadas_sin_rejilla_del_grupo": 1,
+     *                  "unidades": 48, "subunidades": 117,
+     *                  "notas_traidas": 110, "casillas_nuevas": 7 } }
      * ```
+     *
+     * ## MARCAR SIEMBRA — la Entrega 4, D18
+     *
+     * Hasta el 13 sep 2026 esta ruta sembraba **sólo al desmarcar**, que es al revés de lo
+     * que el colegio espera, y la respuesta eran tres campos sin un solo número. Ahora
+     * marcar le monta a su nombre **la rejilla que el curso ya tiene, con sus notas**, en
+     * todas sus asignaturas del periodo: sin eso, marcar dejaba la planilla en blanco en
+     * las trece —la §9.1, que es el riesgo grave del documento—.
+     *
+     * El porqué de cada decisión está en `sembrarleLaRejillaDelGrupo()`, incluida la que
+     * contradice al doc 35: **los desempeños NO se siembran**, porque la rejilla de la
+     * Fase 4 ya los suma y copiarlos duplicaría cada columna.
+     *
+     * ## `sembrado` se AÑADE y nada se quita: el cliente viejo no se entera
+     *
+     * Los tres campos de siempre —`alumno_id`, `periodo_id`, `aplica`— siguen ahí, con el
+     * mismo nombre, el mismo tipo y el mismo valor. `sembrado` es un cuarto, y el cliente
+     * desplegado lee los tres de antes. **Los ocho números vienen siempre, ceros
+     * incluidos**: un «0 sembradas» tiene que poder distinguirse de «no revisó nada», y un
+     * bloque que omitiera los ceros los haría iguales.
+     *
+     * > **Y el cliente desplegado es UNO, no dos: el front.** Buscado el 13 sep 2026 en
+     * > `~/DESARROLLOS/myvc_flutter`: la app **no llama a ninguna ruta
+     * > `boletin-independiente/*`** —cero coincidencias en todo el repositorio fuera de
+     * > `docs/`, donde tiene un plan escrito y ningún código—. Se dice porque este módulo
+     * > sí comparte contrato con Flutter **por otro lado** (`sembrarLasNotasQueFaltan()`
+     * > existe justamente porque la app no llama a `/notas`), y de ahí a suponer que
+     * > también llama a ésta hay un paso que nadie había medido.
      *
      * ## `periodo_id` viene del CUERPO, y lo corrigió el front con razón
      *
@@ -72,11 +137,17 @@ class BoletinIndependienteController extends Controller
      * entonces cae en que el alumno lo necesitaba aparte. La otra salida sería
      * **reabrir el periodo**, que le abre la planilla entera a los 51 docentes.
      *
-     * ## No borra nada, nunca
+     * ## No borra nada, nunca — y ahora CREA, que no es lo contrario
      *
-     * Ni una fila de `unidades`, `subunidades` ni `notas`. Es la petición literal del
-     * colegio —*«no debe borrar los datos … pero esos datos deben ser ignorados»*— y
+     * Ni una fila de `unidades`, `subunidades` ni `notas` se borra. Es la petición literal
+     * del colegio —*«no debe borrar los datos … pero esos datos deben ser ignorados»*— y
      * lo fija un test que apaga y enciende contando las filas antes y después.
+     *
+     * **Lo que ese test afirma cambió de forma con D18 y no de fondo.** Antes podía decir
+     * «el total de `unidades` es el mismo»; ahora marcar crea unidades a nombre del
+     * alumno, así que el total sube. Lo que se comprueba es lo que de verdad se prometió:
+     * que **ninguna fila que existía desapareció ni quedó con `deleted_at`** — que es lo
+     * que el test ya hacía con `notas`, por escrito, desde que apagar empezó a sembrar.
      */
     public function putPeriodo()
     {
@@ -131,8 +202,9 @@ class BoletinIndependienteController extends Controller
         }
 
         $ahora = Reloj::ahoraTexto();
+        $sembrado = self::SEMBRADO_EN_CERO;
 
-        DB::transaction(function () use ($alumnoId, $periodoId, $aplica, $ahora) {
+        DB::transaction(function () use ($alumnoId, $periodoId, $aplica, $ahora, &$sembrado) {
             // `INSERT ... ON DUPLICATE KEY UPDATE` sobre `bol_ind_periodos_unico
             // (alumno_id, periodo_id)`. La clave única nació con la tabla justamente
             // para que esto sea una sentencia y **no haya ventana de borrado**: un
@@ -148,14 +220,6 @@ class BoletinIndependienteController extends Controller
                 [$alumnoId, $periodoId, $aplica ? 1 : 0, $this->user->user_id, $ahora, $ahora]
             );
 
-            // **La fila se escribe diciendo que no; no se borra.** Sin fila es «nunca
-            // estuvo marcado», y eso no es lo mismo que «este periodo va con el
-            // grupo, con sus datos guardados» — que es uno de los cuatro estados que
-            // la ficha pinta (§6.4).
-            if (! $aplica) {
-                $this->sembrarLasNotasQueFaltan($alumnoId, $periodoId, (int) $this->user->year_id, $ahora);
-            }
-
             // **Lo que acabamos de escribir invalida lo que el servicio cacheó, y sin
             // esto la MISMA petición sigue contestando con lo de antes.**
             //
@@ -164,13 +228,17 @@ class BoletinIndependienteController extends Controller
             // bien mientras la petición sólo lea; **ésta es la única del sistema que
             // escribe esa respuesta**, así que es la única que puede dejarla mintiendo.
             //
-            // Hoy no se ve —el sembrado de aquí arriba va por SQL y no pregunta al
-            // servicio—, y por eso conviene decir dónde muerde mañana: la ruta de la
-            // §6.1 (`boletin-independiente/planilla`) **lee el alcance en la misma
-            // petición en la que se puede haber escrito**, y sin esta línea devolvería
-            // la planilla del alumno que era **antes** de marcarlo, en 200 y sin un
-            // error en ningún sitio. Es la forma exacta de fallo que este módulo lleva
-            // tres revisiones quitando.
+            // **Y desde la Entrega 4 esta línea está DENTRO del camino, no al final.**
+            // Antes iba después del sembrado y no se veía —aquel sembrado va por SQL y
+            // no pregunta al servicio—; el de marcar sí pregunta, porque reutiliza
+            // `copiarleA()`, que abre con `BoletinIndependiente::aplica()`. Con la
+            // caché sin limpiar, ese `aplica()` podría contestar con el estado de
+            // **antes** de la marca y el alumno se quedaría sin sembrar, en 200 y con
+            // todos los contadores a cero. Por eso se olvida aquí: entre la escritura
+            // y la primera lectura.
+            //
+            // Dónde muerde además: la ruta de la §6.1 (`boletin-independiente/planilla`)
+            // lee el alcance en la misma petición en la que se puede haber escrito.
             //
             // Lo destapó un rojo que parecía de otra cosa: dos casos de `BoletinesTest`
             // fallando **sólo dentro de la suite**, porque en un proceso de tests la
@@ -178,12 +246,65 @@ class BoletinIndependienteController extends Controller
             // Aquello se cerró en `CasoDeContrato::setUp()`, que es higiene de test;
             // **esto es lo otro que aquel rojo estaba señalando**, y es de producción.
             BoletinIndependiente::olvidar();
+
+            // **Las dos direcciones siembran, y no siembran lo mismo.** Marcar le monta
+            // la rejilla del curso **a su nombre**, porque su alcance pasa a ser él y sin
+            // eso se queda con la planilla en blanco (§9.1). Desmarcar le crea las
+            // casillas **del curso** que le falten, porque vuelve a la planilla del grupo
+            // (§9.3). Son dos alcances contrarios y por eso son dos métodos.
+            //
+            // Y en las dos, **la fila se escribe diciendo que sí o que no; no se borra**.
+            // Sin fila es «nunca estuvo marcado», que no es lo mismo que «este periodo va
+            // con el grupo, con sus datos guardados» — uno de los cuatro estados que la
+            // ficha pinta (§6.4).
+            if ($aplica) {
+                $sembrado = $this->sembrarleLaRejillaDelGrupo(
+                    $alumnoId, $periodoId, (int) $this->user->year_id, $ahora
+                );
+            } else {
+                $sembrado['casillas_nuevas'] =
+                    $this->sembrarLasNotasQueFaltan($alumnoId, $periodoId, (int) $this->user->year_id, $ahora);
+            }
         });
+
+        /*
+         * **La línea de auditoría va FUERA de la transacción y sólo al marcar.**
+         *
+         * Fuera porque una línea de auditoría de una escritura que se revirtió es una
+         * mentira firmada; aquí sólo se llega con la transacción confirmada.
+         *
+         * Y **siempre que se marque, también con `sembradas = 0`**, que es la misma razón
+         * que `PlantillaNotasController::putSembrar()` escribe en su propio comentario:
+         * *«alguien lo apretó y no pasó nada»* es exactamente el suceso que alguien va a
+         * investigar dentro de un año.
+         *
+         * `crear('unidad')` y no una entidad nueva: es literalmente lo que se creó, y es
+         * el mismo nombre con el que `putSembrar()` graba la otra siembra de este
+         * sistema. **La marca en sí sigue sin auditarse**, como hasta hoy: eso es otra
+         * decisión y no la toma esta tanda.
+         */
+        if ($aplica) {
+            Auditoria::registrar()
+                ->crear('unidad')
+                ->deAlumno($alumnoId)
+                ->en(periodo: $periodoId, year: (int) $this->user->year_id)
+                ->a($sembrado)
+                ->resumen(sprintf(
+                    'Marcó el boletín aparte y le sembró la rejilla del grupo: %d de %d asignaturas, '
+                    .'%d unidades y %d subunidades',
+                    $sembrado['asignaturas_sembradas'],
+                    $sembrado['asignaturas_revisadas'],
+                    $sembrado['unidades'],
+                    $sembrado['subunidades']
+                ))
+                ->guardar();
+        }
 
         return [
             'alumno_id' => $alumnoId,
             'periodo_id' => $periodoId,
             'aplica' => $aplica,
+            'sembrado' => $sembrado,
         ];
     }
 
@@ -285,6 +406,7 @@ class BoletinIndependienteController extends Controller
             'periodo' => ['periodo_id' => (int) $periodo->id, 'numero' => (int) $periodo->numero],
             'alumnos' => $this->alumnosConBoletinAparte($grupoId, $asignaturaId, $periodoId, $unidadesDelGrupo),
             'estructura_del_grupo' => $this->estructuraDelGrupo($asignaturaId),
+            'plantilla_del_colegio' => $this->plantillaDelColegio($asignaturaId),
         ];
     }
 
@@ -596,6 +718,113 @@ class BoletinIndependienteController extends Controller
      * repo. Viaja el recuento: si es distinto de cero, alguien tiene una marca colgada
      * de un año en el que ese alumno no está.
      */
+    /**
+     * La **vista previa del tercer origen**: qué filas de la plantilla del colegio le
+     * tocarían a esta asignatura, ya resuelta la precedencia.
+     *
+     * ## Se manda la RESPUESTA, no los ingredientes — y eso es el punto
+     *
+     * El front midió que `planilla` no manda `materia_id` ni `nivel_educativo_id`, que es
+     * por lo que se dirige una fila de plantilla, así que su vista previa de «copiar desde
+     * la plantilla» tuvo que salir **en palabras y no en filas**. La salida fácil sería
+     * mandarle esos dos ids y que calcule: **eso sería una segunda regla de precedencia,
+     * en el navegador**, y el día que las dos dejaran de coincidir el colegio vería una
+     * plantilla y `copiar` escribiría otra, sin error en ninguna parte. Es literalmente lo
+     * que la cabecera de `AlcanceDeLaPlantilla` existe para impedir.
+     *
+     * Así que se manda **el resultado**: las mismas filas que escribiría
+     * `POST boletin-independiente/copiar` con `origen.tipo = "plantilla"`, en el mismo
+     * orden y con las mismas subunidades. La previa y la copia salen del mismo método.
+     *
+     * ## Los dos motivos de un `unidades: []`, y por qué van dichos
+     *
+     * `copiar` contesta 422 en los dos casos; aquí es una lectura y **no se puede abortar
+     * una pantalla entera porque el colegio no haya montado la plantilla**. Viaja
+     * `motivo`, que es la misma promesa que ya cumple `alumnosConBoletinAparte()`: *«un
+     * vacío que no dice por qué se lee como "no hay datos" cuando lo que hay es un
+     * fallo»*.
+     *
+     * | `motivo` | Qué pasa |
+     * |---|---|
+     * | `null` | hay filas; el front puede pintarlas |
+     * | `sin_grado` | la asignatura no tiene grado vivo, así que no hay nivel con el que dirigir nada |
+     * | `sin_plantilla` | el colegio no ha escrito ninguna fila que le toque. Es lo que `putSembrar()` cuenta como `saltadas_sin_plantilla` |
+     *
+     * `suma_porcentajes` se devuelve **y no se corrige**: regla 2 de
+     * `DefinitivasDeAsignatura`. Que un reparto de plantilla no dé 100 se tiene que ver
+     * **antes** de copiarlo, que es el mismo aviso que da `GET plantilla-notas`.
+     *
+     * @return array<string, mixed>
+     */
+    private function plantillaDelColegio(int $asignaturaId): array
+    {
+        $vacia = static fn (string $motivo): array => [
+            'motivo' => $motivo,
+            'nivel_educativo_id' => null,
+            'materia_id' => null,
+            'grada' => null,
+            'suma_porcentajes' => 0,
+            'unidades' => [],
+        ];
+
+        $coordenadas = AlcanceDeLaPlantilla::deAsignatura($asignaturaId);
+
+        if ($coordenadas === null) {
+            return $vacia('sin_grado');
+        }
+
+        $unidades = AlcanceDeLaPlantilla::unidadesPara(
+            (int) $this->user->year_id,
+            $coordenadas->nivel_educativo_id,
+            $coordenadas->materia_id
+        );
+
+        if ($unidades === []) {
+            $salida = $vacia('sin_plantilla');
+            $salida['nivel_educativo_id'] = $coordenadas->nivel_educativo_id;
+            $salida['materia_id'] = $coordenadas->materia_id;
+
+            return $salida;
+        }
+
+        // **Las filas se piden UNA vez.** Se resolvieron aquí arriba y se les da forma con
+        // el mismo método que usa la copia; volver a llamar a `unidadesDeLaPlantilla()`
+        // repetiría las dos consultas del alcance y metería en una lectura dos `abort()`
+        // que aquí no puede alcanzar nadie — una rama muerta a la que alguien acabaría
+        // ramificando.
+        $filas = $this->conLaFormaDeCopiar($unidades);
+
+        // **La grada se lee de la fila elegida y no se vuelve a calcular con las
+        // coordenadas de la asignatura**: `unidadesPara()` ya se quedó con una sola grada,
+        // y preguntarlo otra vez por otro camino es abrir la puerta a que los dos números
+        // discrepen. Todas las filas que quedan comparten grada, así que vale la primera.
+        $primera = $unidades[0];
+
+        return [
+            'motivo' => null,
+            'nivel_educativo_id' => $coordenadas->nivel_educativo_id,
+            'materia_id' => $coordenadas->materia_id,
+            'grada' => AlcanceDeLaPlantilla::grada(
+                $primera->nivel_educativo_id === null ? null : (int) $primera->nivel_educativo_id,
+                $primera->materia_id === null ? null : (int) $primera->materia_id
+            ),
+            'suma_porcentajes' => array_sum(array_map(static fn ($u) => (int) $u->porcentaje, $unidades)),
+            'unidades' => array_map(static fn (array $u) => [
+                'definicion' => $u['definicion'],
+                'porcentaje' => (int) $u['porcentaje'],
+                'obligatoria' => (int) $u['obligatoria'],
+                'orden' => $u['orden'] === null ? null : (int) $u['orden'],
+                'subunidades' => array_map(static fn (array $sub) => [
+                    'definicion' => $sub['definicion'],
+                    'porcentaje' => (int) $sub['porcentaje'],
+                    'nota_default' => $sub['nota_default'] === null ? null : (int) $sub['nota_default'],
+                    'obligatoria' => (int) $sub['obligatoria'],
+                    'orden' => $sub['orden'] === null ? null : (int) $sub['orden'],
+                ], $u['subunidades']),
+            ], $filas),
+        ];
+    }
+
     public function putMarcados()
     {
         $periodoId = $this->idDelCuerpo('periodo_id');
@@ -1274,10 +1503,11 @@ class BoletinIndependienteController extends Controller
      *   "alumnos_destino": [3311, 3402],
      *   "origen": { "tipo": "grupo",  "periodo_id": 91 },
      *   //     o : { "tipo": "alumno", "alumno_id": 2199, "periodo_id": 91 },
+     *   //     o : { "tipo": "plantilla" },              // SIN periodo: es del año
      *   "con_notas": false, "si_ya_tiene": "saltar" }
      * ```
      *
-     * ## DOS orígenes, y el segundo es el caso normal
+     * ## TRES orígenes, y el segundo es el caso normal
      *
      * El plan tenía **uno solo implícito** —otro alumno, misma asignatura, mismo
      * periodo— y **el caso corriente no cabía**: el estudiante que vuelve y sigue el
@@ -1285,19 +1515,34 @@ class BoletinIndependienteController extends Controller
      * *«tanto de otro boletín que se le creó de manera independiente a otro estudiante
      * como de las unidades/sub específicas de asignaturas en algún periodo»*.
      *
-     * ## LA TRAMPA: los dos orígenes se leen con alcances CONTRARIOS
+     * El tercero es la **Entrega 4** del doc 28, aprobada como **D18**: la plantilla de
+     * notas del colegio, la misma que `PUT plantilla-notas/sembrar` reparte por todas
+     * las asignaturas del año, aplicada **a un solo boletín aparte**. Es el caso del
+     * estudiante marcado en una asignatura que el docente aún no ha montado: sin él la
+     * única salida era copiar del grupo, que ahí **está vacío**. Cero rutas nuevas.
+     *
+     * ## LA TRAMPA: los tres orígenes se leen con alcances CONTRARIOS
      *
      * | `origen.tipo` | Qué filas lee |
      * |---|---|
-     * | `grupo` | **`u.alumno_id IS NULL`** |
-     * | `alumno` | **`u.alumno_id = origen.alumno_id`** |
+     * | `grupo` | `unidades` con **`u.alumno_id IS NULL`** |
+     * | `alumno` | `unidades` con **`u.alumno_id = origen.alumno_id`** |
+     * | `plantilla` | **otra tabla**: `unidades_por_defecto` del año, por `AlcanceDeLaPlantilla` |
      *
-     * Las dos preguntas viven **en el mismo método**, y un `=` copiado a la rama del
+     * Las tres preguntas viven **en el mismo método**, y un `=` copiado a la rama del
      * grupo **devuelve cero filas y copia una estructura vacía en 200** — el fallo mudo
-     * de siempre. Por eso las dos ramas están escritas aparte y con nombre, en vez de
+     * de siempre. Por eso las ramas están escritas aparte y con nombre, en vez de
      * con un parámetro que alguien pueda pasar al revés, y hay un test que **cuenta las
      * filas copiadas por cada rama**: un cero no se distingue de un éxito mirando el
-     * código de estado.
+     * código de estado. La tercera va más lejos y **no puede devolver cero**: si la
+     * plantilla no le toca ninguna fila a esa asignatura, es 422 con el motivo.
+     *
+     * ## La plantilla es del AÑO, y sus dos campos prohibidos
+     *
+     * `origen.periodo_id` y `origen.alumno_id` con `tipo: "plantilla"` son **422**, no
+     * campos ignorados: `unidades_por_defecto` no tiene periodo ni dueño, y un campo que
+     * se manda y se ignora es el que hace creer que se copió otra cosa. Y `con_notas`
+     * también, que además es el peligroso — ver el comentario de su guarda.
      *
      * ## Sólo la misma asignatura, con 422
      *
@@ -1327,9 +1572,10 @@ class BoletinIndependienteController extends Controller
         $periodoId = $this->idDelCuerpo('periodo_id');
 
         // `detallada()` tira el 404 de una asignatura de otro año, igual que en
-        // `putPlanilla()`: un solo sitio decide eso.
-        $asignatura = Asignatura::detallada($asignaturaId, (int) $this->user->year_id);
-        $grupoId = (int) ((object) $asignatura)->grupo_id;
+        // `putPlanilla()`: un solo sitio decide eso. **Se llama por ese 404 y no por lo
+        // que devuelve**: aquí ya no se le lee ninguna columna desde que `copiarleA()`
+        // dejó de pedir un `grupo_id` que no usaba.
+        Asignatura::detallada($asignaturaId, (int) $this->user->year_id);
 
         $this->exigirPeriodoDelAnio($periodoId, 'periodo_id');
 
@@ -1337,6 +1583,17 @@ class BoletinIndependienteController extends Controller
         $origen = $this->origenDelCuerpo($periodoId);
         $siYaTiene = $this->siYaTieneDelCuerpo();
         $conNotas = $this->banderaDelCuerpo('con_notas');
+
+        // **La plantilla no tiene notas, y pedírselas no es un no-op: es peligroso.** Sus
+        // subunidades viven en `subunidades_por_defecto`, otra tabla con su propia
+        // secuencia de ids, así que la consulta de `copiarLaNota()` casaría con una
+        // subunidad REAL cualquiera y le copiaría al destino la nota de un desconocido,
+        // en 200. Va delante del 422 de los periodos porque con este origen no hay
+        // periodo de origen que comparar, y ese mensaje diría lo que no es.
+        if ($conNotas && $origen['tipo'] === 'plantilla') {
+            abort(422, 'La plantilla del colegio no tiene notas: `con_notas` no vale con '
+                ."'origen.tipo' = 'plantilla'.");
+        }
 
         // **El 422 que el front no pidió y hay que poner.** Copiar la estructura del
         // periodo 1 al 3 es preparar la planilla; copiar **también las notas** es
@@ -1351,13 +1608,13 @@ class BoletinIndependienteController extends Controller
         $unidadesOrigen = $this->unidadesDelOrigen($origen, $asignaturaId);
 
         $resultados = DB::transaction(function () use (
-            $destinos, $origen, $unidadesOrigen, $asignaturaId, $periodoId, $grupoId, $siYaTiene, $conNotas
+            $destinos, $origen, $unidadesOrigen, $asignaturaId, $periodoId, $siYaTiene, $conNotas
         ) {
             $salida = [];
 
             foreach ($destinos as $alumnoId) {
                 $salida[] = $this->copiarleA(
-                    $alumnoId, $origen, $unidadesOrigen, $asignaturaId, $periodoId, $grupoId, $siYaTiene, $conNotas
+                    $alumnoId, $origen, $unidadesOrigen, $asignaturaId, $periodoId, $siYaTiene, $conNotas
                 );
             }
 
@@ -1399,13 +1656,19 @@ class BoletinIndependienteController extends Controller
     /**
      * Copiarle la estructura a UN alumno. Devuelve su fila de `destinos`.
      *
-     * @param  array{tipo: string, periodo_id: int, alumno_id: ?int}  $origen
+     * > **Le sobraba un `$grupoId` que nadie leía**, y se quita el 13 sep 2026 al aparecer
+     * > el segundo llamante: desde `sembrarleLaRejillaDelGrupo()` habría que inventarle un
+     * > valor —un `0`—, y un parámetro falso que no se usa es el que alguien lee dentro de
+     * > un año como si significara algo. Es un método privado con dos llamadas: no sale de
+     * > esta clase.
+     *
+     * @param  array{tipo: string, periodo_id: ?int, alumno_id: ?int}  $origen
      * @param  list<array<string, mixed>>  $unidadesOrigen
      * @return array<string, mixed>
      */
     private function copiarleA(
         int $alumnoId, array $origen, array $unidadesOrigen,
-        int $asignaturaId, int $periodoId, int $grupoId, string $siYaTiene, bool $conNotas
+        int $asignaturaId, int $periodoId, string $siYaTiene, bool $conNotas
     ): array {
         // **Contra el periodo de DESTINO.** Quien dejó de ir por independiente entre que
         // la pantalla cargó y el clic vuelve así y no como un error: la pantalla lo
@@ -1497,8 +1760,8 @@ class BoletinIndependienteController extends Controller
      * - `origen.tipo = "alumno"` → las **del alumno de origen**. Eso es calificar a
      *   varios de golpe, y por eso `con_notas` es un botón aparte que nace apagado.
      *
-     * @param  array{tipo: string, periodo_id: int, alumno_id: ?int}  $origen
-     * @return int  1 si copió una nota, 0 si no había.
+     * @param  array{tipo: string, periodo_id: ?int, alumno_id: ?int}  $origen
+     * @return int 1 si copió una nota, 0 si no había.
      */
     private function copiarLaNota(int $subunidadOrigen, int $subunidadNueva, array $origen, int $alumnoDestino): int
     {
@@ -1587,14 +1850,21 @@ class BoletinIndependienteController extends Controller
     /**
      * Las unidades del origen con sus subunidades dentro, **leídas por la rama que toca**.
      *
-     * Las dos ramas van separadas y con su condición escrita entera, en vez de con una
+     * Las tres ramas van separadas y con su condición escrita entera, en vez de con una
      * variable que alguien pueda pasar al revés: es la trampa de esta ruta.
      *
-     * @param  array{tipo: string, periodo_id: int, alumno_id: ?int}  $origen
+     * @param  array{tipo: string, periodo_id: ?int, alumno_id: ?int}  $origen
      * @return list<array<string, mixed>>
      */
     private function unidadesDelOrigen(array $origen, int $asignaturaId): array
     {
+        if ($origen['tipo'] === 'plantilla') {
+            // **Otra tabla, así que otro método entero.** Las dos de abajo leen
+            // `unidades`; ésta lee `unidades_por_defecto`, que no tiene `periodo_id` ni
+            // `alumno_id` y cuya precedencia ya está escrita en un solo sitio.
+            return $this->unidadesDeLaPlantilla($asignaturaId);
+        }
+
         if ($origen['tipo'] === 'grupo') {
             // **`IS NULL`, que es «del curso».** Un `= algo` aquí devuelve cero filas y
             // copia una estructura vacía en 200.
@@ -1651,28 +1921,159 @@ class BoletinIndependienteController extends Controller
     }
 
     /**
-     * El bloque `origen`, validado.
+     * Las unidades de la **plantilla del colegio** que le tocan a esta asignatura, en la
+     * misma forma que devuelven las otras dos ramas para que `copiarleA()` no se entere.
      *
-     * @return array{tipo: string, periodo_id: int, alumno_id: ?int}
+     * ## La precedencia NO se vuelve a escribir aquí, y ése es el punto entero
+     *
+     * `AlcanceDeLaPlantilla` ya contesta *«qué filas de la plantilla le tocan a esta
+     * asignatura»* —las dos coordenadas por `deAsignatura()`, la grada más alta por
+     * `unidadesPara()`— y lo leen el sembrador viejo (`UnidadesController`) y la pantalla
+     * del colegio (`PlantillaNotasController`). Escribir aquí una segunda regla haría que
+     * **el colegio viera una plantilla y el boletín aparte recibiera otra**, y ese fallo
+     * no da error: da una rejilla distinta de la que se vio en pantalla. Es exactamente el
+     * motivo por el que aquella clase existe, dicho en su propia cabecera.
+     *
+     * ## Los dos 422, y por qué no son un 200 con cero filas
+     *
+     * Copiar cero unidades y contestar «copiado» es el fallo mudo que esta ruta lleva
+     * documentado desde que nació —«un `= algo` aquí devuelve cero filas y copia una
+     * estructura vacía en 200»—. Los dos casos en que la plantilla no puede dar nada se
+     * cortan **antes de escribir** y con el motivo delante:
+     *
+     *   - la asignatura no tiene grado vivo, así que no hay nivel educativo con el que
+     *     dirigir ninguna fila (`deAsignatura()` devuelve `null`);
+     *   - el colegio no ha escrito ninguna fila que le toque. Es lo que `putSembrar()`
+     *     cuenta como `saltadas_sin_plantilla`, y es lo que delata una plantilla mal
+     *     dirigida. En `simonbolivar` es hoy **el caso de todas**: `unidades_por_defecto`
+     *     tiene **cero filas** (medido el 13 sep 2026).
+     *
+     * ## `subunidad_id` va a NULL, y no es descuido
+     *
+     * Las otras dos ramas lo llevan porque `copiarLaNota()` lo usa para buscar en `notas`.
+     * Las subunidades de plantilla viven en **`subunidades_por_defecto`**, otra tabla con
+     * su propia secuencia: pasar uno de sus ids a esa consulta buscaría notas de una
+     * subunidad **real cualquiera** y le copiaría al destino la nota de un desconocido, en
+     * 200. Por eso `con_notas` con este origen es 422 en `postCopiar()` —el candado que sí
+     * se puede probar— y por eso aquí no viaja ningún id que pueda confundirse.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function unidadesDeLaPlantilla(int $asignaturaId): array
+    {
+        $coordenadas = AlcanceDeLaPlantilla::deAsignatura($asignaturaId);
+
+        if ($coordenadas === null) {
+            abort(422, 'Esa asignatura no tiene un grado vivo del que sacar el nivel educativo, así '
+                .'que no hay forma de saber qué filas de la plantilla le tocan.');
+        }
+
+        $unidades = AlcanceDeLaPlantilla::unidadesPara(
+            (int) $this->user->year_id,
+            $coordenadas->nivel_educativo_id,
+            $coordenadas->materia_id
+        );
+
+        if ($unidades === []) {
+            abort(422, 'El colegio no tiene ninguna fila de plantilla que le toque a esta asignatura.');
+        }
+
+        return $this->conLaFormaDeCopiar($unidades);
+    }
+
+    /**
+     * Las filas de plantilla ya resueltas, **con la forma que espera `copiarleA()`**.
+     *
+     * Está aparte de `unidadesDeLaPlantilla()` porque la previa de `putPlanilla()`
+     * necesita las mismas filas **sin los dos 422**: allí un vacío es un estado de la
+     * pantalla y no un error. Con la forma en un solo sitio, la previa no puede enseñar
+     * una cosa y la copia escribir otra.
+     *
+     * @param  list<object>  $unidades  lo que devuelve `AlcanceDeLaPlantilla::unidadesPara()`
+     * @return list<array<string, mixed>>
+     */
+    private function conLaFormaDeCopiar(array $unidades): array
+    {
+        $salida = [];
+
+        foreach ($unidades as $unidad) {
+            $salida[] = [
+                'definicion' => $unidad->definicion,
+                'porcentaje' => $unidad->porcentaje,
+                'obligatoria' => $unidad->obligatoria,
+                'orden' => $unidad->orden,
+                'subunidades' => array_map(static fn ($s) => [
+                    'subunidad_id' => null,
+                    'definicion' => $s->definicion,
+                    'porcentaje' => $s->porcentaje,
+                    'nota_default' => $s->nota_default,
+                    'obligatoria' => $s->obligatoria,
+                    'orden' => $s->orden,
+                    // `subunidades_por_defecto` no tiene fechas: la plantilla dice qué se
+                    // califica, no cuándo. Las dos columnas son anulables en `subunidades`.
+                    'inicia_at' => null,
+                    'finaliza_at' => null,
+                ], DB::select(
+                    'SELECT s.definicion, s.porcentaje, s.nota_default, s.obligatoria, s.orden
+                       FROM subunidades_por_defecto s
+                      WHERE s.unidad_defec_id = ? AND s.deleted_at IS NULL
+                      ORDER BY s.orden, s.id',
+                    [$unidad->id]
+                )),
+            ];
+        }
+
+        return $salida;
+    }
+
+    /**
+     * El bloque `origen`, validado. **TRES tipos desde la Entrega 4 (D18)**.
+     *
+     * ## El tercero no lleva periodo, y por eso se RECHAZA si lo mandan
+     *
+     * `grupo` y `alumno` copian de **otro sitio del mismo año**, así que los dos tienen
+     * que decir de qué periodo. La plantilla del colegio **es del año**:
+     * `unidades_por_defecto` tiene `year_id` y **no tiene `periodo_id`**, y qué fila le
+     * toca a una asignatura lo decide `AlcanceDeLaPlantilla` con el nivel y la materia,
+     * donde el periodo no entra ni una vez.
+     *
+     * Así que un `origen.periodo_id` con `tipo: "plantilla"` no es un campo de más: es
+     * **un campo que el cliente cree que decide algo**. Ignorarlo dejaría al colegio
+     * convencido de que copió «la plantilla del periodo 1», que no existe. Es el mismo
+     * argumento —y la misma familia de fallo— que ya tenía escrito `origen.asignatura_id`,
+     * y el front ya esconde el selector: esto es el cinturón.
+     *
+     * `origen.alumno_id` se rechaza por lo mismo: la plantilla no es de nadie.
+     *
+     * @return array{tipo: string, periodo_id: ?int, alumno_id: ?int}
      */
     private function origenDelCuerpo(int $periodoDestino): array
     {
         $tipo = Request::input('origen.tipo');
 
-        if (! in_array($tipo, ['grupo', 'alumno'], true)) {
-            abort(422, "'origen.tipo' tiene que ser 'grupo' o 'alumno'.");
+        if (! in_array($tipo, ['grupo', 'alumno', 'plantilla'], true)) {
+            abort(422, "'origen.tipo' tiene que ser 'grupo', 'alumno' o 'plantilla'.");
+        }
+
+        if ($tipo === 'plantilla') {
+            if (Request::input('origen.periodo_id') !== null) {
+                abort(422, 'La plantilla del colegio es del AÑO y no de un periodo: quite '
+                    ."'origen.periodo_id'. Se copia al periodo de destino, que es 'periodo_id'.");
+            }
+
+            if (Request::input('origen.alumno_id') !== null) {
+                abort(422, "La plantilla del colegio no es de ningún alumno: quite 'origen.alumno_id'.");
+            }
+
+            $this->exigirSinAsignaturaDeOrigen();
+
+            return ['tipo' => 'plantilla', 'periodo_id' => null, 'alumno_id' => null];
         }
 
         $periodoOrigen = $this->idDelCuerpo('origen.periodo_id');
         $this->exigirPeriodoDelAnio($periodoOrigen, 'origen.periodo_id');
 
-        // **`origen.asignatura_id` se rechaza en vez de ignorarse.** Ignorar un campo que
-        // el cliente manda es la peor de las dos salidas: el docente cree que copió de
-        // otra asignatura y copió de la suya, en 200. Ver el docblock de `postCopiar()`.
-        if (Request::input('origen.asignatura_id') !== null) {
-            abort(422, 'Sólo se puede copiar dentro de la misma asignatura. Para copiar entre '
-                .'asignaturas está `PUT periodos/copiar`.');
-        }
+        $this->exigirSinAsignaturaDeOrigen();
 
         $alumnoOrigen = null;
 
@@ -1689,6 +2090,23 @@ class BoletinIndependienteController extends Controller
         }
 
         return ['tipo' => $tipo, 'periodo_id' => $periodoOrigen, 'alumno_id' => $alumnoOrigen];
+    }
+
+    /**
+     * **`origen.asignatura_id` se rechaza en vez de ignorarse.** Ignorar un campo que el
+     * cliente manda es la peor de las dos salidas: el docente cree que copió de otra
+     * asignatura y copió de la suya, en 200. Ver el docblock de `postCopiar()`.
+     *
+     * Está en su propio método desde que hay tres tipos porque **vale para los tres** —la
+     * plantilla se dirige sola por la materia de la asignatura de destino— y la rama de
+     * la plantilla sale antes de llegar a donde estaba escrito.
+     */
+    private function exigirSinAsignaturaDeOrigen(): void
+    {
+        if (Request::input('origen.asignatura_id') !== null) {
+            abort(422, 'Sólo se puede copiar dentro de la misma asignatura. Para copiar entre '
+                .'asignaturas está `PUT periodos/copiar`.');
+        }
     }
 
     /** @return list<int> */
@@ -1776,6 +2194,188 @@ class BoletinIndependienteController extends Controller
     }
 
     /**
+     * Al MARCAR, montarle a su nombre la rejilla que el curso ya tiene. **D18.**
+     *
+     * ## Por qué esto tiene que existir, y por qué es al revés de lo que había
+     *
+     * Hasta hoy `putPeriodo()` sembraba **sólo al desmarcar**, que es exactamente al
+     * revés de lo que el colegio espera. Y no es una asimetría cosmética: las unidades se
+     * leen con alcance **excluyente** —`u.alumno_id <=> BoletinIndependiente::alcance()`,
+     * y para un marcado ese alcance es su propio id—, así que **marcar a alguien le deja
+     * la planilla en blanco en sus trece asignaturas**. Es la §9.1, «el alumno que se cae
+     * por el hueco», y es el riesgo grave del documento. Con esto, marcar deja de ser el
+     * principio del trabajo y pasa a ser el final: ~120 filas por estudiante, contadas.
+     *
+     * ## Lo que copia es la rejilla del CURSO, y con sus notas
+     *
+     * No la plantilla del colegio: la del curso, que es la que el alumno venía siguiendo
+     * hasta el momento de la marca. Es lo que hace que **se lleve lo suyo** en vez de
+     * empezar en blanco —el caso de la §9.3 por la otra puerta— y por eso `con_notas` va
+     * en `true` aquí y nace apagado en `postCopiar()`: allí copiar notas puede ser
+     * calificar a un tercero; aquí las notas que se copian **son del propio alumno**.
+     *
+     * Para la plantilla del colegio está el tercer origen de `postCopiar()`, que es una
+     * decisión del docente asignatura a asignatura y no algo que deba pasar por marcar.
+     *
+     * ## `saltar` y no `reemplazar`, y eso es la mitad de la seguridad de esto
+     *
+     * Si ya tenía estructura propia en una asignatura **no se toca ni una fila**. Marcar
+     * dos veces seguidas —que pasa: la pantalla no sabe si ya estaba marcado— no puede
+     * duplicarle la rejilla ni llevarse por delante lo que el docente le montó a mano. Lo
+     * garantiza el `si_ya_tiene = 'saltar'` de la llamada y lo fija un test que marca dos
+     * veces y cuenta.
+     *
+     * ## NO se recalculan definitivas, y es deliberado
+     *
+     * `postCopiar()` sí lo hace, porque allí la estructura nueva puede no tener nada que
+     * ver con la de antes. Aquí la rejilla copiada es **la misma** —misma definición,
+     * mismo porcentaje— con **las mismas notas**, así que la definitiva que saldría es la
+     * que ya está guardada. Recalcular las trece asignaturas de un estudiante en la
+     * petición de un clic sería pagar un coste para escribir el mismo número.
+     *
+     * ## Y NO se siembran los desempeños — **`unidades` y `desempenos` se leen con
+     * semánticas OPUESTAS**, y de ahí sale todo
+     *
+     * La última línea de D18 dice *«con D5, al marcar se siembran también los desempeños
+     * del grupo a nombre del alumno»*. **Su premisa es falsa en esa tabla**, medido el 13
+     * sep 2026. Las dos columnas se llaman igual y se leen al revés:
+     *
+     * ```
+     * unidades     u.alumno_id <=> :alcance                      EXCLUYE: o las suyas o las del grupo
+     * desempenos   d.alumno_id IS NULL OR d.alumno_id IN (…)     SUMA:    las del grupo Y las suyas
+     * ```
+     *
+     * Por eso las unidades **hay que dárselas**: al marcado le desaparece la rejilla del
+     * curso (§9.1). Y por eso los desempeños **no**: no le desaparece ninguno. Sembrárselos
+     * no le da columnas que le falten — **le duplica cada columna que ya tenía, y se las
+     * duplica a todo el grupo**, porque las columnas de la rejilla son la unión y la
+     * rejilla es de la asignatura entera.
+     *
+     * El `OR` es de `DesempenosController::desempenosDeLaRejilla()`, la Fase 4, que **no
+     * existía cuando se escribió aquella línea** y que cerró el mismo agujero por el otro
+     * lado; lleva su propio comentario diciendo que sin esa rama el marcado abriría la
+     * rejilla sin ninguna columna.
+     *
+     * **Lo que decide no es la columna, es el operador de la lectura.** Los desempeños no
+     * se tocan aquí. Cae la última línea de D18, no D18 entera.
+     *
+     * @return array<string, int> el recuento entero, ceros incluidos.
+     */
+    private function sembrarleLaRejillaDelGrupo(int $alumnoId, int $periodoId, int $yearId, string $ahora): array
+    {
+        $conteo = self::SEMBRADO_EN_CERO;
+
+        // Sus asignaturas son las del grupo de su matrícula **desempatada** del año del
+        // periodo: el mismo criterio que usan las dos lecturas de la §13, y por la misma
+        // razón (`matriculas` no impide dos filas vivas, §9.5). El `?` del año va antes
+        // que el del alumno porque la subconsulta aparece antes en el texto.
+        $asignaturas = DB::select(
+            'SELECT asg.id
+               FROM alumnos a
+               INNER JOIN matriculas m ON m.id = '.self::MATRICULA_DEL_ANIO.'
+               INNER JOIN asignaturas asg ON asg.grupo_id = m.grupo_id AND asg.deleted_at IS NULL
+              WHERE a.id = ? AND a.deleted_at IS NULL
+              ORDER BY asg.id',
+            [$yearId, $alumnoId]
+        );
+
+        $origen = ['tipo' => 'grupo', 'periodo_id' => $periodoId, 'alumno_id' => null];
+
+        foreach ($asignaturas as $fila) {
+            $asignaturaId = (int) $fila->id;
+            $conteo['asignaturas_revisadas']++;
+
+            $unidadesDelGrupo = $this->unidadesDelOrigen($origen, $asignaturaId);
+
+            // **El curso sin montar se cuenta aparte y no se copia en vacío.** Copiar
+            // cero unidades y sumar una «sembrada» es el fallo mudo de esta familia: el
+            // colegio vería «13 de 13» con trece planillas en blanco.
+            if ($unidadesDelGrupo === []) {
+                $conteo['saltadas_sin_rejilla_del_grupo']++;
+
+                continue;
+            }
+
+            // **Se reutiliza `copiarleA()` entera**, que es la que ya sabe insertar la
+            // unidad con sus subunidades y traerse la nota del propio destino. Escribir
+            // aquí un segundo bucle de inserción es cómo se acaba con dos copiadores que
+            // divergen: pasó con las definitivas y con la bitácora, y por eso existen
+            // `DefinitivasDeAsignatura` y `Auditoria`.
+            $resultado = $this->copiarleA(
+                $alumnoId, $origen, $unidadesDelGrupo, $asignaturaId, $periodoId, 'saltar', true
+            );
+
+            if ($resultado['resultado'] !== 'copiado') {
+                // `saltado`: ya tenía estructura propia. La otra salida temprana de
+                // `copiarleA()` —`no_marcado`— no puede volver aquí, porque la marca se
+                // acaba de escribir en esta misma transacción y la caché del servicio se
+                // olvidó entre medias; si algún día volviera, caería en este contador y
+                // **las tres primeras cifras seguirían cuadrando**, que es lo que hace
+                // que se pueda notar mirando la respuesta.
+                $conteo['saltadas_porque_ya_tenia']++;
+
+                continue;
+            }
+
+            $conteo['asignaturas_sembradas']++;
+            $conteo['unidades'] += $resultado['copiadas']['unidades'];
+            $conteo['subunidades'] += $resultado['copiadas']['subunidades'];
+            $conteo['notas_traidas'] += $resultado['copiadas']['notas'];
+        }
+
+        $conteo['casillas_nuevas'] = $this->sembrarLasCasillasDeSusUnidades($alumnoId, $periodoId, $ahora);
+
+        return $conteo;
+    }
+
+    /**
+     * Las casillas que faltan en las unidades **PROPIAS** del alumno en ese periodo.
+     *
+     * ## Por qué hace falta además de `con_notas`
+     *
+     * `copiarLaNota()` copia la nota que el alumno **tenía** en la subunidad del curso; si
+     * no tenía ninguna, no crea nada. Y una subunidad **sin fila de `notas` no se puede
+     * teclear**: sin `id` no hay `PUT notas/update/{id}` al que llamar y nadie la crea
+     * después. Es el estado que `putPlanilla()` ya denuncia como `sin_casilla`. Dejarlo
+     * recién sembrado sería marcar a un alumno y entregarle al docente una rejilla con
+     * huecos que no se pueden rellenar.
+     *
+     * ## Cubre TODAS sus unidades del periodo, también las que ya tenía
+     *
+     * Incluidas las de las asignaturas que este sembrado saltó por tener estructura
+     * propia. Es deliberado: la pregunta que contesta esta pasada no es *«¿acabo de crear
+     * esto?»* sino *«¿puede el docente teclear la rejilla de este alumno?»*, y un hueco
+     * viejo estorba igual que uno nuevo. Por eso tiene contador propio y no se suma a
+     * `notas_traidas`: son dos cosas distintas y mezclarlas escondería las dos.
+     *
+     * ## Sin `GROUP BY`, al revés que su hermana
+     *
+     * `sembrarLasNotasQueFaltan()` entra por `matriculas` y necesita colapsar al alumno
+     * con dos matrículas vivas del mismo año (§9.5). Ésta entra por `unidades` filtrando
+     * `u.alumno_id = ?`, así que cada subunidad aparece **una vez** y no hay nada que
+     * colapsar. Se dice porque las dos consultas se parecen y la diferencia no se ve.
+     *
+     * @return int cuántas casillas se crearon.
+     */
+    private function sembrarLasCasillasDeSusUnidades(int $alumnoId, int $periodoId, string $ahora): int
+    {
+        return DB::affectingStatement(
+            'INSERT INTO notas (subunidad_id, alumno_id, nota, created_by, created_at, updated_at)
+             SELECT s.id, ?, s.nota_default, ?, ?, ?
+               FROM unidades u
+               INNER JOIN subunidades s ON s.unidad_id = u.id AND s.deleted_at IS NULL
+              WHERE u.alumno_id = ?
+                AND u.periodo_id = ?
+                AND u.deleted_at IS NULL
+                AND NOT EXISTS (
+                    SELECT 1 FROM notas n
+                     WHERE n.subunidad_id = s.id AND n.alumno_id = ? AND n.deleted_at IS NULL
+                )',
+            [$alumnoId, $this->user->user_id, $ahora, $ahora, $alumnoId, $periodoId, $alumnoId]
+        );
+    }
+
+    /**
      * Al APAGAR la marca, las casillas del grupo que a este alumno le faltan.
      *
      * ## Por qué existe: la §9.3, el alumno que se desmarca a mitad de periodo
@@ -1823,9 +2423,11 @@ class BoletinIndependienteController extends Controller
      * afirma cuál se quiere. Son las del curso, que son las que al alumno le van a
      * faltar.
      */
-    private function sembrarLasNotasQueFaltan(int $alumnoId, int $periodoId, int $yearId, string $ahora): void
+    private function sembrarLasNotasQueFaltan(int $alumnoId, int $periodoId, int $yearId, string $ahora): int
     {
-        DB::insert(
+        // `affectingStatement` y no `insert`, que devuelve un booleano: desde la Entrega 4
+        // el número viaja en la respuesta, y un `true` no se puede enseñar.
+        return DB::affectingStatement(
             'INSERT INTO notas (subunidad_id, alumno_id, nota, created_by, created_at, updated_at)
              SELECT s.id, ?, s.nota_default, ?, ?, ?
                FROM matriculas m

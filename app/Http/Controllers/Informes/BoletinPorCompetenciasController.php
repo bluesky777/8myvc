@@ -541,54 +541,50 @@ class BoletinPorCompetenciasController extends Controller
     /**
      * La banda de la escala en la que cae una nota, o `null` si no cae en ninguna.
      *
-     * ## La regla es la de `bd02f66`, y este método era el SITIO 14
+     * **`null` es una respuesta, no un fallo.** El doc 36 lo midió: la nota es
+     * `DECIMAL(7,4)` desde `2026_08_30_200000` y las bandas siguen siendo `int`, así que
+     * hay un hueco en cada frontera y hoy ya hay cuatro definitivas del año en curso
+     * dentro de uno.
      *
-     *     porc_inicial <= nota  AND  nota < porc_final + 1
+     * ## Y por qué NO se usa `EscalaDeValoracion::valoracion`, que hace justo esto
      *
-     * **Nació con la regla vieja y se quedó fuera del barrido que la cambió.**
-     * `2026_08_30_200000` volvió `notas_finales.nota` un `decimal(7,4)` y las bandas
-     * siguieron siendo `int`, así que una escala contigua por enteros —BAJO 0-29, BÁSICO
-     * 30-39…— dejaba un hueco en cada frontera y un 45,5 no casaba con ninguna. `bd02f66`
-     * lo cerró **en trece sitios** el 13 sep 2026. Éste es el catorce: se escribió esa
-     * misma tarde, entró en `main` **media hora antes** de aquel barrido y su censo no lo
-     * alcanzó.
+     * Porque **no hace justo esto**, y la diferencia se imprime:
      *
-     * **Y no era cosmético: rompía dentro de esta misma respuesta lo que este docblock
-     * prometía.** `Grupo::detailed_materias_notafinal` —que `bd02f66` sí arregló— da el
-     * nivel de cada asignatura con la regla nueva, y esto daba `promedio_desempenio` con
-     * la vieja. Con la escala cortada en 29/30 y un 29,5, la asignatura salía **BAJO** y
-     * el promedio **sin nivel**, en el mismo papel. Es exactamente la avería que este
-     * método existía para no repetir, cometida por quedarse quieto mientras los demás se
-     * movían.
+     *     public static function valoracion($nota, $escalas_val)
+     *     {
+     *         $nota = round($nota);                          // ← redondea
+     *         …
+     *         return (object)[ 'desempenio' => '' ];         // ← y nunca devuelve null
+     *     }
      *
-     * > **La lección, que es la que vale para el siguiente:** un barrido de «los trece
-     * > sitios» se cuenta con un `grep` **el día que se funde**, no el día que se
-     * > escribe. Entre una cosa y otra cabe una entrega entera — cupo ésta.
+     * Los tres boletines de hoy usan **las dos reglas a la vez y en la misma respuesta**:
+     * el nivel de cada asignatura sale del `left join` a `escalas_de_valoracion` de
+     * `Grupo::detailed_materias_notafinal`, que **no redondea** y deja `NULL`; y
+     * `promedio_desempenio` sale de `valoracion()`, que **sí redondea** y devuelve `''`.
+     * O sea que un 29,5 con la escala cortada en 29/30 imprime la asignatura sin nivel y
+     * el promedio como «ALTO», en el mismo papel.
      *
-     * **Y `LaBandaLlegaHastaElSiguienteEnteroTest` tampoco llega hasta aquí**, aunque sea
-     * el test de esta regla: cubre los sitios de PHP llamando a
-     * `EscalaDeValoracion::valoracion()`, que es una función pura, y su cabecera los cuenta
-     * como **cinco** —el modelo y las cuatro copias literales de los controladores—. Éste
-     * es un sexto, y no lo puede alcanzar: es privado y **no devuelve lo mismo** —`null` en
-     * vez de `(object)['desempenio' => '']`, a propósito—. Quien recuente esa lista, que
-     * cuente seis. Lo que sujeta éste es
-     * `BoletinPorCompetenciasTest::test_la_frontera_de_enteros_ya_no_deja_a_nadie_sin_banda`,
-     * que lo mira por la respuesta y se ha visto en rojo con la regla vieja.
+     * Aquí se usa **una sola regla**: sin redondear y con `null` cuando no cae, que es
+     * lo que hace que `motivo_del_nivel` signifique algo — con `''` el hueco queda
+     * escondido detrás de una cadena vacía que parece un nivel.
      *
-     * ## `null` sigue siendo una respuesta, no un fallo
-     *
-     * Con las fronteras cerradas quedan **dos** formas legítimas de no caer en ninguna
-     * banda, y las dos son del colegio, no del redondeo:
-     *
-     * 1. **una escala con un agujero de verdad** —`[0,59]` y `[61,100]`, y un 60—, que es
-     *    algo que el colegio escribió así;
-     * 2. **una nota por encima del techo** de la banda más alta. Son las **nueve** que
-     *    `bd02f66` dejó a la vista al arreglar las otras cuatro: un dato malo, y taparlo
-     *    lo escondería.
-     *
-     * Por eso aquí se devuelve `null` y no el `(object)['desempenio' => '']` que devuelve
-     * `EscalaDeValoracion::valoracion`: con la cadena vacía, los dos casos de arriba se
-     * imprimen como si tuvieran nivel y `motivo_del_nivel` deja de significar nada.
+     * > ⚠️ **Este párrafo decía que la regla «coincide con lo que el `left join` ya hace
+     * > por asignatura, que es lo que no se puede cambiar sin tocar los boletines de
+     * > siempre». Las dos mitades dejaron de ser ciertas el 13 sep 2026** (`bd02f66`):
+     * > el `left join` **sí** se cambió —en los trece sitios, junto con los boletines de
+     * > siempre— y pasó a `nota < porc_final + 1`, así que esta comparación **se quedó
+     * > sola con la regla vieja** y reintrodujo aquí dentro el doble criterio que el
+     * > doc 36 describe para los boletines viejos: la asignatura sin nivel y el promedio
+     * > con uno, en el mismo papel.
+     * >
+     * > **La alineación era deliberada y por eso el arreglo no era sólo el operador**:
+     * > una justificación que dice lo contrario de lo que hace es peor que ninguna,
+     * > porque la ninguna te manda a leer el código. Lo destapó `myvc-front-50` leyendo
+     * > este docblock, no la suite: **ningún test miraba esta comparación**.
+     * >
+     * > Hoy la alineación la sostiene `CentinelaDeLaReglaDeLaBandaTest`, que falla si
+     * > alguien vuelve a escribir `<= porc_final` en `app/`. **Eso es lo que la hace una
+     * > alineación y no una coincidencia.**
      */
     private function bandaDeLaNota(?float $nota): ?\stdClass
     {
@@ -597,9 +593,6 @@ class BoletinPorCompetenciasController extends Controller
         }
 
         foreach ($this->escalasVal() as $banda) {
-            // `nota < porc_final + 1`, no `nota <= porc_final`: la banda llega hasta justo
-            // antes del primer entero de la siguiente. Ver el docblock — es la regla de
-            // `bd02f66` y este método fue el sitio que se quedó sin ella.
             if ($nota >= $banda->porc_inicial && $nota < $banda->porc_final + 1) {
                 return $banda;
             }

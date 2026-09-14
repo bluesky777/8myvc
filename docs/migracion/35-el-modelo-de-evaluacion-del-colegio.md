@@ -1960,16 +1960,34 @@ señaló que faltaba.
    era además la mitad del problema: el otro camino, el de PHP, imprimía **SUPERIOR**
    donde el colegio había escrito que ALTO llega hasta 45.
 
-   > **Y este boletín era el sitio CATORCE.** `bandaDeLaNota()` se escribió esa misma
-   > tarde con la regla vieja y entró en `main` **media hora antes** de aquel barrido, así
-   > que su censo de trece no lo alcanzó. Resultado: `Grupo::detailed_materias_notafinal`
-   > daba la asignatura con la regla nueva y `promedio_desempenio` con la vieja —**la misma
-   > avería de este punto, dentro de la respuesta que venía a no repetirla**—. Corregido, y
-   > con un caso que se ha visto en rojo con la regla vieja puesta a mano.
+   > **Y el barrido de trece aterrizó sobre quince.** `bandaDeLaNota()` de este boletín
+   > (Fase 6) y `DesempenosController:2305` (Fase 4) se escribieron **en paralelo**, con el
+   > censo ya cerrado, y nacieron con `<= porc_final`. Resultado dentro de este módulo:
+   > `Grupo::detailed_materias_notafinal` daba la asignatura con la regla nueva y
+   > `promedio_desempenio` con la vieja — **la misma avería de este punto, dentro de la
+   > respuesta que venía a no repetirla**. Los dos los cerró `dcb00bc`.
    >
-   > **La lección es de método y vale para el siguiente barrido:** «los trece sitios» se
-   > cuentan con un `grep` **el día que se funde**, no el día que se escribe. Entre una
-   > cosa y otra cabe una entrega entera — cupo ésta.
+   > **Cómo se destapó, que es lo que hay que llevarse:** no lo vio la suite —ningún test
+   > miraba esa comparación—, lo vio alguien **leyendo el docblock**. Decía que la regla
+   > *«coincide con lo que el `left join` ya hace, que es lo que no se puede cambiar sin
+   > tocar los boletines de siempre»*, y `bd02f66` había cambiado justo eso: **las dos
+   > mitades de la justificación eran falsas**. Una justificación que dice lo contrario de
+   > lo que hace es peor que ninguna — la ninguna manda a leer el código.
+   >
+   > **Y la lección de método no es «contar mejor»: es que un barrido caduca.** Está
+   > completo cuando se corre e incompleto cuando aterriza, y con cuatro sesiones
+   > escribiendo caduca en minutos. Por eso lo que cierra esto no es otro recuento sino
+   > `CentinelaDeLaReglaDeLaBandaTest`, que falla si alguien vuelve a escribir
+   > `<= porc_final` en `app/` — **tokenizando y no con `grep`**, porque media docena de
+   > docblocks describen la regla vieja para explicar por qué se cambió, éste incluido.
+
+   > **Lo que quedó de esta casa, y era el rojo que este punto dejó vivo:** el caso
+   > `sin definitiva y fuera de escala` se apoyaba en el hueco de la frontera —29,5 con la
+   > escala cortada en 29/30— y al cerrarse el hueco **pasó a comprobar que existiera algo
+   > que se acababa de arreglar**. Remontado sobre las **dos** formas de `sin_banda` que
+   > sobreviven, con un alumno por motivo: espera **2**, no 0. Y con un caso hermano que
+   > mira **las dos mitades de la misma respuesta** —asignatura y promedio— para que el
+   > desalineamiento no pueda volver en silencio.
 6. **`NotaComportamiento::nota_comportamiento` cambia de tipo.** Sin fila devuelve
    `["notas_finales" => []]`, que es un array **no vacío** y por tanto *truthy*: el
    `if ($comportamiento)` de los tres boletines entra, el `->definiciones` de dentro
@@ -2106,6 +2124,11 @@ lo que hable del reparto del curso.
   ~~Con D5 encima, al marcar se siembran **también los desempeños** del
   grupo a nombre del alumno~~ — **retirado por el recuadro de arriba**; lo demás de D18 sigue
   entero y su sitio natural es **detrás de la Fase 3**.
+
+  > **Y está HECHA** *(13 sep 2026)*: el tercer origen, marcar-siembra con sus ocho números y la
+  > previa de la plantilla en `planilla`. Contrato y porqués en las §§6.1-6.3 del
+  > [19](19-boletin-independiente.md); la línea que no se cumple la fija
+  > `test_marcar_no_siembra_desempenos`.
 - **La fase 0 de la Entrega 5** —sacar `nota × % / 100` de sus **18 sitios en 9
   ficheros** a un punto único— está aprobada y **se despliega sola** (D19). No cambia
   ni un resultado y se verifica con las instantáneas tal como están. **No depende de
@@ -2131,6 +2154,40 @@ celda era un sí/no, y con ese supuesto sólo había dos salidas y las dos eran 
 que sí tenía respuesta era *«¿por qué es binaria la celda?»*. **El hallazgo —que las dos piezas no
 encajaban— era correcto y sigue siéndolo; lo que estaba mal era el marco en que se buscó la
 salida.**
+
+### D18, REVISADA POR MEDICIÓN el 13 sep 2026 — media decisión no se puede cumplir
+
+Está en la lista de decisiones y no sólo en el controlador que la ejecuta **porque es una
+decisión la que cae, no una línea de código**. El mecanismo está contado entero en el recuadro
+de la §5; aquí va lo que hace falta para **decidir**, que es otra cosa.
+
+| la mitad de D18 | qué se hizo |
+|---|---|
+| *«el tercer origen `{tipo:"plantilla"}` en `copiar`»* | **hecho**, con la precedencia de `AlcanceDeLaPlantilla` llamada y no reescrita (§6.2 del [19](19-boletin-independiente.md)) |
+| *«y sembrar al marcar»* | **hecho**, con ocho números en la respuesta (§6.3 del 19) |
+| *«y con D5, al marcar se siembran **también los desempeños**»* | **no se hace: su premisa es falsa en esa tabla** (§5) |
+
+**La asimetría, que es lo que hay que entender para no volver a pedirlo.** Las dos tablas
+tienen una columna `alumno_id` que se llama igual y **se lee con el operador contrario**:
+`unidades` con `<=>`, que **excluye**, y `desempenos` con un `OR`, que **suma**. De ahí salen
+dos conclusiones opuestas sobre la misma acción:
+
+- al marcado **le desaparecen las unidades del curso**, así que **hay que dárselas** — es la
+  §9.1 del 19, «el alumno que se cae por el hueco», y es la mitad de D18 que sí se cumplió;
+- al marcado **no le desaparece ningún desempeño**, así que dárselos **no le añade nada y le
+  duplica todo**.
+
+**Lo que decide es el operador de la lectura, no la columna.** Quien dentro de seis meses vea
+`unidades.alumno_id` y `desempenos.alumno_id` una al lado de la otra va a suponer que se
+gobiernan igual — y ésa es exactamente la suposición que hizo D18.
+
+**Lo que sigue en pie de D5**: escribirle desempeños **suyos** a un alumno PIAR. Eso es el CRUD
+de `desempenos` con `alumno_id`, una decisión del colegio alumno a alumno, y no una siembra
+automática al marcar.
+
+> **La D18 canónica vive en `myvc_front/DECISIONES-MODELO-DE-EVALUACION.md` §5**, que es del
+> repositorio del front, y esta sesión tenía dicho que no lo tocara. **Allí sigue la frase
+> entera sin este matiz**: quien tenga el front tiene que llevárselo.
 
 ### Lo que sigue abierto de verdad, y no lo desbloquea ninguna decisión
 

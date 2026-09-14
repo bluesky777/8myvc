@@ -2287,8 +2287,15 @@ class DesempenosController extends Controller
     }
 
     /**
-     * En qué banda cae una nota. **La forma de `Unidad::deAsignaturaCalculada`
-     * —`porc_inicial <= nota <= porc_final`— y no el método**, que cruza por unidad.
+     * En qué banda cae una nota. **La forma de `Unidad::deAsignaturaCalculada` y no el
+     * método**, que cruza por unidad.
+     *
+     * La regla es `porc_inicial <= nota < porc_final + 1` **desde el 13 sep 2026**
+     * (`bd02f66`, doc 36). Este párrafo decía `porc_inicial <= nota <= porc_final`, que
+     * era la de entonces y **deja un hueco en cada frontera** en cuanto la nota tiene
+     * decimales: `notas_finales.nota` es `decimal(7,4)` y las bandas son `int`, así que
+     * un 45,5 con ALTO hasta 45 y SUPERIOR desde 46 no caía en ninguna. La sostiene
+     * `CentinelaDeLaReglaDeLaBandaTest`.
      *
      * Recorre la escala **ya ordenada por `orden`**, así que con bandas solapadas
      * gana la primera y el resultado es determinista. Un `LEFT JOIN` en SQL
@@ -2302,7 +2309,7 @@ class DesempenosController extends Controller
     private function bandaDeLaNota(float $nota, array $escala): ?object
     {
         foreach ($escala as $banda) {
-            if ((float) $banda->porc_inicial <= $nota && $nota <= (float) $banda->porc_final) {
+            if ((float) $banda->porc_inicial <= $nota && $nota < (float) $banda->porc_final + 1) {
                 return $banda;
             }
         }
