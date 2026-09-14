@@ -2229,6 +2229,30 @@ automática al marcar.
   mientras tanto el comportamiento es coherente. *Un hecho idéntico con dos nombres manda a la
   siguiente sesión a dos sitios distintos.*
 
+- **Borrar una banda de la escala deja renglones impresos que se contradicen, y nadie lo ha
+  decidido.** `EscalasDeValoracionController::deleteDestroy` es un **borrado lógico**
+  (`UPDATE … SET deleted_at`), y la escala se lee siempre con `deleted_at IS NULL`. Una celda ya
+  guardada **conserva su `escala_id` y su palabra congelada** —que es lo que D23 quiso, y está
+  bien—, pero su banda **ya no está en la escala**: el medidor no encuentra posición y sale mudo
+  **al lado de una palabra que sí se lee**. En papel: `▯▯▯▯ BÁSICO`.
+
+  **Y es peor que un medidor vacío a secas, porque el renglón se contradice a sí mismo.** Lo
+  encontró el agente de `myvc-front-50` el 14 sep 2026 **buscando un caso alcanzable después de
+  que dos supuestos resultaran falsos** — el mío (una celda guardada sin nivel) y el suyo (la
+  frase suelta, que por D23.2 no pinta medidor ninguno).
+
+  **No hace falta tocar el backend para pintarlo bien**, y conviene decirlo para no repetir el
+  error de al lado: su arreglo condiciona la explicación a **lo mismo que decide el dibujo** —la
+  posición del medidor— en vez de a una causa concreta, así que **una causa nueva sale explicada
+  sola**. Añadir aquí un `motivo: escala_borrada` sería volver a atar la explicación a una causa,
+  que es justo de lo que acaban de salir.
+
+  **Lo que sí está sin decidir es si borrar una banda debería poder hacerse así.** Hoy degrada en
+  silencio boletines ya impresos. Las tres salidas —prohibirlo cuando hay celdas que la apuntan,
+  avisar con la población delante como `acepto_desviacion`, o aceptarlo y pintarlo bien— **cuestan
+  cosas distintas y ninguna se ha elegido**. Es la familia de *«crear un rol no regala permisos»*:
+  un borrado cuyo efecto vive en otra tabla.
+
 - **Los dos censos del día del despliegue** (§7). No se pueden correr desde una sesión de
   desarrollo.
 - **Las materias que el MEN no cubre**: Religión, Artes, Ed. Física y Tecnología **nacen vacías**,
