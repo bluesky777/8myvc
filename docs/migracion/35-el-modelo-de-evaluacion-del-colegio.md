@@ -2191,6 +2191,26 @@ automática al marcar.
 
 ### Lo que sigue abierto de verdad, y no lo desbloquea ninguna decisión
 
+- **El texto de la COMPETENCIA no está congelado, y el del desempeño sí.** Es el hermano del
+  argumento que dio la tercera columna de la Fase 4, un piso más arriba.
+  `frases_asignatura` copia el texto del desempeño en `frase` y el nombre del nivel en `nivel` el
+  día que se guarda, así que **renombrar un desempeño o una escala no cambia un boletín ya
+  impreso**. Pero la cabecera que agrupa —la competencia— se lee **en vivo** de
+  `competencias.definicion` (`Informes\BoletinPorCompetenciasController`, el `LEFT JOIN` a
+  `competencias`), o sea el texto de hoy: **renombrar una competencia en 2028 cambia la cabecera
+  de un boletín de 2026.**
+
+  Es la **regla 1 de la §4 del doc 28** —*la plantilla siembra, no manda*— incumplida por el único
+  sitio donde no se sembró nada, porque **no hay dónde copiarlo**: la marca vive por desempeño y la
+  competencia es su padre. Taparlo es **una cuarta columna anulable y una entrega propia**, no un
+  remate de la Fase 6.
+
+  > **Lo encontró el agente de `myvc-front-50` al construir la Fase 6 y lo dejó escrito en el
+  > propio `return`, citando el argumento de la tercera columna.** Se anota aquí además porque el
+  > comentario lo ve quien toca esa línea y **este documento lo ve quien decide qué se construye**,
+  > que no son la misma persona ni el mismo día. *Un hallazgo escrito sólo donde ocurrió es un
+  > hallazgo que no entra en ninguna planificación.*
+
 - ~~**El nombre y la maqueta del boletín nuevo**~~ — **medio cerrado el 13 sep 2026.** El
   **recurso** se llama `boletines-competencias` y el porqué está en la §Fase 6; la
   **maqueta** y **cómo lo llama el colegio en la pantalla** siguen abiertos y son del
