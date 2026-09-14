@@ -1891,6 +1891,15 @@ señaló que faltaba.
    anteriores **pasan a decir otra cosa y no hay de dónde sacar la que decían**. La columna
    sólo sirve si está **antes** del primer renombrado. Está apuntada también en
    *«Lo que sigue abierto de verdad»*, al final de este documento.
+
+   > **CONSTRUIDA** *(14 sep 2026)* — `2026_09_14_100000_competencia_congelada`,
+   > `frases_asignatura.competencia` en `text`, anulable y **sin back-fill**. La escribe
+   > `DesempenosController::putRejilla` con las otras tres y la lee
+   > `Informes\BoletinPorCompetenciasController::repartirLasMarcas`, donde **gana la
+   > congelada** y el texto vivo queda de último recurso para las filas anteriores a la
+   > migración, que no la van a tener nunca. La sujeta
+   > `test_renombrar_la_competencia_no_cambia_la_cabecera_ya_impresa`, **visto en rojo
+   > antes de escribir el arreglo**.
 3. **`FraseAsignatura::deAlumno` ya prefiere el texto de hoy** cuando la frase vino del
    catálogo: hace `IFNULL(f.frase, fa.frase)`, o sea que para las frases con `frase_id` el
    congelado **no gana**. Las celdas de la rejilla no tienen `frase_id`, así que la Fase 4
@@ -2191,14 +2200,16 @@ automática al marcar.
 
 ### Lo que sigue abierto de verdad, y no lo desbloquea ninguna decisión
 
-- **La cuarta columna que congelaría el texto de la COMPETENCIA.** Sale de construir la
-  Fase 6: `frases_asignatura` congela el texto del desempeño y **no hay dónde congelar el
-  de su competencia**, así que renombrar una competencia en 2028 cambia la cabecera de un
-  boletín de 2026. Es exactamente el argumento de la tercera columna de la Fase 4, un piso
-  más arriba, y **no lo desbloquea ninguna decisión**: es una entrega con su migración.
-  Está escrito en el sitio exacto donde ocurre —`Informes\BoletinPorCompetenciasController`, en
-  el `return` que arma la cabecera, sobre el `LEFT JOIN` a `competencias`— **y aquí**, porque el
-  comentario lo ve quien toca esa línea y este documento lo ve quien decide qué se construye.
+- ~~**La cuarta columna que congelaría el texto de la COMPETENCIA.**~~ **HECHA el 14 sep
+  2026**, y se queda escrita porque el motivo por el que no podía esperar sigue siendo la
+  parte que hay que entender. Decía: sale de construir la Fase 6, `frases_asignatura`
+  congela el texto del desempeño y **no hay dónde congelar el de su competencia**, así que
+  renombrar una competencia en 2028 cambia la cabecera de un boletín de 2026; es
+  exactamente el argumento de la tercera columna de la Fase 4, un piso más arriba, y **no
+  lo desbloquea ninguna decisión**: es una entrega con su migración. Lo es:
+  `2026_09_14_100000_competencia_congelada` más una escritura en `PUT desempenos/rejilla`
+  y una lectura en `Informes\BoletinPorCompetenciasController`. **El comentario que
+  marcaba el sitio ya no dice que falte**: dice cuál de los dos textos gana y por qué.
 - **¿Las rúbricas de biblioteca (`es_plantilla = 1`) son configuración del colegio?** Si lo
   son, el año nuevo tiene que heredarlas y eso es una entrega con su plan —cuatro tablas
   hijas y sus ids—, no una línea en `postStore`. Está declarada en la §2.bis y la vigila
