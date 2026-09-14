@@ -2214,6 +2214,21 @@ automática al marcar.
   son, el año nuevo tiene que heredarlas y eso es una entrega con su plan —cuatro tablas
   hijas y sus ids—, no una línea en `postStore`. Está declarada en la §2.bis y la vigila
   un test del grupo `rojo`, no un comentario.
+- **El boletín de periodo no puede imprimir un periodo pasado, y es un límite y no un fallo.**
+  Medido el 14 sep 2026 al reproducir un aviso del front que lo contaba como *«el controlador
+  ignora el `periodo_a_calcular` de la URL»*: **la ruta de la API nunca ha aceptado uno**.
+  `boletines-competencias/detailed-notas/{grupo_id}` recibe **sólo el grupo**, el `PUT` no lee
+  periodo ni año del cuerpo, y `periodo_a_calcular` vive únicamente en `Periodo::hastaPeriodoN` y
+  `NotaComportamiento`, que son de los boletines de **fin de año**. Los cinco de periodo hacen lo
+  mismo: `$this->user->periodo_id`.
+
+  O sea que **está atado al periodo activo del usuario por construcción**, y para ver un periodo
+  pasado hay que mover el contexto. **La diferencia entre las dos redacciones no es cosmética**:
+  «no lo lee» suena a descuido y manda a arreglar un método; «no lo acepta» dice que hay una
+  decisión que tomar —si alguien quiere imprimir un periodo pasado, es entrega propia— y que
+  mientras tanto el comportamiento es coherente. *Un hecho idéntico con dos nombres manda a la
+  siguiente sesión a dos sitios distintos.*
+
 - **Los dos censos del día del despliegue** (§7). No se pueden correr desde una sesión de
   desarrollo.
 - **Las materias que el MEN no cubre**: Religión, Artes, Ed. Física y Tecnología **nacen vacías**,
