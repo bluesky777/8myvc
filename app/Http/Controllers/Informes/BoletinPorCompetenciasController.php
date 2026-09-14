@@ -420,19 +420,43 @@ class BoletinPorCompetenciasController extends Controller
              * Las dos se imprimen al final y **con su nivel si lo tienen**: una frase a
              * mano no lo tiene y un desempeño suelto sí.
              */
-            if ($marca->competencia_id === null) {
+            /*
+             * **Y una competencia BORRADA no manda su desempeño a los sueltos, si la celda
+             * lleva el texto congelado.** Es el agujero que dejó
+             * `2026_09_14_100000_competencia_congelada`: aquélla arregló el **renombrado**
+             * —el texto sale de `frases_asignatura`— y no el **borrado**, porque lo que
+             * agrupa seguía siendo `competencias.id` y el `LEFT JOIN` de abajo lo deja en
+             * `null` en cuanto la fila entra en la papelera. Resultado: un boletín impreso
+             * en 2026 con tres desempeños bajo su competencia pasaba a imprimirlos sueltos
+             * en 2028 **porque alguien borró una fila del catálogo**, que es justo lo que
+             * el invariante de la §4 del doc 28 prohíbe.
+             *
+             * **Se agrupa por el texto congelado, y no hace falta ninguna columna nueva**:
+             * la celda ya lo lleva. Las otras dos salidas que se plantearon eran peores —
+             * *aceptar la cabecera huérfana* cambia el papel, y *congelar el id* deja un id
+             * que no se puede seguir a ninguna fila.
+             *
+             * El único caso que degrada es **dos competencias distintas, las dos borradas y
+             * con el mismo texto**: se funden en un bloque. Es preferible a partir uno que
+             * el colegio vio junto, y no puede pasar mientras alguna de las dos exista.
+             */
+            $clave = $marca->competencia_id !== null
+                ? (int) $marca->competencia_id
+                : ($marca->competencia_congelada !== null ? 'txt:'.$marca->competencia_congelada : null);
+
+            if ($clave === null) {
                 $conteo[$fila->origen === 'frase' ? 'frases_sueltas' : 'desempenos_sueltos']++;
                 $sueltos[] = $fila;
 
                 continue;
             }
 
-            $clave = (int) $marca->competencia_id;
-
             if (! isset($competencias[$clave])) {
                 $conteo['competencias']++;
                 $competencias[$clave] = (object) [
-                    'competencia_id' => $clave,
+                    // `null` cuando la competencia está borrada: la clave de agrupación es
+                    // el texto, pero **no se inventa un id** que el front no podría seguir.
+                    'competencia_id' => is_int($clave) ? $clave : null,
                     /*
                      * **El texto vivo, que aquí es el suelo y no el techo**: lo pisa unas
                      * líneas más abajo la copia congelada si alguna de las celdas de este

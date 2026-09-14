@@ -147,6 +147,83 @@ class BoletinPorCompetenciasTest extends CasoDeContrato
 
     // ── El árbol: competencia, sus desempeños, y los sueltos al final ───────────
 
+    /**
+     * Borrar la competencia del catálogo **no desagrupa un boletín ya impreso**.
+     *
+     * `2026_09_14_100000_competencia_congelada` arregló el **renombrado** —el texto sale de
+     * `frases_asignatura.competencia`— y **no el borrado**: lo que agrupaba seguía siendo
+     * `competencias.id`, y el `LEFT JOIN` lo deja en `null` en cuanto la fila entra en la
+     * papelera. Un boletín impreso en 2026 con dos desempeños **bajo su competencia** pasaba
+     * a imprimirlos **sueltos** en 2028 porque alguien borró una fila del catálogo, que es
+     * justo lo que prohíbe el invariante de la §4 del doc 28.
+     *
+     * Se agrupa por el **texto congelado**, que la celda ya lleva: **sin columna nueva**. Las
+     * otras dos salidas que se plantearon eran peores — *aceptar la cabecera huérfana* cambia
+     * el papel, y *congelar el id* deja un id que no se puede seguir a ninguna fila.
+     *
+     * **Y `competencia_id` sale `null`**, no la clave interna: el bloque se imprime, pero el
+     * front no puede pedir una competencia que ya no existe y **no se le inventa un id**.
+     *
+     * ## Sustituye a `test_si_borran_la_competencia_su_desempeno_cae_entre_los_sueltos`
+     *
+     * Aquel test afirmaba lo contrario —que el desempeño cae a los sueltos— **y tenía razón el
+     * día que se escribió**: su motivo, escrito, era *«no abrir un bloque con el título
+     * vacío»*, porque sin texto congelado la cabecera salía en blanco. Caer a los sueltos era
+     * el mal menor.
+     *
+     * `2026_09_14_100000_competencia_congelada` **le quitó el motivo esa misma mañana**: hoy
+     * la cabecera sale del texto de la celda y no está vacía, así que ya no hay que elegir
+     * entre un título en blanco y perder la agrupación. **Su aserción se conserva aquí** —la
+     * última— porque lo que quería impedir sigue sin poder pasar.
+     *
+     * Es la misma forma que el `29,5` de las bandas: **una prueba que envejece con un arreglo,
+     * indistinguible de una regresión en el recuento.** Por eso se sustituye con el porqué
+     * delante y no se borra en silencio.
+     */
+    public function test_borrar_la_competencia_no_desagrupa_un_boletin_ya_impreso(): void
+    {
+        $caso = $this->unCaso();
+        $escala = $this->conLaEscala($caso, [['BAJO', 0, 29], ['ALTO', 30, 100]]);
+        $alumno = $caso->alumnos[0];
+
+        $competencia = $this->unaCompetencia($caso, 'Comprende el sistema solar');
+        $primero = $this->unDesempeno($caso, 'Nombra los planetas', $competencia, 0);
+        $segundo = $this->unDesempeno($caso, 'Explica las estaciones', $competencia, 1);
+
+        $this->laCelda($caso, $alumno, $primero, $escala['ALTO'], 'ALTO');
+        $this->laCelda($caso, $alumno, $segundo, $escala['ALTO'], 'ALTO');
+
+        // El colegio la borra del catálogo **después** de que el boletín saliera impreso.
+        DB::table('competencias')->where('id', $competencia)->update(['deleted_at' => now()]);
+
+        $asignatura = $this->laAsignaturaDe($caso, $alumno);
+
+        $this->assertCount(1, $asignatura['competencias'],
+            'La competencia borrada dejó de agrupar y sus desempeños cayeron a los sueltos: '
+            .'el boletín impreso cambió porque alguien tocó el catálogo.');
+
+        $this->assertSame('Comprende el sistema solar', $asignatura['competencias'][0]['definicion'],
+            'La cabecera tiene que salir del texto congelado en la celda, no del catálogo.');
+
+        $this->assertSame(
+            ['Nombra los planetas', 'Explica las estaciones'],
+            array_column($asignatura['competencias'][0]['desempenos'], 'texto'),
+            'Los dos desempeños siguen juntos y en su orden.'
+        );
+
+        $this->assertSame([], $asignatura['desempenos_sueltos'],
+            'Ninguno de los dos puede acabar en los sueltos.');
+
+        $this->assertNull($asignatura['competencias'][0]['competencia_id'],
+            'Con la competencia borrada el bloque se imprime, pero no se le inventa un id: '
+            .'el front no puede seguir uno que ya no existe.');
+
+        $this->assertNotSame('', (string) $asignatura['competencias'][0]['definicion'],
+            'Y NO se abre un bloque con el título vacío, que es lo que pasa si la consulta '
+            .'decide por `desempenos.competencia_id` en vez de por `competencias.id`. Ésa era '
+            .'la preocupación del test al que éste sustituye, y sigue comprobada.');
+    }
+
     public function test_la_competencia_va_arriba_sus_desempenos_debajo_y_los_sueltos_al_final(): void
     {
         $caso = $this->unCaso();
@@ -212,39 +289,6 @@ class BoletinPorCompetenciasTest extends CasoDeContrato
         $poblacion = $this->poblacionDe($caso, $alumno);
         $this->assertSame(1, $poblacion['frases_sueltas']);
         $this->assertSame(0, $poblacion['desempenos_sueltos']);
-    }
-
-    /**
-     * Si el colegio borra la competencia, su desempeño **cae entre los sueltos**.
-     *
-     * Y no abre un bloque con la cabecera en blanco, que es lo que sale si la consulta
-     * decide por `desempenos.competencia_id` en vez de por `competencias.id`: el `left
-     * join` filtra `deleted_at IS NULL`, así que con la fila borrada el primero sigue
-     * puesto y el segundo viene nulo. Es un renglón de diferencia en el `SELECT` y un
-     * título vacío en el papel.
-     */
-    public function test_si_borran_la_competencia_su_desempeno_cae_entre_los_sueltos(): void
-    {
-        $caso = $this->unCaso();
-        $escala = $this->conLaEscala($caso, [['BAJO', 0, 29], ['ALTO', 30, 100]]);
-        $alumno = $caso->alumnos[0];
-
-        $competencia = $this->unaCompetencia($caso, 'La que el colegio va a borrar');
-        $desempeno = $this->unDesempeno($caso, 'Su desempeño, que se queda', $competencia);
-        $this->laCelda($caso, $alumno, $desempeno, $escala['ALTO'], 'ALTO');
-
-        DB::table('competencias')->where('id', $competencia)->update(['deleted_at' => now()]);
-
-        $asignatura = $this->laAsignaturaDe($caso, $alumno);
-
-        $this->assertSame([], $asignatura['competencias'],
-            'Una competencia borrada no abre un bloque con el título vacío.');
-        $this->assertSame(
-            ['Su desempeño, que se queda'],
-            array_column($asignatura['desempenos_sueltos'], 'texto')
-        );
-        $this->assertSame('ALTO', $asignatura['desempenos_sueltos'][0]['nivel'],
-            'Y no pierde su nivel por el camino: el texto está congelado en la celda.');
     }
 
     // ── D17 · `caritas` ─────────────────────────────────────────────────────────
