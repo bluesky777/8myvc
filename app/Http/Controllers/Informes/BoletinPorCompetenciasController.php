@@ -565,6 +565,16 @@ class BoletinPorCompetenciasController extends Controller
      * > sitios» se cuenta con un `grep` **el día que se funde**, no el día que se
      * > escribe. Entre una cosa y otra cabe una entrega entera — cupo ésta.
      *
+     * **Y `LaBandaLlegaHastaElSiguienteEnteroTest` tampoco llega hasta aquí**, aunque sea
+     * el test de esta regla: cubre los sitios de PHP llamando a
+     * `EscalaDeValoracion::valoracion()`, que es una función pura, y su cabecera los cuenta
+     * como **cinco** —el modelo y las cuatro copias literales de los controladores—. Éste
+     * es un sexto, y no lo puede alcanzar: es privado y **no devuelve lo mismo** —`null` en
+     * vez de `(object)['desempenio' => '']`, a propósito—. Quien recuente esa lista, que
+     * cuente seis. Lo que sujeta éste es
+     * `BoletinPorCompetenciasTest::test_la_frontera_de_enteros_ya_no_deja_a_nadie_sin_banda`,
+     * que lo mira por la respuesta y se ha visto en rojo con la regla vieja.
+     *
      * ## `null` sigue siendo una respuesta, no un fallo
      *
      * Con las fronteras cerradas quedan **dos** formas legítimas de no caer en ninguna
