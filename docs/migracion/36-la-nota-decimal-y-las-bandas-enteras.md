@@ -64,6 +64,33 @@ sin rejilla, sin competencias y sin desempeños.
 > **la suite entera no se había corrido al commitear**, por una ventana de silencio pedida por
 > otra sesión, y hace falta antes de desplegar: toca ocho consultas de informes.
 
+> ### Y una forma de rojo que hay que saber leer: **una prueba se pone roja porque el fallo se arregló**
+>
+> `BoletinPorCompetenciasTest > sin definitiva y fuera de escala se cuentan por separado` se puso
+> **roja en `main`** con el arreglo dentro, y **no es una regresión: el test estaba certificando el
+> agujero**. Monta `BAJO 0-29 · ALTO 30-100` con una definitiva de **29,5** y esperaba
+> `sin_banda = 1`, que es exactamente lo que `porc_final >= nota` producía. Con la regla nueva ese
+> 29,5 cae en BAJO y el contador da 0.
+>
+> **En el recuento son indistinguibles**: «1 failed» se lee igual venga de una regresión o de una
+> expectativa que envejeció con el arreglo. Lo único que las separa es **el número viejo, el nuevo
+> y el montaje delante** — por eso se escribe aquí con la escala y la nota, y no como «un test que
+> hubo que tocar».
+>
+> **Y no se arregla poniendo `0` en el esperado**: eso haría pasar el test **borrando la mitad de
+> lo que comprobaba**, que era que los dos motivos —sin definitiva y fuera de escala— se cuentan
+> por separado. Se remonta sobre una de las dos formas que **siguen siendo legítimas**: una escala
+> con un **hueco de verdad**, puesto por el colegio, o una nota **por encima del techo**. Su hermano
+> `RejillaPremarcadaTest` ya usa la primera —`[0,59]` y `[61,100]` con un 60— y por eso siguió
+> verde: **ese 60 no cae en ninguna banda y debe seguir sin caer.**
+>
+> #### ¿Hay más pruebas que codifiquen una frontera de enteros como si fuera un hueco?
+>
+> **Medido, no supuesto: una, y es ésa.** Barridos los ocho ficheros de `tests/` que montan
+> escalas, buscando notas con decimales: **el único decimal de toda la suite es ese `29,5`**.
+> `RejillaPremarcadaTest` no usa ninguno, y los demás montan bandas sueltas sin frontera contigua.
+> Así que **la familia queda cerrada** y no hay una segunda esperando en una clase que nadie tocó.
+
 **Lo que este documento midió sigue siendo lo que vale**, y por eso no se reescribe: dejó el
 mecanismo, la población y las salidas con su precio, que es lo que permitió decidir en cinco
 minutos. Lo que le faltaba eran los cinco sitios de PHP.
