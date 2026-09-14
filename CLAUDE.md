@@ -489,6 +489,26 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
 - **Pint** solo sobre lo que escribió la migración (ver `composer.json`).
   Reformatear los 113 de golpe sería un diff ilegible; se formatea el día
   que se toca cada fichero.
+
+  > **Y son TRES comandos parecidos que miden y hacen cosas distintas. Costó tres
+  > diagnósticos equivocados entre dos sesiones el 13 sep 2026**, así que va aquí:
+  >
+  > | | |
+  > |---|---|
+  > | `composer run pint:test` | **comprueba** y no toca nada — **es el que dice si el repo está verde** |
+  > | `composer run pint` | **ESCRIBE**: formatea los ficheros de la lista |
+  > | `pint --test` a secas | mide **todo el repo**, incluido lo que no se formatea a propósito |
+  >
+  > Los dos primeros corren sobre **la lista curada de `composer.json`** —hoy **398**
+  > ficheros—; el tercero sobre **647**, y da `FAIL` con **190** avisos que son deuda
+  > conocida de `tools/`, `app/Exports` y `app/Exceptions`. **Las dos cifras son
+  > correctas y cuentan poblaciones distintas**: con la tercera se archivó como ruido un
+  > rojo real que llevaba desde el 7 sep en `CorsDelEscritorioTest`.
+  >
+  > **La confusión cara es la segunda**, no la tercera: quien corre `composer run pint`
+  > *para comprobar* **reformatea ficheros sin pedirlo**. En un árbol que comparten
+  > varias sesiones eso no rompe nada por sí solo —formatear no estaña— pero **le deja a
+  > otro cambios que no hizo**, y el siguiente que commitee ahí se los lleva.
 - **Larastan nivel 7**, y no baja. El **6 se salta a propósito**: sus 1.940
   errores son anotación pura, ninguno señala código que pueda fallar y el 68% cae
   en los controladores — se paga fichero a fichero, como el formato. El porqué
