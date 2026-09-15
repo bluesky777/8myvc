@@ -154,6 +154,24 @@
 > **2295 = los 2282 de `main` + los 13 nuevos**, y ninguna prueba existente se movió.
 > `composer run pint:test` PASS sobre 405 ficheros y `composer run stan` `[OK] No errors`.
 >
+> ### ✅ El avance del docente en promedio (15 sep, `fix/avance-del-docente-en-promedio`)
+>
+> **Cuarta que levanta `myvc-front-8d` desde fuera, y la primera que no es un hueco de
+> autorización sino una cuenta que deja de medir lo que dice.**
+> `ChangeAskedController::getToMe` publica un avance por docente, mitad unidades y
+> mitad subunidades. En promedio la segunda mitad no puede estar bien nunca —nadie
+> mantiene `subunidades.porcentaje`, que es el trabajo que la entrega le quita al
+> docente, y la columna entra a **0**— así que **el colegio entero se quedaría al 50 %
+> como techo**. Medido con mutación: sin el arreglo sale exactamente `50.0`.
+>
+> Es la misma familia que el fallo que ya estaba documentado encima de esa consulta
+> —un boletín independiente hacía sumar 200 y bajaba el avance igual—: **la métrica
+> castiga una condición que el docente no controla.**
+>
+> Y el front no podía taparla como las demás: los otros llamantes de
+> `porcentajeParaPintar` son rótulos, y **éste sale como juicio sobre el trabajo de una
+> persona**.
+>
 > ### ✅ Y el `acepto_recalcular` que faltaba — EN `main` (`9684a6f`, 15 sep)
 >
 > El doc 28 §5.5 pedía que encender el reparto avisara con el recuento antes de

@@ -25,6 +25,7 @@ use App\Http\Controllers\Perfiles\Publicaciones;
 use Carbon\Carbon;
 use \DateTime;
 use \Log;
+use App\Support\RepartoDeLaNota;
 
 
 class ChangeAskedController extends Controller {
@@ -580,9 +581,36 @@ class ChangeAskedController extends Controller {
 				// La condición va **sólo en la `u` de fuera**: la derivada `r` entra por
 				// `r.unidad_id=u.id`, así que ya sólo puede emparejar unidades que hayan
 				// pasado este filtro. Repetirla dentro no cambiaría una fila.
+				// **Y la mitad de las SUBUNIDADES deja de medir nada en modo promedio**,
+				// que es el mismo fallo que el párrafo de arriba por el otro lado: el
+				// avance del docente baja sin que él haya hecho nada mal.
+				//
+				// `sub_correctas` pregunta si las subunidades de cada unidad suman 100.
+				// Con `years.reparto_subunidades = 'promedio'` ese reparto **no lo
+				// mantiene nadie** —es justo lo que la Entrega 5 le quita de encima al
+				// docente (28 §5.5)— y `subunidades.porcentaje` es `int NULL DEFAULT 0`,
+				// así que cada subunidad nueva entra con **0** y la unidad deja de sumar
+				// 100 para siempre. La mitad de esta cuenta se quedaría clavada en cero y
+				// **el colegio entero aparecería al 50 % como techo**, sin una sola
+				// pantalla que dijera por qué.
+				//
+				// En promedio la pregunta no tiene sentido, así que **no puede estar
+				// mal**: cuenta como correcta. No se toca `porc_uni`, que sigue siendo de
+				// unidades y las unidades no cambian de modo — es la nota del doc 28
+				// *«`porcentaje_unidades` sigue valiendo»*, que es cierta y que hizo que
+				// esta otra mitad no se mirara.
+				//
+				// Lo levantó `myvc_front` barriendo los llamantes de
+				// `RepartoDeLaNota::porcentajeParaPintar` (15 sep 2026), y es de los que
+				// el front **no podía tapar**: los demás son rótulos y éste es un juicio
+				// sobre el trabajo de una persona.
+				$subCorrectas = RepartoDeLaNota::modoDelAnio($user->year_id) === RepartoDeLaNota::PROMEDIO
+					? '1'
+					: 'IF(count(r.porc_unidad)>0, 0, 1)';
+
 				$porcentaje = DB::select('SELECT sum(if( r2.porc_uni=100, 1, 0)) uni_correctas, SUM(r2.sub_correctas) sub_correctas
 										FROM (
-											SELECT  sum(u.porcentaje) porc_uni, u.asignatura_id, IF(count(r.porc_unidad)>0, 0, 1) sub_correctas, a.profesor_id
+											SELECT  sum(u.porcentaje) porc_uni, u.asignatura_id, '.$subCorrectas.' sub_correctas, a.profesor_id
 											FROM unidades u
 											inner join asignaturas a ON a.id=u.asignatura_id and a.deleted_at is null
 											inner join grupos g ON g.id=a.grupo_id and g.deleted_at is null and g.year_id=?

@@ -1186,6 +1186,27 @@ un ajuste de pantalla:
   nada.
 - **`porcentaje_unidades`** —la comprobación de que la asignatura suma 100— **sigue
   valiendo**: es de unidades, y las unidades no cambian de modo.
+
+  > **Y esa frase, siendo cierta, tapó a su hermana.** Hay una segunda comprobación
+  > de «¿suma 100?» que es de **sub**unidades y que sí deja de valer:
+  > `ChangeAskedController::getToMe` publica un **avance por docente** que sale a
+  > medias de las dos (`:646`). En promedio nadie mantiene `subunidades.porcentaje`
+  > —es el trabajo que esta entrega le quita al docente— y la columna es
+  > `int NULL DEFAULT 0`, así que **la mitad de esa barra se queda clavada en cero** y
+  > el colegio entero aparece al **50 %** como techo. Medido con mutación el 15 sep:
+  > sin el arreglo sale exactamente `50.0`.
+  >
+  > **No es un rótulo, es un juicio sobre el trabajo de una persona**, y por eso no lo
+  > podía tapar el front como los demás. Lo levantó `myvc_front` barriendo los
+  > llamantes de `RepartoDeLaNota::porcentajeParaPintar` — que tiene **uno solo**
+  > (`NotasController:298`), o sea que todo lo demás proyecta `s.porcentaje` crudo.
+  > Arreglado: en promedio la pregunta no se hace, porque no puede estar mal. Lo fija
+  > [`AvanceDelDocenteEnPromedioTest`](../../tests/Contrato/AvanceDelDocenteEnPromedioTest.php).
+  >
+  > Los demás llamantes **sí** son rótulos y se quedan: `BoletinIndependienteController`
+  > (489, 1278, 1910, 2017), `BolfinalesController:208`, `NotasPerdidasController`
+  > (78, 311) y `Models/Subunidad` (53, 71, 117, 143). Los tapa el front escondiendo el
+  > número donde no gobierna.
 - **Rúbricas** ([26](26-rubricas.md)) y **nivelaciones** ([22](22-nivelaciones.md)) no
   se ven afectadas: las dos producen `notas.nota`, y el modo actúa **después**.
 
