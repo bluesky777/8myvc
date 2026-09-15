@@ -113,18 +113,50 @@
 >    cerrar; decían lo mismo **porque comparten plantilla**, no porque nadie lo
 >    decidiera.
 >
+> ### ✅ Verde, medido sobre `ce198db` con el contenedor sin ninguna otra suite viva
+>
+> ```
+> Tests: 1 skipped, 2319 passed   (php artisan test, .worktrees/tc, ce198db, 21:13 UTC 15 sep)
+> Tests: 1 skipped, 2163 passed   (--testsuite=Contrato)
+> Tests: 147 passed               (--testsuite=Unit)
+> Tests: 9 passed                 (--testsuite=Feature)
+> ```
+>
+> **La resta cuadra** —2163 + 147 + 9 = 2319—, que es la única forma de saber que las
+> cuatro hablan de lo mismo. `composer run stan` → `[OK] No errors`; `composer run
+> pint:test` → `PASS, 408 files`; `tools/secciones-citadas.py` → 0 huérfanas de 2.321
+> citas. Las **25 instantáneas** regeneradas: `25 files changed, 50 insertions(+)`,
+> **cero borrados**.
+>
+> > **Y antes de esa cifra hubo dos corridas sucias que NO eran del código, apuntadas
+> > porque el patrón vuelve.** Una dio `45 failed` y otra `70 failed`, repartidos por
+> > `LoginTest`, `CiudadesTest`, `SesionTest` — clases que esta rama no toca. Eran
+> > **184 deadlocks en `personal_access_tokens`**, todos contra
+> > `simonbolivar_testing_tc`: había **dos suites mías a la vez contra la misma base**,
+> > porque encadené `--testsuite=Contrato` a una suite entera que aún no había muerto.
+> > Es el deadlock que ya describe la cabecera de `tools/construir-bd-test.sh`.
+> >
+> > Lo que lo distingue de una regresión en un vistazo: **los rojos no tienen nada que
+> > ver entre sí ni con lo que se tocó**. Y la orden que lo dice sin interpretar nada
+> > —el censo hay que hacerlo **por árbol**, porque otra sesión corriendo en su propio
+> > worktree y su propia base no estorba:
+> >
+> > ```bash
+> > docker exec 8myvc-app-1 ps -eo pid,lstart,args | grep "[a]rtisan test"
+> > docker exec 8myvc-app-1 readlink /proc/<pid>/cwd     # de qué worktree es
+> > ```
+>
 > ### Lo que falta, y en este orden
 >
-> 1. **La suite entera y regenerar las instantáneas** — 6 por la fila entera de `years`
->    y 19 por la proyección de `Year::datos()`, contadas antes con
->    `tools/lo-que-reparte-una-columna.py years`.
-> 2. **`pint:test` y `stan`.**
-> 3. **El front**, en sesión aparte y con el encargo ya escrito (§10 del doc 38). Ojo a
+> 1. **Fundir a `main`** — la rama está verde y sin fundir a propósito: este commit
+>    cambia el título de un papel firmado en los dieciséis, así que se mira antes.
+> 2. **El front**, en sesión aparte y con el encargo ya escrito (§10 del doc 38). Ojo a
 >    la trampa: `isCoalSchool()`/`cabeceraPropia()` gobiernan **cinco sitios** y sólo
 >    uno es el título — borrarlas cambia cuatro cosas más del papel de esos dos
 >    colegios.
-> 4. **El front NO se publica hasta que la API esté desplegada**, no sólo fusionada:
+> 3. **El front NO se publica hasta que la API esté desplegada**, no sólo fusionada:
 >    contra una API sin la columna, la cabecera del certificado sale **en blanco**.
+> 4. **Avisar a `coal` y `coljordan`** antes de desplegar.
 >
 > ### Y una cosa que se vio de camino y NO entra aquí
 >
