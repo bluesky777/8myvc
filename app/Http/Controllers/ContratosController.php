@@ -21,10 +21,31 @@ class ContratosController extends Controller {
 		return $profesores;
 	}
 
+	/**
+	 * **Contratar a un profesor en un año cerrado: cerrado desde el 15 sep 2026.**
+	 *
+	 * Decisión de Joseth, que sube la lista del año cerrado de **diez a trece**. Iba
+	 * fuera porque se creía que un `store` que estampa `$user->year_id` **no podía
+	 * apuntar a un año cerrado**, y eso resultó ser falso: lo elige la barra de año
+	 * —`PUT years/useractive/{year_id}`, `auth.personal`, escribe `users.periodo_id`
+	 * sin mirar el año— y `ContextoDeUsuario:169` deriva el `year_id` de ahí.
+	 *
+	 * **El corte va delante del `SELECT` que mira si ya está contratado**, y no
+	 * después: aquel `SELECT` filtra por `c.year_id = $user->year_id`, o sea que en
+	 * un año cerrado contesta sobre el año cerrado. Ponerlo detrás dejaría que un
+	 * cuerpo con un profesor ya contratado se llevara el **400 de «ya contratado»**
+	 * en vez del 403 — dos respuestas distintas para la misma llamada según el
+	 * estado de otra fila, que es de lo que vive `respuestas-que-mienten.py`.
+	 *
+	 * Y aquí el desequilibrio era el mismo que en sus dos vecinos: `deleteDestroy`
+	 * ya llevaba candado, así que se podía **contratar en 2023 y no descontratar**.
+	 */
 	public function postIndex()
 	{
 
 		$user = User::fromToken();
+
+		Autoriza::exigirEscrituraEnElAnio($user, $user->year_id ?? null, 'Ese contrato');
 
 		$consulta = 'SELECT p.id as profesor_id, p.nombres
 				from profesores p

@@ -21,10 +21,38 @@ class FrasesController extends Controller {
 		return $frases;
 	}
 
+	/**
+	 * **Y éste también lleva el candado desde el 15 sep 2026** — decisión de Joseth,
+	 * que sube la lista del año cerrado de **diez a trece**.
+	 *
+	 * Entró porque la premisa con la que se dejó fuera el 14 sep **no era cierta**.
+	 * `docs/migracion/16-escribir-en-un-anio-pasado.md` razonaba que los tres `store`
+	 * de catálogo no necesitaban candado *«porque estampan `$user->year_id`, así que
+	 * no pueden sembrar fuera de su año»*. Lo segundo no se sigue de lo primero: **el
+	 * año de la sesión lo elige la barra de año**, y lo levantó `myvc_front` al
+	 * implementar su lado.
+	 *
+	 *     PUT years/useractive/{year_id}   auth.personal, y NO mira si el año está cerrado
+	 *       -> YearsController:758-778     $usuario->periodo_id = <un periodo de ese año>
+	 *       -> ContextoDeUsuario:169       left join years y on y.id=per.year_id
+	 *       -> $user->year_id              el año cerrado
+	 *
+	 * Medido en la copia de desarrollo: `years` id 6 = 2023 con `actual = 0` y los
+	 * `periodos` 22–25 colgando de él; con `AnioCerrado` —`year < MIN(actual = 1)`, o
+	 * sea `< 2025`— está cerrado. O sea que se sembraba en un año cerrado **por el
+	 * camino normal**, no por una llamada rebuscada.
+	 *
+	 * **Y lo que lo hace peor que un descuido simétrico: `deleteDestroy` sí llevaba
+	 * candado.** Un docente podía crear una frase en 2023 y **no podía luego
+	 * borrarla**, ni editarla. La única puerta que quedaba abierta era la que produce
+	 * filas que nadie de los 74 puede quitar.
+	 */
 	public function postStore()
 	{
 		$user = User::fromToken();
-		
+
+		Autoriza::exigirEscrituraEnElAnio($user, $user->year_id ?? null, 'Esa frase');
+
 		$frase = new Frase;
 		$frase->frase		= Request::input('frase');
 		$frase->tipo_frase	= Request::input('tipo_frase');

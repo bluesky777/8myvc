@@ -50,6 +50,45 @@
 > `EscalasDeValoracionController::postStore`. Aquí, crear un artículo del manual de 2022
 > **es una llamada**, no un descuido de contexto.
 >
+> > ### ❌ ESA SEGUNDA MITAD ERA FALSA — corregido el 15 sep 2026, y la lista sube a TRECE
+> >
+> > *«Estampan `$user->year_id`, así que no pueden sembrar fuera de su año»* junta dos
+> > cosas ciertas y saca una que no lo es. **Lo que faltaba era preguntar quién escribe
+> > el año de la sesión**, y lo escribe la barra de año:
+> >
+> > ```
+> > PUT years/useractive/{year_id}    auth.personal, y NO mira si el año está cerrado
+> >   YearsController:758-778         $usuario->periodo_id = <un periodo de ese año>
+> >   ContextoDeUsuario:169           left join years y on y.id=per.year_id
+> >   $user->year_id                  el año cerrado
+> > ```
+> >
+> > `putUseractive` **no escribe `users.year_id`**: escribe `users.periodo_id`, que es
+> > justo la columna de la que el contexto deriva el año. Medido en la copia de
+> > desarrollo: `years` id **6** = 2023 con `actual = 0` y los `periodos` **22–25**
+> > colgando de él; con `AnioCerrado` —`year < MIN(year donde actual = 1)`, o sea
+> > `< 2025`— está cerrado.
+> >
+> > **Quién lo levantó importa, porque dice dónde estaba el punto ciego**: lo levantó
+> > `myvc_front` implementando su lado de los 403 — desde fuera se veía que el aviso al
+> > usuario tenía que decir dos cosas distintas y que la regla quedaba rara de leer. De
+> > este lado se había mirado el código, se había encontrado que el año viene de
+> > `periodo_id` y se había dado la cadena por cerrada **un eslabón antes del que
+> > decidía**.
+> >
+> > **Decisión de Joseth del 15 sep: se cierran los tres `store`**, y la lista pasa de
+> > **diez a trece**. El argumento que había para dejarlos fuera no era sólo la premisa
+> > falsa —de `escalas/store` sigue siendo cierto que la banda nace en 91–100 y no
+> > recoge ninguna nota—: lo que inclina la decisión es que **`deleteDestroy` sí llevaba
+> > candado en los tres**, así que la única puerta abierta era la que fabrica filas que
+> > luego nadie de los 74 puede quitar.
+> >
+> > Lo fija [`AltaEnUnAnioCerradoTest`](../../tests/Contrato/AltaEnUnAnioCerradoTest.php),
+> > **cuyo primer caso no comprueba ningún candado: comprueba la premisa.** Una decisión
+> > tomada sobre un hecho necesita que ese hecho tenga un test, o se vuelve a decidir mal
+> > — y aquí ni el código ni este documento lo habrían delatado, porque los dos decían lo
+> > mismo y los dos estaban equivocados.
+>
 > ### ⚠️ ESTO SÍ ROMPE UNA PANTALLA, Y HAY QUE AVISAR AL FRONT
 >
 > Lo dice la §4 de este documento y sigue siendo verdad: **Disciplina ▸ Ordinales tiene un
@@ -270,9 +309,10 @@ escalas.
 
 ## Lo que NO cambia decida lo que decida
 
-- **Ninguno de los cuatro `store` cambia**: crear siempre estampa el año del
-  usuario, salvo `ordinales/store`, que **lo toma del cuerpo** — que es la otra
-  mitad de la misma pregunta y va con ella.
+- ~~**Ninguno de los cuatro `store` cambia**: crear siempre estampa el año del
+  usuario, salvo `ordinales/store`, que **lo toma del cuerpo**.~~ **Los cuatro
+  cambiaron** (15 sep 2026): «estampa el año del usuario» no implica «no llega a un año
+  cerrado», porque ese año lo mueve la barra. Ver el recuadro de la §1.
 - **Leer no se toca.** La pregunta es sobre escribir; consultar el manual de
   convivencia de 2022 o las escalas de 2019 seguiría funcionando en cualquiera de
   las tres opciones.

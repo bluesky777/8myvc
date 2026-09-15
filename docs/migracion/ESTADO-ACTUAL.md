@@ -212,7 +212,17 @@
 > > le queda. Su caducidad se comprueba en una orden:
 > > `git merge-base --is-ancestor <commit> main`.
 >
-> ### ⚠️ PENDIENTE DE JOSETH — la asimetría de los `store`, con la premisa MEDIDA (15 sep)
+> ### ✅ RESUELTO EL MISMO DÍA — los tres `store` entran, y la lista sube a TRECE (15 sep)
+>
+> **Decisión de Joseth del 15 sep**, con la premisa medida delante. Cerrados
+> `frases/store`, `escalas/store` y `POST contratos`; lo fija
+> [`AltaEnUnAnioCerradoTest`](../../tests/Contrato/AltaEnUnAnioCerradoTest.php) —cuatro
+> casos, y el primero **comprueba la premisa y no el candado**—, y el antes y el después
+> está en [16](16-escribir-en-un-anio-pasado.md) §1. **`myvc-front-8d` avisado: son
+> trece, y de su lado son tres líneas.** Lo que sigue es el porqué, que se conserva
+> porque es la parte que costó:
+>
+> ### La asimetría de los `store`, y la premisa que no aguantó
 >
 > Hoy, en un año cerrado, **no se corrige la errata de una frase y sí se añade una frase
 > nueva**: `update` y `destroy` están cerrados en `frases`, `escalas` y `contratos`, y el

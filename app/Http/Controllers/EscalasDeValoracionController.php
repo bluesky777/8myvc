@@ -26,25 +26,37 @@ class EscalasDeValoracionController extends Controller {
 
 
 	/**
-	 * **Y éste NO lleva el candado del año cerrado, a propósito** (14 sep 2026).
+	 * **Éste SÍ lleva el candado desde el 15 sep 2026**, y hasta entonces decía aquí
+	 * que no lo llevaba a propósito. Merece la pena por qué cambió, porque **de los
+	 * dos motivos que tenía, uno era falso y el otro sigue siendo cierto**.
 	 *
-	 * Es la pregunta que salta sola al ver el guard en `putUpdate` y `deleteDestroy`,
-	 * así que va contestada aquí en vez de quedar como un hueco con pinta de olvido.
+	 * **El que era falso**: *«crear estampa el año del usuario —no uno del cuerpo—,
+	 * así que no puede sembrar fuera de su año»*. Lo segundo no se sigue de lo
+	 * primero: **el año de la sesión lo elige la barra de año**. `PUT
+	 * years/useractive/{year_id}` es `auth.personal`, no mira si el año está cerrado
+	 * y escribe `users.periodo_id` (`YearsController:758-778`), que es justo la
+	 * columna de la que `ContextoDeUsuario:169` deriva el `year_id`. Lo levantó
+	 * `myvc_front` implementando su lado; medido en la copia de desarrollo, `years`
+	 * id 6 = 2023 con `actual = 0` y los `periodos` 22–25 colgando de él.
 	 *
-	 * Crear estampa **el año del usuario** —no uno del cuerpo— y la fila nace
-	 * siempre en **91–100**, que está por encima del techo de las escalas reales
-	 * (la de `simonbolivar` acaba en 50). O sea que **una banda recién creada no
-	 * recoge ninguna nota y no cambia ni un boletín**: para que hiciera daño habría
-	 * que moverle los rangos, y eso es `putUpdate`, **que sí lleva el candado**.
+	 * **El que sigue siendo cierto**: la fila nace en **91–100**, por encima del
+	 * techo de las escalas reales (la de `simonbolivar` acaba en 50), así que **una
+	 * banda recién creada no recoge ninguna nota y no cambia ni un boletín**. Eso no
+	 * ha dejado de ser verdad y por sí solo no justificaría el candado.
 	 *
-	 * Es también lo que dejó escrito `docs/migracion/16-escribir-en-un-anio-pasado.md`
-	 * en «Lo que NO cambia decida lo que decida»: *ninguno de los cuatro `store`
-	 * cambia*.
+	 * **Lo que inclina la decisión es la asimetría con `deleteDestroy`**, que sí lo
+	 * llevaba: cualquiera de los 74 podía crear una banda en 2023 y **no podía luego
+	 * borrarla ni moverla**. La única puerta abierta era la que fabrica filas que
+	 * nadie puede quitar — inofensivas de una en una y permanentes. Decisión de
+	 * Joseth del 15 sep, que sube la lista de **diez a trece**;
+	 * `docs/migracion/16-escribir-en-un-anio-pasado.md` lleva el antes y el después.
 	 */
 	public function postStore()
 	{
 		$user 	= User::fromToken();
 		$now 	= Carbon::now('America/Bogota');
+
+		Autoriza::exigirEscrituraEnElAnio($user, $user->year_id ?? null, 'Esa escala de valoración');
 
 		$consulta 	= 'INSERT INTO escalas_de_valoracion(desempenio, orden, valoracion, porc_inicial, porc_final, year_id, perdido, created_at) 
 														VALUES("SUPERIOR", 5, "S", 91, 100, ?, 0, ?)';
