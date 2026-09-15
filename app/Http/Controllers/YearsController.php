@@ -155,6 +155,15 @@ class YearsController extends Controller {
 			$year->resolucion                    = $pasado->resolucion;
 			$year->codigo_dane                   = $pasado->codigo_dane;
 			$year->encabezado_certificado        = $pasado->encabezado_certificado;
+			// Los dos títulos de los certificados (doc 38), y van pegados al encabezado
+			// porque son los otros dos textos del mismo papel. Se heredan por lo mismo que
+			// `regla_nivelacion` y las cuatro del modelo de evaluación: **el colegio que
+			// escribió el suyo amanecería con el defecto cada enero**, y el defecto tiene
+			// pinta de decisión. Aquí muerde más que en aquéllas, porque `coal` y
+			// `coljordan` nacen con un título que no es el que quieren y lo corrigen a mano
+			// (§4 del 38): sin esta copia lo corregirían **otra vez cada año**.
+			$year->titulo_certificado_final      = $pasado->titulo_certificado_final;
+			$year->titulo_certificado_periodos   = $pasado->titulo_certificado_periodos;
 			$year->compromiso_familiar_label     = $pasado->compromiso_familiar_label;
 			$year->mensaje_aprobo_con_pendientes = $pasado->mensaje_aprobo_con_pendientes;
 			$year->minu_hora_clase     		 	 = $pasado->minu_hora_clase;
@@ -1431,6 +1440,33 @@ class YearsController extends Controller {
 		if (isset($conDueno[$normalizado])) {
 			abort(422, $conDueno[$normalizado].' se cambia con years/modelo-evaluacion, '
 				.'que exige el permiso de la plantilla de notas.');
+		}
+
+		// **Y los dos títulos del certificado, desde el 15 sep 2026 (doc 38), que es un
+		// TERCER motivo y por eso es una lista aparte y no dos renglones más arriba.**
+		//
+		// No tienen dueño: los escribe `PUT certificados/encabezado` con el mismo
+		// `auth.personal` que esta ruta, así que cortarlos aquí **no le quita el campo a
+		// nadie que pudiera escribirlo**. Lo que tienen es un **invariante de valor** —un
+		// título no puede quedarse vacío, porque lo que se imprimiría entonces es una
+		// cabecera en blanco en un papel firmado— y ese invariante lo mantiene aquella
+		// ruta: rechaza la cadena vacía y el tope de 255.
+		//
+		// Esta ruta escribe `$valor` tal cual llega. Sin este corte, la validación de
+		// allí sería un cartel de «no hagas X» con la puerta de al lado abierta, que es
+		// exactamente la forma de agujero que este repositorio lleva contando: *un
+		// invariante que se pide por escrito se salta; uno que se cierra por mecanismo,
+		// no*. Y no es teórico — es la lección de `modelo_evaluacion` aplicada antes de
+		// cometerla: al ponerle una regla a una columna se repasan **todos** los caminos
+		// que escriben esa tabla, no sólo el que se está tocando.
+		$conInvarianteDeValor = [
+			'titulo_certificado_final' => 'El título del certificado final',
+			'titulo_certificado_periodos' => 'El título del certificado por periodos',
+		];
+
+		if (isset($conInvarianteDeValor[$normalizado])) {
+			abort(422, $conInvarianteDeValor[$normalizado].' se cambia con certificados/encabezado, '
+				.'que comprueba que no quede vacío.');
 		}
 
 		/*

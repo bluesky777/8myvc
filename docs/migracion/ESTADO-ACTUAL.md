@@ -73,6 +73,127 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## ✅ LOS TÍTULOS DEL CERTIFICADO — EN `main` (15 sep 2026)
+>
+> **Rama `feat/titulos-del-certificado`, worktree `.worktrees/tc`, base
+> `simonbolivar_testing_tc`.** Encargo de Joseth de ese día; documento completo en
+> [`38-los-titulos-del-certificado.md`](38-los-titulos-del-certificado.md).
+>
+> El título de «Certificado final» y «Certificado periodos» estaba **escrito dentro de
+> la plantilla** de los dos fronts y el colegio no podía cambiarlo. Pasa a ser dos
+> columnas de `years`, con su pantalla y su herencia al año siguiente.
+>
+> | | |
+> |---|---|
+> | `2026_09_15_100000_titulos_del_certificado` — dos columnas | en la rama |
+> | `Year::datos()` (las **dos** ramas), `TITULOS_POR_DEFECTO`, `LARGO_DEL_TITULO` | en la rama |
+> | `putEncabezado` acepta los tres textos, cada uno opcional | en la rama |
+> | `putToggleCambiarValor` los excluye — invariante de valor | en la rama |
+> | `postStore` los hereda del año anterior | en la rama |
+> | `TitulosDelCertificadoTest` — 20 casos | en la rama |
+>
+> **Ninguna ruta nueva**: no mueve el contador de `CLAUDE.md` ni los tres snapshots de
+> rutas.
+>
+> ### Las TRES decisiones de Joseth de ese día, que es lo que no se puede reconstruir
+>
+> Se le llevaron medidas y las tomó con el precio delante. **La primera es la que
+> cambia papel firmado en los dieciséis colegios**, así que va entera:
+>
+> 1. **Defecto `CONSTANCIA DE DESEMPEÑO ACADÉMICO` para los dieciséis**, sabiendo que
+>    el legacy gana la palabra «ACADÉMICO» en catorce. Hoy se imprimen **tres** textos
+>    distintos —el legacy dice «CONSTANCIA DE DESEMPEÑO», `app2` le añadió «ACADÉMICO»
+>    al migrar y nadie lo notó, y `coal`/`coljordan` dicen «CERTIFICADO DE DESEMPEÑO»
+>    por `document.domain`—, así que **no había un «lo de hoy» que conservar**.
+> 2. **`coal` y `coljordan` amanecen con el defecto** y lo corrigen desde la pantalla,
+>    en vez de dejar vivo el condicional de dominio como respaldo. **A esos dos hay que
+>    avisarles antes de desplegar** — es papel que firman.
+> 3. **El parcial lleva `PARCIAL` detrás** (mismo día, sobre la primera versión de la
+>    entrega, que les había puesto el mismo defecto a los dos). Se emite con el año sin
+>    cerrar; decían lo mismo **porque comparten plantilla**, no porque nadie lo
+>    decidiera.
+>
+> ### ✅ Verde, medido sobre `ce198db` con el contenedor sin ninguna otra suite viva
+>
+> ```
+> Tests: 1 skipped, 2319 passed   (php artisan test, .worktrees/tc, ce198db, 21:13 UTC 15 sep)
+> Tests: 1 skipped, 2163 passed   (--testsuite=Contrato)
+> Tests: 147 passed               (--testsuite=Unit)
+> Tests: 9 passed                 (--testsuite=Feature)
+> ```
+>
+> **La resta cuadra** —2163 + 147 + 9 = 2319—, que es la única forma de saber que las
+> cuatro hablan de lo mismo. `composer run stan` → `[OK] No errors`; `composer run
+> pint:test` → `PASS, 408 files`; `tools/secciones-citadas.py` → 0 huérfanas de 2.321
+> citas. Las **25 instantáneas** regeneradas: `25 files changed, 50 insertions(+)`,
+> **cero borrados**.
+>
+> > **Y antes de esa cifra hubo dos corridas sucias que NO eran del código, apuntadas
+> > porque el patrón vuelve.** Una dio `45 failed` y otra `70 failed`, repartidos por
+> > `LoginTest`, `CiudadesTest`, `SesionTest` — clases que esta rama no toca. Eran
+> > **184 deadlocks en `personal_access_tokens`**, todos contra
+> > `simonbolivar_testing_tc`: había **dos suites mías a la vez contra la misma base**,
+> > porque encadené `--testsuite=Contrato` a una suite entera que aún no había muerto.
+> > Es el deadlock que ya describe la cabecera de `tools/construir-bd-test.sh`.
+> >
+> > Lo que lo distingue de una regresión en un vistazo: **los rojos no tienen nada que
+> > ver entre sí ni con lo que se tocó**. Y la orden que lo dice sin interpretar nada
+> > —el censo hay que hacerlo **por árbol**, porque otra sesión corriendo en su propio
+> > worktree y su propia base no estorba:
+> >
+> > ```bash
+> > docker exec 8myvc-app-1 ps -eo pid,lstart,args | grep "[a]rtisan test"
+> > docker exec 8myvc-app-1 readlink /proc/<pid>/cwd     # de qué worktree es
+> > ```
+>
+> ### ✅ Fundida, y remedida después de fundir
+>
+> `main` había avanzado **tres commits** mientras esto se escribía —el aviso del
+> reparto, que toca **el mismo `YearsController`**—, así que `main` se fundió **primero
+> dentro de la rama** y se midió ahí: fundir y medir después deja `main` roto mientras
+> se mide. Auto-fundió sin conflicto, y eso **no basta**: git funde por líneas y no por
+> sentido, así que se comprobó a mano que los bloques siguen donde deben —`main` tocó
+> `putModeloEvaluacion`, esta rama `postStore` y `putToggleCambiarValor`, y no se
+> pisan—.
+>
+> ```
+> Tests: 1 skipped, 2325 passed   (php artisan test, .worktrees/tc, 7285380, 22:42 UTC)
+> composer run stan      -> [OK] No errors
+> composer run pint:test -> PASS, 409 files
+> ```
+>
+> **2.325 y no 2.319**: los seis de diferencia son de `AceptoRecalcularElRepartoTest`,
+> que vino con `main`. Se dice porque la cifra sube sin que esta entrega añada un solo
+> test, y sin esa línea el próximo que reste se pregunta de dónde salieron.
+>
+> **`route:list --json` en el ÁRBOL PRINCIPAL, después de fundir: 603**, el mismo que
+> dice `CLAUDE.md`. Esta entrega afirmaba «cero rutas nuevas», y **ésa es la
+> comprobación de que era verdad**, no una formalidad: se cuenta igual cuando se espera
+> que no se mueva, porque un contador sólo verificado cuando cambia no verifica nada.
+>
+> ### Lo que falta
+>
+> 1. **El front**, en sesión aparte y con el encargo ya escrito (§10 del doc 38). Ojo a
+>    la trampa: `isCoalSchool()`/`cabeceraPropia()` gobiernan **cinco sitios** y sólo
+>    uno es el título — borrarlas cambia cuatro cosas más del papel de esos dos
+>    colegios.
+> 2. **El front NO se publica hasta que la API esté desplegada**, no sólo fusionada:
+>    contra una API sin la columna, la cabecera del certificado sale **en blanco**.
+>
+> **Y a `coal` y `coljordan` NO se les avisa** (Joseth, 15 sep: *«no importa lo de
+> avisar»*). Se dice en negativo y no se borra la línea, porque el §4 del doc 38 llegó
+> a recomendar lo contrario: una recomendación retirada que no se tacha se lee como
+> pendiente, y pararía el despliegue de la siguiente sesión buscando un correo que
+> nadie tiene que mandar.
+>
+> ### Y una cosa que se vio de camino y NO entra aquí
+>
+> **`years.frase_final_certificado` no la escribe nadie.** Se imprime en los dos fronts
+> y la única escritura en toda la API es la copia al año siguiente: ni pantalla, ni
+> ruta, ni cliente. Es `profesores.tono` antes del 4 sep con otro nombre. Se deja
+> escrito en el §11 del doc 38 y **no se arregla en esta entrega**, porque es otra
+> decisión —¿misma pantalla?, ¿mismo `PUT`?— y meterla aquí la convertiría en dos.
+
 > ## ✅ ENTREGA 5 (modo promedio) — EN `main` (15 sep 2026)
 >
 > **Rama `feat/modo-promedio`, worktree `.worktrees/f7`, base `simonbolivar_testing_f7`.**
