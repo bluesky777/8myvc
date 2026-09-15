@@ -241,6 +241,19 @@ class SubunidadesController extends Controller {
 	 * así que la definitiva que sale al boletín cambia. Y cambia enseguida, porque
 	 * este mismo método recalcula la asignatura veinte líneas más abajo.
 	 *
+	 * > **Ese fragmento hay que leerlo con el modo del año delante desde la Entrega
+	 * > 5** (28 §5.5). Con `years.reparto_subunidades = 'promedio'` la mitad de
+	 * > dentro **no es `s.porcentaje/100` sino `1/n`**, así que esta columna deja de
+	 * > gobernar la definitiva.
+	 * >
+	 * > **Lo que no cambia es que haya que conservarla — y el motivo se invierte**,
+	 * > que es lo incómodo: en `porcentaje` se conserva porque un `null` movería la
+	 * > nota hoy y se vería; en `promedio` se conserva porque **apagar el interruptor
+	 * > tiene que devolver el reparto que tecleó el docente**, y ahí un `null` no
+	 * > movería nada hasta el día que el colegio se volviera atrás. El modo taparía
+	 * > el síntoma y no la pérdida. Lo fija
+	 * > `RepartoDeLasSubunidadesTest::el_modo_promedio_no_reescribe_los_porcentajes_del_docente`.
+	 *
 	 * El defecto se toma de la fila, que es lo que ya decidió la §68, y **no**
 	 * `CamposQueVinieron`: eso hace falta donde el controlador hace `Request::merge()`
 	 * antes de leer y `has()` deja de distinguir, y aquí no lo hace nadie.

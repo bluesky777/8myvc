@@ -455,7 +455,18 @@ class UnidadesController extends Controller {
 		$unidad = Unidad::findOrFail($id);
 		// **`porcentaje` no es un dato descriptivo: es un factor de la definitiva.**
 		// La nota sale de `(u.porcentaje/100) * ((s.porcentaje/100) * n.nota)`, y el
-		// recálculo está diez líneas más abajo, en este mismo método. Con
+		// recálculo está diez líneas más abajo, en este mismo método.
+		//
+		// **La Entrega 5 no toca ESTE factor, y es una decisión escrita y no un
+		// olvido** (28 §5.5): el modo promedio sustituye la mitad de dentro —la de la
+		// subunidad— por `1/n` y deja `u.porcentaje/100` como está, porque los
+		// porcentajes de las unidades los pone el colegio **una vez al año en la
+		// plantilla** y no le cuestan nada al docente; los de las subunidades los
+		// teclea él en cada asignatura. *Se quita el que cuesta.* O sea que este
+		// comentario sigue siendo cierto entero **en los dos modos**, que es más de lo
+		// que puede decir el de su vecino `SubunidadesController::putUpdate`.
+		//
+		// Con
 		// `Request::input('porcentaje')` a secas, un cuerpo que sólo traía
 		// `definicion` —corregirle la redacción a un logro— dejaba el peso en null y
 		// **cambiaba la nota que va al boletín**, en 200 y sin avisar. Y el de la

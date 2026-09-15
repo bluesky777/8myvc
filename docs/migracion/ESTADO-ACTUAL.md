@@ -147,6 +147,13 @@
 > tolerancia de `porcentajeSubunidades` (`UnidadModel.dart:83`) absorbe el redondeo a dos
 > decimales para cualquier `n` (con 7 subunidades: 14,29 × 7 = 100,03).
 >
+> ### Y la corrida que la cierra
+>
+> `Tests: 1 skipped, 2295 passed (22472 assertions)` — `php artisan test`, `.worktrees/f7`,
+> sobre **`cfbee15`**, con `HEAD` y pendientes idénticos antes y después (06:39 → 06:54).
+> **2295 = los 2282 de `main` + los 13 nuevos**, y ninguna prueba existente se movió.
+> `composer run pint:test` PASS sobre 405 ficheros y `composer run stan` `[OK] No errors`.
+>
 > ### Lo que queda
 >
 > - **Fundir.** La entrega no añade rutas, así que **el contador de `CLAUDE.md` no se
@@ -191,9 +198,53 @@
 > comprobar**: hay una decisión cerrada de Joseth de que CORS va a `*`, así que lo que
 > procede es comprobar si esa decisión sigue en pie antes de tocar nada.
 
-> ## UN AÑO CERRADO YA NO LO ESCRIBE CUALQUIERA — 14 sep 2026, rama `fix/escribir-en-un-anio-cerrado`
+> ## ✅ UN AÑO CERRADO YA NO LO ESCRIBE CUALQUIERA — 14 sep 2026, EN `main`
 >
-> **Sin fundir.** Worktree `.worktrees/anios`, base `simonbolivar_testing_anios`.
+> **Fundido**: `b294ace` y `cfa45fa`. La rama `fix/escribir-en-un-anio-cerrado` ya no
+> existe y el worktree `.worktrees/anios` no hace falta para leer esto.
+>
+> > **Este renglón decía «Sin fundir» hasta el 15 sep**, con las dos mitades en `main`
+> > desde el día anterior. No lo cazó ningún test —aquí no hay ninguno que mire— ni nadie
+> > de este repositorio: lo dijo **`myvc-front-8d`**, que había implementado su lado
+> > contra esa lista y sabía dónde estaba. Es lo que avisa la cabecera de este documento:
+> > **una instrucción no envejece a «hecho», envejece a mentira**, y «sin fundir» es una
+> > instrucción disfrazada de hecho — le dice al que llega que le queda un trabajo que no
+> > le queda. Su caducidad se comprueba en una orden:
+> > `git merge-base --is-ancestor <commit> main`.
+>
+> ### ⚠️ PENDIENTE DE JOSETH — la asimetría de los `store`, con la premisa MEDIDA (15 sep)
+>
+> Hoy, en un año cerrado, **no se corrige la errata de una frase y sí se añade una frase
+> nueva**: `update` y `destroy` están cerrados en `frases`, `escalas` y `contratos`, y el
+> alta no. En `ordinales` el alta también se cerró.
+>
+> **La pregunta no es la asimetría: es sobre qué premisa se decidió.** El doc 16 razona
+> que los otros tres `store` no necesitan candado porque «estampan `$user->year_id`, así
+> que no pueden sembrar fuera de su año». **Eso es falso, y medido el 15 sep**: el año de
+> la sesión **lo elige la barra de año**, y estos son los cuatro eslabones, leídos y no
+> inferidos —lo levantó `myvc-front-8d`, y esta sesión lo había dado por bueno al revés—:
+>
+> ```
+> routes/api/estructura.php:165   PUT years/useractive/{year_id}      <- auth.personal, los 74
+> YearsController:758-778         $usuario->periodo_id = $peri->id    <- de CUALQUIER año con periodos
+> ContextoDeUsuario:169           left join years y on y.id=per.year_id  ->  y.id as year_id
+> FrasesController:31             $frase->year_id = $user->year_id
+> ```
+>
+> Y el dato, en la copia de desarrollo: `years` id **6** = 2023 con `actual = 0`, y los
+> `periodos` **22–25** cuelgan de él. Con `AnioCerrado` —cerrado es
+> `year < MIN(year donde actual = 1)`, o sea `< 2025`— **2023 está cerrado**, y
+> `putUseractive` no mira el año: si tiene periodos, mete al usuario dentro.
+>
+> **O sea que sí se siembra en un año cerrado, y por el camino normal.** Si Joseth quiere
+> la asimetría tal cual, se queda y se escribe por qué; si se decidió creyendo que el alta
+> no llegaba, **faltan tres `store`** en la lista de diez — tres guardas aquí y tres líneas
+> en `myvc_front`, que ya tiene el predicado montado. **No se mueve nada hasta que
+> conteste**: la lista de diez es decisión suya del 14 sep.
+>
+> `ordinales/store` sigue siendo distinto de los otros tres y por lo que dice el doc 16:
+> es el único que toma el `year_id` **del cuerpo**, así que en él un año cerrado es
+> alcanzable **sin pasar por la barra**. Por la barra lo son los cuatro.
 >
 > Salió de una pregunta de Joseth sobre si las competencias podían estropear los boletines
 > viejos. **La respuesta a eso es que no** —todo lo de la feature nueva es por año, las
