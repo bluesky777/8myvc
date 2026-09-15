@@ -71,9 +71,59 @@ namespace App\Support;
  * lo que dicen deja de ser verdad para la mitad de los colegios. Pero son
  * documentación, no sitios que haya que enrutar por aquí — y contarlas como código
  * hace que «faltan dos» parezca un agujero cuando es una frase.
+ *
+ * ## Si el número de la pantalla y el guardado discrepan, **manda el guardado**
+ *
+ * Decisión de Joseth del 14 sep 2026: **se redondea en un solo sitio, el que
+ * escribe la definitiva**, y lo que se sirve al cliente es la fracción sin
+ * recortar. Eso deja una asimetría que hay que tener escrita **aquí**, porque aquí
+ * es donde llega quien persiga la diferencia:
+ *
+ *     backend   (Σ nota) / n × %unidad      ← se calcula así y ESTO es lo que se guarda
+ *     cliente   Σ (nota × 1/n × %unidad)    ← reconstrucción, con `double` de 64 bits
+ *
+ * Matemáticamente son la misma expresión; **en coma flotante pueden diferir en el
+ * último bit**. Con notas enteras sobre 50 y dos decimales impresos no se va a ver
+ * nunca — pero el día que alguien encuentre un `36,24` donde esperaba un `36,25`,
+ * lo que tiene que saber es que **no es un fallo de ninguno de los dos lados: son
+ * los dos caminos**.
+ *
+ * **Y ante la diferencia se corrige la pantalla, nunca al revés.** «Arreglar» el
+ * backend para que cuadre con la celda sería mover el número bueno. La misma nota
+ * está escrita del otro lado, en el docblock de `promedio-ponderado.ts` de
+ * `myvc_front`, para que se encuentre por cualquiera de los dos extremos.
  */
 final class RepartoDeLaNota
 {
+    /** Lo de siempre: cada subunidad pesa lo que diga su `porcentaje`. */
+    public const PORCENTAJE = 'porcentaje';
+
+    /** Todas pesan igual: `1/n`, con `n` las subunidades **vivas** de la unidad. */
+    public const PROMEDIO = 'promedio';
+
+    /**
+     * Las subunidades vivas de la unidad a la que pertenece `$s`, como subconsulta.
+     *
+     * **Correlacionada a propósito, y no un `JOIN`.** Estas dieciséis consultas ya
+     * agrupan y suman; meter otra tabla en el `FROM` multiplicaría filas y cambiaría
+     * los `SUM` de sitios que hoy están bien. Una escalar en el `SELECT` no toca el
+     * plan de agregación.
+     *
+     * **Nunca divide por cero**: se evalúa en una fila que YA es una subunidad de esa
+     * unidad, así que la cuenta es como mínimo 1. Por eso no lleva `NULLIF` — y ponerlo
+     * escondería el día que esa premisa dejara de ser cierta.
+     *
+     * `deleted_at IS NULL` no es opcional: es **el mismo `n`** que usa el árbol de
+     * `putDetailed` al contar `$subunidades` en PHP. Si los dos denominadores
+     * discreparan, el cliente pintaría un reparto y la definitiva guardaría otro —
+     * que es el fallo entero que la Entrega 5 viene a evitar.
+     */
+    private static function cuantasSubunidades(string $s): string
+    {
+        return "(SELECT COUNT(*) FROM subunidades sx WHERE sx.unidad_id = {$s}.unidad_id"
+            .' AND sx.deleted_at IS NULL)';
+    }
+
     /**
      * El peso de una subunidad dentro de su unidad, **como factor entre 0 y 1**.
      *
@@ -84,8 +134,15 @@ final class RepartoDeLaNota
      * este número, y por eso la D30 puede cambiar el modo de evaluación sin tocar
      * ninguno.
      */
-    public static function pesoDeSubunidad(string $s = 's'): string
+    public static function pesoDeSubunidad(string $modo = self::PORCENTAJE, string $s = 's'): string
     {
+        if ($modo === self::PROMEDIO) {
+            // `1.0` y no `1`: con dos enteros, MySQL haría división entera y todas las
+            // subunidades pesarían 0 salvo cuando hay una sola. Sale un cero silencioso
+            // en todas las notas, que es la clase de fallo de esta casa.
+            return '(1.0/'.self::cuantasSubunidades($s).')';
+        }
+
         return "{$s}.porcentaje/100";
     }
 
@@ -115,9 +172,9 @@ final class RepartoDeLaNota
      *
      * *Un refactor que «de paso» limpia la sintaxis deja de ser comprobable.*
      */
-    public static function aportacionALaDefinitiva(string $u = 'u', string $s = 's', string $n = 'n'): string
+    public static function aportacionALaDefinitiva(string $modo = self::PORCENTAJE, string $u = 'u', string $s = 's', string $n = 'n'): string
     {
-        return '('.self::pesoDeUnidad($u).')*(('.self::pesoDeSubunidad($s).")*{$n}.nota)";
+        return '('.self::pesoDeUnidad($u).')*(('.self::pesoDeSubunidad($modo, $s).")*{$n}.nota)";
     }
 
     /**
@@ -129,9 +186,9 @@ final class RepartoDeLaNota
      * resultado bailaría con el número de subunidades — que es justo el fallo que
      * la Entrega 5 tiene que evitar cuando el denominador pase a ser `1/n`.
      */
-    public static function notaDeLaUnidad(string $s = 's', string $n = 'n'): string
+    public static function notaDeLaUnidad(string $modo = self::PORCENTAJE, string $s = 's', string $n = 'n'): string
     {
-        return "ROUND(sum(({$n}.nota*".self::pesoDeSubunidad($s).')))';
+        return "ROUND(sum(({$n}.nota*".self::pesoDeSubunidad($modo, $s).')))';
     }
 
     /**
@@ -142,8 +199,8 @@ final class RepartoDeLaNota
      * eso lleva un decimal donde la de unidad lleva cero: aquí el redondeo es para
      * que quepa en la casilla, no para cerrar una cuenta.
      */
-    public static function valorDeLaNota(string $s = 's', string $n = 'n'): string
+    public static function valorDeLaNota(string $modo = self::PORCENTAJE, string $s = 's', string $n = 'n'): string
     {
-        return "ROUND(({$n}.nota*".self::pesoDeSubunidad($s).'), 1)';
+        return "ROUND(({$n}.nota*".self::pesoDeSubunidad($modo, $s).'), 1)';
     }
 }
