@@ -73,7 +73,7 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
-> ## ✅ ENTREGA 5 (modo promedio) — EN VERDE Y SIN FUNDIR (15 sep 2026)
+> ## ✅ ENTREGA 5 (modo promedio) — EN `main` (15 sep 2026)
 >
 > **Rama `feat/modo-promedio`, worktree `.worktrees/f7`, base `simonbolivar_testing_f7`.**
 > Autorizada por Joseth el 14 sep: fase 0 + la columna + D30, y el redondeo **en un solo
@@ -154,12 +154,21 @@
 > **2295 = los 2282 de `main` + los 13 nuevos**, y ninguna prueba existente se movió.
 > `composer run pint:test` PASS sobre 405 ficheros y `composer run stan` `[OK] No errors`.
 >
-> ### Lo que queda
+> ### Y lo que quedaba, hecho
 >
-> - **Fundir.** La entrega no añade rutas, así que **el contador de `CLAUDE.md` no se
->   mueve** — y por eso mismo no hay que recontarlo ni tocarlo.
-> - **Avisar a `myvc-front-8d`**: su lista de escrituras que dan 403 por año cerrado **no
->   crece con esto**. La Entrega 5 no añade ninguna.
+> - **Fundida** por fast-forward: `main` = `9134e57`, con la Entrega 5 en `a25a9a6`.
+> - **El contador de rutas NO se mueve, y se contó en vez de suponerse**: `route:list
+>   --json` en el **árbol principal, sobre `main` y después de fundir** da **603**, que es
+>   lo que ya decía `CLAUDE.md`. Una entrega sin rutas nuevas no lo toca — pero eso se
+>   comprueba, porque «no añade rutas» es exactamente lo que creía la sesión que dejó el
+>   contador en 599 con el router en 601.
+> - **`myvc-front-8d` avisado**: la Entrega 5 no añade ninguna escritura a su lista de
+>   403 por año cerrado.
+>
+> > **Y este bloque decía «SIN FUNDIR» diez minutos después de estar fundido**, que es la
+> > misma trampa que esta sesión acababa de señalar dos secciones más abajo. Se arregla
+> > en el mismo commit que la fusión y no en el siguiente: **el estado de fusión es la
+> > única línea de este documento que caduca por algo que hace uno mismo.**
 >
 > ### Lo que hay que saber sin abrir el diff
 >
