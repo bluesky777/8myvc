@@ -73,7 +73,7 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
-> ## 🔧 LOS TÍTULOS DEL CERTIFICADO — EN LA RAMA, sin fundir (15 sep 2026)
+> ## ✅ LOS TÍTULOS DEL CERTIFICADO — EN `main` (15 sep 2026)
 >
 > **Rama `feat/titulos-del-certificado`, worktree `.worktrees/tc`, base
 > `simonbolivar_testing_tc`.** Encargo de Joseth de ese día; documento completo en
@@ -146,15 +146,38 @@
 > > docker exec 8myvc-app-1 readlink /proc/<pid>/cwd     # de qué worktree es
 > > ```
 >
-> ### Lo que falta, y en este orden
+> ### ✅ Fundida, y remedida después de fundir
 >
-> 1. **Fundir a `main`** — la rama está verde y sin fundir a propósito: este commit
->    cambia el título de un papel firmado en los dieciséis, así que se mira antes.
-> 2. **El front**, en sesión aparte y con el encargo ya escrito (§10 del doc 38). Ojo a
+> `main` había avanzado **tres commits** mientras esto se escribía —el aviso del
+> reparto, que toca **el mismo `YearsController`**—, así que `main` se fundió **primero
+> dentro de la rama** y se midió ahí: fundir y medir después deja `main` roto mientras
+> se mide. Auto-fundió sin conflicto, y eso **no basta**: git funde por líneas y no por
+> sentido, así que se comprobó a mano que los bloques siguen donde deben —`main` tocó
+> `putModeloEvaluacion`, esta rama `postStore` y `putToggleCambiarValor`, y no se
+> pisan—.
+>
+> ```
+> Tests: 1 skipped, 2325 passed   (php artisan test, .worktrees/tc, 7285380, 22:42 UTC)
+> composer run stan      -> [OK] No errors
+> composer run pint:test -> PASS, 409 files
+> ```
+>
+> **2.325 y no 2.319**: los seis de diferencia son de `AceptoRecalcularElRepartoTest`,
+> que vino con `main`. Se dice porque la cifra sube sin que esta entrega añada un solo
+> test, y sin esa línea el próximo que reste se pregunta de dónde salieron.
+>
+> **`route:list --json` en el ÁRBOL PRINCIPAL, después de fundir: 603**, el mismo que
+> dice `CLAUDE.md`. Esta entrega afirmaba «cero rutas nuevas», y **ésa es la
+> comprobación de que era verdad**, no una formalidad: se cuenta igual cuando se espera
+> que no se mueva, porque un contador sólo verificado cuando cambia no verifica nada.
+>
+> ### Lo que falta
+>
+> 1. **El front**, en sesión aparte y con el encargo ya escrito (§10 del doc 38). Ojo a
 >    la trampa: `isCoalSchool()`/`cabeceraPropia()` gobiernan **cinco sitios** y sólo
 >    uno es el título — borrarlas cambia cuatro cosas más del papel de esos dos
 >    colegios.
-> 3. **El front NO se publica hasta que la API esté desplegada**, no sólo fusionada:
+> 2. **El front NO se publica hasta que la API esté desplegada**, no sólo fusionada:
 >    contra una API sin la columna, la cabecera del certificado sale **en blanco**.
 >
 > **Y a `coal` y `coljordan` NO se les avisa** (Joseth, 15 sep: *«no importa lo de
