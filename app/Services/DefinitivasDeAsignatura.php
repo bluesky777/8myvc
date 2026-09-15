@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\RepartoDeLaNota;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -557,7 +558,7 @@ class DefinitivasDeAsignatura
                     ON bip.alumno_id = m.alumno_id AND bip.periodo_id = ?
                LEFT JOIN (
                     SELECT n.alumno_id, u.alumno_id AS dueno,
-                           SUM((u.porcentaje / 100) * ((s.porcentaje / 100) * n.nota)) AS suma,
+                           SUM('.RepartoDeLaNota::aportacionALaDefinitiva().') AS suma,
                            COUNT(*) AS notas
                       FROM unidades u
                       INNER JOIN subunidades s ON s.unidad_id = u.id AND s.deleted_at IS NULL

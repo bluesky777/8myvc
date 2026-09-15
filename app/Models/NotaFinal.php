@@ -9,6 +9,7 @@ use App\User;
 use App\Models\Periodo;
 use App\Models\Debugging;
 use Illuminate\Support\Facades\DB;
+use App\Support\RepartoDeLaNota;
 /**
  * Las columnas de `notas_finales`, tal como están en el esquema congelado.
  *
@@ -135,7 +136,7 @@ class NotaFinal extends Model {
 							SELECT df1.alumno_id, df1.periodo_id, MAX(df1.updated_at) as updated_at, df1.numero_periodo, sum( df1.ValorUnidad ) DefMateria 
                             FROM(
                                 SELECT n.alumno_id, u.periodo_id, u.id as unidad_id, p1.numero as numero_periodo, MAX(n.updated_at) as updated_at, 
-                                    sum( ((u.porcentaje/100)*((s.porcentaje/100)*n.nota)) ) ValorUnidad
+                                    sum( ('.RepartoDeLaNota::aportacionALaDefinitiva().') ) ValorUnidad
                                 FROM asignaturas asi 
                                 inner join unidades u on u.asignatura_id=asi.id and u.deleted_at is null
                                 inner join subunidades s on s.unidad_id=u.id and s.deleted_at is null
@@ -152,7 +153,7 @@ class NotaFinal extends Model {
 							SELECT df1.alumno_id, df1.periodo_id, MAX(df1.updated_at) as updated_at, df1.numero_periodo, sum( df1.ValorUnidad ) DefMateria 
                             FROM(
                                 SELECT n.alumno_id, u.periodo_id, u.id as unidad_id, p1.numero as numero_periodo, MAX(n.updated_at) as updated_at, 
-                                    sum( ((u.porcentaje/100)*((s.porcentaje/100)*n.nota)) ) ValorUnidad
+                                    sum( ('.RepartoDeLaNota::aportacionALaDefinitiva().') ) ValorUnidad
                                 FROM asignaturas asi 
                                 inner join unidades u on u.asignatura_id=asi.id and u.deleted_at is null
                                 inner join subunidades s on s.unidad_id=u.id and s.deleted_at is null
@@ -169,7 +170,7 @@ class NotaFinal extends Model {
 							SELECT df1.alumno_id, df1.periodo_id, MAX(df1.updated_at) as updated_at, df1.numero_periodo, sum( df1.ValorUnidad ) DefMateria 
                             FROM(
                                 SELECT n.alumno_id, u.periodo_id, u.id as unidad_id, p1.numero as numero_periodo, MAX(n.updated_at) as updated_at, 
-                                    sum( ((u.porcentaje/100)*((s.porcentaje/100)*n.nota)) ) ValorUnidad
+                                    sum( ('.RepartoDeLaNota::aportacionALaDefinitiva().') ) ValorUnidad
                                 FROM asignaturas asi 
                                 inner join unidades u on u.asignatura_id=asi.id and u.deleted_at is null
                                 inner join subunidades s on s.unidad_id=u.id and s.deleted_at is null
@@ -186,7 +187,7 @@ class NotaFinal extends Model {
 							SELECT df1.alumno_id, df1.periodo_id, MAX(df1.updated_at) as updated_at, df1.numero_periodo, sum( df1.ValorUnidad ) DefMateria 
                             FROM(
                                 SELECT n.alumno_id, u.periodo_id, u.id as unidad_id, p1.numero as numero_periodo, MAX(n.updated_at) as updated_at,
-                                    sum( ((u.porcentaje/100)*((s.porcentaje/100)*n.nota)) ) ValorUnidad
+                                    sum( ('.RepartoDeLaNota::aportacionALaDefinitiva().') ) ValorUnidad
                                 FROM asignaturas asi 
                                 inner join unidades u on u.asignatura_id=asi.id and u.deleted_at is null
                                 inner join subunidades s on s.unidad_id=u.id and s.deleted_at is null
@@ -327,7 +328,7 @@ class NotaFinal extends Model {
 				SELECT df1.alumno_id, df1.periodo_id, MAX(df1.updated_at) as updated_at, df1.numero_periodo, sum( df1.ValorUnidad ) DefMateria 
 				FROM(
 					SELECT n.alumno_id, u.periodo_id, u.id as unidad_id, p1.numero as numero_periodo, MAX(n.updated_at) as updated_at, 
-						sum( ((u.porcentaje/100)*((s.porcentaje/100)*n.nota)) ) ValorUnidad
+						sum( ('.RepartoDeLaNota::aportacionALaDefinitiva().') ) ValorUnidad
 					FROM asignaturas asi 
 					inner join unidades u on u.asignatura_id=asi.id and u.deleted_at is null
 					inner join subunidades s on s.unidad_id=u.id and s.deleted_at is null

@@ -23,6 +23,7 @@ use App\Support\EscalaDeNotas;
 use App\Support\PeriodoDeLaFila;
 use App\Support\NombreDelAlumno;
 use App\Services\Nivelacion;
+use App\Support\RepartoDeLaNota;
 
 
 class DefinitivasPeriodosController extends Controller {
@@ -176,7 +177,7 @@ class DefinitivasPeriodosController extends Controller {
 		$consulta = 'SELECT nt.alumno_id, asi.id as asignatura_id, nt.periodo_id, cast(sum(nt.ValorNota) as decimal(7,4)) as nota_asignatura
 				FROM asignaturas asi 
 				inner join 
-					(select u.asignatura_id, n.alumno_id, u.periodo_id, sum( ((u.porcentaje/100)*((s.porcentaje/100)*n.nota)) ) ValorNota
+					(select u.asignatura_id, n.alumno_id, u.periodo_id, sum( ('.RepartoDeLaNota::aportacionALaDefinitiva().') ) ValorNota
 					from unidades u 
 					inner join subunidades s on s.unidad_id=u.id and s.deleted_at is null and u.periodo_id=:periodo_id
 					inner join notas n on n.subunidad_id=s.id and n.deleted_at is null

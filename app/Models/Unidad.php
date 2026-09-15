@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 
 use App\Models\Debugging;
+use App\Support\RepartoDeLaNota;
 /**
  * Las columnas de `unidades`, tal como están en el esquema congelado.
  *
@@ -166,8 +167,8 @@ class Unidad extends Model {
 
 		if($con_desempenio==='fortaleza_debilidad'){
 			
-			$consulta = 'SELECT u.id as unidad_id, u.definicion as definicion_unidad, u.porcentaje as porcentaje_unidad, IF(ROUND(sum((n.nota*s.porcentaje/100))) < :nota_minima, "Debilidad", "Fortaleza") as desempenio,
-							u.asignatura_id, u.orden as orden_unidad, u.periodo_id, ROUND(sum((n.nota*s.porcentaje/100))) as nota_unidad
+			$consulta = 'SELECT u.id as unidad_id, u.definicion as definicion_unidad, u.porcentaje as porcentaje_unidad, IF('.RepartoDeLaNota::notaDeLaUnidad().' < :nota_minima, "Debilidad", "Fortaleza") as desempenio,
+							u.asignatura_id, u.orden as orden_unidad, u.periodo_id, '.RepartoDeLaNota::notaDeLaUnidad().' as nota_unidad
 						FROM unidades u
 						left join subunidades s ON s.unidad_id=u.id and s.deleted_at is null
 						left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and n.alumno_id=:alumno_id
@@ -190,7 +191,7 @@ class Unidad extends Model {
 			$consulta = 'SELECT * 
 						FROM
 						(SELECT u.id as unidad_id, u.definicion as definicion_unidad, u.porcentaje as porcentaje_unidad, 
-							u.asignatura_id, u.orden as orden_unidad, u.periodo_id, ROUND(sum((n.nota*s.porcentaje/100))) as nota_unidad
+							u.asignatura_id, u.orden as orden_unidad, u.periodo_id, '.RepartoDeLaNota::notaDeLaUnidad().' as nota_unidad
 						FROM unidades u
 						left join subunidades s ON s.unidad_id=u.id and s.deleted_at is null
 						left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and n.alumno_id=:alumno_id
@@ -209,7 +210,7 @@ class Unidad extends Model {
 			
 		}else{
 			$consulta = 'SELECT u.id as unidad_id, u.definicion as definicion_unidad, u.porcentaje as porcentaje_unidad, 
-							u.asignatura_id, u.orden as orden_unidad, u.periodo_id, ROUND(sum((n.nota*s.porcentaje/100))) as nota_unidad
+							u.asignatura_id, u.orden as orden_unidad, u.periodo_id, '.RepartoDeLaNota::notaDeLaUnidad().' as nota_unidad
 						FROM unidades u
 						left join subunidades s ON s.unidad_id=u.id and s.deleted_at is null
 						left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and n.alumno_id=:alumno_id

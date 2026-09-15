@@ -13,6 +13,7 @@ use App\Models\Unidad;
 use App\Models\Profesor;
 use App\Models\Nota;
 use App\Services\BoletinIndependiente;
+use App\Support\RepartoDeLaNota;
 
 
 class BolfinalesController extends Controller {
@@ -203,7 +204,7 @@ class BolfinalesController extends Controller {
 							SELECT n.alumno_id, a.id as asignatura_id, a.profesor_id, 
 								a.creditos, u.periodo_id, u.definicion, u.id as unidad_id, u.porcentaje as porc_unidad, 
 								s.id as subunidad_id, s.definicion as definicion_subunidad, s.porcentaje as porcentaje_subunidad, p.numero as numero_periodo, 
-								sum( ((u.porcentaje/100)*((s.porcentaje/100)*n.nota)) ) ValorUnidad,
+								sum( ('.RepartoDeLaNota::aportacionALaDefinitiva().') ) ValorUnidad,
 								aus.cantidad_ausencia, tar.cantidad_tardanza
 							FROM asignaturas a 
 							inner join unidades u on u.asignatura_id=a.id and u.deleted_at is null

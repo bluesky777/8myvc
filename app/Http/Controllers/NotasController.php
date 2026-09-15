@@ -21,6 +21,7 @@ use \Log;
 use App\Support\EscalaDeNotas;
 use App\Support\PeriodoDeLaFila;
 use App\Support\NombreDelAlumno;
+use App\Support\RepartoDeLaNota;
 
 
 class NotasController extends Controller {
@@ -255,7 +256,7 @@ class NotasController extends Controller {
 			$cons = "SELECT n.id, n.nota, n.subunidad_id, n.alumno_id, n.created_by, n.updated_by, n.deleted_by, n.deleted_at, n.created_at, n.updated_at, u.asignatura_id,
 							n.nota_original, n.nota_nivelacion, n.nivelada_at, n.nivelada_por,
 							univ.username as nivelada_por_username, n.nivelacion_obs,
-							s.porcentaje/100 as subunidad_porc, u.porcentaje/100 as unidad_porc, s.definicion, s.porcentaje as subunidad_porcentaje, u.orden as orden_unidad, s.orden as orden_subunidad
+							".RepartoDeLaNota::pesoDeSubunidad()." as subunidad_porc, ".RepartoDeLaNota::pesoDeUnidad()." as unidad_porc, s.definicion, s.porcentaje as subunidad_porcentaje, u.orden as orden_unidad, s.orden as orden_subunidad
 						FROM notas n
 						LEFT JOIN users univ ON univ.id=n.nivelada_por
 						INNER JOIN alumnos a ON a.id=n.alumno_id and n.deleted_at is null
@@ -315,7 +316,7 @@ class NotasController extends Controller {
 							SELECT df1.alumno_id, df1.periodo_id, MAX(df1.updated_at) as updated_at, df1.numero_periodo, sum( df1.ValorUnidad ) DefMateria 
 							FROM(
 								SELECT n.alumno_id, u.periodo_id, u.id as unidad_id, p1.numero as numero_periodo, MAX(n.updated_at) as updated_at, 
-									sum( ((u.porcentaje/100)*((s.porcentaje/100)*n.nota)) ) ValorUnidad
+									sum( ('.RepartoDeLaNota::aportacionALaDefinitiva().') ) ValorUnidad
 								FROM asignaturas asi 
 								inner join unidades u on u.asignatura_id=asi.id and u.deleted_at is null
 								inner join subunidades s on s.unidad_id=u.id and s.deleted_at is null

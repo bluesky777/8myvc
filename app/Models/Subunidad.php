@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 
 use App\Models\Nota;
 use App\User;
+use App\Support\RepartoDeLaNota;
 /**
  * Las columnas de `subunidades`, tal como están en el esquema congelado.
  *
@@ -66,7 +67,7 @@ class Subunidad extends Model {
 	public static function deUnidad2($alumno_id, $unidad_id, $year_id)
 	{
 		$consulta = 'SELECT s.id as subunidad_id, s.definicion as definicion_subunidad, s.porcentaje as porcentaje_subunidad,
-						s.nota_default, s.orden as orden_subunidad, s.inicia_at, s.finaliza_at, ROUND((n.nota*s.porcentaje/100), 1) as valor_nota, n.nota, e.desempenio, 
+						s.nota_default, s.orden as orden_subunidad, s.inicia_at, s.finaliza_at, '.RepartoDeLaNota::valorDeLaNota().' as valor_nota, n.nota, e.desempenio, 
 						CONCAT("<div class=\"row\">
 							<div class=\"col-lg-9 col-xs-9 subunidad-definicion no-padding-right\">", s.definicion, "</div>
 							<div class=\"col-lg-1 col-xs-1 subunidad-porc\">", s.porcentaje,"</div>
@@ -110,7 +111,7 @@ class Subunidad extends Model {
 	public static function deUnidadCalculada($alumno_id, $unidad_id, $year_id)
 	{
 		$consulta = 'SELECT n.id as nota_id, s.id as subunidad_id, s.definicion as definicion_subunidad, s.porcentaje as porcentaje_subunidad,
-						s.nota_default, s.orden as orden_subunidad, s.inicia_at, s.finaliza_at, ROUND((n.nota*s.porcentaje/100), 1) as valor_nota, n.nota, e.desempenio, 
+						s.nota_default, s.orden as orden_subunidad, s.inicia_at, s.finaliza_at, '.RepartoDeLaNota::valorDeLaNota().' as valor_nota, n.nota, e.desempenio, 
 						n.nota_original, n.nota_nivelacion, n.nivelada_at, n.nivelacion_obs,
 						s.definicion, s.porcentaje, e.desempenio, IF(n.nota<:min_aceptada, "nota-perdida-bold", "") as clase_perdida, n.nota
 					FROM subunidades s
