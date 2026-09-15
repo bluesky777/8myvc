@@ -73,6 +73,71 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## ⏳ ENTREGA 5 (modo promedio) — CONSTRUIDA, SIN SUITE Y SIN FUNDIR (15 sep 2026)
+>
+> **Rama `feat/modo-promedio`, worktree `.worktrees/f7`, base `simonbolivar_testing_f7`.**
+> Autorizada por Joseth el 14 sep: fase 0 + la columna + D30, y el redondeo **en un solo
+> sitio, el que escribe la definitiva**.
+>
+> | | |
+> |---|---|
+> | **Fase 0** — la fórmula de 16 sitios a `App\Support\RepartoDeLaNota` | **EN `main`** (`ebfe43f`), suite entera **2282/2282** |
+> | **Fase 1** — `years.reparto_subunidades` | en la rama (`bbf6000`) |
+> | **D30** — el modo encendido en los 16 sitios y las dos representaciones | en la rama (`754b872`) |
+>
+> ### LO PRIMERO QUE TIENE QUE HACER QUIEN RECOJA ESTO
+>
+> 1. **Correr la suite entera** sobre `754b872`, con el árbol quieto y anotando `HEAD` y
+>    pendientes antes y después. **Hoy sólo hay 156 dirigidos en verde**, y esta misma
+>    tanda demostró que eso no basta: la fase 0 pasó 90 dirigidos y cero instantáneas
+>    movidas, y fue la suite entera la que cazó que *«idéntico por construcción»* era
+>    falso en 1 de 16 — por **un espacio** en `DefinitivasDeAsignatura:560`, que dos
+>    tests localizaban casando texto.
+> 2. **Regenerar las tres instantáneas de la fila entera de `years`** —`muestreo-years`,
+>    `-colegio`, `-trashed`—, que es la terna que §1.3 del doc 35 dejó medida. La columna
+>    nueva sale sola en ellas.
+> 3. **Escribir el test del modo `promedio`**, que **no existe**. Todo lo verde de hoy
+>    corre en `porcentaje`, que es el defecto. El caso que falta es el que enciende el
+>    enum y comprueba que **la definitiva guardada y lo que sirve `putDetailed` dan el
+>    mismo número** — que es la afirmación entera de esta entrega.
+>
+> ### Lo que hay que saber sin abrir el diff
+>
+> - **Los 16 sitios son 16 y el doc 28 dice 18**: dos de los dieciocho son la fórmula
+>   escrita **en un comentario** (`SubunidadesController:240`, `UnidadesController:457`).
+>   El reparto por fichero del doc 28 se reproduce exacto doce días después, así que no
+>   envejeció: **nació contando líneas**. *Un `grep` no distingue una fórmula de una
+>   frase que habla de la fórmula.* Esas dos frases **dejan de ser verdad** con el modo
+>   encendido y hay que tocarlas.
+> - **Los 16 viven dentro de cadenas SQL**, ninguno es una expresión PHP. Por eso
+>   `RepartoDeLaNota` devuelve **fragmentos de SQL** y no números, y por eso lo que entra
+>   por parámetro son **alias de tabla, nunca valores de una petición**.
+> - **Dos llamantes de `Unidad::deAsignaturaCalculada` NO pasaban `$year_id`**
+>   (`Informes\BoletinesController:351`, `Informes\NotasActualesAlumnosController:187`).
+>   Con el modo resuelto por año, esos dos boletines se habrían quedado en porcentaje
+>   mientras la definitiva se guardaba en promedio. Arreglado; **no cambia nada hoy**
+>   porque `$year_id` sólo se usa en la rama `con_desempenio` y ésos van por la otra.
+> - **Quién escribe la columna: opción A.** `PUT years/modelo-evaluacion` acepta las dos
+>   políticas, cada una opcional. **Cero rutas nuevas.** Y `toggle-cambiar-valor` pasa de
+>   un `if` por columna a **una lista de columnas con dueño**, que es lo que su propio
+>   comentario del 13 sep pedía para cuando entrara la segunda.
+> - **La asimetría del redondeo está escrita en el docblock de `RepartoDeLaNota`**, no
+>   sólo en un documento: el número **guardado** es el bueno y el que el cliente calcula
+>   es una reconstrucción. Ante una diferencia **se corrige la pantalla, nunca al revés**.
+>   La misma nota está del otro lado, en `promedio-ponderado.ts` de `myvc_front`.
+> - **`Subunidad::deUnidad2` no tiene ni un llamante** en `app/` ni en `tests/`.
+>   Encontrado de paso, no tocado.
+>
+> ### Y un aviso de `myvc_horarios` que llegó sin contestar (15 sep)
+>
+> El programa de escritorio se presenta con **`tauri://localhost` en macOS** y
+> **`http://tauri.localhost` en Windows**, y el instalador de Windows se construye esta
+> semana. Hoy `config/cors.php` cae a `*` y **funciona**; el peligro es al revés de lo
+> intuitivo: **se rompe el día que alguien lo configure bien** y olvide el de Windows —
+> y entonces falla **sólo en Windows**, con el Mac perfecto. **Sin contestar y sin
+> comprobar**: hay una decisión cerrada de Joseth de que CORS va a `*`, así que lo que
+> procede es comprobar si esa decisión sigue en pie antes de tocar nada.
+
 > ## UN AÑO CERRADO YA NO LO ESCRIBE CUALQUIERA — 14 sep 2026, rama `fix/escribir-en-un-anio-cerrado`
 >
 > **Sin fundir.** Worktree `.worktrees/anios`, base `simonbolivar_testing_anios`.
