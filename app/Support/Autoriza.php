@@ -318,6 +318,72 @@ class Autoriza
     }
 
     /**
+     * Quién puede escribir en un año que el colegio ya cerró.
+     *
+     * **Decisión de Joseth, 14 sep 2026: sólo superusuarios**, y con las dos
+     * poblaciones delante —74 cuentas de personal, 11 superusuarios—.
+     *
+     * ## Esto AFINA la decisión del 24 ago, no la revierte
+     *
+     * Aquélla —`docs/migracion/16-escribir-en-un-anio-pasado.md`, con las cuatro
+     * pantallas delante— dijo que **moverse por un año pasado y escribir en él es
+     * el producto**, y sigue siéndolo: no se cierra ninguna pantalla y no se
+     * bloquea ningún año. Lo que decía literalmente es que *«un usuario **con
+     * permisos** puede ir al año pasado y cambiar las frases y situaciones, lo
+     * mismo que las escalas»*, y **quién era ese usuario no se había escrito
+     * nunca en el backend**: las cinco escrituras iban con `auth.personal`, o sea
+     * cualquiera de los 74.
+     *
+     * ## Por qué no rompe la pantalla que el doc 16 dijo que se rompería
+     *
+     * Ese documento avisa de que cerrar esto *«rompe el panel de Colegio ▸ Años
+     * para los siete años que no son el actual»* y que **lo notarían los diez
+     * `admin`**. Medido el 14 sep 2026 en la copia de desarrollo de
+     * `simonbolivar`: el rol `Admin` son **10 personas y las diez son
+     * superusuarias**, y ningún permiso de rol está repartido a nadie en ese
+     * colegio (`can_edit_years`: 0 personas). O sea que **aquí «admin» es
+     * `is_superuser`** y los diez que usan el panel lo siguen usando igual.
+     *
+     * **Es de UN colegio y no de los dieciséis**, que es la parte que hay que
+     * comprobar el día del despliegue: un colegio que le haya dado el panel a
+     * alguien sin `is_superuser` lo va a notar. Está anotado en el doc 16.
+     *
+     * ## Y por qué el criterio se escribe con su nombre en vez de llamar a
+     * ## `esSuperusuario` desde los tres controladores
+     *
+     * Por la regla de esta clase, la misma que dejó escrita
+     * `puedeEditarPlantillaNotas`: un criterio con nombre propio **se puede
+     * mover sin perseguir sus copias**. El día que un colegio pida que rectoría
+     * corrija una errata de 2024, esto pasa a mirar un permiso y cambia en un
+     * sitio; con `esSuperusuario` copiado en cinco métodos, cambia en cinco o en
+     * cuatro.
+     */
+    public static function puedeEscribirEnUnAnioCerrado($user): bool
+    {
+        return self::esSuperusuario($user);
+    }
+
+    /**
+     * Corta con 403 si la fila es de un año cerrado y quien escribe no puede.
+     *
+     * `$que` nombra lo que se estaba tocando —«la escala de valoración», «la
+     * frase»— porque el mensaje acaba en la pantalla de alguien y *«no tiene
+     * permiso»* a secas manda a mirar los roles, que es el sitio equivocado: lo
+     * que falta no es un permiso, es que el año ya pasó.
+     */
+    public static function exigirEscrituraEnElAnio($user, $yearId, string $que): void
+    {
+        if (! AnioCerrado::estaCerrado($yearId)) {
+            return;
+        }
+
+        self::exigir(
+            self::puedeEscribirEnUnAnioCerrado($user),
+            $que.' es de un año ya cerrado; sólo un superusuario puede modificarla.'
+        );
+    }
+
+    /**
      * El `is_superuser` que de verdad se puede conceder.
      *
      * Cuatro sitios lo copiaban del cuerpo de la petición sin mirar quién la

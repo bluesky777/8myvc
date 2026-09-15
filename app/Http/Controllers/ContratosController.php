@@ -5,6 +5,7 @@
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 
+use App\Support\Autoriza;
 use App\User;
 use App\Models\Contrato;
 use App\Models\Profesor;
@@ -108,21 +109,36 @@ class ContratosController extends Controller {
 	 * volver a borrarlo tampoco es «hecho». Es el criterio que ya usa
 	 * `EscalasDeValoracionController::exigirQueLaEscalaExista`.
 	 *
-	 * §84 — **lo que sigue sin comprobar, y no se cierra aquí**: `getIndex`
-	 * lista los contratos de `$user->year_id` y esto borra el de cualquier año.
-	 * Medido: un usuario del año 8 borra el contrato 124, que es del año 7, y
-	 * recibe 200. Escribir en años pasados **está decidido a propósito** en esta
-	 * API (05 §27.4), así que queda fijado por un test y anotado, no cerrado.
+	 * §84 — **lo que no comprobaba, y comprueba desde el 14 sep 2026**: `getIndex`
+	 * lista los contratos de `$user->year_id` y esto borraba el de cualquier año.
+	 * Medido en su día: un usuario del año 8 borra el contrato 124, que es del año
+	 * 7, y recibe 200.
+	 *
+	 * **Éste es el que menos se parece a los otros cuatro, y entra igual por
+	 * decisión de Joseth del 14 sep 2026** —se le preguntó si el cierre cubría los
+	 * cinco o sólo los cuatro de boletines, y contestó los cinco—. Los otros cuatro
+	 * cambian lo que dice un papel ya impreso; éste no toca ningún boletín: cambia
+	 * **quién constaba como contratado** en un año cerrado, que es la ficha del
+	 * profesorado. Un año cerrado es un año cerrado para todo.
+	 *
+	 * Ver `Autoriza::puedeEscribirEnUnAnioCerrado` para el criterio y su medición.
 	 */
 	public function deleteDestroy($id)
 	{
 		$user = User::fromToken();
 
-		$existe = DB::selectOne('SELECT id FROM contratos WHERE id = ? AND deleted_at IS NULL', [$id]);
+		$existe = DB::selectOne('SELECT id, year_id FROM contratos WHERE id = ? AND deleted_at IS NULL', [$id]);
 
 		if (! $existe) {
 			abort(404, 'Ese contrato no existe.');
 		}
+
+		// `contratos.year_id` **es anulable** en el esquema —es lo que obligó a la
+		// §78 a cerrar los contratos huérfanos—, así que aquí puede llegar `null`.
+		// `AnioCerrado::estaCerrado(null)` devuelve `false`, o sea que un contrato
+		// sin año se comporta como hasta hoy en vez de quedar bloqueado para
+		// siempre: no hay fila de la que derivar nada.
+		Autoriza::exigirEscrituraEnElAnio($user, $existe->year_id, 'Ese contrato');
 
 		$contr = Contrato::destroy($id);
 		return $contr;

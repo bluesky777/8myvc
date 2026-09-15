@@ -127,7 +127,7 @@ class BorrarUnCatalogoQueNoExisteTest extends CasoDeContrato
         );
         $this->olvidarControladores();
 
-        $contrato = DB::selectOne('SELECT id FROM contratos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        $contrato = $this->unContratoDelAnioCorriente();
 
         // El cuerpo es `1` —las filas borradas— y se fija porque es lo que el
         // front lee: cambiarlo por otra cosa es cambiar el contrato, aunque el
@@ -153,11 +153,36 @@ class BorrarUnCatalogoQueNoExisteTest extends CasoDeContrato
     {
         $token = $this->tokenDe($this->usuarioDeTipo('Usuario')->username);
 
-        $contrato = DB::selectOne('SELECT id FROM contratos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        $contrato = $this->unContratoDelAnioCorriente();
 
         $this->withToken($token)->json('DELETE', '/api/contratos/destroy/'.$contrato->id)->assertStatus(200);
         $this->olvidarControladores();
 
         $this->withToken($token)->json('DELETE', '/api/contratos/destroy/'.$contrato->id)->assertStatus(404);
+    }
+
+    /**
+     * Un contrato vivo **del año corriente**, y no «el primero por id».
+     *
+     * Desde el 14 sep 2026 `contratos/destroy` exige superusuario cuando la fila es
+     * de un año cerrado, y en este seed el primer contrato por id es del **año 7**,
+     * que lo está. Los dos casos de arriba miden otra cosa —que borrar borra, y que
+     * borrar dos veces da 404—, así que el año era una propiedad que la fila traía
+     * de serie y que nadie había elegido.
+     *
+     * *Un test que se apoya en «la primera fila que salga» hereda todas las
+     * propiedades de esa fila, incluidas las que no está midiendo.*
+     */
+    private function unContratoDelAnioCorriente(): object
+    {
+        $contrato = DB::selectOne('SELECT id FROM contratos
+            WHERE deleted_at IS NULL
+              AND year_id = (SELECT id FROM years WHERE actual = 1 AND deleted_at IS NULL
+                             ORDER BY year ASC LIMIT 1)
+            ORDER BY id LIMIT 1');
+
+        $this->assertNotNull($contrato, 'El seed no tiene contratos vivos del año corriente.');
+
+        return $contrato;
     }
 }

@@ -228,8 +228,13 @@ class CatalogosDelColegioTest extends CasoDeContrato
         $grupo = $this->grupoConAlumnos();
         $token = $this->tokenDelPersonalLlanoDe($grupo->year_id);
 
-        $escala = DB::selectOne('SELECT * FROM escalas_de_valoracion WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
-        $this->assertNotNull($escala, 'El seed necesita una escala de valoración.');
+        // **Del año del token**, y no «la primera por id», desde el 14 sep 2026:
+        // en este seed la primera es del año 1 —cerrado— y `escalas/update` exige
+        // superusuario ahí. Lo que este caso mide es la trampa de las filas
+        // afectadas de MySQL, que no tiene nada que ver con el año.
+        $escala = DB::selectOne('SELECT * FROM escalas_de_valoracion
+            WHERE deleted_at IS NULL AND year_id = ? ORDER BY id LIMIT 1', [$grupo->year_id]);
+        $this->assertNotNull($escala, 'El seed necesita una escala de valoración del año del token.');
 
         $cuerpo = [
             'id' => $escala->id, 'desempenio' => $escala->desempenio, 'valoracion' => $escala->valoracion,
@@ -244,11 +249,25 @@ class CatalogosDelColegioTest extends CasoDeContrato
 
     /**
      * Borrar una escala de verdad la manda a la papelera y desaparece del índice —el
-     * viaje de ida y vuelta, no el 200—. Y con ella se fija una decisión ya tomada:
-     * **la escala de otro año se puede borrar**, porque escribir en años pasados está
-     * permitido (05 §27.4). Si alguien lo cierra, este caso lo dice.
+     * viaje de ida y vuelta, no el 200—.
+     *
+     * ## La segunda mitad de este caso se MUDÓ el 14 sep 2026, no se perdió
+     *
+     * Hasta ese día este método se llamaba `..._y_la_de_otro_anio_tambien_se_deja` y
+     * terminaba borrando la escala de **otro** año con un token llano, para fijar la
+     * 05 §27.4: *escribir en años pasados está permitido*. Joseth cambió el **quién**
+     * —sólo superusuarios— y esa mitad pasó a dar 403.
+     *
+     * No se ha relajado: **se ha mudado a `EscrituraDeCatalogoDeOtroAnioTest`**, que
+     * es donde ahora vive esa regla y que la mide sobre **las cinco escrituras con
+     * año** —las dos de escalas, las dos de frases y la de contratos— en vez de sobre
+     * ésta sola. Ahí están los dos lados: 403 para el personal llano y 200 para el
+     * superusuario, que es lo que mantiene viva la §27.4.
+     *
+     * *Una aserción que se muda deja dicho a dónde. La que no lo deja dicho no se
+     * distingue de una que alguien borró porque estorbaba.*
      */
-    public function test_borrar_una_escala_la_quita_del_indice_y_la_de_otro_anio_tambien_se_deja(): void
+    public function test_borrar_una_escala_la_quita_del_indice(): void
     {
         $grupo = $this->grupoConAlumnos();
         $token = $this->tokenDelPersonalLlanoDe($grupo->year_id);
@@ -259,24 +278,19 @@ class CatalogosDelColegioTest extends CasoDeContrato
         $this->assertNotEmpty($suyas, 'El año del token no tiene escalas: el test no mediría nada.');
 
         $victima = $suyas[0]['id'];
-        $anioDelToken = (int) DB::selectOne('SELECT year_id FROM escalas_de_valoracion WHERE id = ?', [$victima])->year_id;
 
         $this->olvidarControladores();
-        $this->withToken($token)->deleteJson('/api/escalas/destroy/'.$victima)->assertStatus(200);
+
+        // `acepto_desviacion` porque lo que este caso mide es **el viaje de ida y
+        // vuelta**, no el aviso de población: una banda con definitivas dentro
+        // contesta 422 desde el 14 sep 2026 y eso tiene su propio fichero
+        // (`BorrarUnaBandaDeLaEscalaTest`). Sin esto, este caso mediría el aviso y
+        // dejaría de mirar el índice, que es lo suyo.
+        $this->withToken($token)->deleteJson('/api/escalas/destroy/'.$victima,
+            ['acepto_desviacion' => true])->assertStatus(200);
         $this->olvidarControladores();
 
         $despues = array_column($this->withToken($token)->getJson('/api/escalas')->json() ?? [], 'id');
         $this->assertNotContains($victima, $despues, 'La escala borrada sigue en el índice.');
-
-        $ajena = DB::selectOne('SELECT id FROM escalas_de_valoracion
-            WHERE deleted_at IS NULL AND year_id <> ? ORDER BY id LIMIT 1', [$anioDelToken]);
-
-        if ($ajena === null) {
-            $this->markTestIncomplete('El seed no trae escalas de otro año; la parte del año ajeno no se midió.');
-        }
-
-        $this->olvidarControladores();
-        $this->withToken($token)->deleteJson('/api/escalas/destroy/'.$ajena->id)
-            ->assertStatus(200);
     }
 }

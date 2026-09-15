@@ -1,4 +1,67 @@
-# Escribir en un año pasado — CONTESTADO: es como tiene que ser
+# Escribir en un año pasado — CONTESTADO dos veces: se puede, y desde el 14 sep sólo el superusuario
+
+> ## AFINADO el 14 sep 2026 — es la **opción B** de la §«Las tres formas de cerrarlo»
+>
+> **Joseth, con las cinco escrituras y las poblaciones delante** (74 cuentas de personal,
+> 11 superusuarias):
+>
+> > **Un año cerrado sólo lo escribe un superusuario.** Y sobre las cinco, contratos
+> > incluido — preguntado expresamente si el cierre cubría los cuatro que tocan boletines
+> > o los cinco.
+>
+> **Esto NO revierte la respuesta del 24 ago**, que sigue abajo y sigue vigente: moverse
+> por un año pasado y escribir en él **es el producto**, no un agujero. Lo que aquella no
+> decía es **quién**, y su propia frase lo dejaba abierto — *«un usuario **con permisos**
+> puede ir al año pasado y cambiar las frases y situaciones, lo mismo que las escalas»*—.
+> En el backend ese «con permisos» no existía: las cinco escrituras iban con
+> `auth.personal`, o sea **cualquiera de los 74**.
+>
+> ### Y es literalmente la opción B de más abajo, escrita el 23 ago y elegida el 14 sep
+>
+> Con su columna «qué se rompe» ya puesta: *«sólo lo del profesor que hoy edita ordinales
+> de otro año»*. **Por eso `ordinales` se queda fuera y no es un olvido**: es el único de
+> los cuatro al que **llega un profesor** —el estado `panel.ordinales` pide
+> `can_work_like_teacher` **o** `can_work_like_admin`— y el único que exige tocar el front
+> sí o sí. Los otros tres viven en pantallas que sólo ve `admin`.
+>
+> ### Lo que se cerró, y dónde
+>
+> | | |
+> |---|---|
+> | `PUT escalas/update` · `DELETE escalas/destroy/{id}` | `EscalasDeValoracionController` |
+> | `PUT frases/update/{id}` · `DELETE frases/destroy/{id}` | `FrasesController` |
+> | `DELETE contratos/destroy/{id}` | `ContratosController` |
+>
+> El criterio vive en **`Autoriza::puedeEscribirEnUnAnioCerrado`** y el hecho —¿está
+> cerrado ese año?— en **`App\Support\AnioCerrado`**, separados a propósito. Lo fija
+> `EscrituraDeCatalogoDeOtroAnioTest`, que mide **los dos lados**: 403 para el personal
+> llano y **200 para el superusuario**, que es lo que mantiene viva la §27.4.
+>
+> ### Por qué NO rompe el panel que esta página decía que rompería
+>
+> Más abajo, en la §3, está escrito que cerrar esto *«rompe ese panel para los siete años
+> que no son el actual»* y que **lo notarían los diez `admin`**. Medido el 14 sep 2026 en
+> la copia de desarrollo de `simonbolivar`:
+>
+> ```sql
+> -- rol Admin: 10 personas, y las diez con is_superuser = 1
+> -- can_edit_years / can_edit_plantilla_notas / can_edit_unidades_subunidades: 0 personas
+> ```
+>
+> O sea que **en ese colegio «admin» ES `is_superuser`**, y los diez que usan el panel lo
+> siguen usando igual. **Es de UN colegio y no de los dieciséis**, y ésa es la
+> comprobación del día del despliegue: *un colegio que le haya dado ese panel a alguien sin
+> `is_superuser` lo va a notar*, y el síntoma será un 403 al guardar en un año viejo.
+>
+> ### Y «cerrado» es ANTERIOR al actual, no «distinto del actual»
+>
+> Medido el mismo día: `years` tiene **2026 vivo con `actual = 0`** mientras corre 2025.
+> El colegio **monta el año siguiente antes de conmutarlo**, y ahí es donde copia las
+> escalas y el plan de área. Una regla escrita como *«lo que no es el actual está
+> cerrado»* le cerraría justo esa pantalla. Está razonado entero en la cabecera de
+> `AnioCerrado`, incluido qué pasa con los años que quedaron con `actual = 1` de más por
+> el fallo de `YearsController::putSetActual` — **población desconocida, y por eso se toma
+> la salida permisiva**.
 
 > ## La respuesta, 24 ago 2026
 >
@@ -15,7 +78,15 @@
 > comprueba—.
 >
 > **No se cierra ninguno de los cuatro.** Y esto es una decisión cerrada, **no
-> pendiente**: la §84 dejó de ser un hallazgo. Lo que describía —«el listado filtra
+> pendiente**: la §84 dejó de ser un hallazgo.
+>
+> > ⚠️ **Esta frase se quedó a medias el 14 sep 2026 — lee el recuadro de arriba.** Sigue
+> > siendo cierto que **no se cierra ninguno**: los cuatro catálogos se siguen pudiendo
+> > escribir en años pasados. Lo que cambió es **quién** en tres de ellos —frases, escalas
+> > y contratos, sólo superusuario—; `ordinales` se queda **exactamente** como dice este
+> > párrafo, y por el motivo que esta misma página ya tenía escrito. *Quien lea sólo este
+> > recuadro va a creer que `escalas/update` sigue siendo `auth.personal` a secas, y lleva
+> > sin serlo desde esa fecha.* Lo que describía —«el listado filtra
 > por año y la escritura no»— es la mitad de un mecanismo que se completa cuando
 > el usuario cambia de año: entonces el listado enseña ese año y edita ese año.
 >

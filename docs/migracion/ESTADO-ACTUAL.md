@@ -73,6 +73,72 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## UN AÑO CERRADO YA NO LO ESCRIBE CUALQUIERA — 14 sep 2026, rama `fix/escribir-en-un-anio-cerrado`
+>
+> **Sin fundir.** Worktree `.worktrees/anios`, base `simonbolivar_testing_anios`.
+>
+> Salió de una pregunta de Joseth sobre si las competencias podían estropear los boletines
+> viejos. **La respuesta a eso es que no** —todo lo de la feature nueva es por año, las
+> migraciones son aditivas y `FraseAsignatura::deAlumno` nombra sus columnas—, pero
+> comprobándolo salió **un agujero que no es de esa feature y lleva ahí desde siempre**:
+>
+> > `EscalasDeValoracionController::putUpdate` y `deleteDestroy` **no miraban de qué año
+> > era la fila**. Con `auth.personal`, cualquiera de los **74** del personal podía
+> > renombrar la banda «BÁSICO» de 2023 y cambiar lo que dicen sus boletines la próxima vez
+> > que se impriman. Lo mismo en `frases/update`, `frases/destroy` y `contratos/destroy`.
+>
+> **Dos decisiones de Joseth, las dos del 14 sep con las poblaciones delante:**
+>
+> | | |
+> |---|---|
+> | **Año cerrado** | sólo **superusuario**, y sobre **las cinco** escrituras con año (contratos incluido, preguntado expresamente) |
+> | **Borrar una banda del año en curso** | **avisar y dejar pasar**: 422 con la población, se borra con `acepto_desviacion`. *«Igual pueden crear un nuevo listón que reemplace el que eliminaron»* |
+>
+> Es la **opción B** que [16-escribir-en-un-anio-pasado.md](16-escribir-en-un-anio-pasado.md)
+> tenía escrita desde el 23 ago, elegida tres semanas después. **`ordinales` se queda
+> fuera** y no es un olvido: es el único de los cuatro al que llega un profesor y el único
+> que exige tocar el front — lo dice la columna «qué se rompe» de esa misma tabla.
+>
+> ### Lo que hay que saber sin abrirlo
+>
+> - **«Cerrado» es ANTERIOR al actual, no «distinto del actual».** `years` tiene **2026 vivo
+>   con `actual = 0`** mientras corre 2025: el colegio monta el año siguiente antes de
+>   conmutarlo. La regla obvia le habría cerrado esa pantalla.
+> - **No rompe el panel de Colegio ▸ Años**, que es lo que el doc 16 avisaba que rompería.
+>   Medido: el rol `Admin` son **10 personas y las diez son superusuarias**, y **ningún
+>   permiso de rol está repartido a nadie** en ese colegio. **Es de UN colegio**: la
+>   comprobación del día del despliegue es si algún otro le dio ese panel a alguien sin
+>   `is_superuser`.
+> - **Cinco tests existentes se pusieron rojos y ninguno era una regresión**: los cinco
+>   elegían su fila con `ORDER BY id LIMIT 1`, que en este seed cae en el **año 1 o el 7**
+>   —cerrados—, con un token llano. Ninguno de los cinco mide años. Acotados a su año, que
+>   es lo que siempre quisieron decir. *Un test que se apoya en «la primera fila que salga»
+>   hereda todas las propiedades de esa fila, incluidas las que no está midiendo.*
+> - **`EscrituraDeCatalogoDeOtroAnioTest` cambió de afirmación, no se relajó.** Estaba
+>   puesto ahí para caer el día que alguien cerrara **una** de las cinco sin mirar las
+>   otras — y funcionó exactamente así. Ahora mide **los dos lados**: 403 para el personal
+>   llano y **200 para el superusuario**, que es lo que mantiene viva la 05 §27.4.
+>
+>   > **Y tenía dentro un verde falso que sólo se vio al tocarlo:** con el guard ya puesto
+>   > seguía en verde, porque su sujeto era `users_1`, que es **superusuario**. Decía «el
+>   > personal alcanza el año de al lado» y demostraba «el superusuario alcanza el año de
+>   > al lado». Es el caso contra el que avisa el docblock de
+>   > `CasoDeContrato::usuarioLlanoDelPersonal()`, dos ficheros más allá.
+>
+> - **Una cobertura que falta y se dice**: el caso del año futuro **se salta**, porque en el
+>   seed 2026 está en la papelera y no hay ningún año vivo posterior al corriente contra el
+>   que medir. Y **nada demuestra** que la regla aguante con varios `actual = 1`: ese dato
+>   lo documenta el comentario de `putSetActual`, pero **no se ha reproducido en ninguna de
+>   las dos bases** — en las dos hay exactamente uno vivo.
+>
+> ### Lo que le toca al front
+>
+> `DELETE api/escalas/destroy/{id}` **pasa a contestar 422 la primera vez**, con
+> `{message, definitivas, celdas, year_id}`, y se borra repitiendo con
+> `acepto_desviacion` (vale en el cuerpo o como `?acepto_desviacion=1`). Avisado a la
+> sesión de `myvc_front` el mismo día; **su §11.2 llamaba a esta ruta
+> `escalas-de-valoracion/{id}`, que no existe**.
+
 > ## EL MODELO DE EVALUACIÓN PASA A SER UNA ELECCIÓN DEL COLEGIO — plan escrito, SIN CÓDIGO (13 sep 2026)
 >
 > **Joseth cerró la noche del 13 sep las nueve decisiones que bloqueaban las competencias**, en una

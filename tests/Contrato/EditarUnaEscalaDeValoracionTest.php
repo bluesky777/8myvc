@@ -80,9 +80,9 @@ class EditarUnaEscalaDeValoracionTest extends CasoDeContrato
             .'icono_infantil, icono_adolescente';
 
         $escala = DB::selectOne("SELECT id, {$columnas} FROM escalas_de_valoracion
-            WHERE deleted_at IS NULL ORDER BY id LIMIT 1");
+            WHERE deleted_at IS NULL AND year_id = ? ORDER BY id LIMIT 1", [$this->yearCorriente()]);
 
-        $this->assertNotNull($escala, 'El seed no tiene ninguna escala de valoración.');
+        $this->assertNotNull($escala, 'El seed no tiene ninguna escala de valoración del año corriente.');
 
         $antes = (array) $escala;
 
@@ -113,7 +113,7 @@ class EditarUnaEscalaDeValoracionTest extends CasoDeContrato
         $token = $this->tokenDelPersonalLlano();
 
         $escala = DB::selectOne('SELECT id FROM escalas_de_valoracion
-            WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+            WHERE deleted_at IS NULL AND year_id = ? ORDER BY id LIMIT 1', [$this->yearCorriente()]);
 
         $nuevo = [
             'id' => $escala->id,
@@ -165,9 +165,11 @@ class EditarUnaEscalaDeValoracionTest extends CasoDeContrato
         // tres. **Un test que se salta se lee igual que uno que pasa** en la
         // línea de resumen.
         $conValor = DB::selectOne('SELECT id, porc_inicial FROM escalas_de_valoracion
-            WHERE deleted_at IS NULL AND porc_inicial <> 0 ORDER BY id LIMIT 1');
+            WHERE deleted_at IS NULL AND porc_inicial <> 0 AND year_id = ?
+            ORDER BY id LIMIT 1', [$this->yearCorriente()]);
         $perdida = DB::selectOne('SELECT id, perdido FROM escalas_de_valoracion
-            WHERE deleted_at IS NULL AND perdido <> 0 ORDER BY id LIMIT 1');
+            WHERE deleted_at IS NULL AND perdido <> 0 AND year_id = ?
+            ORDER BY id LIMIT 1', [$this->yearCorriente()]);
 
         $this->assertNotNull($conValor, 'El seed no tiene ninguna escala con `porc_inicial` distinto de 0.');
         $this->assertNotNull($perdida, 'El seed no tiene ninguna escala con `perdido = 1`.');
@@ -191,5 +193,34 @@ class EditarUnaEscalaDeValoracionTest extends CasoDeContrato
             .'el valor es cierto en vez de si la clave vino, y los dos ceros de esta tabla son '
             .'legítimos: `porc_inicial = 0` es el borde inferior de la escala más baja del colegio y '
             .'`perdido = 0` es el valor normal de las tres escalas que se aprueban.');
+    }
+
+    /**
+     * El `id` del año corriente, y los tres casos de arriba lo llevan **desde el 14
+     * sep 2026**.
+     *
+     * Antes cogían `ORDER BY id LIMIT 1` a secas, que en este seed es una banda de
+     * **2018** — o sea de un año cerrado—, y el sujeto de los tres es
+     * `tokenDelPersonalLlano()`. Cuando `escalas/update` empezó a exigir
+     * superusuario para los años cerrados, **los tres se pusieron rojos a la vez**.
+     *
+     * **No era una regresión: era el sujeto.** Lo que estos tres casos miden es la
+     * §122 —que mandar sólo el id no vacía la fila, y que un `0` a propósito no se
+     * reemplaza—, y eso **no tiene nada que ver con el año**: la fila de 2018 sólo
+     * estaba ahí porque era la primera por id. Acotarlos al año corriente los deja
+     * midiendo exactamente lo que dicen medir, y el candado del año tiene su propio
+     * fichero (`EscrituraDeCatalogoDeOtroAnioTest`).
+     *
+     * *Un test que se apoya en «la primera fila que salga» hereda todas las
+     * propiedades de esa fila, incluidas las que nadie eligió.*
+     */
+    private function yearCorriente(): int
+    {
+        $fila = DB::selectOne('SELECT id FROM years
+            WHERE actual = 1 AND deleted_at IS NULL ORDER BY year ASC LIMIT 1');
+
+        $this->assertNotNull($fila, 'El seed no tiene ningún año con `actual = 1`.');
+
+        return (int) $fila->id;
     }
 }

@@ -2304,11 +2304,32 @@ automática al marcar.
   sola**. Añadir aquí un `motivo: escala_borrada` sería volver a atar la explicación a una causa,
   que es justo de lo que acaban de salir.
 
-  **Lo que sí está sin decidir es si borrar una banda debería poder hacerse así.** Hoy degrada en
-  silencio boletines ya impresos. Las tres salidas —prohibirlo cuando hay celdas que la apuntan,
-  avisar con la población delante como `acepto_desviacion`, o aceptarlo y pintarlo bien— **cuestan
-  cosas distintas y ninguna se ha elegido**. Es la familia de *«crear un rol no regala permisos»*:
-  un borrado cuyo efecto vive en otra tabla.
+  ~~**Lo que sí está sin decidir es si borrar una banda debería poder hacerse así.**~~
+  **DECIDIDO Y HECHO el 14 sep 2026.** De las tres salidas —prohibirlo, avisar con la población
+  como `acepto_desviacion`, o aceptarlo y pintarlo bien— Joseth eligió **la segunda**, y su motivo
+  es el que hace que la primera fuera peor: *«igual pueden crear un nuevo listón que reemplace el
+  que eliminaron»* — o sea que **reestructurar la escala de un año es legítimo**, y prohibirlo
+  dejaría al colegio sin forma de hacerlo.
+
+  `DELETE escalas/destroy/{id}` contesta ahora **422 con las dos poblaciones** y no borra;
+  se borra repitiéndolo con `acepto_desviacion`. Las dos poblaciones van acotadas **al año de la
+  banda** —sin eso la cuenta suma los nueve años y diría 14.054 donde el daño real son 4.178, y
+  *una cifra que exagera se aprende a ignorar*— y son dos daños distintos: `definitivas` es lo que
+  pierde la palabra en los boletines de siempre, `celdas` son las casillas de la rejilla que
+  conservan su palabra congelada y se quedan sin medidor. Medido en la copia de desarrollo: BÁSICO
+  del año en curso, **1.620 definitivas**; la del año 7, **8.354**; y **cero bandas borradas** en
+  los nueve años, o sea que la fricción que añade es casi nula.
+
+  `BorrarUnaBandaDeLaEscalaTest`, seis casos, **visto en rojo antes de darlo por bueno**: con el
+  aviso desactivado caen tres —el 422 y los dos de verdad laxa— y siguen verdes los tres que sólo
+  comprueban que el borrado borra.
+
+  > **Y de paso salió la mitad que nadie había mirado, que es más grave y no es de esta feature:**
+  > `putUpdate` y `deleteDestroy` **no miraban de qué año era la banda**, así que cualquiera de los
+  > 74 del personal podía renombrar o borrar una banda de **2023** y cambiar lo que dicen sus
+  > boletines al reimprimirlos. Cerrado el mismo día a superusuarios, sobre las **cinco** escrituras
+  > con año —no sólo las dos de escalas—, en
+  > [16-escribir-en-un-anio-pasado.md](16-escribir-en-un-anio-pasado.md).
 
 - **Los dos censos del día del despliegue** (§7). No se pueden correr desde una sesión de
   desarrollo.
