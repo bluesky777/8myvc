@@ -184,7 +184,7 @@ class NotasActualesAlumnosController extends Controller {
 		$alumno->ausencias_total = $ausencias_total;
 
 		foreach ($asignaturas as $asignatura) {
-			$asignatura->unidades = Unidad::deAsignaturaCalculada($alumno->alumno_id, $asignatura->asignatura_id, $periodo_id);
+			$asignatura->unidades = Unidad::deAsignaturaCalculada($alumno->alumno_id, $asignatura->asignatura_id, $periodo_id, 'sin_desempenio', $this->user->year_id);
 
 			foreach ($asignatura->unidades as $unidad) {
 				$unidad->subunidades = Subunidad::deUnidadCalculada($alumno->alumno_id, $unidad->unidad_id, $this->user->year_id);

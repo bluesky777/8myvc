@@ -172,6 +172,21 @@ class Year extends Model {
 	 */
 	public const MODELOS_DE_EVALUACION = ['ponderado', 'competencias'];
 
+	/**
+	 * Cómo reparte el colegio el peso entre las subunidades de una unidad.
+	 *
+	 * `porcentaje` es lo de siempre —cada subunidad pesa lo que diga su columna— y
+	 * `promedio` las hace pesar igual, `1/n`. Entrega 5 del doc 28, encargo de
+	 * Joseth del 2 sep 2026: lo que le quita al docente es teclear porcentajes y la
+	 * clase entera de fallos de «esto no suma 100».
+	 *
+	 * **La lista vive aquí y un test comprueba que dice lo mismo que el `enum` de la
+	 * columna**, por lo mismo que su hermana: con el `sql_mode` de estos servidores,
+	 * un valor fuera del `enum` **no lanza — guarda la cadena vacía y devuelve
+	 * 200**.
+	 */
+	public const REPARTOS_DE_SUBUNIDADES = ['porcentaje', 'promedio'];
+
 	use SoftDeletes;
 	protected $softDelete = true;
 

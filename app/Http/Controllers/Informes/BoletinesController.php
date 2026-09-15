@@ -348,7 +348,7 @@ class BoletinesController extends Controller {
 			$asignaturas[$i]->bol_independiente = BoletinIndependiente::aplica((int) $alumno->alumno_id, (int) $periodo_id);
 
 			// UNIDADES
-			$asignaturas[$i]->unidades = Unidad::deAsignaturaCalculada($alumno->alumno_id, $asignaturas[$i]->asignatura_id, $periodo_id);
+			$asignaturas[$i]->unidades = Unidad::deAsignaturaCalculada($alumno->alumno_id, $asignaturas[$i]->asignatura_id, $periodo_id, 'sin_desempenio', $this->user->year_id);
 
 			foreach ($asignaturas[$i]->unidades as $unidad) {
 				$unidad->subunidades = Subunidad::deUnidadCalculada($alumno->alumno_id, $unidad->unidad_id, $this->user->year_id);

@@ -105,7 +105,7 @@ class NotaFinal extends Model {
 	 * Se usa la forma correlacionada y no `JOIN_ESTADO` porque aquí **no hay
 	 * `matriculas` dentro de la derivada** — la `m` de la consulta de fuera no llega.
 	 */
-	public static function consultaAlumnosGrupoNotaFinal(): string
+	public static function consultaAlumnosGrupoNotaFinal(string $modo = RepartoDeLaNota::PORCENTAJE): string
 	{
 	        return 'SELECT m.id as matricula_id, m.alumno_id, a.no_matricula, a.nombres, a.apellidos, a.sexo, a.user_id, 
 							a.fecha_nac, a.ciudad_nac, a.celular, a.direccion, a.religion, m.grupo_id, m.estado, 
@@ -136,7 +136,7 @@ class NotaFinal extends Model {
 							SELECT df1.alumno_id, df1.periodo_id, MAX(df1.updated_at) as updated_at, df1.numero_periodo, sum( df1.ValorUnidad ) DefMateria 
                             FROM(
                                 SELECT n.alumno_id, u.periodo_id, u.id as unidad_id, p1.numero as numero_periodo, MAX(n.updated_at) as updated_at, 
-                                    sum( ('.RepartoDeLaNota::aportacionALaDefinitiva().') ) ValorUnidad
+                                    sum( ('.RepartoDeLaNota::aportacionALaDefinitiva($modo).') ) ValorUnidad
                                 FROM asignaturas asi 
                                 inner join unidades u on u.asignatura_id=asi.id and u.deleted_at is null
                                 inner join subunidades s on s.unidad_id=u.id and s.deleted_at is null
@@ -153,7 +153,7 @@ class NotaFinal extends Model {
 							SELECT df1.alumno_id, df1.periodo_id, MAX(df1.updated_at) as updated_at, df1.numero_periodo, sum( df1.ValorUnidad ) DefMateria 
                             FROM(
                                 SELECT n.alumno_id, u.periodo_id, u.id as unidad_id, p1.numero as numero_periodo, MAX(n.updated_at) as updated_at, 
-                                    sum( ('.RepartoDeLaNota::aportacionALaDefinitiva().') ) ValorUnidad
+                                    sum( ('.RepartoDeLaNota::aportacionALaDefinitiva($modo).') ) ValorUnidad
                                 FROM asignaturas asi 
                                 inner join unidades u on u.asignatura_id=asi.id and u.deleted_at is null
                                 inner join subunidades s on s.unidad_id=u.id and s.deleted_at is null
@@ -170,7 +170,7 @@ class NotaFinal extends Model {
 							SELECT df1.alumno_id, df1.periodo_id, MAX(df1.updated_at) as updated_at, df1.numero_periodo, sum( df1.ValorUnidad ) DefMateria 
                             FROM(
                                 SELECT n.alumno_id, u.periodo_id, u.id as unidad_id, p1.numero as numero_periodo, MAX(n.updated_at) as updated_at, 
-                                    sum( ('.RepartoDeLaNota::aportacionALaDefinitiva().') ) ValorUnidad
+                                    sum( ('.RepartoDeLaNota::aportacionALaDefinitiva($modo).') ) ValorUnidad
                                 FROM asignaturas asi 
                                 inner join unidades u on u.asignatura_id=asi.id and u.deleted_at is null
                                 inner join subunidades s on s.unidad_id=u.id and s.deleted_at is null
@@ -187,7 +187,7 @@ class NotaFinal extends Model {
 							SELECT df1.alumno_id, df1.periodo_id, MAX(df1.updated_at) as updated_at, df1.numero_periodo, sum( df1.ValorUnidad ) DefMateria 
                             FROM(
                                 SELECT n.alumno_id, u.periodo_id, u.id as unidad_id, p1.numero as numero_periodo, MAX(n.updated_at) as updated_at,
-                                    sum( ('.RepartoDeLaNota::aportacionALaDefinitiva().') ) ValorUnidad
+                                    sum( ('.RepartoDeLaNota::aportacionALaDefinitiva($modo).') ) ValorUnidad
                                 FROM asignaturas asi 
                                 inner join unidades u on u.asignatura_id=asi.id and u.deleted_at is null
                                 inner join subunidades s on s.unidad_id=u.id and s.deleted_at is null
@@ -225,9 +225,9 @@ class NotaFinal extends Model {
      * vez quién escribe y cuándo se dispara haría imposible saber cuál de las dos
      * cosas movió un número.
      */
-    public static function alumnos_grupo_nota_final($grupo_id, $asignatura_id, $user_id){
+    public static function alumnos_grupo_nota_final($grupo_id, $asignatura_id, $user_id, string $modo = RepartoDeLaNota::PORCENTAJE){
 
-        $consulta = self::consultaAlumnosGrupoNotaFinal();
+        $consulta = self::consultaAlumnosGrupoNotaFinal($modo);
 
         $alumnos = DB::select($consulta, [':grupo_id'=>$grupo_id, ':asign_id1'=>$asignatura_id, ':asign_id2'=>$asignatura_id, ':asign_id3'=>$asignatura_id, ':asign_id4'=>$asignatura_id, 
                                             ':asign_id5'=>$asignatura_id, ':asign_id6'=>$asignatura_id, ':asign_id7'=>$asignatura_id, ':asign_id8'=>$asignatura_id ]);
@@ -290,7 +290,7 @@ class NotaFinal extends Model {
         
         if ($per_desact['per1'] == true || $per_desact['per2'] == true || $per_desact['per3'] == true || $per_desact['per4'] == true) {
             
-            $alumnos = DB::select(self::consultaAlumnosGrupoNotaFinal(), [':grupo_id'=>$grupo_id, ':asign_id1'=>$asignatura_id, ':asign_id2'=>$asignatura_id, ':asign_id3'=>$asignatura_id, ':asign_id4'=>$asignatura_id, 
+            $alumnos = DB::select(self::consultaAlumnosGrupoNotaFinal($modo), [':grupo_id'=>$grupo_id, ':asign_id1'=>$asignatura_id, ':asign_id2'=>$asignatura_id, ':asign_id3'=>$asignatura_id, ':asign_id4'=>$asignatura_id, 
                                             ':asign_id5'=>$asignatura_id, ':asign_id6'=>$asignatura_id, ':asign_id7'=>$asignatura_id, ':asign_id8'=>$asignatura_id ]);
         
         }
@@ -304,6 +304,9 @@ class NotaFinal extends Model {
 
 	public static function calcularAsignaturaPeriodo($asignatura_id, $periodo_id, $num_periodo)
 	{
+		// El año sale del periodo: este método nunca lo ha necesitado para nada más.
+		$modo = RepartoDeLaNota::modoDelPeriodo($periodo_id);
+
 		$user 			= User::fromToken();
 		$now 			= Carbon::now('America/Bogota');
 
@@ -328,7 +331,7 @@ class NotaFinal extends Model {
 				SELECT df1.alumno_id, df1.periodo_id, MAX(df1.updated_at) as updated_at, df1.numero_periodo, sum( df1.ValorUnidad ) DefMateria 
 				FROM(
 					SELECT n.alumno_id, u.periodo_id, u.id as unidad_id, p1.numero as numero_periodo, MAX(n.updated_at) as updated_at, 
-						sum( ('.RepartoDeLaNota::aportacionALaDefinitiva().') ) ValorUnidad
+						sum( ('.RepartoDeLaNota::aportacionALaDefinitiva($modo).') ) ValorUnidad
 					FROM asignaturas asi 
 					inner join unidades u on u.asignatura_id=asi.id and u.deleted_at is null
 					inner join subunidades s on s.unidad_id=u.id and s.deleted_at is null

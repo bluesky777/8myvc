@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use Illuminate\Support\Facades\DB;
+
 /**
  * **Cómo reparte una nota su peso dentro de la unidad, y la unidad dentro del
  * periodo.** Un solo sitio.
@@ -102,6 +104,51 @@ final class RepartoDeLaNota
     public const PROMEDIO = 'promedio';
 
     /**
+     * Qué reparto tiene puesto ese año. **Ante la duda, `porcentaje`.**
+     *
+     * El defecto no es prudencia genérica: `porcentaje` **es el comportamiento de
+     * hoy**, así que un año que no se encuentra, un id que no llega o un valor que
+     * no está en el `enum` dejan la consulta exactamente como estaba antes de esta
+     * entrega. Lo contrario —caer en `promedio` por no saber— cambiaría notas sin
+     * que nadie lo hubiera pedido.
+     *
+     * Sin caché: es una fila por clave primaria y estas consultas se montan una vez
+     * por petición. Una caché estática se llevaría por delante los tests, que
+     * cambian la columna dentro del mismo proceso.
+     */
+    public static function modoDelAnio($yearId): string
+    {
+        if (! is_numeric($yearId) || (int) $yearId <= 0) {
+            return self::PORCENTAJE;
+        }
+
+        $fila = DB::selectOne('SELECT reparto_subunidades FROM years WHERE id = ?', [(int) $yearId]);
+
+        if ($fila === null || ! in_array($fila->reparto_subunidades, [self::PORCENTAJE, self::PROMEDIO], true)) {
+            return self::PORCENTAJE;
+        }
+
+        return $fila->reparto_subunidades;
+    }
+
+    /**
+     * El mismo, cuando lo que hay a mano es el periodo y no el año.
+     *
+     * Pasa en `NotaFinal::calcularAsignaturaPeriodo`, que recibe `$periodo_id` y
+     * nunca ha necesitado el año para nada más.
+     */
+    public static function modoDelPeriodo($periodoId): string
+    {
+        if (! is_numeric($periodoId) || (int) $periodoId <= 0) {
+            return self::PORCENTAJE;
+        }
+
+        $fila = DB::selectOne('SELECT year_id FROM periodos WHERE id = ?', [(int) $periodoId]);
+
+        return self::modoDelAnio($fila->year_id ?? null);
+    }
+
+    /**
      * Las subunidades vivas de la unidad a la que pertenece `$s`, como subconsulta.
      *
      * **Correlacionada a propósito, y no un `JOIN`.** Estas dieciséis consultas ya
@@ -144,6 +191,32 @@ final class RepartoDeLaNota
         }
 
         return "{$s}.porcentaje/100";
+    }
+
+    /**
+     * El mismo peso pero **para pintar**: de 0 a 100 y con dos decimales.
+     *
+     * Es `subunidad_porcentaje`, y el front midió quién lo lee: **cero en `app2`,
+     * cero en `myvc_flutter`, y un solo sitio en la app vieja** —
+     * `notas.html:108`, el tooltip «40 % Taller» al pasar el ratón por la casilla—.
+     * O sea que **nadie calcula con él**: es un rótulo.
+     *
+     * Y por eso es el único que se redondea aquí. Joseth decidió el 14 sep 2026
+     * redondear **en un solo sitio, el que escribe la definitiva**, y esto no
+     * contradice esa regla: un rótulo no entra en ninguna cuenta. Sin recortar
+     * pintaría `33.3333333333 %`.
+     *
+     * **Pero convertirlo no es opcional.** Sin esto, el docente de la app vieja
+     * leería al pasar el ratón un porcentaje **que ya no gobierna nada** — y eso es
+     * peor que un número raro, porque es creíble.
+     */
+    public static function porcentajeParaPintar(string $modo = self::PORCENTAJE, string $s = 's'): string
+    {
+        if ($modo === self::PROMEDIO) {
+            return 'ROUND(100.0/'.self::cuantasSubunidades($s).', 2)';
+        }
+
+        return "{$s}.porcentaje";
     }
 
     /**

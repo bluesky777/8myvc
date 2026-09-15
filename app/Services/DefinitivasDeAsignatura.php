@@ -496,6 +496,12 @@ class DefinitivasDeAsignatura
      */
     public static function calcular(int $asignaturaId, int $periodoId): array
     {
+        // **Éste es el único sitio que ESCRIBE una definitiva**, así que aquí el modo
+        // no puede salir de la sesión: sale del periodo que se está calculando. Un
+        // recálculo lanzado desde el contexto de otro año guardaría con el reparto
+        // equivocado, y lo que queda escrito es una nota.
+        $modo = RepartoDeLaNota::modoDelPeriodo($periodoId);
+
         // **El alcance del boletín independiente, BI-2.** Esta consulta resuelve el
         // grupo entero de una vez y no puede preguntar alumno por alumno, así que
         // usa la forma que `BoletinIndependiente` dejó para eso: el `LEFT JOIN` con
@@ -558,7 +564,7 @@ class DefinitivasDeAsignatura
                     ON bip.alumno_id = m.alumno_id AND bip.periodo_id = ?
                LEFT JOIN (
                     SELECT n.alumno_id, u.alumno_id AS dueno,
-                           SUM('.RepartoDeLaNota::aportacionALaDefinitiva().') AS suma,
+                           SUM('.RepartoDeLaNota::aportacionALaDefinitiva($modo).') AS suma,
                            COUNT(*) AS notas
                       FROM unidades u
                       INNER JOIN subunidades s ON s.unidad_id = u.id AND s.deleted_at IS NULL

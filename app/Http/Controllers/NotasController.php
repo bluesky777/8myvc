@@ -42,6 +42,13 @@ class NotasController extends Controller {
 	public function putDetailed()
 	{
 		$user = User::fromToken();
+
+		// **D30**: en modo promedio esta pantalla sirve `1/n` y `100/n` en vez de lo
+		// que diga `subunidades.porcentaje`, y con eso los CUATRO clientes quedan
+		// correctos sin tocar una línea de ninguno — Flutter incluida, que no se puede
+		// redesplegar deprisa. El porqué entero está en `RepartoDeLaNota`.
+		$modo = RepartoDeLaNota::modoDelAnio($user->year_id ?? null);
+
 		
 		$profe_id 			= Request::input('profesor_id');
 		$asignatura_id 		= Request::input('asignatura_id');
@@ -126,6 +133,38 @@ class NotasController extends Controller {
 
 			foreach ($subunidades as $subunidad) {
 				Nota::verificarCrearNotas($asignatura->grupo_id, $subunidad, $user->user_id);
+			}
+
+			/*
+			 * **La segunda mitad de la D30: el árbol también miente si no se convierte.**
+			 *
+			 * Las filas de nota ya viajan con `subunidad_porc = 1/n` (arriba, en el
+			 * `SELECT`), pero el árbol de unidades lleva `subunidades[].porcentaje`
+			 * **crudo de la tabla** y hay clientes que leen de ahí —`myvc_flutter`
+			 * multiplica por `subunidad.porcentaje` del árbol, no por el de la fila—.
+			 * Servir una convertida y la otra no es exactamente el fallo que esta
+			 * entrega viene a evitar: la planilla sumaría ponderado mientras la
+			 * definitiva guarda la media.
+			 *
+			 * **`n` sale de `count($subunidades)` y no de otra consulta**, y eso no es
+			 * ahorro: es lo que garantiza que sea EL MISMO `n` que usa el SQL. Esa
+			 * consulta trae `WHERE s.unidad_id=? and s.deleted_at is null`, que es
+			 * palabra por palabra lo que cuenta `RepartoDeLaNota`. Dos denominadores
+			 * distintos aquí serían dos números creíbles y ninguna forma de saber cuál.
+			 *
+			 * `subunidades.porcentaje` **no se toca en la base** (D20): lo que cambia es
+			 * lo que se sirve. Apagar el interruptor devuelve el reparto que había.
+			 */
+			if ($modo === RepartoDeLaNota::PROMEDIO && count($subunidades) > 0) {
+				// Dos decimales **sólo aquí**: esto es un porcentaje para pintar —el
+				// rótulo «33,33 % Taller»—, no el factor con el que se calcula. El
+				// factor viaja sin recortar en `subunidad_porc`, que es lo que decidió
+				// Joseth el 14 sep: se redondea en un solo sitio, el que escribe.
+				$reparto = round(100 / count($subunidades), 2);
+
+				foreach ($subunidades as $subunidad) {
+					$subunidad->porcentaje = $reparto;
+				}
 			}
 
 			// A veces hay varios con el mismo número en el orden, debo encontrarlo y arreglarlo.
@@ -256,7 +295,7 @@ class NotasController extends Controller {
 			$cons = "SELECT n.id, n.nota, n.subunidad_id, n.alumno_id, n.created_by, n.updated_by, n.deleted_by, n.deleted_at, n.created_at, n.updated_at, u.asignatura_id,
 							n.nota_original, n.nota_nivelacion, n.nivelada_at, n.nivelada_por,
 							univ.username as nivelada_por_username, n.nivelacion_obs,
-							".RepartoDeLaNota::pesoDeSubunidad()." as subunidad_porc, ".RepartoDeLaNota::pesoDeUnidad()." as unidad_porc, s.definicion, s.porcentaje as subunidad_porcentaje, u.orden as orden_unidad, s.orden as orden_subunidad
+							".RepartoDeLaNota::pesoDeSubunidad($modo)." as subunidad_porc, ".RepartoDeLaNota::pesoDeUnidad()." as unidad_porc, s.definicion, ".RepartoDeLaNota::porcentajeParaPintar($modo)." as subunidad_porcentaje, u.orden as orden_unidad, s.orden as orden_subunidad
 						FROM notas n
 						LEFT JOIN users univ ON univ.id=n.nivelada_por
 						INNER JOIN alumnos a ON a.id=n.alumno_id and n.deleted_at is null

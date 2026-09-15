@@ -150,6 +150,8 @@ class DefinitivasPeriodosController extends Controller {
 
 	public function putCalcularGrupoPeriodo()
 	{
+		$modo = RepartoDeLaNota::modoDelAnio($this->user->year_id ?? null);
+
 		$user 			= User::fromToken();
 		$grupo_id 		= Request::input('grupo_id');
 		$periodo_id 	= Request::input('periodo_id');
@@ -177,7 +179,7 @@ class DefinitivasPeriodosController extends Controller {
 		$consulta = 'SELECT nt.alumno_id, asi.id as asignatura_id, nt.periodo_id, cast(sum(nt.ValorNota) as decimal(7,4)) as nota_asignatura
 				FROM asignaturas asi 
 				inner join 
-					(select u.asignatura_id, n.alumno_id, u.periodo_id, sum( ('.RepartoDeLaNota::aportacionALaDefinitiva().') ) ValorNota
+					(select u.asignatura_id, n.alumno_id, u.periodo_id, sum( ('.RepartoDeLaNota::aportacionALaDefinitiva($modo).') ) ValorNota
 					from unidades u 
 					inner join subunidades s on s.unidad_id=u.id and s.deleted_at is null and u.periodo_id=:periodo_id
 					inner join notas n on n.subunidad_id=s.id and n.deleted_at is null

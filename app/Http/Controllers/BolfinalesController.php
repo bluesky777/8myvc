@@ -185,6 +185,8 @@ class BolfinalesController extends Controller {
 	 */
 	public function definitivasMateriasXPeriodo(&$alumno, $grupo_id, $year_id, $periodos, $perdidasPorDefinitiva = null)
 	{
+		$modo = RepartoDeLaNota::modoDelAnio($year_id);
+
 		$deEsteAlumno = $perdidasPorDefinitiva[(int) $alumno->alumno_id] ?? [];
 
 		$alumno->asignaturas	= Grupo::detailed_materias($grupo_id);
@@ -204,7 +206,7 @@ class BolfinalesController extends Controller {
 							SELECT n.alumno_id, a.id as asignatura_id, a.profesor_id, 
 								a.creditos, u.periodo_id, u.definicion, u.id as unidad_id, u.porcentaje as porc_unidad, 
 								s.id as subunidad_id, s.definicion as definicion_subunidad, s.porcentaje as porcentaje_subunidad, p.numero as numero_periodo, 
-								sum( ('.RepartoDeLaNota::aportacionALaDefinitiva().') ) ValorUnidad,
+								sum( ('.RepartoDeLaNota::aportacionALaDefinitiva($modo).') ) ValorUnidad,
 								aus.cantidad_ausencia, tar.cantidad_tardanza
 							FROM asignaturas a 
 							inner join unidades u on u.asignatura_id=a.id and u.deleted_at is null

@@ -972,15 +972,50 @@ class YearsController extends Controller {
 			'No tiene permiso para cambiar el modelo de evaluación del colegio.'
 		);
 
-		$pedido = Request::input('modelo_evaluacion');
+		// **Las DOS políticas del año, y cada una es opcional** (14 sep 2026).
+		//
+		// Hasta hoy esta ruta sólo escribía `modelo_evaluacion`. Entra
+		// `reparto_subunidades` —la Entrega 5— **aquí y no en una ruta propia**, por
+		// decisión de Joseth: es otra política de evaluación del mismo año, con el
+		// mismo dueño (`can_edit_plantilla_notas`) y en la misma pantalla de
+		// configuración. Una ruta nueva en este repositorio es una decisión que mueve
+		// el contador y tres snapshots; ésta no mueve ninguno.
+		//
+		// **Cada campo que viene se valida y se escribe; el que no viene no se toca.**
+		// Es la §68 —«un campo que no se manda no es un campo que no cambia»— aplicada
+		// al revés y a propósito: aquí lo correcto ES no tocarlo, porque son dos
+		// políticas independientes y la pantalla puede cambiar una sola.
+		$columnas = [
+			'modelo_evaluacion' => Year::MODELOS_DE_EVALUACION,
+			'reparto_subunidades' => Year::REPARTOS_DE_SUBUNIDADES,
+		];
 
-		// El `enum` de MySQL rechazaría el valor raro, pero **con el `sql_mode` de
-		// estos servidores no lanza: guarda la cadena vacía y devuelve 200**, que es
-		// la misma familia de `frases_asignatura` cortando a los 255. La lista vive
-		// en el modelo y un test comprueba que dice lo mismo que la columna.
-		if (! is_string($pedido) || ! in_array($pedido, Year::MODELOS_DE_EVALUACION, true)) {
-			abort(422, '`modelo_evaluacion` tiene que ser '
-				.implode(' o ', Year::MODELOS_DE_EVALUACION).'.');
+		$pedidos = [];
+
+		foreach ($columnas as $campo => $validos) {
+			if (! Request::has($campo)) {
+				continue;
+			}
+
+			$valor = Request::input($campo);
+
+			// El `enum` de MySQL rechazaría el valor raro, pero **con el `sql_mode` de
+			// estos servidores no lanza: guarda la cadena vacía y devuelve 200**, que es
+			// la misma familia de `frases_asignatura` cortando a los 255. Las listas viven
+			// en el modelo y un test comprueba que dicen lo mismo que las columnas.
+			if (! is_string($valor) || ! in_array($valor, $validos, true)) {
+				abort(422, "`{$campo}` tiene que ser ".implode(' o ', $validos).'.');
+			}
+
+			$pedidos[$campo] = $valor;
+		}
+
+		// **Sin ningún campo NO es un 200 vacío**, que sería la familia de
+		// `tools/respuestas-que-mienten.py`: quien la reciba creería que guardó algo.
+		// Antes esto salía por el 422 de `modelo_evaluacion` cuando faltaba; ahora que
+		// los dos son opcionales, hace falta decirlo.
+		if ($pedidos === []) {
+			abort(422, 'Hace falta `modelo_evaluacion` o `reparto_subunidades`.');
 		}
 
 		$year_id = Request::input('year_id', $user->year_id ?? null);
@@ -994,26 +1029,42 @@ class YearsController extends Controller {
 		// año borrado no le sirve a nadie y reaparecería con `years/restore`.
 		$year = Year::findOrFail((int) $year_id);
 
-		$anterior = $year->modelo_evaluacion;
+		$antes = [];
 
-		$year->modelo_evaluacion = $pedido;
+		foreach ($pedidos as $campo => $valor) {
+			$antes[$campo] = $year->{$campo};
+			$year->{$campo} = $valor;
+		}
+
 		$year->updated_by = $user->user_id;
 		$year->save();
+
+		// `anterior` a secas se conserva **sólo cuando se tocó el modelo**, porque es
+		// lo que el front ya lee para decir «pasó de ponderado a competencias». Si un
+		// día se retira, que sea con el front delante y no de paso.
+		$anterior = $antes['modelo_evaluacion'] ?? null;
 
 		// El rastro nuevo, sin el viejo: `bitacoras` tiene diez escritores fijados
 		// por un centinela y esto no es uno de ellos. `year_config` es la entidad que
 		// ya usa `putGuardarCambios` para lo mismo.
+		$resumen = [];
+
+		foreach ($pedidos as $campo => $valor) {
+			$resumen[] = "{$campo}: {$antes[$campo]} → {$valor}";
+		}
+
 		Auditoria::registrar()
 			->editar('year_config', (int) $year->id)
 			->en(year: (int) $year->id)
-			->de(['modelo_evaluacion' => $anterior])
-			->a(['modelo_evaluacion' => $pedido])
-			->resumen("Cambió el modelo de evaluación del año: {$anterior} → {$pedido}")
+			->de($antes)
+			->a($pedidos)
+			->resumen('Cambió la configuración de evaluación del año — '.implode(', ', $resumen))
 			->guardar();
 
 		return [
 			'year_id' => (int) $year->id,
 			'modelo_evaluacion' => $year->modelo_evaluacion,
+			'reparto_subunidades' => $year->reparto_subunidades,
 			'anterior' => $anterior,
 			'desempeno_displayname' => $year->desempeno_displayname,
 			'desempenos_displayname' => $year->desempenos_displayname,
@@ -1192,8 +1243,23 @@ class YearsController extends Controller {
 		// cierta** — es justo la que no está en las veintiuna de aquel método, a
 		// propósito. El día que entre otra columna de `years` que no pueda escribir
 		// todo el personal, su sitio es esta lista.
-		if (strtolower(trim((string) $campo)) === 'modelo_evaluacion') {
-			abort(422, 'El modelo de evaluación se cambia con years/modelo-evaluacion, '
+		// **Y el 14 sep 2026 entró la segunda, que es justo lo que el párrafo de
+		// arriba decía que iba a pasar**: `reparto_subunidades`, la Entrega 5. Por eso
+		// esto deja de ser un `if` por columna y pasa a ser una lista — con dos, copiar
+		// el bloque es cómo se olvida la tercera.
+		//
+		// Las dos se escriben por `PUT years/modelo-evaluacion`, que exige
+		// `can_edit_plantilla_notas` DENTRO. Esta ruta es `auth.personal`: sin este
+		// corte, las dos decisiones se saltan aquí en una línea y no lo diría nada.
+		$conDueno = [
+			'modelo_evaluacion' => 'El modelo de evaluación',
+			'reparto_subunidades' => 'El reparto de las subunidades',
+		];
+
+		$normalizado = strtolower(trim((string) $campo));
+
+		if (isset($conDueno[$normalizado])) {
+			abort(422, $conDueno[$normalizado].' se cambia con years/modelo-evaluacion, '
 				.'que exige el permiso de la plantilla de notas.');
 		}
 

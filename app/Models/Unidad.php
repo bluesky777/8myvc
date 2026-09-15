@@ -141,6 +141,13 @@ class Unidad extends Model {
 
 	public static function deAsignaturaCalculada($alumno_id, $asignatura_id, $periodo_id, $con_desempenio='sin_desempenio', $year_id=0, $nota_minima=70)
 	{
+		// **El modo sale del `$year_id` que este método YA recibía**, no de un
+		// parámetro nuevo. Con `$year_id=0` —el defecto— cae en `porcentaje`, que es
+		// el comportamiento de siempre. Los dos llamantes que lo omitían pasaron a
+		// pasarlo el 14 sep 2026: sin eso, esos dos boletines se habrían quedado en
+		// porcentaje mientras la definitiva se guardaba en promedio.
+		$modo = RepartoDeLaNota::modoDelAnio($year_id);
+
 
 		/*
 		 * De quién son las unidades que hay que traer. Es la fase 1 de
@@ -167,8 +174,8 @@ class Unidad extends Model {
 
 		if($con_desempenio==='fortaleza_debilidad'){
 			
-			$consulta = 'SELECT u.id as unidad_id, u.definicion as definicion_unidad, u.porcentaje as porcentaje_unidad, IF('.RepartoDeLaNota::notaDeLaUnidad().' < :nota_minima, "Debilidad", "Fortaleza") as desempenio,
-							u.asignatura_id, u.orden as orden_unidad, u.periodo_id, '.RepartoDeLaNota::notaDeLaUnidad().' as nota_unidad
+			$consulta = 'SELECT u.id as unidad_id, u.definicion as definicion_unidad, u.porcentaje as porcentaje_unidad, IF('.RepartoDeLaNota::notaDeLaUnidad($modo).' < :nota_minima, "Debilidad", "Fortaleza") as desempenio,
+							u.asignatura_id, u.orden as orden_unidad, u.periodo_id, '.RepartoDeLaNota::notaDeLaUnidad($modo).' as nota_unidad
 						FROM unidades u
 						left join subunidades s ON s.unidad_id=u.id and s.deleted_at is null
 						left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and n.alumno_id=:alumno_id
@@ -191,7 +198,7 @@ class Unidad extends Model {
 			$consulta = 'SELECT * 
 						FROM
 						(SELECT u.id as unidad_id, u.definicion as definicion_unidad, u.porcentaje as porcentaje_unidad, 
-							u.asignatura_id, u.orden as orden_unidad, u.periodo_id, '.RepartoDeLaNota::notaDeLaUnidad().' as nota_unidad
+							u.asignatura_id, u.orden as orden_unidad, u.periodo_id, '.RepartoDeLaNota::notaDeLaUnidad($modo).' as nota_unidad
 						FROM unidades u
 						left join subunidades s ON s.unidad_id=u.id and s.deleted_at is null
 						left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and n.alumno_id=:alumno_id
@@ -210,7 +217,7 @@ class Unidad extends Model {
 			
 		}else{
 			$consulta = 'SELECT u.id as unidad_id, u.definicion as definicion_unidad, u.porcentaje as porcentaje_unidad, 
-							u.asignatura_id, u.orden as orden_unidad, u.periodo_id, '.RepartoDeLaNota::notaDeLaUnidad().' as nota_unidad
+							u.asignatura_id, u.orden as orden_unidad, u.periodo_id, '.RepartoDeLaNota::notaDeLaUnidad($modo).' as nota_unidad
 						FROM unidades u
 						left join subunidades s ON s.unidad_id=u.id and s.deleted_at is null
 						left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and n.alumno_id=:alumno_id
