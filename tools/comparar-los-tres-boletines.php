@@ -33,7 +33,28 @@ $app = require_once __DIR__.'/../bootstrap/app.php';
 $kernel = $app->make(Kernel::class);
 $kernel->bootstrap();
 
-function pedir(string $metodo, string $uri, array $cuerpo = [], ?string $token = null): array
+/**
+ * Como `pedir()` de los otros cinco scripts, **más el tiempo y el número de
+ * consultas** — que es para lo que existe este fichero.
+ *
+ * **Se llama distinto a propósito, y eso arregla un rojo de larastan** (14 sep
+ * 2026). Siete scripts de `tools/` declaraban `function pedir()` en el espacio
+ * global: cinco devolviendo `{estado, cuerpo}` y dos —éste y su hermano—
+ * devolviendo cuatro claves. PHPStan resuelve un nombre global a **una sola**
+ * declaración, se quedaba con la de dos claves y marcaba `ms` y `consultas` como
+ * offsets inexistentes en los dos que sí las devuelven: **8 errores, y el código
+ * era correcto**.
+ *
+ * Anotar el `@return` no lo arreglaba —el que gana es el que phpstan resolvió, no
+ * el que se anota—, así que lo que se separa es el nombre. Y de paso deja de ser
+ * un accidente: **medir y no medir son dos funciones**, y ahora se llaman distinto.
+ *
+ * `tools/` no lo mira ninguna suite; larastan es lo único que pasa por esta
+ * carpeta, así que un rojo aquí sólo lo ve quien corra `composer run stan`.
+ *
+ * @return array{estado: int, cuerpo: mixed, ms: float, consultas: int}
+ */
+function pedirMidiendo(string $metodo, string $uri, array $cuerpo = [], ?string $token = null): array
 {
     global $kernel;
 
@@ -71,7 +92,7 @@ function token(string $usuario, string $clave): ?string
             sleep($espera);
         }
 
-        $r = pedir('POST', '/api/login/credentials', ['username' => $usuario, 'password' => $clave]);
+        $r = pedirMidiendo('POST', '/api/login/credentials', ['username' => $usuario, 'password' => $clave]);
 
         if (isset($r['cuerpo']['el_token'])) {
             return $r['cuerpo']['el_token'];
@@ -157,7 +178,7 @@ $cuerpo = ['requested_alumnos' => [['alumno_id' => $alumno->alumno_id]], 'period
 
 $r = [];
 foreach (['boletines', 'boletines2', 'boletines3'] as $fam) {
-    $r[$fam] = pedir('PUT', '/api/'.$fam.'/detailed-notas/'.$grupo->grupo_id, $cuerpo, $jefe);
+    $r[$fam] = pedirMidiendo('PUT', '/api/'.$fam.'/detailed-notas/'.$grupo->grupo_id, $cuerpo, $jefe);
     printf("  %-12s %d   %6.0f ms   %4d consultas   %8d bytes\n",
         $fam, $r[$fam]['estado'], $r[$fam]['ms'], $r[$fam]['consultas'],
         strlen(json_encode($r[$fam]['cuerpo']) ?: ''));

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Disciplina;
 
 use App\Http\Controllers\Controller;
 use App\Services\Auditoria;
+use App\Support\Autoriza;
 use App\Support\CatalogoEnUso;
 use App\Support\ColumnaSegura;
 use App\User;
@@ -71,10 +72,22 @@ class OrdinalesController extends Controller
         return ['ordinales' => $ordinales, 'configuracion' => $config, 'tipos' => $tipos];
     }
 
+    /**
+     * **El único `store` de los cuatro catálogos que toma el año DEL CUERPO**, y por
+     * eso es el único que lleva el candado del año cerrado (14 sep 2026).
+     *
+     * `frases`, `escalas` y `contratos` estampan `$user->year_id` al crear, así que
+     * no pueden sembrar en un año que no sea el suyo y su `store` se queda sin
+     * guard — está razonado en `EscalasDeValoracionController::postStore`. Éste
+     * recibe `year_id` como un campo más, o sea que **crear un artículo del manual
+     * de convivencia de 2022 es una llamada**, no un descuido de contexto.
+     */
     public function postStore()
     {
         $user = User::fromToken();
         $now = Carbon::now('America/Bogota');
+
+        Autoriza::exigirEscrituraEnElAnio($user, Request::input('year_id'), 'Ese manual de convivencia');
 
         $consulta = 'INSERT INTO dis_ordinales(year_id, ordinal, tipo, descripcion, pagina, created_at, updated_at) VALUES(?,?,?,?,?,?,?)';
         $datos = [
@@ -127,11 +140,33 @@ class OrdinalesController extends Controller
         return $fila === null ? null : (array) $fila;
     }
 
+    /**
+     * Corta con 403 si el ordinal es de un año cerrado y quien escribe no puede.
+     *
+     * **El año sale de la FILA y no del cuerpo**, que es la mitad que hace que esto
+     * sea un candado: los cuatro métodos de abajo reciben sólo un id, y un `year_id`
+     * que mandara el cliente sería el propio cliente diciendo a qué año quiere que
+     * pertenezca lo que está tocando. Es literalmente la lección de la §27 con el
+     * interruptor del periodo — *el candado se abría nombrando el periodo de al
+     * lado*— aplicada un piso más arriba.
+     *
+     * Reaprovecha `fotoDelOrdinal()`, que ya traía `year_id` y ya se llamaba en tres
+     * de los cuatro: no cuesta una consulta de más donde ya estaba.
+     */
+    private function exigirQueElOrdinalSeaDeUnAnioEscribible($user, $ordinalId): void
+    {
+        $fila = $this->fotoDelOrdinal($ordinalId);
+
+        Autoriza::exigirEscrituraEnElAnio($user, $fila['year_id'] ?? null, 'Ese artículo del manual de convivencia');
+    }
+
     public function putUpdate()
     {
         $user = User::fromToken();
         $now = Carbon::now('America/Bogota');
         $ordinal_id = Request::input('id');
+
+        $this->exigirQueElOrdinalSeaDeUnAnioEscribible($user, $ordinal_id);
 
         $consulta = 'UPDATE dis_ordinales SET tipo=?, ordinal=?, descripcion=?, pagina=?, updated_by=?, updated_at=? WHERE id=?';
         $datos = [
@@ -175,6 +210,8 @@ class OrdinalesController extends Controller
         $ordinal_id = Request::input('ordinal_id');
         $propiedad = Request::input('propiedad');
 
+        $this->exigirQueElOrdinalSeaDeUnAnioEscribible($user, $ordinal_id);
+
         $consulta = 'UPDATE dis_ordinales SET '.ColumnaSegura::exigir('dis_ordinales', $propiedad).'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:ordinal_id';
         $datos = [
             ':valor' => Request::input('valor'),
@@ -207,6 +244,15 @@ class OrdinalesController extends Controller
         $config_id = Request::input('config_id');
         $propiedad = Request::input('propiedad');
 
+        // `dis_configuraciones` **también tiene `year_id`** —es la configuración del
+        // manual de ESE año— y es la quinta escritura de esta familia. Sin ella el
+        // cierre tendría un agujero del tamaño de la propia pantalla: se bloquean
+        // los artículos y se deja abierta la configuración que los gobierna.
+        $deLaConfig = DB::selectOne('SELECT year_id FROM dis_configuraciones WHERE id = ?', [$config_id]);
+
+        Autoriza::exigirEscrituraEnElAnio($user, $deLaConfig->year_id ?? null,
+            'Esa configuración del manual de convivencia');
+
         $consulta = 'UPDATE dis_configuraciones SET '.ColumnaSegura::exigir('dis_configuraciones', $propiedad).'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:id';
         $datos = [
             ':valor' => Request::input('valor'),
@@ -237,6 +283,13 @@ class OrdinalesController extends Controller
     {
         $user = User::fromToken();
         $now = Carbon::now('America/Bogota');
+
+        // **Antes que `CatalogoEnUso`**: lo que no se puede hacer no se valida, que
+        // es el orden de `DesempenosController::putRejilla`. Y aquí además importa
+        // el mensaje: con el orden al revés, un docente que intente borrar un
+        // ordinal de 2022 citado por alguien recibiría «lo citan 7 situaciones»
+        // —que le manda a desligarlas— en vez de «ese año está cerrado».
+        $this->exigirQueElOrdinalSeaDeUnAnioEscribible($user, Request::input('ordinal_id'));
 
         CatalogoEnUso::exigirQueNadieApunte('dis_proceso_ordinales', 'ordinal_id',
             Request::input('ordinal_id'), 'situaciones de disciplina');

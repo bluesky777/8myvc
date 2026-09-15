@@ -91,13 +91,30 @@
 >
 > | | |
 > |---|---|
-> | **Año cerrado** | sólo **superusuario**, y sobre **las cinco** escrituras con año (contratos incluido, preguntado expresamente) |
+> | **Año cerrado** | sólo **superusuario**, y sobre **las DIEZ** escrituras con año: `frases` ×2, `escalas` ×2, `contratos` ×1 y **`ordinales` ×5** |
 > | **Borrar una banda del año en curso** | **avisar y dejar pasar**: 422 con la población, se borra con `acepto_desviacion`. *«Igual pueden crear un nuevo listón que reemplace el que eliminaron»* |
 >
 > Es la **opción B** que [16-escribir-en-un-anio-pasado.md](16-escribir-en-un-anio-pasado.md)
-> tenía escrita desde el 23 ago, elegida tres semanas después. **`ordinales` se queda
-> fuera** y no es un olvido: es el único de los cuatro al que llega un profesor y el único
-> que exige tocar el front — lo dice la columna «qué se rompe» de esa misma tabla.
+> tenía escrita desde el 23 ago, elegida tres semanas después — y **completa**: los cuatro
+> catálogos, `ordinales` incluido.
+>
+> > ### ⚠️ `ordinales` SÍ ROMPE UNA PANTALLA — hay que avisar al front antes de desplegar
+> >
+> > Es el único de los cuatro al que **llega un profesor** (`panel.ordinales` pide
+> > `can_work_like_teacher` **o** `can_work_like_admin`) y su pantalla —Disciplina ▸
+> > Ordinales— tiene un **selector de año de verdad**. Con esto desplegado, ese selector
+> > deja de guardar en los años cerrados para quien no sea superusuario, y el síntoma será
+> > **un 403 al guardar**, no un control deshabilitado. Hay que esconderlo o deshabilitarlo
+> > para los años que no sean el corriente.
+> >
+> > **El año corriente no cambia para nadie**, y lo sujeta
+> > `ElManualDeConvivenciaDeUnAnioCerradoTest`.
+>
+> **`ordinales` son CINCO escrituras y la familia parecía de cuatro**: la quinta es
+> `putGuardarValorConfig`, que escribe en `dis_configuraciones` —otra tabla con `year_id`—.
+> Y **`ordinales/store` es el único `store` de los cuatro catálogos con candado**, porque es
+> el único que toma el `year_id` **del cuerpo**: los otros tres estampan `$user->year_id` y
+> no pueden sembrar fuera de su año.
 >
 > ### Lo que hay que saber sin abrirlo
 >
@@ -131,6 +148,80 @@
 >   lo documenta el comentario de `putSetActual`, pero **no se ha reproducido en ninguna de
 >   las dos bases** — en las dos hay exactamente uno vivo.
 >
+> ### Y de paso: `composer run stan` vuelve a `[OK] No errors`
+>
+> Estaba **rojo en `main` desde la Fase 6** con 8 errores en dos scripts de `tools/`, y la
+> causa no era el código: **siete scripts de `tools/` declaraban `function pedir()` en el
+> espacio global**, cinco devolviendo `{estado, cuerpo}` y dos devolviendo además `ms` y
+> `consultas`. PHPStan resuelve un nombre global a **una sola** declaración, se quedaba con
+> la de dos claves y marcaba las otras dos como offsets inexistentes.
+>
+> **Anotar el `@return` no lo arregla** —gana la declaración que phpstan resolvió, no la que
+> se anota—, así que lo que se separa es el nombre: las dos que miden pasan a llamarse
+> `pedirMidiendo()`. Deja de ser un accidente y pasa a decir algo: **medir y no medir son
+> dos funciones**.
+>
+> `tools/` no lo ejecuta ninguna suite y no entra en el alcance de Pint: **larastan es lo
+> único que pasa por esa carpeta**, así que un rojo ahí sólo lo ve quien corra `stan`.
+
+> ### La suite entera, con la orden que la produjo
+>
+> ```
+> Tests: 1 skipped, 2282 passed (22361 assertions)
+> ```
+>
+> `docker exec -w /app/.worktrees/anios -e DB_TEST_DATABASE=simonbolivar_testing_anios
+> 8myvc-app-1 php artisan test` — las cuatro testsuites, grupo `barrido` excluido—,
+> **1.327,32 s**, cero rojos. Árbol `.worktrees/anios` en **`b294ace`** más los seis
+> ficheros de `ordinales`, `tools/` y documentación sin commitear; **`git status` daba los
+> mismos seis antes y después y `HEAD` no se movió**, que es lo que hace comparable la
+> cifra.
+>
+> `composer run pint:test`: **PASS, 401 ficheros**. `composer run stan`: **[OK] No errors**.
+>
+> > **La PRIMERA corrida se descartó entera, y conviene que se sepa por qué.** Dio un rojo
+> > —`RejillaPremarcadaTest > un desempeño de 388 caracteres viaja entero`— que **pasa
+> > aislado**. No era una regresión: **estuve editando ficheros mientras corría**, así que
+> > esa corrida medía un árbol que dejó de existir a mitad. Se tiró y se relanzó con el
+> > árbol quieto.
+> >
+> > *Una suite de veintidós minutos no mide «la rama»: mide los ficheros que haya en el
+> > disco cada vez que carga una clase.* De ahí que esta cifra lleve al lado el `HEAD` y el
+> > conteo de pendientes de antes y después, y no sólo el nombre de la rama.
+>
+> **Los casos nuevos son 12** —6 de `BorrarUnaBandaDeLaEscalaTest`, 3 de
+> `ElManualDeConvivenciaDeUnAnioCerradoTest` y 3 que `EscrituraDeCatalogoDeOtroAnioTest`
+> pasa de 2 a 5—, uno de ellos el que se salta. Los otros cuatro ficheros tocados
+> **conservan su número de casos**: se les acotó el sujeto, no se les quitó nada.
+>
+> **No hay una cifra de `main` del mismo día contra la que restar**, así que la resta no se
+> publica: lo que se afirma es el número, su orden y su árbol.
+
+> ### Y el censo de al lado, que este cierre dejó abierto
+>
+> **¿Eran de verdad los únicos?** Hay **23 tablas con `year_id`**, no las tres del lote A.
+> Medido y escrito en
+> **[37-quien-mas-escribe-en-un-anio-ajeno.md](37-quien-mas-escribe-en-un-anio-ajeno.md)**:
+> **58** rutas de escritura tocan una de esas tablas y **8** no miran el año.
+>
+> > **Dije 42 primero, y el 42 era de mi detector.** Contaba *«el método menciona la
+> > tabla»* —en un `SELECT`, o **dentro de un comentario**— en vez de exigir el nombre
+> > pegado al verbo que escribe. En este repositorio, donde los comentarios explican la
+> > consulta de al lado, eso es la mayoría del ruido. *El primer sitio donde mirar cuando
+> > el número sale raro es el detector* — y lo caro no es el número: **42 suena a una
+> > semana y 8 suena a una tarde**.
+>
+> Y **de las ocho, cuatro se cayeron al medirlas**: las del PIAR parecían escribir todos
+> los años de un alumno a la vez —`WHERE alumno_id=?`— y en la base hay **65 filas y 65
+> alumnos**, una por alumno. `putField` además tenía su lista blanca de columnas, que yo
+> había dado por comprobar.
+>
+> **Quedan cuatro candidatas, y NINGUNA se ha cerrado** — el encargo era medir:
+> `requisitos/update`, `requisitos/destroy` (los requisitos de matrícula de un año pasado)
+> y `nota_comportamiento/guardar-libro`, `disciplina/cambiar-situacion-derivante`
+> (**registro disciplinario de menores, por año** — el mismo argumento que cerró
+> `ordinales`, un piso más abajo).
+
 > ### Lo que le toca al front
 >
 > `DELETE api/escalas/destroy/{id}` **pasa a contestar 422 la primera vez**, con

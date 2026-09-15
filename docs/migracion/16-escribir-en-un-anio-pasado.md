@@ -2,35 +2,65 @@
 
 > ## AFINADO el 14 sep 2026 — es la **opción B** de la §«Las tres formas de cerrarlo»
 >
-> **Joseth, con las cinco escrituras y las poblaciones delante** (74 cuentas de personal,
+> **Joseth, con las escrituras y las poblaciones delante** (74 cuentas de personal,
 > 11 superusuarias):
 >
-> > **Un año cerrado sólo lo escribe un superusuario.** Y sobre las cinco, contratos
-> > incluido — preguntado expresamente si el cierre cubría los cuatro que tocan boletines
-> > o los cinco.
+> > **Un año cerrado sólo lo escribe un superusuario.**
+>
+> Contestado en **dos tandas el mismo día**, y las dos se anotan porque el alcance creció
+> entre una y otra: primero **las cinco** de `frases`, `escalas` y `contratos` —preguntado
+> expresamente si el cierre cubría sólo los cuatro endpoints que tocan boletines o también
+> el de contratos, y contestó los cinco—; y después **las cinco de `ordinales`**, que la
+> primera pregunta había dejado fuera a propósito por ser la que rompe una pantalla. Son
+> **diez escrituras y cuatro catálogos**.
 >
 > **Esto NO revierte la respuesta del 24 ago**, que sigue abajo y sigue vigente: moverse
 > por un año pasado y escribir en él **es el producto**, no un agujero. Lo que aquella no
 > decía es **quién**, y su propia frase lo dejaba abierto — *«un usuario **con permisos**
 > puede ir al año pasado y cambiar las frases y situaciones, lo mismo que las escalas»*—.
-> En el backend ese «con permisos» no existía: las cinco escrituras iban con
+> En el backend ese «con permisos» no existía: las diez escrituras iban con
 > `auth.personal`, o sea **cualquiera de los 74**.
 >
 > ### Y es literalmente la opción B de más abajo, escrita el 23 ago y elegida el 14 sep
 >
 > Con su columna «qué se rompe» ya puesta: *«sólo lo del profesor que hoy edita ordinales
-> de otro año»*. **Por eso `ordinales` se queda fuera y no es un olvido**: es el único de
-> los cuatro al que **llega un profesor** —el estado `panel.ordinales` pide
-> `can_work_like_teacher` **o** `can_work_like_admin`— y el único que exige tocar el front
-> sí o sí. Los otros tres viven en pantallas que sólo ve `admin`.
+> de otro año»*. **Se cierran los CUATRO catálogos, `ordinales` incluido** — preguntado
+> aparte y contestado aparte el mismo día, porque es el caso caro: es el único al que
+> **llega un profesor** —el estado `panel.ordinales` pide `can_work_like_teacher` **o**
+> `can_work_like_admin`— y el único que **obliga a tocar el front**.
 >
-> ### Lo que se cerró, y dónde
+> ### Lo que se cerró, y dónde — **diez escrituras, no cinco**
 >
 > | | |
 > |---|---|
 > | `PUT escalas/update` · `DELETE escalas/destroy/{id}` | `EscalasDeValoracionController` |
 > | `PUT frases/update/{id}` · `DELETE frases/destroy/{id}` | `FrasesController` |
 > | `DELETE contratos/destroy/{id}` | `ContratosController` |
+> | `POST ordinales/store` · `PUT ordinales/update` · `PUT ordinales/guardar-valor` · `PUT ordinales/guardar-valor-config` · `PUT ordinales/destroy` | `Disciplina\OrdinalesController` |
+>
+> **`ordinales` son CINCO y la familia parecía de cuatro.** La quinta es
+> `putGuardarValorConfig`, que escribe en `dis_configuraciones` —**otra** tabla con
+> `year_id`, la configuración del manual de ese año—. Sin ella el cierre tendría un
+> agujero del tamaño de la propia pantalla: artículos bloqueados y la configuración que
+> los gobierna abierta.
+>
+> **Y `ordinales/store` es el único `store` de los cuatro catálogos que lleva candado**,
+> porque es el único que **toma el `year_id` del cuerpo**. Los otros tres estampan
+> `$user->year_id` al crear, así que no pueden sembrar fuera de su año — razonado en
+> `EscalasDeValoracionController::postStore`. Aquí, crear un artículo del manual de 2022
+> **es una llamada**, no un descuido de contexto.
+>
+> ### ⚠️ ESTO SÍ ROMPE UNA PANTALLA, Y HAY QUE AVISAR AL FRONT
+>
+> Lo dice la §4 de este documento y sigue siendo verdad: **Disciplina ▸ Ordinales tiene un
+> selector de año de verdad y lo alcanza un profesor**. Con esto desplegado, ese selector
+> deja de guardar en los años cerrados para todo el que no sea superusuario — y el síntoma
+> será **un 403 al guardar**, no un control deshabilitado. Hay que esconder o deshabilitar
+> el selector para los años que no sean el corriente; dejarlo visible y que conteste 403 es
+> la peor de las dos.
+>
+> **El año corriente no cambia para nadie**, y eso lo sujeta
+> `ElManualDeConvivenciaDeUnAnioCerradoTest::test_el_anio_corriente_se_sigue_escribiendo_sin_ser_superusuario`.
 >
 > El criterio vive en **`Autoriza::puedeEscribirEnUnAnioCerrado`** y el hecho —¿está
 > cerrado ese año?— en **`App\Support\AnioCerrado`**, separados a propósito. Lo fija
@@ -82,11 +112,17 @@
 >
 > > ⚠️ **Esta frase se quedó a medias el 14 sep 2026 — lee el recuadro de arriba.** Sigue
 > > siendo cierto que **no se cierra ninguno**: los cuatro catálogos se siguen pudiendo
-> > escribir en años pasados. Lo que cambió es **quién** en tres de ellos —frases, escalas
-> > y contratos, sólo superusuario—; `ordinales` se queda **exactamente** como dice este
-> > párrafo, y por el motivo que esta misma página ya tenía escrito. *Quien lea sólo este
-> > recuadro va a creer que `escalas/update` sigue siendo `auth.personal` a secas, y lleva
-> > sin serlo desde esa fecha.* Lo que describía —«el listado filtra
+> > escribir en años pasados, y por eso este párrafo no se tacha. Lo que cambió es
+> > **quién**: en los cuatro, sólo superusuario. *Quien lea sólo este recuadro va a creer
+> > que `escalas/update` sigue siendo `auth.personal` a secas, y lleva sin serlo desde esa
+> > fecha.*
+> >
+> > **Y esta nota dijo durante un rato que `ordinales` se quedaba fuera, que fue cierto
+> > exactamente una hora.** Se escribió cuando la decisión cubría tres catálogos y Joseth
+> > cerró el cuarto después, en la misma sesión. Queda dicho en vez de reescrito, porque es
+> > la forma en que envejece una nota puesta a media decisión.
+>
+> Lo que describía —«el listado filtra
 > por año y la escritura no»— es la mitad de un mecanismo que se completa cuando
 > el usuario cambia de año: entonces el listado enseña ese año y edita ese año.
 >

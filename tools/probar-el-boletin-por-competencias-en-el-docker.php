@@ -46,7 +46,28 @@ $app = require_once __DIR__.'/../bootstrap/app.php';
 $kernel = $app->make(Kernel::class);
 $kernel->bootstrap();
 
-function pedir(string $metodo, string $uri, array $cuerpo = [], ?string $token = null): array
+/**
+ * Como `pedir()` de los otros cinco scripts, **más el tiempo y el número de
+ * consultas** — que es para lo que existe este fichero.
+ *
+ * **Se llama distinto a propósito, y eso arregla un rojo de larastan** (14 sep
+ * 2026). Siete scripts de `tools/` declaraban `function pedir()` en el espacio
+ * global: cinco devolviendo `{estado, cuerpo}` y dos —éste y su hermano—
+ * devolviendo cuatro claves. PHPStan resuelve un nombre global a **una sola**
+ * declaración, se quedaba con la de dos claves y marcaba `ms` y `consultas` como
+ * offsets inexistentes en los dos que sí las devuelven: **8 errores, y el código
+ * era correcto**.
+ *
+ * Anotar el `@return` no lo arreglaba —el que gana es el que phpstan resolvió, no
+ * el que se anota—, así que lo que se separa es el nombre. Y de paso deja de ser
+ * un accidente: **medir y no medir son dos funciones**, y ahora se llaman distinto.
+ *
+ * `tools/` no lo mira ninguna suite; larastan es lo único que pasa por esta
+ * carpeta, así que un rojo aquí sólo lo ve quien corra `composer run stan`.
+ *
+ * @return array{estado: int, cuerpo: mixed, ms: float, consultas: int}
+ */
+function pedirMidiendo(string $metodo, string $uri, array $cuerpo = [], ?string $token = null): array
 {
     global $kernel;
 
@@ -84,7 +105,7 @@ function token(string $usuario, string $clave): ?string
             sleep($espera);
         }
 
-        $r = pedir('POST', '/api/login/credentials', ['username' => $usuario, 'password' => $clave]);
+        $r = pedirMidiendo('POST', '/api/login/credentials', ['username' => $usuario, 'password' => $clave]);
 
         if (isset($r['cuerpo']['el_token'])) {
             return $r['cuerpo']['el_token'];
@@ -216,29 +237,29 @@ $ruta = '/api/boletines-competencias/detailed-notas/'.$asignatura->grupo_id;
 $cuerpo = ['requested_alumnos' => [['alumno_id' => $alumno->alumno_id]]];
 
 echo '── tal como está la base, sin tocar nada ───────────────────────────'.PHP_EOL;
-$r = pedir('PUT', $ruta, $cuerpo, $jefe);
+$r = pedirMidiendo('PUT', $ruta, $cuerpo, $jefe);
 printf("  PUT detailed-notas            %d   %6.0f ms   %4d consultas   %7d bytes\n",
     $r['estado'], $r['ms'], $r['consultas'], strlen(json_encode($r['cuerpo']) ?: ''));
 echo '  posiciones de la respuesta:   '.count($r['cuerpo'] ?? []).PHP_EOL;
 echo '  poblacion: '.json_encode($r['cuerpo'][4] ?? null, JSON_UNESCAPED_UNICODE).PHP_EOL;
 
-$g = pedir('PUT', '/api/boletines-competencias/detailed-notas-group/'.$asignatura->grupo_id, [], $jefe);
+$g = pedirMidiendo('PUT', '/api/boletines-competencias/detailed-notas-group/'.$asignatura->grupo_id, [], $jefe);
 printf("  PUT detailed-notas-group      %d   %6.0f ms   %4d consultas   %7d bytes\n",
     $g['estado'], $g['ms'], $g['consultas'], strlen(json_encode($g['cuerpo']) ?: ''));
 echo '  poblacion: '.json_encode($g['cuerpo'][4] ?? null, JSON_UNESCAPED_UNICODE).PHP_EOL.PHP_EOL;
 
 echo '── los errores, pedidos uno a uno ──────────────────────────────────'.PHP_EOL;
-$sinToken = pedir('PUT', $ruta, $cuerpo);
+$sinToken = pedirMidiendo('PUT', $ruta, $cuerpo);
 echo '  sin token                      '.$sinToken['estado'].PHP_EOL;
 
-$grupoQueNoExiste = pedir('PUT', '/api/boletines-competencias/detailed-notas/999999', [], $jefe);
+$grupoQueNoExiste = pedirMidiendo('PUT', '/api/boletines-competencias/detailed-notas/999999', [], $jefe);
 echo '  grupo que no existe            '.$grupoQueNoExiste['estado'].'   '
     .mb_substr(json_encode($grupoQueNoExiste['cuerpo']) ?: '', 0, 90).PHP_EOL;
 
 $grupoBorrado = DB::selectOne('SELECT id FROM grupos WHERE deleted_at IS NOT NULL ORDER BY id LIMIT 1');
 
 if ($grupoBorrado !== null) {
-    $r2 = pedir('PUT', '/api/boletines-competencias/detailed-notas/'.$grupoBorrado->id, [], $jefe);
+    $r2 = pedirMidiendo('PUT', '/api/boletines-competencias/detailed-notas/'.$grupoBorrado->id, [], $jefe);
     echo '  grupo en la papelera ('.$grupoBorrado->id.')      '.$r2['estado'].PHP_EOL;
 }
 
@@ -317,7 +338,7 @@ try {
         'created_at' => now(), 'updated_at' => now(),
     ]);
 
-    $r = pedir('PUT', $ruta, $cuerpo, $jefe);
+    $r = pedirMidiendo('PUT', $ruta, $cuerpo, $jefe);
 
     printf("  PUT detailed-notas            %d   %6.0f ms   %4d consultas\n",
         $r['estado'], $r['ms'], $r['consultas']);
