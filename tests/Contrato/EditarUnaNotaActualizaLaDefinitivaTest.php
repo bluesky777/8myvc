@@ -125,10 +125,16 @@ class EditarUnaNotaActualizaLaDefinitivaTest extends CasoDeContrato
         // Se quita la nota de ese alumno en esa subunidad para que haya hueco que
         // rellenar. Con `nota_default` a 40, su definitiva pasa de 20 a **25**.
         //
-        // El 40 no es arbitrario: `notas_finales.nota` es **`int`**, así que un
-        // resultado de 22,5 se guarda como 23 y el test estaría afirmando el
-        // redondeo de MySQL sin decirlo. Con números que dan entero, lo que se
-        // comprueba es el disparador, que es lo que este test mide.
+        // El 40 no es arbitrario: con números que dan entero, lo que se comprueba es
+        // el disparador, que es lo que este test mide.
+        //
+        // **Decía que era porque `notas_finales.nota` es `int`, y dejó de serlo el 30
+        // ago 2026** —`2026_08_30_200000_notas_finales_en_decimal`, a `decimal(7,4)`—.
+        // La frase sobrevivió a su migración porque **nada la comprueba**: es un
+        // comentario, y el test pasa igual con el motivo equivocado. Se vio el 15 sep
+        // al encontrarla **copiada literal** en un fichero nacido ese día
+        // (`RepartoDeLasSubunidadesTest`), que es como se entera uno de estas cosas:
+        // no cuando envejecen, sino cuando se reproducen.
         DB::table('notas')->where('id', $ctx['notas'][0])->delete();
         DB::table('subunidades')->where('id', $subunidadId)->update(['nota_default' => 40]);
 

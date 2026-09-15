@@ -64,8 +64,17 @@ use PHPUnit\Framework\Attributes\Test;
  * Las dos mitades son deliberadas. **Desiguales**, porque con cuatro subunidades al
  * 25 % los dos modos dan el mismo número y el caso pasaría en verde con el
  * interruptor desconectado — que es la forma de aprobado que este repo tiene
- * fichada. Y **enteros los dos**, porque `notas_finales.nota` es `int`: con un
- * resultado de 33,5 el test estaría afirmando el redondeo de MySQL sin decirlo.
+ * fichada. Y **enteros los dos**, para que la cuenta se pueda seguir de cabeza y el
+ * aserto diga 30 y no 29,9999.
+ *
+ * > **Ese «enteros» se escribió con un motivo que era falso, y se deja dicho en vez
+ * > de borrarse.** Decía *«porque `notas_finales.nota` es `int`»*, copiado de
+ * > `EditarUnaNotaActualizaLaDefinitivaTest:128` **sin comprobarlo**. La columna es
+ * > `decimal(7,4)` desde el 30 ago 2026 (`2026_08_30_200000_notas_finales_en_decimal`),
+ * > o sea que llevaba dieciséis días sin ser verdad y se propagó a un fichero nuevo el
+ * > día que alguien la reutilizó. **La elección sigue siendo buena y el motivo era
+ * > otro**: con enteros la aritmética se lee, no se calcula. *Una frase heredada de un
+ * > fichero vecino no viene comprobada: viene repetida.*
  *
  * El montaje **vacía primero la rejilla de esa asignatura**. Los porcentajes del
  * seed son cualesquiera y con ellos la cuenta deja de poder hacerse de cabeza, que

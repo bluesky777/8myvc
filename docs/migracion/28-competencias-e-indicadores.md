@@ -1151,6 +1151,31 @@ un ajuste de pantalla:
   cambian y de cuánto es el salto mayor, se enseña, y se exige `acepto_recalcular`.
   Es el patrón de `acepto_perder` ([23](23-horarios.md)) y de `acepto_desviacion`
   (§5.1.d): el aviso donde duele.
+
+  > **✅ Construido el 15 sep 2026, y no entró con la Entrega 5: se cayó del encargo.**
+  > La entrega se fundió con la columna, los dieciséis sitios y las dos
+  > representaciones, y **sin esto** — no estaba en el código ni en la lista de cinco
+  > pendientes que dejó escrita el commit de la D30. Lo levantó `myvc_front`
+  > preguntando con qué forma escribía su pestaña.
+  >
+  > **Lo que el silencio producía no era un salto, era deriva**: `putModeloEvaluacion`
+  > guarda el año y no recalcula, así que las definitivas guardadas seguían en el modo
+  > viejo mientras las pantallas ya calculaban con el nuevo, y se iban reescribiendo
+  > asignatura a asignatura según alguien las tocara. Un salto se ve; una deriva se
+  > descubre en junio.
+  >
+  > **La cuenta es de lo que se va a reescribir**, no de lo que podría cambiar: compara
+  > las definitivas **guardadas** con lo que darían en el modo nuevo, deja fuera las
+  > `manual` y `recuperada` —que el servicio no toca— y lleva dentro el alcance del
+  > boletín independiente, el mismo que usa quien escribe. Las tres decisiones mueven el
+  > número, y **las tres tienen mutación que las caza** en
+  > [`AceptoRecalcularElRepartoTest`](../../tests/Contrato/AceptoRecalcularElRepartoTest.php):
+  > sin la exclusión de `manual` promete 413 y se mueven 412; sin el alcance promete 413
+  > y se mueven 410.
+  >
+  > Medido en la copia de desarrollo: **8.022 definitivas** en el año en curso de un
+  > colegio, 120 asignaturas, y **333 de las 701** unidades con más de una subunidad
+  > tienen pesos desiguales — que son las que cambian de resultado.
 - Queda en `Auditoria`, con el modo anterior y el nuevo.
 
 #### Lo que hay que mirar y no es obvio

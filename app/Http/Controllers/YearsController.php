@@ -8,6 +8,8 @@ use App\User;
 use App\Models\Year;
 use App\Services\Auditoria;
 use App\Support\Autoriza;
+use App\Services\BoletinIndependiente;
+use App\Support\RepartoDeLaNota;
 use App\Models\Periodo;
 use App\Models\ConfigCertificado;
 use App\Models\ImageModel;
@@ -1042,6 +1044,17 @@ class YearsController extends Controller {
 		// año borrado no le sirve a nadie y reaparecería con `years/restore`.
 		$year = Year::findOrFail((int) $year_id);
 
+		// **El aviso va AQUÍ: después de resolver el año y antes de tocar la fila.**
+		// Se lee `$year->reparto_subunidades` mientras todavía dice lo de antes; el
+		// bucle de abajo lo pisa.
+		if (isset($pedidos['reparto_subunidades'])) {
+			$this->avisarDeLoQueRecalcula(
+				(int) $year->id,
+				(string) $year->reparto_subunidades,
+				$pedidos['reparto_subunidades']
+			);
+		}
+
 		$antes = [];
 
 		// **El renglón del rastro se arma AQUÍ, en la vuelta que tiene las dos
@@ -1090,6 +1103,143 @@ class YearsController extends Controller {
 			'desempenos_displayname' => $year->desempenos_displayname,
 			'genero_desempeno' => $year->genero_desempeno,
 		];
+	}
+
+	/**
+	 * **422 con el recuento delante, salvo `acepto_recalcular`.** Doc 28 §5.5.
+	 *
+	 * Cambiar `reparto_subunidades` **cambia las definitivas guardadas del año**, y
+	 * hasta el 15 sep 2026 era un clic, un 200 y ningún número. Lo levantó
+	 * `myvc_front` preguntando con qué forma escribía su pestaña, y **no era una
+	 * decisión que nadie hubiera tomado**: no estaba en el código, ni en la lista de
+	 * cinco pendientes que dejó escrita el commit de la D30, ni en ninguna parte. Se
+	 * cayó del encargo, como se cayeron las tres altas del año cerrado.
+	 *
+	 * ## Por qué el silencio era peor que un salto
+	 *
+	 * Este método **no recalcula nada**: guarda el año y se va. Así que girar el
+	 * interruptor no producía un cambio visible de golpe, producía **deriva**: las
+	 * definitivas guardadas seguían en el modo viejo mientras las pantallas ya
+	 * calculaban con el nuevo, y se iban reescribiendo asignatura a asignatura según
+	 * alguien las fuera tocando, durante días. Un salto se ve; una deriva se
+	 * descubre en junio.
+	 *
+	 * Medido en la copia de desarrollo el 15 sep 2026 —año en curso de **un** colegio—:
+	 * **8.022 definitivas** en 120 asignaturas, y de las 701 unidades con más de una
+	 * subunidad, **333 tienen pesos desiguales**, que son exactamente las que cambian
+	 * de resultado. El 47 %.
+	 *
+	 * ## La cuenta es de lo que SE VA A REESCRIBIR, no de lo que podría cambiar
+	 *
+	 * Tres decisiones, y las tres mueven el número:
+	 *
+	 *  1. **Se comparan las definitivas GUARDADAS con lo que darían en el modo
+	 *     nuevo**, no los dos modos entre sí. Lo que el colegio va a ver moverse es
+	 *     la fila que tiene.
+	 *  2. **`manual` y `recuperada` quedan fuera**, porque `DefinitivasDeAsignatura`
+	 *     no las reescribe —lo hace en un solo punto, su línea 363— así que contarlas
+	 *     sería prometer un cambio que no va a ocurrir. En el año en curso de la
+	 *     copia de desarrollo son 16 de 8.022.
+	 *  3. **El alcance del boletín independiente va dentro**, con
+	 *     `BoletinIndependiente::alcanceCorrelacionado`, que es el mismo que usa el
+	 *     servicio que escribe. Sin él, a un alumno marcado se le compararía la
+	 *     definitiva de sus unidades propias contra la del grupo y saldría un cambio
+	 *     que no existe. Son 10 marcados y 21 unidades propias en esa copia: pocos, y
+	 *     por eso mismo el error no se vería.
+	 *
+	 * Es la forma de `EscalasDeValoracionController::avisarDeLoQueArrastra`, y por lo
+	 * mismo que allí: **una cifra que exagera se aprende a ignorar**, y entonces el
+	 * aviso deja de avisar.
+	 *
+	 * **Y si no cambia ninguna, no hay 422**: encender el interruptor en un año sin
+	 * notas, o donde todas las unidades tengan sus subunidades al mismo peso, no le
+	 * pide confirmación a nadie porque no hay nada que confirmar.
+	 */
+	private function avisarDeLoQueRecalcula(int $yearId, string $antes, string $despues): void
+	{
+		// Reenviar el mismo modo que ya tiene no es un cambio. Sin esto, la pantalla
+		// que guarda la configuración entera pediría confirmación por tocar otra cosa.
+		if ($antes === $despues) {
+			return;
+		}
+
+		if ($this->aceptaRecalcular()) {
+			return;
+		}
+
+		$fila = DB::selectOne(
+			'SELECT COUNT(*) AS cambian, MAX(ABS(t.dif)) AS salto
+			   FROM (
+				SELECT CAST(COALESCE(c.suma, 0) AS DECIMAL(7,4)) - nf.nota AS dif
+				  FROM notas_finales nf
+				  INNER JOIN periodos p ON p.id = nf.periodo_id AND p.deleted_at IS NULL
+				  LEFT JOIN (
+					SELECT n.alumno_id, u.asignatura_id, u.periodo_id,
+					       u.alumno_id AS dueno,
+					       SUM('.RepartoDeLaNota::aportacionALaDefinitiva($despues).') AS suma
+					  FROM unidades u
+					  INNER JOIN subunidades s ON s.unidad_id = u.id AND s.deleted_at IS NULL
+					  INNER JOIN notas n ON n.subunidad_id = s.id AND n.deleted_at IS NULL
+					  INNER JOIN periodos pu ON pu.id = u.periodo_id AND pu.deleted_at IS NULL
+					 WHERE pu.year_id = ? AND u.deleted_at IS NULL
+					 GROUP BY n.alumno_id, u.asignatura_id, u.periodo_id, u.alumno_id
+				  ) c ON c.alumno_id = nf.alumno_id
+				     AND c.asignatura_id = nf.asignatura_id
+				     AND c.periodo_id = nf.periodo_id
+				     AND c.dueno <=> '.BoletinIndependiente::alcanceCorrelacionado('nf.alumno_id', 'nf').'
+				 WHERE p.year_id = ?
+				   AND (nf.manual IS NULL OR nf.manual = 0)
+				   AND (nf.recuperada IS NULL OR nf.recuperada = 0)
+			   ) t
+			  WHERE t.dif <> 0',
+			[$yearId, $yearId]
+		);
+
+		$cambian = (int) ($fila->cambian ?? 0);
+
+		if ($cambian === 0) {
+			return;
+		}
+
+		// Dos decimales para enseñarlo: la columna es `decimal(7,4)` y un salto
+		// escrito como `3.5000` se lee peor que `3.5`. El número que se compara
+		// arriba no se recorta — esto es el rótulo, no la cuenta.
+		$salto = round((float) $fila->salto, 2);
+
+		abort(response()->json([
+			'message' => 'Cambiar el reparto de las subunidades a `'.$despues.'` recalcula '
+				.$cambian.' definitivas ya guardadas de ese año, y la que más se mueve cambia '
+				.$salto.' puntos. Mande `acepto_recalcular` para cambiarlo igual.',
+			'definitivas' => $cambian,
+			'salto_mayor' => $salto,
+			'de' => $antes,
+			'a' => $despues,
+			'year_id' => $yearId,
+		], 422));
+	}
+
+	/**
+	 * `acepto_recalcular`, y **sin verdad laxa**: `FILTER_VALIDATE_BOOLEAN` con
+	 * `FILTER_NULL_ON_FAILURE`, que es lo que separa `"false"` y `"0"` de un sí.
+	 *
+	 * Calcado de `EscalasDeValoracionController::acepta` a propósito: son la misma
+	 * llave y tienen que abrirse igual. Sin esto, **cualquier cadena** —`"no"`,
+	 * `"nunca"`— valdría por «sí» y gobernaría el recálculo de un año entero, que es
+	 * justo la familia que persigue `tools/verdad-laxa-que-escribe.py`.
+	 */
+	private function aceptaRecalcular(): bool
+	{
+		if (! Request::has('acepto_recalcular')) {
+			return false;
+		}
+
+		$leido = filter_var(Request::input('acepto_recalcular'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+
+		if ($leido === null) {
+			abort(422, '`acepto_recalcular` tiene que ser verdadero o falso.');
+		}
+
+		return $leido;
 	}
 
 	public function putSetActual(){

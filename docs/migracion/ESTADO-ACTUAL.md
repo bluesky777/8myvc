@@ -154,6 +154,19 @@
 > **2295 = los 2282 de `main` + los 13 nuevos**, y ninguna prueba existente se movió.
 > `composer run pint:test` PASS sobre 405 ficheros y `composer run stan` `[OK] No errors`.
 >
+> ### ✅ Y el `acepto_recalcular` que faltaba (15 sep, `feat/acepto-recalcular`)
+>
+> El doc 28 §5.5 pedía que encender el reparto avisara con el recuento antes de
+> escribir. **No estaba, y no era decisión de nadie**: ni en el código, ni en la lista
+> de cinco pendientes del commit de la D30, ni en ningún sitio. Lo levantó
+> `myvc_front` preguntando con qué forma escribía su pestaña — **la tercera vez en dos
+> días que el hueco lo ve quien está al otro lado del contrato**, después de las tres
+> altas del año cerrado y de la línea de `postStore`.
+>
+> Construido con el patrón de `acepto_desviacion`, sin ruta nueva. Lo caro no era el
+> 422: era que **el número fuera el de verdad**, porque una cifra que exagera se
+> aprende a ignorar. Seis casos y dos mutaciones que lo demuestran.
+>
 > ### Y lo que quedaba, hecho
 >
 > - **Fundida** por fast-forward: `main` = `9134e57`, con la Entrega 5 en `a25a9a6`.
