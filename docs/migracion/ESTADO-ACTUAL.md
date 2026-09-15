@@ -154,7 +154,7 @@
 > **2295 = los 2282 de `main` + los 13 nuevos**, y ninguna prueba existente se movió.
 > `composer run pint:test` PASS sobre 405 ficheros y `composer run stan` `[OK] No errors`.
 >
-> ### ✅ Y el `acepto_recalcular` que faltaba (15 sep, `feat/acepto-recalcular`)
+> ### ✅ Y el `acepto_recalcular` que faltaba — EN `main` (`9684a6f`, 15 sep)
 >
 > El doc 28 §5.5 pedía que encender el reparto avisara con el recuento antes de
 > escribir. **No estaba, y no era decisión de nadie**: ni en el código, ni en la lista
@@ -166,6 +166,21 @@
 > Construido con el patrón de `acepto_desviacion`, sin ruta nueva. Lo caro no era el
 > 422: era que **el número fuera el de verdad**, porque una cifra que exagera se
 > aprende a ignorar. Seis casos y dos mutaciones que lo demuestran.
+>
+> `Tests: 1 skipped, 2305 passed (22572 assertions)` — `php artisan test`,
+> `.worktrees/f7`, sobre `9684a6f`, con `HEAD` y pendientes idénticos antes y después.
+> **603 rutas** contadas en el árbol principal después de fundir: sin ruta nueva.
+>
+> > **Y costó un rojo que no era del aviso sino de cómo se comprobó**: tres casos de
+> > `RepartoDeLasSubunidadesTest` cayeron en la suite entera y pasaban solos, porque al
+> > construir el aviso **se corrió el fichero nuevo y no el hermano que comparte
+> > `PUT years/modelo-evaluacion`**. «Un subconjunto verde no basta», cometido por quien
+> > lo tenía escrito delante ocho horas antes.
+> >
+> > Lo que **no** cayó se deja dicho porque vale tanto: el 403 del docente llano y los
+> > dos 422 de validación siguieron verdes, o sea que el orden **permiso → validación →
+> > aviso** es el correcto. Un aviso que se adelantara al 403 le diría a quien no puede
+> > cuántas definitivas tiene el colegio.
 >
 > ### Y lo que quedaba, hecho
 >
