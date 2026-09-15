@@ -3,6 +3,7 @@
 namespace Tests\Barrido;
 
 use App\Services\DefinitivasDeAsignatura;
+use App\Support\RepartoDeLaNota;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Group;
@@ -120,11 +121,32 @@ class CosteDelLoteDeNotasTest extends CasoDeContrato
     /**
      * La firma en el SQL de la agregación de `DefinitivasDeAsignatura::calcular()`.
      *
-     * La misma que usa `GuardarNotasEnLoteTest`, y por la misma razón: es un trozo
-     * de la **fórmula**, no del `FROM`, así que no cuenta las otras consultas del
-     * recálculo —el UPSERT, el sello, el porcentaje—.
+     * **Sale de `RepartoDeLaNota` y no de una cadena a mano desde el 14 sep 2026**, y
+     * el cambio lo provocó este mismo test poniéndose rojo.
+     *
+     * Era `'(s.porcentaje / 100) * n.nota'` —con espacios—, copiada de la única de
+     * las dieciséis escrituras de la fórmula que los llevaba. La fase 0 de la
+     * Entrega 5 unificó las dieciséis en un fragmento sin espacios: **el resultado
+     * numérico no cambió, el texto sí**, y este detector casa por texto. Dio 0
+     * donde esperaba 4.
+     *
+     * No es una relajación: **es la constante siguiendo a su fuente**. Antes había
+     * dos copias de la fórmula —el código y esta cadena— y nada las ataba; ahora
+     * hay una y esto la lee. Es justo lo que la fase 0 existe para permitir.
+     *
+     * Sigue siendo un trozo de la **fórmula** y no del `FROM`: los nombres de tabla
+     * salen en media docena de consultas del recálculo —el UPSERT, el sello, el
+     * porcentaje— y contarlas todas mediría otra cosa.
+     *
+     * > **Y el día que el modo promedio cambie el fragmento, esto lo seguirá solo
+     * > mientras el caso monte datos en modo porcentaje** —que es el defecto de
+     * > todos los años—. Un caso que monte el otro modo tiene que pedir la firma de
+     * > ESE modo, no ésta.
      */
-    private const FIRMA_DEL_AGREGADO = '(s.porcentaje / 100) * n.nota';
+    private function firmaDelAgregado(): string
+    {
+        return RepartoDeLaNota::aportacionALaDefinitiva();
+    }
 
     /** @var list<string> */
     private array $informe = [];
@@ -374,7 +396,7 @@ class CosteDelLoteDeNotasTest extends CasoDeContrato
         DB::listen(function ($consulta) use (&$consultas, &$agregados, &$porFirma) {
             $consultas++;
 
-            if (str_contains($consulta->sql, self::FIRMA_DEL_AGREGADO)) {
+            if (str_contains($consulta->sql, $this->firmaDelAgregado())) {
                 $agregados++;
             }
 
