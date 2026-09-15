@@ -78,6 +78,8 @@
         "si_recupera_materia_recup_indicador": "int",
         "solo_escalas_valorativas": "int",
         "texto_acta_eval": "null",
+        "titulo_certificado_final": "string",
+        "titulo_certificado_periodos": "string",
         "titulo_rector": "null",
         "usa_consecutivo_certificados": "int",
         "usa_folio_certificados": "int",

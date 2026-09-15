@@ -73,6 +73,67 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## 🔧 LOS TÍTULOS DEL CERTIFICADO — EN LA RAMA, sin fundir (15 sep 2026)
+>
+> **Rama `feat/titulos-del-certificado`, worktree `.worktrees/tc`, base
+> `simonbolivar_testing_tc`.** Encargo de Joseth de ese día; documento completo en
+> [`38-los-titulos-del-certificado.md`](38-los-titulos-del-certificado.md).
+>
+> El título de «Certificado final» y «Certificado periodos» estaba **escrito dentro de
+> la plantilla** de los dos fronts y el colegio no podía cambiarlo. Pasa a ser dos
+> columnas de `years`, con su pantalla y su herencia al año siguiente.
+>
+> | | |
+> |---|---|
+> | `2026_09_15_100000_titulos_del_certificado` — dos columnas | en la rama |
+> | `Year::datos()` (las **dos** ramas), `TITULOS_POR_DEFECTO`, `LARGO_DEL_TITULO` | en la rama |
+> | `putEncabezado` acepta los tres textos, cada uno opcional | en la rama |
+> | `putToggleCambiarValor` los excluye — invariante de valor | en la rama |
+> | `postStore` los hereda del año anterior | en la rama |
+> | `TitulosDelCertificadoTest` — 20 casos | en la rama |
+>
+> **Ninguna ruta nueva**: no mueve el contador de `CLAUDE.md` ni los tres snapshots de
+> rutas.
+>
+> ### Las TRES decisiones de Joseth de ese día, que es lo que no se puede reconstruir
+>
+> Se le llevaron medidas y las tomó con el precio delante. **La primera es la que
+> cambia papel firmado en los dieciséis colegios**, así que va entera:
+>
+> 1. **Defecto `CONSTANCIA DE DESEMPEÑO ACADÉMICO` para los dieciséis**, sabiendo que
+>    el legacy gana la palabra «ACADÉMICO» en catorce. Hoy se imprimen **tres** textos
+>    distintos —el legacy dice «CONSTANCIA DE DESEMPEÑO», `app2` le añadió «ACADÉMICO»
+>    al migrar y nadie lo notó, y `coal`/`coljordan` dicen «CERTIFICADO DE DESEMPEÑO»
+>    por `document.domain`—, así que **no había un «lo de hoy» que conservar**.
+> 2. **`coal` y `coljordan` amanecen con el defecto** y lo corrigen desde la pantalla,
+>    en vez de dejar vivo el condicional de dominio como respaldo. **A esos dos hay que
+>    avisarles antes de desplegar** — es papel que firman.
+> 3. **El parcial lleva `PARCIAL` detrás** (mismo día, sobre la primera versión de la
+>    entrega, que les había puesto el mismo defecto a los dos). Se emite con el año sin
+>    cerrar; decían lo mismo **porque comparten plantilla**, no porque nadie lo
+>    decidiera.
+>
+> ### Lo que falta, y en este orden
+>
+> 1. **La suite entera y regenerar las instantáneas** — 6 por la fila entera de `years`
+>    y 19 por la proyección de `Year::datos()`, contadas antes con
+>    `tools/lo-que-reparte-una-columna.py years`.
+> 2. **`pint:test` y `stan`.**
+> 3. **El front**, en sesión aparte y con el encargo ya escrito (§10 del doc 38). Ojo a
+>    la trampa: `isCoalSchool()`/`cabeceraPropia()` gobiernan **cinco sitios** y sólo
+>    uno es el título — borrarlas cambia cuatro cosas más del papel de esos dos
+>    colegios.
+> 4. **El front NO se publica hasta que la API esté desplegada**, no sólo fusionada:
+>    contra una API sin la columna, la cabecera del certificado sale **en blanco**.
+>
+> ### Y una cosa que se vio de camino y NO entra aquí
+>
+> **`years.frase_final_certificado` no la escribe nadie.** Se imprime en los dos fronts
+> y la única escritura en toda la API es la copia al año siguiente: ni pantalla, ni
+> ruta, ni cliente. Es `profesores.tono` antes del 4 sep con otro nombre. Se deja
+> escrito en el §11 del doc 38 y **no se arregla en esta entrega**, porque es otra
+> decisión —¿misma pantalla?, ¿mismo `PUT`?— y meterla aquí la convertiría en dos.
+
 > ## ✅ ENTREGA 5 (modo promedio) — EN `main` (15 sep 2026)
 >
 > **Rama `feat/modo-promedio`, worktree `.worktrees/f7`, base `simonbolivar_testing_f7`.**

@@ -34,6 +34,28 @@ namespace Tests\Contrato;
  *   el snapshot también estaba vacío. Hay que mirar cuál de las dos es antes de
  *   regenerar.
  *
+ * - *Y una tercera que NO es ninguna de las dos, y parece la primera*: **desapareció
+ *   un hueco porque su snapshot no estaba en el disco cuando este test miró**. Pasa
+ *   en la corrida en que se regeneran snapshots: éste **lee el directorio**, y
+ *   `HuecosDelSeedTest` va antes que `MuestreoDeLecturasTest` y los demás que
+ *   escriben los suyos. Un fichero borrado a propósito para regenerarlo todavía no
+ *   existe, y un fichero que no existe no aporta huecos.
+ *
+ *   Se lee **igual que una mejora** —«desapareció un hueco, se celebra»— y por eso
+ *   está aquí: regenerar entonces enterraría un hueco real que volvería a aparecer
+ *   sin que nadie supiera cuándo se fue. Visto el 15 sep 2026 regenerando las 25 de
+ *   `titulo_certificado_*`: `muestreo-notas-actuales-alumnos` perdió
+ *   `alumnos.periodos.asignaturas_perdidas` en la corrida y lo recuperó corriendo
+ *   este test solo, **sin tocar nada**.
+ *
+ *   La orden que lo distingue, y es una y no un razonamiento:
+ *
+ *   ```bash
+ *   php artisan test --filter=HuecosDelSeedTest   # con todos los snapshots ya escritos
+ *   ```
+ *
+ *   Si ahí pasa, no había nada que mirar. Si sigue rojo, es de las dos de arriba.
+ *
  * Las familias que hay hoy, para no volver a investigarlas una por una:
  *
  * | Familia | Por qué está vacía |

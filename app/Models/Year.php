@@ -139,6 +139,29 @@ use App\Models\Periodo;
  * @property string $desempenos_displayname
  * @property string $genero_desempeno
  *
+ * Y los **dos títulos de los certificados**, por migración
+ * (`2026_09_15_100000_titulos_del_certificado`, doc 38): el texto que va impreso
+ * arriba de «Certificado final» y de «Certificado periodos», que hasta ese día
+ * estaba escrito dentro de la plantilla de los dos fronts y el colegio no podía
+ * cambiar.
+ *
+ * **Son dos y no una** porque son dos papeles: uno certifica el año cerrado y el otro
+ * «hasta el periodo que usted elija». Hasta el 15 sep decían lo mismo, y no porque
+ * nadie lo decidiera sino porque **comparten plantilla** en los dos fronts — el
+ * defecto del parcial lleva `PARCIAL` detrás justamente para deshacer ese empate. Y
+ * van en `years` y no en `config_certificados` porque el año elige **una sola** fila
+ * de aquélla (`config_certificado_estudio_id`) y aquí hacen falta dos títulos vivos a
+ * la vez.
+ *
+ * `NOT NULL` con defecto: un certificado sin título no es un estado. Se escriben
+ * por `PUT certificados/encabezado`, que es la ruta de los textos del certificado,
+ * y se copian al año siguiente en `YearsController::postStore` por lo mismo que
+ * `regla_nivelacion` — el colegio que escribió el suyo no amanece con el defecto
+ * cada enero.
+ *
+ * @property string $titulo_certificado_final
+ * @property string $titulo_certificado_periodos
+ *
  * Y los atributos que NO son columnas: el código se los cuelga al modelo en
  * tiempo de ejecución para armar la respuesta, que es un patrón repetido por
  * todo el proyecto. Eloquent los guarda entre los atributos y salen en el JSON,
@@ -187,6 +210,55 @@ class Year extends Model {
 	 */
 	public const REPARTOS_DE_SUBUNIDADES = ['porcentaje', 'promedio'];
 
+	/**
+	 * Los títulos con los que nacen los dos certificados, **y los mismos que el
+	 * `DEFAULT` de sus columnas**.
+	 *
+	 * Viven aquí por lo mismo que `MODELOS_DE_EVALUACION`: son una propiedad de la
+	 * columna, y dos sitios que dicen una cadena se separan sin que falle nada. Los
+	 * compara contra `SHOW COLUMNS` el test
+	 * `TitulosDelCertificadoTest::el_defecto_del_modelo_y_el_de_la_base_son_el_mismo`.
+	 *
+	 * **SON DISTINTOS, y ésa es la mitad que el encargo no pedía.** El certificado por
+	 * periodos se emite con **el año sin cerrar** —«calcula hasta el periodo que usted
+	 * elija», dice su propio botón— y hasta hoy decía lo mismo que el final, no porque
+	 * nadie lo decidiera sino porque **comparten plantilla** en los dos fronts. La
+	 * palabra que los separa es `PARCIAL` (Joseth, 15 sep 2026).
+	 *
+	 * Los dos conservan «constancia de desempeño» porque es el término del **Decreto
+	 * 1290 art. 17**, que es justamente el que habla de las constancias «con los
+	 * resultados de los informes periódicos» —o sea que le corresponde al parcial
+	 * todavía más que al final— (doc 21 §1).
+	 *
+	 * **Y no son «lo que se imprime hoy», que es lo que hay que saber de esta
+	 * constante.** El 15 sep 2026 se imprimían TRES textos distintos —el legacy decía
+	 * «CONSTANCIA DE DESEMPEÑO», `app2` le había añadido «ACADÉMICO» al migrar la
+	 * pantalla, y `coal` y `coljordan` decían «CERTIFICADO DE DESEMPEÑO» por
+	 * `document.domain`—. Éstos son los que Joseth eligió para los dieciséis ese día,
+	 * sabiendo que el papel de los dieciséis cambia. El porqué, en el §4 del doc 38.
+	 *
+	 * El array va indexado **por el nombre de la columna** y no por un alias, para que
+	 * el que lo recorra no tenga que traducir nada: es la lista que el controlador
+	 * valida y la que el test cruza con la base.
+	 *
+	 * @var array<string, string>
+	 */
+	public const TITULOS_POR_DEFECTO = [
+		'titulo_certificado_final' => 'CONSTANCIA DE DESEMPEÑO ACADÉMICO',
+		'titulo_certificado_periodos' => 'CONSTANCIA DE DESEMPEÑO ACADÉMICO PARCIAL',
+	];
+
+	/**
+	 * Lo que cabe en `titulo_certificado_final` y en `titulo_certificado_periodos`,
+	 * **en caracteres y no en bytes**.
+	 *
+	 * Se comprueba en el controlador y no se le deja a la columna: el docker trunca
+	 * en silencio y MariaDB aborta, así que el mismo tope da dos resultados
+	 * distintos según el servidor y ninguno de los dos le dice nada a quien escribe.
+	 * Un título es papel firmado — truncarlo sin avisar es peor que rechazarlo.
+	 */
+	public const LARGO_DEL_TITULO = 255;
+
 	use SoftDeletes;
 	protected $softDelete = true;
 
@@ -225,7 +297,7 @@ class Year extends Model {
 		if ($actual) {
 			$consulta = 'SELECT y.id as year_id, y.year, y.nombre_colegio, y.abrev_colegio, y.ciudad_id, c.ciudad, c.departamento, y.resolucion, y.codigo_dane, y.mostrar_puesto_boletin, y.puestos_alfabeticamente, y.show_fortaleza_bol, y.mostrar_nota_comport_boletin,
 							y.logo_id, iL.nombre as logo, y.img_encabezado_id, iE.nombre as img_encabezado, y.nota_minima_aceptada, y.minu_hora_clase, y.encabezado_certificado, y.config_certificado_estudio_id, y.si_recupera_materia_recup_indicador, y.cant_areas_pierde_year, y.cant_asignatura_pierde_year,
-							y.caracter, y.calendario, y.jornada, y.contador_certificados, y.usa_consecutivo_certificados, y.frase_final_certificado, y.contador_folios, y.usa_folio_certificados, y.texto_acta_eval, y.show_subasignaturas_en_finales, y.mensaje_aprobo_con_pendientes,
+							y.caracter, y.calendario, y.jornada, y.contador_certificados, y.usa_consecutivo_certificados, y.frase_final_certificado, y.titulo_certificado_final, y.titulo_certificado_periodos, y.contador_folios, y.usa_folio_certificados, y.texto_acta_eval, y.show_subasignaturas_en_finales, y.mensaje_aprobo_con_pendientes,
 							y.msg_when_students_blocked, y.titulo_rector, y.compromiso_familiar_label, y.solo_escalas_valorativas,
 							
 							y.secretario_id, pSec.nombres as nombres_secretario, pSec.apellidos as apellidos_secretario, pSec.sexo as sexo_secretario, pSec.num_doc as secretario_documento,
@@ -257,7 +329,7 @@ class Year extends Model {
 		}else{
 			$consulta = 'SELECT y.id as year_id, y.year, y.nombre_colegio, y.abrev_colegio, y.ciudad_id, c.ciudad, c.departamento, y.resolucion, y.codigo_dane, y.mostrar_puesto_boletin, y.puestos_alfabeticamente, y.show_fortaleza_bol, y.mostrar_nota_comport_boletin, 
 							y.logo_id, iL.nombre as logo, y.img_encabezado_id, y.nota_minima_aceptada, y.minu_hora_clase, iE.nombre as img_encabezado, y.encabezado_certificado, y.config_certificado_estudio_id, y.si_recupera_materia_recup_indicador, y.cant_areas_pierde_year, y.cant_asignatura_pierde_year,
-							y.caracter, y.calendario, y.jornada, y.contador_certificados, y.usa_consecutivo_certificados, y.frase_final_certificado, y.contador_folios, y.usa_folio_certificados, y.texto_acta_eval, y.show_subasignaturas_en_finales, y.mensaje_aprobo_con_pendientes,
+							y.caracter, y.calendario, y.jornada, y.contador_certificados, y.usa_consecutivo_certificados, y.frase_final_certificado, y.titulo_certificado_final, y.titulo_certificado_periodos, y.contador_folios, y.usa_folio_certificados, y.texto_acta_eval, y.show_subasignaturas_en_finales, y.mensaje_aprobo_con_pendientes,
 							y.msg_when_students_blocked, y.titulo_rector, y.compromiso_familiar_label, y.solo_escalas_valorativas,
 
 							y.secretario_id, pSec.nombres as nombres_secretario, pSec.apellidos as apellidos_secretario, pSec.sexo as sexo_secretario, pSec.num_doc as secretario_documento,
