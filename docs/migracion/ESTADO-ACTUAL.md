@@ -156,7 +156,12 @@
 >    colegios.
 > 3. **El front NO se publica hasta que la API esté desplegada**, no sólo fusionada:
 >    contra una API sin la columna, la cabecera del certificado sale **en blanco**.
-> 4. **Avisar a `coal` y `coljordan`** antes de desplegar.
+>
+> **Y a `coal` y `coljordan` NO se les avisa** (Joseth, 15 sep: *«no importa lo de
+> avisar»*). Se dice en negativo y no se borra la línea, porque el §4 del doc 38 llegó
+> a recomendar lo contrario: una recomendación retirada que no se tacha se lee como
+> pendiente, y pararía el despliegue de la siguiente sesión buscando un correo que
+> nadie tiene que mandar.
 >
 > ### Y una cosa que se vio de camino y NO entra aquí
 >

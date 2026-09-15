@@ -117,9 +117,16 @@ porque quien lea esto dentro de un año tiene que poder distinguir *«se decidi�
 > con una capa encima. *La salida barata no era la misma decisión con menos trabajo:
 > era otra decisión.*
 
-**Los dos colegios se avisan antes de desplegar.** Corregirlo son dos campos en una
-pantalla y treinta segundos, pero nadie puede corregir lo que no sabe que ha
-cambiado.
+> **Y NO se les avisa.** Joseth, el 15 sep 2026, sobre la propuesta de avisarles:
+> *«no importa lo de avisar»*. Queda escrito porque es lo contrario de lo que este
+> documento recomendaba dos líneas más arriba, y **una recomendación retirada que no
+> se tacha se lee como pendiente para siempre**: la siguiente sesión pararía el
+> despliegue buscando un correo que nadie tiene que mandar.
+>
+> Lo que la sostiene es que el cambio es **visible y reversible desde la propia
+> pantalla que entra con él**: quien abra el certificado ve el título nuevo, y
+> corregirlo son dos campos. No es el caso de un cambio que se nota tarde —un puesto
+> que se mueve, un consecutivo que salta—, que es cuando avisar sí compra algo.
 
 ## §4.bis. Y el parcial deja de decir lo que el final, que el encargo no pedía
 
