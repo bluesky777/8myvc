@@ -73,7 +73,7 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
-> ## ⏳ ENTREGA 5 (modo promedio) — CONSTRUIDA, SIN SUITE Y SIN FUNDIR (15 sep 2026)
+> ## ✅ ENTREGA 5 (modo promedio) — EN VERDE Y SIN FUNDIR (15 sep 2026)
 >
 > **Rama `feat/modo-promedio`, worktree `.worktrees/f7`, base `simonbolivar_testing_f7`.**
 > Autorizada por Joseth el 14 sep: fase 0 + la columna + D30, y el redondeo **en un solo
@@ -81,25 +81,78 @@
 >
 > | | |
 > |---|---|
-> | **Fase 0** — la fórmula de 16 sitios a `App\Support\RepartoDeLaNota` | **EN `main`** (`ebfe43f`), suite entera **2282/2282** |
+> | **Fase 0** — la fórmula de 16 sitios a `App\Support\RepartoDeLaNota` | **EN `main`** (`ebfe43f`) |
 > | **Fase 1** — `years.reparto_subunidades` | en la rama (`bbf6000`) |
 > | **D30** — el modo encendido en los 16 sitios y las dos representaciones | en la rama (`754b872`) |
+> | **Los 13 tests, las 6 instantáneas y los dos rojos que salieron** | en la rama, este commit |
 >
-> ### LO PRIMERO QUE TIENE QUE HACER QUIEN RECOJA ESTO
+> ### Lo que encontró correr la suite entera, que es exactamente para lo que se corre
 >
-> 1. **Correr la suite entera** sobre `754b872`, con el árbol quieto y anotando `HEAD` y
->    pendientes antes y después. **Hoy sólo hay 156 dirigidos en verde**, y esta misma
->    tanda demostró que eso no basta: la fase 0 pasó 90 dirigidos y cero instantáneas
->    movidas, y fue la suite entera la que cazó que *«idéntico por construcción»* era
->    falso en 1 de 16 — por **un espacio** en `DefinitivasDeAsignatura:560`, que dos
->    tests localizaban casando texto.
-> 2. **Regenerar las tres instantáneas de la fila entera de `years`** —`muestreo-years`,
->    `-colegio`, `-trashed`—, que es la terna que §1.3 del doc 35 dejó medida. La columna
->    nueva sale sola en ellas.
-> 3. **Escribir el test del modo `promedio`**, que **no existe**. Todo lo verde de hoy
->    corre en `porcentaje`, que es el defecto. El caso que falta es el que enciende el
->    enum y comprueba que **la definitiva guardada y lo que sirve `putDetailed` dan el
->    mismo número** — que es la afirmación entera de esta entrega.
+> `Tests: 7 failed, 1 skipped, 2275 passed (php artisan test, .worktrees/f7, 9d30bcb)`, con
+> `HEAD` y pendientes **idénticos antes y después** (06:17 → 06:34). **Seis eran
+> instantáneas y el séptimo no lo era**, que es el que importa:
+>
+> 1. **`CentinelaDeLasColumnasDelAnioNuevoTest` — `postStore` no nombraba
+>    `reparto_subunidades`.** El colegio que eligiera `promedio` **amanecería en
+>    `porcentaje` cada enero**, y aquí ese defecto no deja una pantalla apagada: deja
+>    **otras notas**. Vuelve a repartir por `subunidades.porcentaje`, que en un colegio de
+>    promedio es justo la columna que ya no cuadra nadie —el modo existe para no tener que
+>    teclearla—. Arreglado copiándola del año anterior, pegada a las cuatro del modelo de
+>    evaluación y por el motivo que ya estaba escrito ahí. **No lo habría cazado ningún
+>    test de la entrega, porque la entrega no tenía ninguno.**
+> 2. **Las instantáneas de la fila entera de `years` son SEIS, no tres.** El relevo decía
+>    «la terna, y si se mueve una cuarta, para y mira por qué». Se movieron tres más
+>    —`years-store`, `years-guardar-cambios`, `years-delete`— y el porqué **ya estaba
+>    escrito en el propio doc 35**: `b428153` (13 sep) les puso instantánea, y el documento
+>    registra que `tools/lo-que-reparte-una-columna.py years` *«pasa de decir 3 a decir
+>    6»*. O sea que §1.3 y su corrección conviven en el mismo fichero y **se lee primero la
+>    que envejeció**. Las seis regeneradas; el diff es **seis líneas, una por fichero**, y
+>    ninguna otra cosa se movió.
+>
+> ### Y `stan` estaba rojo antes de que nadie tocara la rama
+>
+> No venía en el relevo. `YearsController:1066` —el segundo bucle que rearmaba el resumen
+> de auditoría leyendo `$antes[$campo]`— daba `offsetAccess.notFound` en nivel 7.
+> **Comprobado sobre el fichero tal y como lo dejó `9d30bcb`**, no deducido. Arreglado
+> donde estaba la causa: el «de» y el «a» salen ahora de la misma iteración, así que no
+> hay dos listas cuyas claves haya que demostrar iguales. `[OK] No errors`.
+>
+> ### Lo que ahora sí sujeta la entrega — `tests/Contrato/RepartoDeLasSubunidadesTest.php`
+>
+> **Antes de esto, `grep -rn reparto_subunidades tests/` no devolvía nada**: los 156
+> dirigidos que pasaban corrían todos en `porcentaje`, que es el defecto. Trece casos,
+> montaje de **cuatro subunidades al 40/30/20/10 con notas 40/40/20/20** — desiguales a
+> propósito, porque con cuatro al 25 % los dos modos dan el mismo número y el caso pasaría
+> en verde con el interruptor desconectado. Da **34 en porcentaje y 30 en promedio**, los
+> dos enteros (`notas_finales.nota` es `int`).
+>
+> **Y se comprobó que miden algo, con dos mutaciones deliberadas:**
+>
+> | mutación | qué se pone rojo |
+> |---|---|
+> | `pesoDeSubunidad` ignora el modo | 2 casos — la definitiva se queda en 34 |
+> | sólo `putDetailed` ignora el modo | 2 casos — *«El cliente reconstruye 34 y la base guardó 30»* |
+>
+> La segunda es la que acredita el caso central: es **la separación entre lo guardado y lo
+> servido**, que es la afirmación entera de la entrega, y ninguna de las dos mitades falla
+> sola.
+>
+> ### La D30 está medida contra `myvc_flutter`, no supuesta
+>
+> «Los cuatro clientes quedan correctos sin tocar una línea» es comprobable en local y se
+> comprobó: `myvc_flutter/lib/Http/LibroNotasApi.dart:68` multiplica por
+> `subunidad.porcentaje` **del árbol** —que es la representación que el controlador
+> convierte— y `lib/Models/UnidadModel.dart:46` lo parsea con `decimalO` sobre un `double`,
+> así que el `25.0` del modo promedio **no rompe la deserialización**. Y el `0.5` de
+> tolerancia de `porcentajeSubunidades` (`UnidadModel.dart:83`) absorbe el redondeo a dos
+> decimales para cualquier `n` (con 7 subunidades: 14,29 × 7 = 100,03).
+>
+> ### Lo que queda
+>
+> - **Fundir.** La entrega no añade rutas, así que **el contador de `CLAUDE.md` no se
+>   mueve** — y por eso mismo no hay que recontarlo ni tocarlo.
+> - **Avisar a `myvc-front-8d`**: su lista de escrituras que dan 403 por año cerrado **no
+>   crece con esto**. La Entrega 5 no añade ninguna.
 >
 > ### Lo que hay que saber sin abrir el diff
 >

@@ -198,6 +198,19 @@ class YearsController extends Controller {
 			$year->desempeno_displayname 		 = $pasado->desempeno_displayname;
 			$year->desempenos_displayname 		 = $pasado->desempenos_displayname;
 			$year->genero_desempeno 			 = $pasado->genero_desempeno;
+			// Y la quinta, del mismo sitio y por el mismo motivo (28 §5.5, Entrega 5):
+			// el colegio que eligió `promedio` amanecería en `porcentaje` cada enero.
+			// **Aquí eso no es una pantalla apagada: son las notas.** Ese defecto
+			// vuelve a repartir por `subunidades.porcentaje` —una columna que en un
+			// colegio de promedio nadie ha vuelto a cuadrar, porque el modo existe
+			// justamente para no tener que tecleársela— y la definitiva de cada
+			// asignatura del año nuevo sale de otra cuenta sin que nadie lo pida.
+			//
+			// Lo cazó el centinela del año nuevo, que es para lo que está: la Entrega 5
+			// entró con la columna, los dieciséis sitios y las dos representaciones, y
+			// **sin esta línea**. No la cazó ningún test de la entrega porque la
+			// entrega no tenía ninguno.
+			$year->reparto_subunidades 			 = $pasado->reparto_subunidades;
 			$year->solo_escalas_valorativas 	 = $pasado->solo_escalas_valorativas;
 			$year->year_pasado_en_bol 			 = $pasado->year_pasado_en_bol;
 			$year->titulo_rector 				 = $pasado->titulo_rector;
@@ -1031,8 +1044,21 @@ class YearsController extends Controller {
 
 		$antes = [];
 
+		// **El renglón del rastro se arma AQUÍ, en la vuelta que tiene las dos
+		// mitades a la vez**, y no en un segundo bucle sobre `$pedidos` que vuelva a
+		// buscar `$antes[$campo]`. Larastan nivel 7 no puede demostrar que las dos
+		// listas tengan las mismas claves —`offsetAccess.notFound`— y tiene razón en
+		// no poder: hoy las tienen porque las llena el mismo bucle, y eso es un
+		// invariante que no está escrito en ninguna parte. Con el «de» y el «a»
+		// saliendo de la misma iteración no hay nada que descuadrar.
+		$resumen = [];
+
 		foreach ($pedidos as $campo => $valor) {
-			$antes[$campo] = $year->{$campo};
+			$anteriorDelCampo = $year->{$campo};
+
+			$antes[$campo] = $anteriorDelCampo;
+			$resumen[] = "{$campo}: {$anteriorDelCampo} → {$valor}";
+
 			$year->{$campo} = $valor;
 		}
 
@@ -1046,13 +1072,7 @@ class YearsController extends Controller {
 
 		// El rastro nuevo, sin el viejo: `bitacoras` tiene diez escritores fijados
 		// por un centinela y esto no es uno de ellos. `year_config` es la entidad que
-		// ya usa `putGuardarCambios` para lo mismo.
-		$resumen = [];
-
-		foreach ($pedidos as $campo => $valor) {
-			$resumen[] = "{$campo}: {$antes[$campo]} → {$valor}";
-		}
-
+		// ya usa `putGuardarCambios` para lo mismo. `$resumen` viene armado de arriba.
 		Auditoria::registrar()
 			->editar('year_config', (int) $year->id)
 			->en(year: (int) $year->id)

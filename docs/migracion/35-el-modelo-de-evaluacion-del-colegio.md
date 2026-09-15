@@ -98,6 +98,19 @@ de más es legítimo. **Lo es.**
 > Las **tres** son `muestreo-years.json`, `muestreo-years-colegio.json` y
 > `muestreo-years-trashed.json`, y salen de los tres únicos caminos que publican la fila entera:
 >
+> > ### ⚠️ DESDE EL 13 SEP POR LA NOCHE SON **SEIS**, Y ESTE APARTADO SE LEE PRIMERO
+> >
+> > No hay que corregir la cifra de arriba —**era cierta cuando se midió**— pero sí decirlo
+> > aquí, porque la corrección vive **400 líneas más abajo** (§«cubiertas las tres de 74») y
+> > quien abre este apartado ya tiene su respuesta y no sigue leyendo. `b428153` le puso
+> > instantánea a `POST years/store`, `PUT years/guardar-cambios` y `DELETE years/delete/{id}`,
+> > y con ellas `tools/lo-que-reparte-una-columna.py years` **pasa de decir 3 a decir 6**.
+> >
+> > **Y ya costó una vez, el 15 sep**: el relevo de la Entrega 5 citó *«la terna que §1.3 dejó
+> > medida»* y añadió *«si se mueve una cuarta, para y mira por qué»*. Se movieron tres más y no
+> > había ningún porqué que investigar: estaba escrito en este mismo fichero. *Un documento que
+> > se corrige a sí mismo abajo sigue mintiendo arriba, y arriba es por donde se entra.*
+>
 > ```
 > YearsController::getIndex    'SELECT y.*, i.nombre as logo FROM years y …'   <- comodín en SQL crudo
 > YearsController::getColegio  'SELECT * FROM years WHERE deleted_at is null'  <- comodín en SQL crudo
