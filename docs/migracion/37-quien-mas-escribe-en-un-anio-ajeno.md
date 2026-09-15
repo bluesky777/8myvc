@@ -143,6 +143,38 @@ Las dos tablas guardan **registro disciplinario de menores por año**. Es el mis
 argumento que hizo cerrar `ordinales`, un piso más abajo: allí se protege el
 artículo del manual, aquí la anotación que lo cita.
 
+> ### ✅ DECIDIDO EL 15 SEP 2026 — se cierran las dos, y la lista pasa de trece a QUINCE
+>
+> Decisión de Joseth, con la población delante — que es lo que la decidió, porque
+> separa «esto podría pasar» de «esto es lo normal»:
+>
+> | | en años cerrados | total |
+> |---|---|---|
+> | `dis_libro_rojo` | **1.593** | 2.047 |
+> | `dis_procesos` | **316** | 327 |
+>
+> El **97 %** de `dis_procesos` vive en años cerrados: esa ruta trabajaba casi siempre
+> sobre años que ya nadie debería tocar, con `auth.personal` —los 74 del personal— como
+> única puerta.
+>
+> **El año sale de la FILA y no de la sesión** en las dos, y no es estilo: con el año de
+> quien llama se protegería el registro equivocado —el suyo, no el que está tocando—.
+> En `guardar-libro` el candado va **después del `SELECT`** que ya leía la fila, y en
+> `cambiar-situacion-derivante` sobre el `year_id` que `fotoDelProceso` ya traía.
+>
+> **Y entra con la decisión el rastro de la segunda**, que este apartado dejó fichado y
+> nadie había arreglado: `PUT disciplina/cambiar-situacion-derivante` llevaba escrito
+> *«No creo que sea chévere poner la fecha y modificador»* y **no escribía `updated_by`
+> ni `updated_at`**. Ahora sí — las dos columnas ya existían, sin migración— así que el
+> rastro deja de depender de que `bitacoras` sobreviva a una limpieza.
+>
+> Lo fija [`DisciplinaDeUnAnioCerradoTest`](../../tests/Contrato/DisciplinaDeUnAnioCerradoTest.php),
+> comprobado con mutación: retirados los dos candados y el rastro, caza los tres por su
+> vía —el código, la fila y el autor—.
+>
+> **Lo trajo `myvc_front`**, que llevaba dos días preguntando por ellas: el 403 sale en
+> pantallas de **docente** y su predicado ya estaba montado para engancharlo.
+
 ---
 
 ## 3. Lo que este censo NO cubre, y hay que decirlo

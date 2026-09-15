@@ -14,6 +14,7 @@ use App\Services\Auditoria;
 use App\Support\ColumnaSegura;
 use App\Support\NombreDelAlumno;
 use App\Support\PeriodoDeLaFila;
+use App\Support\Autoriza;
 
 
 class NotaComportamientoController extends Controller {
@@ -42,7 +43,27 @@ class NotaComportamientoController extends Controller {
 		// esquema **y la devuelve ya entre acentos graves** — por eso aquí no se le
 		// ponen otros. Ponérselos da ``per1_col1``, que es un error de sintaxis de
 		// MySQL y no un fallo de permisos, así que se lee como cualquier otra cosa.
-		$antes = DB::selectOne('SELECT '.$columna.' AS valor, alumno_id FROM dis_libro_rojo WHERE id = ?', [$libro_id]);
+		$antes = DB::selectOne('SELECT '.$columna.' AS valor, alumno_id, year_id FROM dis_libro_rojo WHERE id = ?', [$libro_id]);
+
+		// **El libro rojo de un año cerrado sólo lo escribe un superusuario** —decisión
+		// de Joseth del 15 sep 2026, que sube la lista del año cerrado de trece a
+		// quince (37 §2.3)—. Es el mismo argumento que cerró `ordinales` un piso más
+		// abajo: allí se protege el artículo del manual de convivencia, y aquí **la
+		// anotación que lo cita**, que es el registro disciplinario de un menor.
+		//
+		// Medido en la copia de desarrollo: **1.593 de las 2.047 filas** de
+		// `dis_libro_rojo` están en años cerrados, y hasta hoy las reescribía
+		// cualquiera de los 74 del personal — `auth.personal` es todo lo que había.
+		//
+		// **Va después del `SELECT` y antes del `UPDATE`**, y no al principio del
+		// método: el año sale de la fila, no de la sesión. Con el año de quien llama
+		// se protegería el libro equivocado — el suyo, no el que está tocando.
+		//
+		// `$antes === null` —el libro no existe— deja pasar: `estaCerrado(null)` es
+		// `false`, y ese camino ya tiene su propio contrato unas líneas más abajo
+		// (contesta `'Cambiado'` igual y lo distingue la auditoría). Convertirlo aquí
+		// en un 403 cambiaría una respuesta que alguien puede estar leyendo.
+		Autoriza::exigirEscrituraEnElAnio($user, $antes->year_id ?? null, 'Ese libro rojo');
 
 		$consulta = 'UPDATE dis_libro_rojo SET '.$columna.'=:valor WHERE id=:libro_id';
 		DB::update($consulta, [$valor, $libro_id]);

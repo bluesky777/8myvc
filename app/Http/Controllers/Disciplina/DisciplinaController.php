@@ -14,6 +14,7 @@ use App\Models\Frase;
 
 use Carbon\Carbon;
 use App\Support\NombreDelAlumno;
+use App\Support\Autoriza;
 
 
 class DisciplinaController extends Controller {
@@ -560,9 +561,32 @@ class DisciplinaController extends Controller {
 		// rastro que hay, y por eso aquí importa más que en sus vecinas.
 		$antes = $this->fotoDelProceso($id);
 
-		$consulta 	= 'UPDATE dis_procesos SET become_id=? WHERE id=?'; // No creo que sea chévere poner la fecha y modificador
-		$datos 		= [ $become_id, $id ];
-		
+		// **El proceso de un año cerrado sólo lo escribe un superusuario** —decisión de
+		// Joseth del 15 sep 2026, que sube la lista de trece a quince (37 §2.3)—. Es el
+		// argumento que cerró `ordinales`: allí el artículo del manual, aquí **la
+		// anotación que lo cita**.
+		//
+		// Aquí muerde más que en su vecina del libro rojo, y por la medición: **316 de
+		// las 327 filas** de `dis_procesos` están en años cerrados —el 97 %—, así que
+		// esta ruta trabajaba casi siempre sobre años que ya nadie debería tocar.
+		//
+		// El año sale de la FILA (`fotoDelProceso` ya lo traía), no de la sesión: con
+		// el de quien llama se protegería el proceso equivocado.
+		Autoriza::exigirEscrituraEnElAnio($user, $antes['year_id'] ?? null, 'Ese proceso disciplinario');
+
+		// **Y desde hoy sí escribe `updated_by` y `updated_at`.** El comentario que
+		// estaba aquí —*«No creo que sea chévere poner la fecha y modificador»*— es de
+		// quien lo escribió y era una decisión, pero dejaba la fila **sin un solo
+		// autor**: la línea de auditoría era todo el rastro de quién cambió de qué
+		// falta deriva una situación. Con las dos columnas, el rastro está en los dos
+		// sitios y no depende de que `bitacoras` sobreviva a una limpieza.
+		//
+		// Las dos columnas ya existían en el esquema y estaban sin usar en esta ruta —
+		// no hace falta migración. Decisión de Joseth del 15 sep 2026, junto con el
+		// candado de arriba.
+		$consulta 	= 'UPDATE dis_procesos SET become_id=?, updated_by=?, updated_at=? WHERE id=?';
+		$datos 		= [ $become_id, $user->user_id, $now, $id ];
+
 		DB::update($consulta, $datos);
 
 		$alumnoDeLaLinea = isset($antes['alumno_id']) && is_numeric($antes['alumno_id']) ? (int) $antes['alumno_id'] : null;

@@ -275,6 +275,19 @@
 > **2295 = los 2282 de `main` + los 13 nuevos**, y ninguna prueba existente se movió.
 > `composer run pint:test` PASS sobre 405 ficheros y `composer run stan` `[OK] No errors`.
 >
+> ### ✅ Las dos de disciplina — la lista pasa de trece a QUINCE (15 sep)
+>
+> `nota_comportamiento/guardar-libro` y `disciplina/cambiar-situacion-derivante`,
+> decididas por Joseth con la población delante: **1.593 de 2.047** filas de
+> `dis_libro_rojo` y **316 de 327** de `dis_procesos` están en años cerrados. El 97 % de
+> la segunda. Es el argumento de `ordinales`: allí el artículo del manual, aquí la
+> anotación que lo cita.
+>
+> Entra con ellas el rastro que el doc 37 llevaba fichado: `cambiar-situacion-derivante`
+> **no escribía `updated_by` ni `updated_at`** —estaba comentado a propósito— así que la
+> línea de `bitacoras` era el único rastro. Ahora está en los dos sitios. Sin migración:
+> las columnas ya existían.
+>
 > ### ✅ El avance del docente en promedio (15 sep, `fix/avance-del-docente-en-promedio`)
 >
 > **Cuarta que levanta `myvc-front-8d` desde fuera, y la primera que no es un hueco de
