@@ -64,8 +64,17 @@ use PHPUnit\Framework\Attributes\Test;
  * Las dos mitades son deliberadas. **Desiguales**, porque con cuatro subunidades al
  * 25 % los dos modos dan el mismo número y el caso pasaría en verde con el
  * interruptor desconectado — que es la forma de aprobado que este repo tiene
- * fichada. Y **enteros los dos**, porque `notas_finales.nota` es `int`: con un
- * resultado de 33,5 el test estaría afirmando el redondeo de MySQL sin decirlo.
+ * fichada. Y **enteros los dos**, para que la cuenta se pueda seguir de cabeza y el
+ * aserto diga 30 y no 29,9999.
+ *
+ * > **Ese «enteros» se escribió con un motivo que era falso, y se deja dicho en vez
+ * > de borrarse.** Decía *«porque `notas_finales.nota` es `int`»*, copiado de
+ * > `EditarUnaNotaActualizaLaDefinitivaTest:128` **sin comprobarlo**. La columna es
+ * > `decimal(7,4)` desde el 30 ago 2026 (`2026_08_30_200000_notas_finales_en_decimal`),
+ * > o sea que llevaba dieciséis días sin ser verdad y se propagó a un fichero nuevo el
+ * > día que alguien la reutilizó. **La elección sigue siendo buena y el motivo era
+ * > otro**: con enteros la aritmética se lee, no se calcula. *Una frase heredada de un
+ * > fichero vecino no viene comprobada: viene repetida.*
  *
  * El montaje **vacía primero la rejilla de esa asignatura**. Los porcentajes del
  * seed son cualesquiera y con ellos la cuenta deja de poder hacerse de cabeza, que
@@ -483,6 +492,8 @@ class RepartoDeLasSubunidadesTest extends CasoDeContrato
             ->putJson('/api/years/modelo-evaluacion', [
                 'year_id' => $yearId,
                 'reparto_subunidades' => 'promedio',
+                // El aviso del recuento no es de este caso: aquí se mide el permiso.
+                'acepto_recalcular' => true,
             ])->assertStatus(200);
 
         $this->assertSame('promedio',
@@ -658,7 +669,19 @@ class RepartoDeLasSubunidadesTest extends CasoDeContrato
     /**
      * Con el token de un superusuario, que es quien puede el primer día.
      *
-     * @param  array<string, string>  $cuerpo
+     * **Lleva `acepto_recalcular` desde el 15 sep 2026**, y no es ruido de montaje:
+     * cambiar el reparto de un año que tiene definitivas guardadas contesta **422 con
+     * el recuento** hasta que se acepta (doc 28 §5.5,
+     * {@see AceptoRecalcularElRepartoTest}). Los casos de este fichero miden **lo que
+     * se escribe**, así que pasan la llave y siguen midiendo eso; quien mide el aviso
+     * es el otro fichero.
+     *
+     * Lo enseñó la suite entera: estos tres casos pasaban solos y cayeron al fundir
+     * con el aviso, porque **se corrió el test nuevo y no el hermano que comparte
+     * endpoint**. Es «un subconjunto verde no basta» otra vez, y del lado de quien ya
+     * lo tenía escrito.
+     *
+     * @param  array<string, mixed>  $cuerpo
      */
     private function pedir(array $cuerpo, int $yearId)
     {
@@ -669,7 +692,8 @@ class RepartoDeLasSubunidadesTest extends CasoDeContrato
             .'se leería como un fallo de la validación.');
 
         return $this->withToken($this->tokenDe($usuario->username))
-            ->putJson('/api/years/modelo-evaluacion', $cuerpo + ['year_id' => $yearId]);
+            ->putJson('/api/years/modelo-evaluacion',
+                $cuerpo + ['year_id' => $yearId, 'acepto_recalcular' => true]);
     }
 
     /**
