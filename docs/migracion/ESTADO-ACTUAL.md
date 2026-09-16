@@ -327,7 +327,19 @@
 > **2295 = los 2282 de `main` + los 13 nuevos**, y ninguna prueba existente se movió.
 > `composer run pint:test` PASS sobre 405 ficheros y `composer run stan` `[OK] No errors`.
 >
-> ### ✅ El año cerrado no cambia de modo, y el recálculo usa el suyo — a DIECISÉIS (15 sep)
+> ### ✅ El año cerrado no cambia de modo, y el recálculo usa el suyo — EN `main`, a DIECISÉIS (15 sep)
+>
+> **Fundido en `d0827d5`.** `Tests: 1 skipped, 2336 passed (22776 assertions)` —
+> `php artisan test`, `.worktrees/f7`, sobre **`7646671`**, con `HEAD` y pendientes
+> idénticos antes y después. **603 rutas** contadas en el árbol principal después de
+> fundir: ninguna de las cuatro entregas de hoy añade ruta.
+>
+> > **`main` se movió DOS VECES durante las corridas de hoy** —los títulos del
+> > certificado y el preescolar por competencias—, y la segunda se vio porque el registro
+> > de la corrida empezó a anotar también `main`, no sólo `HEAD`. Lo que `HEAD` idéntico
+> > demuestra es que **nadie tocó mi árbol mientras medía**; no demuestra que el árbol
+> > siguiera siendo el que iba a fundirse. Con trece worktrees vivos, **son dos
+> > preguntas distintas y hacían falta las dos**.
 >
 > Dos huecos de la misma familia, los dos levantados por `myvc_front` con una regla que
 > formularon ellos: **no es el cálculo, es de qué año se pregunta el modo.**
@@ -356,7 +368,7 @@
 > > apartó y no la escribió en ninguna parte.** La duda que no se escribe no la hereda
 > > nadie: se vuelve a descubrir un día, y puede ser tarde.
 >
-> ### ✅ Las dos de disciplina — la lista pasa de trece a QUINCE (15 sep)
+> ### ✅ Las dos de disciplina — EN `main`, de trece a QUINCE (15 sep)
 >
 > `nota_comportamiento/guardar-libro` y `disciplina/cambiar-situacion-derivante`,
 > decididas por Joseth con la población delante: **1.593 de 2.047** filas de
@@ -369,7 +381,7 @@
 > línea de `bitacoras` era el único rastro. Ahora está en los dos sitios. Sin migración:
 > las columnas ya existían.
 >
-> ### ✅ El avance del docente en promedio (15 sep, `fix/avance-del-docente-en-promedio`)
+> ### ✅ El avance del docente en promedio — EN `main` (15 sep)
 >
 > **Cuarta que levanta `myvc-front-8d` desde fuera, y la primera que no es un hueco de
 > autorización sino una cuenta que deja de medir lo que dice.**
