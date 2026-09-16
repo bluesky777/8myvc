@@ -135,6 +135,32 @@
 # en el código de salida— y no un bloqueo.
 #
 # ─────────────────────────────────────────────────────────────────────────────
+# ESTE SONDEO NO SE PUEDE COPIAR AL ESCRITORIO, Y POR ESO LOS DOS LADOS NO SE
+# UNIFICAN
+#
+# `myvc_horarios` resuelve la misma pregunta **por reglas** y no sondeando
+# (`escritorio/src/app/datos/servidor-myvc.ts`, `raizDeMyVC()`): ruta tecleada o
+# protocolo `http:` o host local -> tal cual; el resto -> se le añade
+# `/8myvc/public`. Mismo reparto que el medido aquí, por otro camino — y que dos
+# métodos independientes den el mismo corte es la confirmación que ninguno de los
+# dos podía darse solo.
+#
+# **Lo que NO se puede hacer allí es lo que se hace aquí**, y la razón es del
+# instrumento y no del ingenio (medido por `myvc-horarios-69` en 11 de 11 y
+# comprobado desde este repo en 5 de 5 el 15 sep 2026):
+#
+#     OPTIONS <host>/api/login/credentials   ->  404 y CERO cabeceras CORS
+#
+# Un 404 **sin cabeceras CORS** le llega a `fetch` como el mismo `TypeError`
+# pelado que un servidor apagado: desde un navegador, *«aquí no vive la API»* y
+# *«no llegué»* son indistinguibles. Este guion va por `curl`, que **no aplica
+# CORS**, así que ve el 404 y puede elegir la otra ruta.
+#
+# Así que si alguien propone cablear el prefijo *«para que los dos lados hagan lo
+# mismo»*: no se puede, y no porque allí falte trabajo. Aquí hay un instrumento
+# que allí no existe.
+#
+# ─────────────────────────────────────────────────────────────────────────────
 # LO QUE ESTE GUION **NO** CONTESTA, Y HAY QUE DECIRLO CADA VEZ
 #
 # `--url` manda un `Origin` **tecleado por nosotros**. Contesta *«¿lo acepta la
