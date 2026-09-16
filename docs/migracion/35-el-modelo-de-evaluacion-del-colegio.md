@@ -2348,12 +2348,25 @@ automática al marcar.
   desarrollo.
 - **Las materias que el MEN no cubre**: Religión, Artes, Ed. Física y Tecnología **nacen vacías**,
   y eso se dice en la pantalla.
-- **La escala del alumno con PIAR dentro de un grupo numérico**: se resuelve con texto (D17), pero
-  **qué** texto —la escala del grupo o una propia— no está decidido. Con D23 encima, la pregunta
-  se afila: la celda guarda un nivel de `escalas_de_valoracion`, que es **por año** y no por
-  grupo, así que un alumno con escala propia **no tiene hoy dónde guardarla**. No bloquea las
-  siete fases —la columna es anulable y el docente escribe el texto que quiera— pero es lo
-  primero que va a preguntar el colegio que tenga uno.
+- ~~**La escala del alumno con PIAR dentro de un grupo numérico.**~~ **CERRADA el 15 sep 2026
+  por Joseth**, y se cerró en la dirección que no había en la propuesta:
+
+  > *«un alumno ERE no necesita escalas de valoración propias, debe usar las mismas que usan
+  > todos, las definidas para el año.»*
+
+  O sea que **no es una carencia que haya que tapar: es la regla**. La celda de la rejilla guarda
+  un `escala_id` de las bandas del año, exactamente igual que la de cualquier otro alumno, y el
+  PIAR se refleja en **lo que dice el desempeño**, no en con qué regla se mide.
+
+  **Cero migración, y eso no es lo que la hace buena.** Lo que la hace buena es que la
+  alternativa —bandas propias por alumno— habría hecho que dos renglones del mismo boletín
+  dijeran «ALTO» queriendo decir cosas distintas, sin nada en el papel que lo avisara. La
+  pregunta se había planteado como *«dónde guardamos su escala»*, que da por hecho que la
+  necesita; la respuesta dice que la premisa era falsa.
+
+  Se deja escrita **con su alternativa al lado y sin borrar la pregunta**, porque el hueco que
+  describía —`escalas_de_valoracion` sólo tiene `year_id`, comprobado en el esquema ese día— sigue
+  existiendo y volvería a leerse como un olvido. **No lo es: es lo que se quiere.**
 
 ---
 

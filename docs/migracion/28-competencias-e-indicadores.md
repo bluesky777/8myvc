@@ -1290,6 +1290,38 @@ boletín es, por tanto, **una decisión ya tomada antes**, no una excepción.
 
 ### 5.7 · Entrega 7 — preescolar deja de teclearse alumno por alumno
 
+> ## ✅ RECORRIDA DE PUNTA A PUNTA el 15 sep 2026 — y no hizo falta backend nuevo
+>
+> Esta entrega se daba por cubierta **por composición**: sus cuatro piezas existen —la
+> plantilla con alcance (`unidades_por_defecto.nivel_educativo_id` y `.materia_id`), el
+> catálogo por materia y grado (`desempenos_por_defecto`), el marcado en
+> `frases_asignatura` y `grupos.caritas`—, así que «debería funcionar». **Nadie la había
+> recorrido**, y una entrega que nadie ha recorrido es una suposición con buena pinta.
+>
+> Lo cierra `tests/Contrato/PreescolarCalificaPorCompetenciasTest.php`, que construye un
+> grupo de Transición con `caritas = 1` y hace el camino entero: sembrar el plan de área
+> → leer la rejilla → marcar → **verlo impreso en el boletín por competencias**. Verde.
+>
+> **Y de recorrerlo salieron dos cosas que la composición no podía dar:**
+>
+> 1. **El seed no tiene preescolar.** Sus únicos niveles son `Educación Básica
+>    Académica3` con Tercero y Cuarto, y **cero grupos con `caritas`**. O sea que ningún
+>    test que espere el caso del seed cubre preescolar — y `BolfinalesPreescolarController`
+>    / `FrasesPreescolarTest` **tampoco lo cubren**: ejercitan sus rutas, no un grupo de
+>    preescolar de verdad. Por eso el caso se construye, como en
+>    `PlanillaSinIndependientesTest`.
+>
+> 2. **La rejilla de preescolar viene SIN premarcar, y eso es lo correcto.** Premarca
+>    desde la definitiva numérica, y preescolar no pone notas: los tres alumnos salen
+>    `sin_definitiva` y el docente marca a mano — que es literalmente lo que pedía el
+>    §5.7.c, *«la valoración se MARCA, no se teclea»*. El test lo fija con un número, no
+>    con una frase: si algún día premarcara, sería de una nota que preescolar no pone.
+>
+> **Preescolar no es un caso especial en el backend**: `getRejilla` recibe
+> `asignatura_id` y `periodo_id` y no mira el nivel educativo, ni el grado, ni
+> `caritas`. Lo que queda de esta entrega es **la pantalla**, que es lo que el §5.7.e ya
+> decía.
+
 > **Decidida por Joseth el 2 sep 2026**, sobre la medición de §3.2 y con esta frase:
 > *«hay una pantalla en myvc_front donde se crea un boletín a cada estudiante de
 > preescolar y se imprime el boletín tipo 1 donde se muestra sólo ese texto; en
