@@ -92,6 +92,49 @@
 # que dispara esta rama.
 #
 # ─────────────────────────────────────────────────────────────────────────────
+# UN 404 NO ES UN BLOQUEO, Y ESTE GUION LO DIJO MAL EL DÍA QUE HACÍA FALTA
+#
+# **15 sep 2026.** Joseth no podía entrar desde el escritorio a `demo`. Se corrió
+# esto —que es literalmente la herramienta escrita para ese día— y contestó:
+#
+#     https://demo.micolevirtual.com
+#         tauri://localhost   404  BLOQUEADO (sin Access-Control-Allow-Origin)
+#
+# **El veredicto acertó por casualidad**: demo sí estaba roto, pero por un
+# `.env` que Laravel no leía (configuración cacheada), no por CORS. Lo que decía
+# esta línea era falso, y su falsedad tenía dos mitades, medidas por
+# `myvc-horarios-69` y reproducidas aquí antes de tocar nada:
+#
+#     /api/login/credentials                http=404  ACAO=(ninguna)
+#     /8myvc/public/api/login/credentials   http=204  ACAO=*
+#
+# 1. **La ruta estaba mal**: estos colegios sirven la API bajo `/8myvc/public/`.
+# 2. **Y un 404 se clasificaba como BLOQUEADO.** Ésta es la cara, porque hace que
+#    el aparato deje de discriminar: con la ruta mala, los **diez colegios sanos**
+#    habrían salido «BLOQUEADO» exactamente igual que el roto. Una herramienta que
+#    contesta lo mismo pase lo que pase no es una herramienta con un fallo: es un
+#    cartel.
+#
+# Es la misma familia que el fallo de `isSingleOriginAllowed()` de más abajo —el
+# detector contaba bien un síntoma y no la causa—, **un paso antes**: aquél
+# preguntaba «¿vino una ACAO?» en vez de «¿vino la mía?»; éste preguntaba sin
+# haber llegado al sitio.
+#
+# **El prefijo NO se cablea, y eso también está medido**, porque la salida barata
+# —cambiar la constante por la buena— habría roto el otro uso:
+#
+#     producción (4 de los 11 del listado, uno con dominio propio)
+#         /api/login/credentials                404
+#         /8myvc/public/api/login/credentials   204
+#     docker local (http://localhost)
+#         /api/login/credentials                204
+#         /8myvc/public/api/login/credentials   404
+#
+# **Están al revés.** Así que la ruta se **descubre** por servidor y se imprime
+# cuál salió; si ninguna responde, es **NO MEDIDO** —que ya manda sobre lo medido
+# en el código de salida— y no un bloqueo.
+#
+# ─────────────────────────────────────────────────────────────────────────────
 # LO QUE ESTE GUION **NO** CONTESTA, Y HAY QUE DECIRLO CADA VEZ
 #
 # `--url` manda un `Origin` **tecleado por nosotros**. Contesta *«¿lo acepta la
@@ -134,6 +177,11 @@ set -uo pipefail
 ORIGENES_DEL_ESCRITORIO=('tauri://localhost' 'http://tauri.localhost')
 ORIGENES_QUE_VIGILAR=('tauri://localhost' 'http://tauri.localhost' 'https://tauri.localhost')
 
+# DÓNDE PUEDE VIVIR LA API, en el orden en que se prueba. No es una preferencia:
+# el docker la sirve en el host pelado y los colegios bajo `/8myvc/public/`, así
+# que las dos hacen falta y ninguna se puede dar por buena sin preguntar.
+RUTAS_CANDIDATAS=('/api/login/credentials' '/8myvc/public/api/login/credentials')
+
 modo="${1:---env}"
 
 # ─── --origenes ───────────────────────────────────────────────────────────────
@@ -159,15 +207,59 @@ if [ "$modo" = '--url' ]; then
 
     printf 'POBLACIÓN: %d servidor(es), %d origen(es) por servidor = %d preflights.\n' \
         "$#" "${#ORIGENES_QUE_VIGILAR[@]}" "$(( $# * ${#ORIGENES_QUE_VIGILAR[@]} ))"
-    printf 'Ruta sondeada: POST api/login/credentials (la que usa el escritorio para entrar).\n\n'
+    printf 'Ruta sondeada: POST …/api/login/credentials (la que usa el escritorio para entrar),\n'
+    printf 'y el prefijo SE DESCUBRE por servidor — ver la cabecera. Se imprime cuál salió.\n\n'
 
     pasan=0; bloquean=0; sinRespuesta=0
 
     for base in "$@"; do
         printf '%s\n' "${base%/}"
+
+        # ── DÓNDE VIVE LA API EN ESTE SERVIDOR, y se descubre en vez de suponerse ──
+        #
+        # Medido el 15 sep 2026 y es la razón de que esto no sea una constante:
+        #
+        #     producción (4 de los 11 del listado, uno con dominio propio)
+        #         /api/login/credentials                404
+        #         /8myvc/public/api/login/credentials   204
+        #     docker local (http://localhost)
+        #         /api/login/credentials                204
+        #         /8myvc/public/api/login/credentials   404
+        #
+        # **Están al revés**, así que cualquiera de los dos cableado rompe la
+        # herramienta en el otro entorno. Y `--url` se usa en los dos: contra el
+        # docker mientras se prueba, y contra el servidor el día que falla.
+        ruta=''
+        for candidata in "${RUTAS_CANDIDATAS[@]}"; do
+            codigo=$(curl -s -o /dev/null -m 15 -w '%{http_code}' \
+                -X OPTIONS "${base%/}${candidata}" \
+                -H "Origin: ${ORIGENES_QUE_VIGILAR[0]}" \
+                -H 'Access-Control-Request-Method: POST' 2>/dev/null)
+
+            # 000 es «no contestó» de curl; 404 es «la API no está aquí». Ninguno de
+            # los dos sirve, pero sólo el segundo justifica probar la siguiente.
+            if [ -n "$codigo" ] && [ "$codigo" != '000' ] && [ "$codigo" != '404' ]; then
+                ruta="$candidata"
+                break
+            fi
+        done
+
+        if [ -z "$ruta" ]; then
+            # **NO MEDIDO y no BLOQUEADO**, que es el defecto que trajo este bloque.
+            # Ver la cabecera: «la API no está ahí» y «CORS te corta» son cosas
+            # distintas, y con la misma etiqueta el colegio roto no se distingue del
+            # sano.
+            printf '    %-30s NO MEDIDO  (la API no respondió en ninguna ruta conocida: %s)\n' \
+                '(todas)' "$(IFS=' '; echo "${RUTAS_CANDIDATAS[*]}")"
+            sinRespuesta=$((sinRespuesta + ${#ORIGENES_QUE_VIGILAR[@]}))
+            continue
+        fi
+
+        printf '    ruta: %s\n' "$ruta"
+
         for origen in "${ORIGENES_QUE_VIGILAR[@]}"; do
             # -i y no -I: algunos vhosts contestan distinto a HEAD que a OPTIONS.
-            respuesta=$(curl -s -i -m 15 -X OPTIONS "${base%/}/api/login/credentials" \
+            respuesta=$(curl -s -i -m 15 -X OPTIONS "${base%/}${ruta}" \
                 -H "Origin: $origen" \
                 -H 'Access-Control-Request-Method: POST' \
                 -H 'Access-Control-Request-Headers: authorization,content-type' 2>/dev/null)
@@ -211,6 +303,13 @@ if [ "$modo" = '--url' ]; then
                 # es `*` o el origen exacto.
                 printf '    %-30s %s  BLOQUEADO (ACAO para OTRO origen: %s)\n' "$origen" "$codigo" "$acao"
                 bloquean=$((bloquean + 1))
+            elif [ "$codigo" = '404' ]; then
+                # **Un 404 no es un bloqueo**, aunque no traiga ACAO — y llegar aquí
+                # después del descubrimiento significa que la ruta existía para un
+                # origen y no para otro, que es raro y merece verse como lo que es.
+                printf '    %-30s %s  NO MEDIDO  (la API no está en esa ruta: no se llegó a evaluar CORS)\n' \
+                    "$origen" "$codigo"
+                sinRespuesta=$((sinRespuesta + 1))
             else
                 printf '    %-30s %s  BLOQUEADO (sin Access-Control-Allow-Origin)\n' "$origen" "$codigo"
                 bloquean=$((bloquean + 1))

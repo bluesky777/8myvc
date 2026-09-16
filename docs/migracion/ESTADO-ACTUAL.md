@@ -73,6 +73,43 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## 🔧 `cors-de-los-colegios.sh` DECÍA «BLOQUEADO» DE LOS COLEGIOS SANOS — ARREGLADO (15 sep 2026)
+>
+> **Hallazgo de `myvc-horarios-69`, reproducido aquí antes de tocar nada.** Joseth no
+> podía entrar desde el escritorio a `demo`; se corrió la herramienta escrita para ese
+> día y dijo `404 BLOQUEADO`. **Acertó por casualidad** —demo sí estaba roto, por un
+> `.env` que Laravel no leía (config cacheada), no por CORS— y de paso habría dicho lo
+> mismo de **los diez colegios sanos**.
+>
+> Dos defectos, y el segundo es el caro: la ruta sondeada no llevaba el prefijo
+> `/8myvc/public/`, y **un 404 se clasificaba como BLOQUEADO**. Con los dos juntos, la
+> herramienta contestaba lo mismo pasara lo que pasara — que no es una herramienta con
+> un fallo, es un cartel.
+>
+> **El prefijo NO se cableó, y por una medida:**
+>
+> ```
+> producción (4 de los 11 del listado, uno con dominio propio)
+>     /api/login/credentials                404
+>     /8myvc/public/api/login/credentials   204
+> docker local (http://localhost)
+>     /api/login/credentials                204
+>     /8myvc/public/api/login/credentials   404
+> ```
+>
+> **Están al revés**, así que la salida barata —cambiar la constante por la buena—
+> habría roto el otro uso. La ruta se **descubre** por servidor y se imprime cuál salió;
+> si ninguna responde es **NO MEDIDO**, que ya manda sobre lo medido en el código de
+> salida.
+>
+> Comprobado en los tres casos, y el último es el que acredita el arreglo:
+>
+> | | antes | ahora |
+> |---|---|---|
+> | docker | — | descubre `/api/…`, 3 pasan, salida 0 |
+> | producción, colegio sano | **3 BLOQUEADO, salida 1** | descubre el prefijo, 3 pasan, salida 0 |
+> | host sin API | BLOQUEADO | NO MEDIDO, salida 2 |
+
 > ## ✅ CALIFICAR POR COMPETENCIAS: RECORRIDO ENTERO Y CERRADO — EN `main` (15 sep 2026)
 >
 > **Pregunta de Joseth: *«¿qué falta de calificar por competencias en backend?»*.**
