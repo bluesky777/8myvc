@@ -2385,13 +2385,26 @@ automática al marcar.
   > dato con reglas distintas**, y la que se usa de verdad —el selector— sería la que no
   > comprueba nada. Eso no es cumplir la regla: es escribirla donde no manda.
   >
-  > Así que son dos decisiones y no una, y la segunda cambia lo que hoy puede hacer un
+  > Así que eran dos decisiones y no una, y la segunda cambiaba lo que hoy puede hacer un
   > docente:
   >
-  > | | qué implica |
+  > | | qué implicaba |
   > |---|---|
-  > | **(a)** el criterio va en el **selector** (`years/useractive`) | la regla se cumple de verdad, y **se le quita a los docentes moverse a un año pasado**, que hoy pueden. Es un cambio de producto con aviso a los dieciséis |
-  > | **(b)** la regla queda como **política** y el campo se limita al año en curso | es lo que está hecho hoy. Nadie pierde nada y el año pasado se sigue viendo por el selector, sin comprobar el criterio |
+  > | **(a)** el criterio va en el **selector** (`years/useractive`) | la regla se cumple de verdad, y **se le quita a los docentes moverse a un año pasado**, que hoy pueden. Cambio de producto, con aviso a los dieciséis |
+  > | **(b)** la regla queda como **política** y el campo se limita al año en curso | nadie pierde nada y el año pasado se sigue viendo por el selector, sin comprobar el criterio |
+  >
+  > ### CERRADA el 15 sep 2026: **(b)**, y no se toca el selector
+  >
+  > Joseth eligió dejarlo como está. **Lo que eso significa, dicho entero para que nadie lo
+  > lea como un olvido**: la frase *«sólo super admin o coordinador»* es la política del
+  > colegio, y **el código no la comprueba** — cualquiera de los 74 del personal sigue
+  > moviéndose a 2024 desde el selector y imprimiendo lo que quiera, igual que ayer.
+  >
+  > **No es un agujero que quede abierto: es una puerta que lleva años abierta y que nadie
+  > pidió cerrar.** Cerrarla era el cambio, no dejarla — y el precio de cerrarla lo pagaban
+  > docentes que hoy imprimen boletines de años pasados sin que eso le moleste a nadie. El
+  > día que un colegio lo pida, lo que hay que tocar es **`years/useractive`**, no el campo
+  > nuevo: ahí está la puerta que se usa de verdad.
 
 - **Borrar una banda de la escala deja renglones impresos que se contradicen, y nadie lo ha
   decidido.** `EscalasDeValoracionController::deleteDestroy` es un **borrado lógico**

@@ -105,19 +105,21 @@
 >    leen `$user->year_id` en una docena de sitios, así que uno de otro año daría un
 >    boletín **mezclando dos años en 200**.
 >
-> ### ⚠️ LO QUE ESPERA UNA DECISIÓN DE JOSETH — y cambia lo que hoy puede un docente
+> ### El año pasado: CERRADO el mismo día, y conviene saber en qué dirección
 >
 > A *«¿y un periodo de un año pasado?»* contestó **«se puede imprimir cualquier cosa
-> de periodos pasados si es super admin o coordinador»**. Ese criterio ya existe
-> (`Autoriza::puedePublicarHorario`), pero **la puerta ancha ya está abierta y es más
-> ancha que la regla**: `years/useractive` y `periodos/useractive` son las dos
-> `auth.personal`, o sea que **cualquiera de los 74 del personal** se mueve hoy a 2024
-> y imprime. Ponerlo sólo en el campo nuevo dejaría dos puertas al mismo dato con
-> reglas distintas, y la que se usa de verdad sería la que no comprueba. Las dos
-> salidas están en la §6 del [35](35-el-modelo-de-evaluacion-del-colegio.md): **(a)**
-> el criterio va al selector —la regla se cumple, y **los docentes pierden moverse a
-> un año pasado**, con aviso a los dieciséis—, o **(b)** queda como política y el campo
-> se limita al año en curso, que es lo que está hecho.
+> de periodos pasados si es super admin o coordinador»** — criterio que ya existe
+> (`Autoriza::puedePublicarHorario`). **No se implementó, y por eso**: `years/useractive`
+> y `periodos/useractive` son las dos `auth.personal`, así que **cualquiera de los 74 del
+> personal** se mueve hoy a 2024 y lo imprime. Ponerlo sólo en el campo nuevo dejaría dos
+> puertas al mismo dato con reglas distintas, y la que se usa de verdad sería la que no
+> comprueba nada.
+>
+> Puesta así, Joseth eligió **dejarlo como está**: la frase es la política del colegio y
+> el código no la comprueba. **No es un agujero abierto: es una puerta que lleva años
+> abierta y que nadie pidió cerrar**, y cerrarla se lo habría quitado a docentes que hoy
+> imprimen años pasados sin molestar a nadie. El día que se pida, lo que se toca es
+> `years/useractive`.
 
 > ## 📋 LOS DOS CENSOS, LISTOS PARA PEGAR — Y LA REGLA DEL PERIODO CERRADO (15 sep 2026)
 >
