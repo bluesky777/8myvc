@@ -134,6 +134,30 @@ use App\Models\Periodo;
  * Las cuatro se copian al año siguiente en `YearsController::postStore` y viajan en
  * las **cuatro** ramas de `ContextoDeUsuario`, por lo mismo que `regla_nivelacion`.
  *
+ * ## NINGÚN CONTROLADOR LEE `modelo_evaluacion`, y es a propósito (15 sep 2026)
+ *
+ * Se escribe en `putModeloEvaluacion`, viaja al front en las cuatro ramas de
+ * `ContextoDeUsuario` **y ahí se acaba**. Ni `DesempenosController`, ni
+ * `CompetenciasController`, ni `BoletinPorCompetenciasController` la consultan para
+ * decidir nada: con el año en `ponderado`, las diecinueve rutas de competencias y
+ * desempeños responden igual que con el año en `competencias`.
+ *
+ * **Eso tiene toda la pinta de `profesores.tono` —una columna que nadie lee— y no lo
+ * es.** Es D3 literalmente: el modelo gobierna **qué se ve y qué se pide escribir**
+ * —el menú, si la planilla sigue pidiendo el texto del logro, qué boletín se imprime
+ * por defecto—, y eso son decisiones **del cliente**, no de la API. Lo que la columna
+ * hace aquí es **viajar**, y eso ya lo hace.
+ *
+ * Confirmado por Joseth el 15 sep 2026 al ponerle delante la alternativa: que el
+ * backend contestara 403 en esas rutas con el año en `ponderado`. **Se descartó**, y
+ * el motivo es el que hay que conservar — con ese `if`, *volver atrás dejaría de ser
+ * cambiar el enum*: el colegio que apagara el modelo perdería el acceso a los
+ * desempeños que ya había escrito, y D3 existe precisamente para que apagar no
+ * destruya nada.
+ *
+ * Así que si alguien viene a «arreglar» esta columna sin lector, lo que tiene que
+ * saber es que el lector está en los cuatro fronts.
+ *
  * @property string $modelo_evaluacion
  * @property string $desempeno_displayname
  * @property string $desempenos_displayname
