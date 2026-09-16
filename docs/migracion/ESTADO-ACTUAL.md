@@ -73,6 +73,52 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## ✅ EL BOLETÍN DE UN PERIODO CERRADO — `periodo_id` EN LAS OCHO (15 sep 2026)
+>
+> **Regla de Joseth**: *«no importa si el periodo cerró, siempre se puede imprimir
+> boletines del mismo»*. Contestó con una regla a una pregunta de tres formas, así
+> que la forma la eligió después: **un campo opcional en las ocho `PUT
+> …/detailed-notas[-group]`** — `boletines`, `boletines2`, `boletines3` y
+> `boletines-competencias`.
+>
+> **Lo que faltaba no era lo que parecía.** El personal ya podía (el selector de la
+> barra mueve su contexto a cualquier periodo vivo) y el alumno ya veía sus **notas**
+> de todos los periodos (`notas/alumno` devuelve el año entero). Lo que no tenía
+> camino era **su boletín**: esas ocho rutas imprimen `$user->periodo_id` y
+> `periodos/useractive` es `auth.personal`. La familia estaba clavada al periodo
+> activo del colegio **sin nada con que moverlo**.
+>
+> | | |
+> |---|---|
+> | `App\Support\PeriodoDelBoletin` — resuelve y mueve el contexto de la petición | en `main` |
+> | las ocho rutas aceptan `periodo_id`; sin él, lo de siempre | en `main` |
+> | `BoletinDeUnPeriodoPasadoTest` — 5 casos | en `main` |
+> | **ninguna ruta nueva** — el contador de `CLAUDE.md` y los tres snapshots, quietos | — |
+>
+> ### Dos cosas que salieron de construirlo y no estaban en la decisión
+>
+> 1. **Pedir un periodo pasado NO recalcula.** `putDetailedNotas` **escribe** —pone al
+>    día las definitivas del alumno que abre—, y eso se razonó inocuo *para el periodo
+>    activo*, que era el único alcanzable. Con un periodo cerrado quien abre puede ser
+>    el acudiente, y lo que se reescribiría son definitivas **ya impresas**.
+> 2. **El periodo tiene que ser del año del usuario**, o 422: los cuatro controladores
+>    leen `$user->year_id` en una docena de sitios, así que uno de otro año daría un
+>    boletín **mezclando dos años en 200**.
+>
+> ### ⚠️ LO QUE ESPERA UNA DECISIÓN DE JOSETH — y cambia lo que hoy puede un docente
+>
+> A *«¿y un periodo de un año pasado?»* contestó **«se puede imprimir cualquier cosa
+> de periodos pasados si es super admin o coordinador»**. Ese criterio ya existe
+> (`Autoriza::puedePublicarHorario`), pero **la puerta ancha ya está abierta y es más
+> ancha que la regla**: `years/useractive` y `periodos/useractive` son las dos
+> `auth.personal`, o sea que **cualquiera de los 74 del personal** se mueve hoy a 2024
+> y imprime. Ponerlo sólo en el campo nuevo dejaría dos puertas al mismo dato con
+> reglas distintas, y la que se usa de verdad sería la que no comprueba. Las dos
+> salidas están en la §6 del [35](35-el-modelo-de-evaluacion-del-colegio.md): **(a)**
+> el criterio va al selector —la regla se cumple, y **los docentes pierden moverse a
+> un año pasado**, con aviso a los dieciséis—, o **(b)** queda como política y el campo
+> se limita al año en curso, que es lo que está hecho.
+
 > ## 📋 LOS DOS CENSOS, LISTOS PARA PEGAR — Y LA REGLA DEL PERIODO CERRADO (15 sep 2026)
 >
 > **Joseth volvió a preguntar qué falta de calificar por competencias en backend**, y la

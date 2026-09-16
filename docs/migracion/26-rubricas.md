@@ -394,6 +394,23 @@ Reglas:
   deliberada: ahí esa fila no tiene uso —quien manda esa nota la eligió— y pasaría
   inadvertida dentro de un acto que es todo o nada, dejando 45 alumnos sin marcar con un
   200 delante.
+
+> ### `PUT rubricas/subunidad/{id}` está viva y **le falta pantalla**, no le sobra uso
+>
+> Medido por `myvc-front-89` el 15 sep 2026 en `app2`: **cero llamantes fuera de la capa
+> de datos**. Lo que lo convierte en un hueco del front y no en código muerto de aquí es
+> que **su propia capa la da por existente** —`datos/rubricas.ts:253`: *«la pantalla
+> decide qué ofrecer —enlazar una, o mandar al editor—; el servidor no decide eso por
+> ella»*—, o sea que se escribió esperando un control que nunca se hizo.
+>
+> **Y la consecuencia es que la familia entera no califica nada**: una rúbrica creada
+> desde la interfaz **no se puede atar a ninguna subunidad**, así que no llega a producir
+> una nota. Su agente tuvo que llamar esa ruta a mano sólo para poder conducir las dos
+> pantallas.
+>
+> Se anota aquí —y no se toca— porque el inventario que decide si una ruta sobra es el del
+> cliente, no el nuestro: desde este lado, «nadie la llama» y «nadie puede llamarla
+> todavía» se leen igual, y de las dos lecturas la que borra código es la falsa.
 - `desglose` lleva **todos los criterios de la rúbrica**, marcados o no (`nivel_id`,
   `puntaje` y `aporte` a `null` en los sin marcar), para que la pantalla pinte la fila
   entera.

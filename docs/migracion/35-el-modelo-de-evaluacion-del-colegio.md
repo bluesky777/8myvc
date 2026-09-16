@@ -2342,9 +2342,56 @@ automática al marcar.
   > `boletines-competencias`, dos cada uno— más `puestos/detailed-notas-periodo`, que es
   > `auth.personal` y por tanto ya lo resuelve el selector.
   >
-  > **La forma sigue abierta**, y es lo único que falta para poder escribirlo: un campo en
+  > ~~**La forma sigue abierta**~~ — **cerrada y hecha el 15 sep, ver abajo**. Era, y es lo único que falta para poder escribirlo: un campo en
   > las ocho, una lectura por alumno al estilo de `notas/alumno`, o dejar que el alumno
   > mueva su propio periodo. Las tres cumplen la regla y cuestan cosas distintas.
+  >
+  > ### HECHA el 15 sep 2026 — `periodo_id` opcional en las ocho
+  >
+  > Joseth eligió **un campo opcional en las ocho `PUT …/detailed-notas[-group]`**, y así
+  > está: `App\Support\PeriodoDelBoletin` lo resuelve y mueve el contexto **de esa
+  > petición** —`periodo_id`, `numero_periodo` y los dos interruptores del periodo—, sin
+  > escribir `users.periodo_id`. Sin el campo, el comportamiento es el de siempre, que es
+  > lo que permite desplegarlo con `myvc_flutter` viejo conviviendo meses.
+  > `BoletinDeUnPeriodoPasadoTest`, cinco casos, y **ninguna ruta nueva**.
+  >
+  > **Dos cosas salieron de construirlo y no estaban en la decisión:**
+  >
+  > 1. **Pedir un periodo pasado NO recalcula, y eso hubo que escribirlo.**
+  >    `putDetailedNotas` **escribe**: pone al día las definitivas del alumno que abre el
+  >    boletín. Eso se razonó inocuo —*«recalcular no destruye»*, doc 10 §1.1— **para el
+  >    periodo activo, que era el único alcanzable cuando se escribió**. Con un periodo
+  >    cerrado, quien abre puede ser el acudiente y lo que se reescribiría son definitivas
+  >    **ya impresas**. Un boletín de un periodo que pasó es una lectura, y el test lo fija
+  >    comparando `notas_finales` antes y después.
+  > 2. **El periodo tiene que ser del año del usuario**, o 422. No es prudencia: los cuatro
+  >    controladores leen `$user->year_id` en una docena de sitios —escalas, rótulos, el
+  >    año pasado en el boletín—, así que un periodo de otro año da un boletín **mezclando
+  >    dos años en 200**, que es peor que negarse.
+  >
+  > ### La media respuesta que queda abierta, y por qué no la cerré yo
+  >
+  > A la pregunta de si valía un periodo de un **año pasado**, Joseth contestó: *«se puede
+  > imprimir cualquier cosa de periodos pasados si es super admin o coordinador»*. Ese
+  > criterio **ya existe con ese nombre exacto** —`Autoriza::puedePublicarHorario`:
+  > `esSuperusuario($user) || Role::isCoordAcademico($userId)`—, así que aplicarlo no
+  > costaría inventar nada.
+  >
+  > **Lo que lo frena es que la puerta ancha ya está abierta, y es más ancha que la
+  > regla.** Medido el mismo día: `PUT years/useractive/{id}` y `PUT
+  > periodos/useractive/{id}` son **las dos `auth.personal`**, o sea que **cualquiera de
+  > los 74 del personal** se mueve hoy a 2024 desde el selector de la barra y imprime lo
+  > que quiera. Poner el criterio sólo en el campo nuevo dejaría **dos puertas al mismo
+  > dato con reglas distintas**, y la que se usa de verdad —el selector— sería la que no
+  > comprueba nada. Eso no es cumplir la regla: es escribirla donde no manda.
+  >
+  > Así que son dos decisiones y no una, y la segunda cambia lo que hoy puede hacer un
+  > docente:
+  >
+  > | | qué implica |
+  > |---|---|
+  > | **(a)** el criterio va en el **selector** (`years/useractive`) | la regla se cumple de verdad, y **se le quita a los docentes moverse a un año pasado**, que hoy pueden. Es un cambio de producto con aviso a los dieciséis |
+  > | **(b)** la regla queda como **política** y el campo se limita al año en curso | es lo que está hecho hoy. Nadie pierde nada y el año pasado se sigue viendo por el selector, sin comprobar el criterio |
 
 - **Borrar una banda de la escala deja renglones impresos que se contradicen, y nadie lo ha
   decidido.** `EscalasDeValoracionController::deleteDestroy` es un **borrado lógico**

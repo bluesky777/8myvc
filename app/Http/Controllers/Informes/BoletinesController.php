@@ -1,6 +1,7 @@
 <?php namespace App\Http\Controllers\Informes;
 
 use App\Services\DefinitivasDeAsignatura;
+use App\Support\PeriodoDelBoletin;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Informes\CalcPerdidasDefinitivas;
 use Illuminate\Support\Facades\Request;
@@ -76,6 +77,15 @@ class BoletinesController extends Controller {
 	public function putDetailedNotasGroup($grupo_id)
 	{
 		$periodo_a_calcular = Request::input('periodo_a_calcular', 10);
+
+		// `periodo_id` opcional: sin él, el periodo activo de siempre. Ver
+		// `PeriodoDelBoletin`, que es donde está el porqué y la regla del 15 sep.
+		$pedido = PeriodoDelBoletin::pedido($this->user);
+
+		if ($pedido !== null) {
+			PeriodoDelBoletin::aplicar($this->user, $pedido);
+		}
+
 		$boletines = $this->detailedNotasGrupo($grupo_id, $this->user, '', $periodo_a_calcular);
 
 		return $boletines;
@@ -164,8 +174,27 @@ class BoletinesController extends Controller {
 		$periodo_a_calcular 	= Request::input('periodo_a_calcular', 10);
 		$requested_alumnos 		= Request::input('requested_alumnos', '');
 
-		if (is_array($requested_alumnos) && count($requested_alumnos) == 1) {
+		/*
+		 * **Pedir un periodo pasado NO recalcula**, y es la mitad del diseño que no
+		 * estaba en la decisión. Este método escribe: pone al día las definitivas del
+		 * alumno cuyo boletín se abre. El docblock de arriba justifica que eso sea
+		 * inocuo —«recalcular no destruye»— y lo justifica **para el periodo activo**,
+		 * que es el único al que se podía llegar cuando se escribió.
+		 *
+		 * Con un periodo pedido, el que abre el boletín puede ser el acudiente, y lo
+		 * que se recalcularía son las definitivas de un periodo **ya cerrado e ya
+		 * impreso**. Un boletín de un periodo que pasó es una LECTURA: enseña lo que
+		 * quedó guardado. Lo mismo que decidió el 16 para las escrituras en un año
+		 * cerrado, un piso más abajo.
+		 */
+		$pedido = PeriodoDelBoletin::pedido($this->user);
+
+		if ($pedido === null && is_array($requested_alumnos) && count($requested_alumnos) == 1) {
 			$this->ponerAlDiaLasDefinitivas($grupo_id, (int) $requested_alumnos[0]['alumno_id']);
+		}
+
+		if ($pedido !== null) {
+			PeriodoDelBoletin::aplicar($this->user, $pedido);
 		}
 
 		$boletines = $this->detailedNotasGrupo($grupo_id, $this->user, $requested_alumnos, $periodo_a_calcular);

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Informes\CalcPerdidasDefinitivas;
+use App\Support\PeriodoDelBoletin;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -76,6 +77,14 @@ class Boletines2Controller extends Controller {
 	{
 		$periodo_a_calcular = Request::input('periodo_a_calcular', 10);
 
+		// `periodo_id` opcional: sin él, el periodo activo de siempre. Es copia del
+		// hermano mayor, como todo en este controlador — ver `PeriodoDelBoletin`.
+		$pedido = PeriodoDelBoletin::pedido($this->user);
+
+		if ($pedido !== null) {
+			PeriodoDelBoletin::aplicar($this->user, $pedido);
+		}
+
 		$boletines = $this->detailedNotasGrupo($grupo_id, $this->user, '', $periodo_a_calcular);
 
 		return $boletines;
@@ -125,6 +134,14 @@ class Boletines2Controller extends Controller {
 	{
 		$periodo_a_calcular 	= Request::input('periodo_a_calcular', 10);
 		$requested_alumnos 		= Request::input('requested_alumnos', '');
+
+		// `periodo_id` opcional: sin él, el periodo activo de siempre. Es copia del
+		// hermano mayor, como todo en este controlador — ver `PeriodoDelBoletin`.
+		$pedido = PeriodoDelBoletin::pedido($this->user);
+
+		if ($pedido !== null) {
+			PeriodoDelBoletin::aplicar($this->user, $pedido);
+		}
 
 		$boletines = $this->detailedNotasGrupo($grupo_id, $this->user, $requested_alumnos, $periodo_a_calcular);
 		return $boletines;

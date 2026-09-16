@@ -10,6 +10,7 @@ use App\Models\Grupo;
 use App\Models\NotaComportamiento;
 use App\Models\Year;
 use App\Services\BoletinIndependiente;
+use App\Support\PeriodoDelBoletin;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Request;
 
@@ -186,6 +187,16 @@ class BoletinPorCompetenciasController extends Controller
      */
     private function boletinDelGrupo(int $grupo_id, $requested_alumnos): array
     {
+        // `periodo_id` opcional, y aquí va en el privado y no en los dos públicos
+        // porque las dos rutas entran por este método: puesto arriba se escribiría
+        // dos veces y se olvidaría una. Sin el campo, el periodo activo de siempre;
+        // el porqué de todo esto está en `PeriodoDelBoletin`.
+        $pedido = PeriodoDelBoletin::pedido($this->user);
+
+        if ($pedido !== null) {
+            PeriodoDelBoletin::aplicar($this->user, $pedido);
+        }
+
         $grupo = Grupo::datos($grupo_id);
         $year = Year::datos($this->user->year_id);
 
