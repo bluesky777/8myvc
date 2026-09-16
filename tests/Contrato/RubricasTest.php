@@ -534,6 +534,74 @@ class RubricasTest extends CasoDeContrato
         $this->putJson("/api/rubricas/subunidad/{$e['subunidad']}", ['rubrica_id' => $rubrica['id']], $cabeceras)->assertStatus(422);
     }
 
+    /**
+     * **La lista vacía es una lectura, y antes era un callejón.** La pantalla de un
+     * alumno pide el desglose de entrada con `valoraciones: []`; el 422 que había
+     * dejaba a quien abría a un alumno YA calificado con la matriz marcada y sin
+     * nota, y la única forma de recuperarla era volver a pulsar una celda —y pulsar
+     * la que ya estaba marcada la quita—. Lo levantó `myvc-front-89` conduciendo la
+     * pantalla en Chrome; el contrato (26 §4.9) ya le daba la razón.
+     *
+     * Lo que fija esta prueba no es el 200: es que **no se escriba nada**. Con el
+     * `ON DUPLICATE KEY` de `escribirMarcas`, una llamada que reenviara las marcas
+     * para leerlas pondría `updated_by` y `updated_at` de quien sólo miraba y
+     * borraría el `comentario`. Por eso se comparan las dos columnas y el texto.
+     */
+    public function test_valorar_con_la_lista_vacia_devuelve_el_desglose_y_no_escribe(): void
+    {
+        $e = $this->escenario();
+        $rubrica = $this->crear($e);
+        $cabeceras = $this->cabeceras($e['token']);
+        $this->enlazar($e, $rubrica['id']);
+        [$c1, $c2] = array_column($rubrica['criterios'], 'id');
+        $alto = $rubrica['niveles'][1]['id'];
+
+        [$alumno] = $this->alumnosConNota($e);
+        $notaId = $alumno['nota_id'];
+        $notaAntes = $this->notaEnLaBase($notaId);
+
+        $this->putJson("/api/rubricas/valorar/{$notaId}", ['valoraciones' => [
+            ['criterio_id' => $c1, 'nivel_id' => $alto, 'comentario' => 'Falta la conclusión'],
+            ['criterio_id' => $c2, 'nivel_id' => $alto],
+        ]], $cabeceras)->assertStatus(200);
+
+        $huella = fn () => DB::select(
+            'SELECT criterio_id, nivel_id, comentario, updated_by, updated_at
+               FROM rubrica_valoraciones WHERE nota_id = ? ORDER BY criterio_id',
+            [$notaId]
+        );
+        $antes = $huella();
+        $this->assertCount(2, $antes);
+
+        $vacia = $this->putJson("/api/rubricas/valorar/{$notaId}", ['valoraciones' => []], $cabeceras)
+            ->assertStatus(200)->json();
+
+        // Devuelve el desglose entero, que es para lo que la pantalla la llama.
+        $this->assertCount(3, $vacia['desglose']);
+        $this->assertSame([$alto, $alto, null], array_column($vacia['desglose'], 'nivel_id'));
+        $this->assertFalse($vacia['completa'], 'Con dos de tres criterios no hay nota.');
+        $this->assertNull($vacia['nota_calculada']);
+
+        // Y no tocó una sola columna: ni marcas, ni autor, ni fecha, ni comentario.
+        $this->assertSame(2, $this->marcas($notaId));
+        $this->assertEquals($antes, $huella(), 'La lectura con la lista vacía escribió en rubrica_valoraciones.');
+        $this->assertSame($notaAntes, $this->notaEnLaBase($notaId));
+
+        // Falta la lista entera: eso sigue siendo 422, y no es lo mismo que vacía.
+        $this->putJson("/api/rubricas/valorar/{$notaId}", ['momento' => 'original'], $cabeceras)
+            ->assertStatus(422);
+
+        // Y en el LOTE una fila vacía sigue rechazándose, con todo lo demás intacto.
+        [, $otro] = $this->alumnosConNota($e);
+        $this->putJson('/api/rubricas/valorar-lote', ['notas' => [
+            ['nota_id' => $notaId, 'valoraciones' => [['criterio_id' => $c1, 'nivel_id' => $alto]]],
+            ['nota_id' => $otro['nota_id'], 'valoraciones' => []],
+        ]], $cabeceras)->assertStatus(422)->assertJson(['fila' => 1, 'nota_id' => $otro['nota_id']]);
+
+        $this->assertSame(0, $this->marcas($otro['nota_id']));
+        $this->assertEquals($antes, $huella(), 'El lote rechazado escribió la primera fila.');
+    }
+
     public function test_el_lote_es_todo_o_nada(): void
     {
         $e = $this->escenario();

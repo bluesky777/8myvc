@@ -375,6 +375,25 @@ Reglas:
 - Guarda por `(nota_id, criterio_id, momento)`: lo que viene se pisa, lo que no viene se
   **conserva**, `nivel_id: null` **borra** esa marca. Por eso la pantalla de un alumno
   puede mandar una celda cada vez.
+- **`valoraciones: []` es legal, y es una lectura** *(15 sep 2026)*. No escribe nada
+  —cero entradas, cero consultas— y devuelve el `desglose` de lo que ya está guardado.
+  La pantalla lo necesita **de entrada**: para pintar a un alumno ya calificado hace
+  falta el cálculo, y la fórmula no se copia al front (§3). Hasta ese día contestaba
+  422, y la consecuencia era que quien abría a un alumno calificado veía la matriz y
+  **ni desglose ni nota** hasta volver a pulsar una celda — y pulsar la que ya estaba
+  marcada **la quita**, o sea que para ver la nota había que destruirla primero. Lo
+  levantó `myvc-front-89` conduciendo la pantalla, y **esta lista de 422 ya le daba la
+  razón**: la vacía nunca estuvo en ella.
+
+  > **El permiso no cambia, y eso tiene una consecuencia que la pantalla debe tratar:**
+  > sigue siendo `User::pueden_editar_notas` (la regla de arriba, que es deliberada), así
+  > que **con el periodo cerrado un docente recibe 400 aunque sólo quiera mirar**. No se
+  > inventa aquí un permiso de lectura más ancho; si algún día hace falta leer sin poder
+  > escribir, eso es una ruta de lectura y una decisión, no un `if` dentro de ésta.
+- **En el LOTE una fila con `valoraciones: []` sigue siendo 422**, y la asimetría es
+  deliberada: ahí esa fila no tiene uso —quien manda esa nota la eligió— y pasaría
+  inadvertida dentro de un acto que es todo o nada, dejando 45 alumnos sin marcar con un
+  200 delante.
 - `desglose` lleva **todos los criterios de la rúbrica**, marcados o no (`nivel_id`,
   `puntaje` y `aporte` a `null` en los sin marcar), para que la pantalla pinte la fila
   entera.

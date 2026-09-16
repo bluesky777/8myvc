@@ -410,7 +410,21 @@ class RubricasController extends Controller
 
         $rubrica = $this->rubricaDeLaNota($nota);
         $momento = $this->momento(Request::input('momento'));
-        $marcas = $this->valoracionesDelCuerpo(Request::input('valoraciones'), $rubrica);
+        // **La lista vacía vale, y sólo aquí.** La pantalla de un alumno pide el
+        // desglose **de entrada** con `valoraciones: []`, porque para pintar lo que
+        // ya tiene marcado necesita el cálculo y la fórmula no se copia al front
+        // (26 §3). Con el 422 que había, quien abría a un alumno ya calificado veía
+        // la matriz y nada más —ni desglose, ni nota— hasta volver a pulsar una
+        // celda, y pulsar la que estaba marcada **la quita**: para ver la nota
+        // había que destruirla. Lo levantó `myvc-front-89` conduciendo la pantalla.
+        //
+        // No se escribe nada con la lista vacía: `escribirMarcas` recorre lo que
+        // llega, así que cero marcas son cero consultas —ni `updated_by`, ni
+        // `updated_at`, ni el `comentario` que el `ON DUPLICATE KEY` pisaría—. Y el
+        // contrato ya lo decía: la §4.9 enumera sus 422 y la lista vacía no está,
+        // y su regla es *«lo que no viene se conserva»*, que con cero entradas
+        // conserva todo.
+        $marcas = $this->valoracionesDelCuerpo(Request::input('valoraciones'), $rubrica, true);
 
         DB::transaction(function () use ($notaId, $momento, $marcas) {
             $this->escribirMarcas($notaId, $momento, $marcas);
@@ -1003,9 +1017,15 @@ class RubricasController extends Controller
      * @param  array{id: int, criterios: array<int, array<string, mixed>>, niveles: array<int, array<string, mixed>>, orden: list<int>}  $rubrica
      * @return list<array{criterio_id: int, nivel_id: ?int, comentario: ?string}>
      */
-    private function valoracionesDelCuerpo($lista, array $rubrica): array
+    private function valoracionesDelCuerpo($lista, array $rubrica, bool $vaciaVale = false): array
     {
-        if (! is_array($lista) || $lista === []) {
+        // `$vaciaVale` sólo lo enciende `putValorar`, y la asimetría con el lote es
+        // deliberada: ahí una fila sin valoraciones **no tiene uso** —quien manda
+        // esa nota la eligió— y pasaría inadvertida dentro de un acto que es todo o
+        // nada, así que 45 alumnos podrían salir sin marcar con un 200 delante. En
+        // el alumno suelto la lista vacía sí significa algo: «no escribas, dime
+        // cómo va».
+        if (! is_array($lista) || ($lista === [] && ! $vaciaVale)) {
             abort(422, 'Hace falta una lista de valoraciones.');
         }
 
