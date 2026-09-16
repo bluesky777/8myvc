@@ -73,6 +73,48 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## 📋 LOS DOS CENSOS, LISTOS PARA PEGAR — Y LA REGLA DEL PERIODO CERRADO (15 sep 2026)
+>
+> **Joseth volvió a preguntar qué falta de calificar por competencias en backend**, y la
+> respuesta de la casilla de abajo sigue en pie: **nada bloqueante**. Lo que cambió es lo
+> que colgaba de ella.
+>
+> **1. Los dos censos que bloqueaban D14 y D21 ya son una orden, no una pregunta.**
+> Estaban escritos como *«hay que contar esto en los dieciséis»* y ahora son un bucle
+> pegable, probado **tal cual se lee** dentro del contenedor —comillas incluidas— contra la
+> copia de desarrollo: [35 §7](35-el-modelo-de-evaluacion-del-colegio.md). Los dos van en
+> el mismo bucle porque entrar dos veces a diecisiete colegios para contar cuatro cosas es
+> el trabajo que hace que no se cuente ninguna.
+>
+> Y de construirlo salieron tres cosas que la lista no decía:
+>
+> - **El número del candado se mueve solo, y sólo hacia arriba**: `plantilla-notas/sembrar`
+>   —desplegada el 4 sep— **inserta con `por_defecto = 1`**. El censo es una foto: se corre
+>   **el mismo día** que entre el candado, no la semana anterior.
+> - **Ningún camino de la API pasa una fila de 0 a 1** —no hay un `UPDATE` sobre esa columna
+>   en todo `app/`—, así que una fila marcada **nació marcada**. Ése es el mecanismo, y es
+>   lo que hace que el número no pueda bajar solo.
+> - **La copia de desarrollo ya no sirve de referencia para ese renglón**: da `1/17109`
+>   donde el doc 28 midió **cero de 51.519**, porque el 13 sep alguien marcó dos filas a
+>   mano. No es el producto: es una sesión gastando datos de desarrollo.
+>
+> **2. La regla del periodo cerrado, y el hallazgo que mueve el problema de sitio.**
+> Joseth contestó a las tres opciones **con una regla**: *«no importa si el periodo cerró,
+> siempre se puede imprimir boletines del mismo»*. Medido quién puede hoy:
+>
+> | quién | hoy |
+> |---|---|
+> | personal | **puede** — `periodos/useractive` mueve el contexto a cualquier periodo vivo de cualquier año (el selector de la barra) |
+> | alumno/acudiente, sus **notas** | **puede** — `notas/alumno` devuelve **todos los periodos del año** y la app pinta un desplegable |
+> | alumno/acudiente, su **boletín** | **no puede, y no hay camino**: las ocho `PUT …/detailed-notas[-group]` imprimen `$this->user->periodo_id` y `periodos/useractive` es `auth.personal` |
+>
+> O sea que lo que falta **no es «que el boletín acepte un periodo»** —para el personal eso
+> ya funciona— sino **el camino que no existe para la familia**, y vale para los cuatro
+> boletines: el de competencias no estrena el problema, lo hereda. **La forma sigue abierta
+> y es lo único que bloquea escribirlo**; las tres candidatas y lo que cuestan están en la
+> §6 del 35, con la trampa del nombre `periodo_a_calcular` —que ya existe y significa otra
+> cosa— delante.
+
 > ## 🔧 `cors-de-los-colegios.sh` DECÍA «BLOQUEADO» DE LOS COLEGIOS SANOS — ARREGLADO (15 sep 2026)
 >
 > **Hallazgo de `myvc-horarios-69`, reproducido aquí antes de tocar nada.** Joseth no

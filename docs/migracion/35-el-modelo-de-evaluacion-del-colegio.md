@@ -2299,6 +2299,53 @@ automática al marcar.
   mientras tanto el comportamiento es coherente. *Un hecho idéntico con dos nombres manda a la
   siguiente sesión a dos sitios distintos.*
 
+  > ### DECIDIDO el 15 sep 2026 — y la medición mueve el problema de sitio
+  >
+  > Se le llevaron tres salidas —dejarlo escrito como límite, que lo acepte sólo el boletín
+  > por competencias, o que lo acepten los seis— y **Joseth contestó con una regla, no con
+  > una forma**:
+  >
+  > > *«no importa si el periodo cerró, siempre se puede imprimir boletines del mismo.»*
+  >
+  > O sea que el párrafo de arriba deja de describir algo aceptable: sigue siendo cierto
+  > que la ruta **nunca** aceptó un periodo, y ahora eso es **trabajo pendiente** y no un
+  > límite con el que se convive.
+  >
+  > **Lo que añade la medición de ese día, y es lo que cambia qué hay que construir:** no es
+  > que «los boletines» no impriman un periodo cerrado. Es que **depende de quién mire**, y
+  > los caminos no se parecen en nada.
+  >
+  > | quién | cómo llega hoy a un periodo cerrado |
+  > |---|---|
+  > | personal (docente, secretario, admin) | **puede**: `PUT periodos/useractive/{id}` mueve su contexto a **cualquier periodo vivo de cualquier año** —es el selector de la barra de arriba, y lo llama también Flutter— y el boletín sale del periodo nuevo |
+  > | alumno / acudiente · sus **notas** | **puede**: `GET notas/alumno` devuelve `Nota::alumnoPeriodosDetailed($alumno_id, $year_id, …)`, o sea **todos los periodos del año de una vez**, y la app pinta un desplegable (`MisNotasScreen._periodoDeEntrada`) |
+  > | alumno / acudiente · su **boletín** | **no puede, y no hay camino**: las ocho `PUT …/detailed-notas[-group]` imprimen `$this->user->periodo_id`, y `periodos/useractive` es `auth.personal`. Está clavado al periodo activo **y no tiene con qué moverlo** |
+  >
+  > Así que lo que la regla obliga a construir **no es «que el boletín acepte un periodo»**
+  > —para el personal eso ya funciona, por el selector, y lleva años funcionando—: es **el
+  > camino que hoy no existe para el alumno y el acudiente**. Y eso vale para los cuatro
+  > boletines, no sólo para el de competencias: el de competencias no estrena el problema,
+  > lo hereda.
+  >
+  > **Una trampa para quien lo escriba, medida el mismo día: el nombre `periodo_a_calcular`
+  > está cogido y significa otra cosa.** `putDetailedNotasGroup` **ya lo lee del cuerpo**
+  > (`BoletinesController:78`) y se lo pasa a `Periodo::hastaPeriodoN`: decide **qué periodos
+  > salen en la columna acumulada del año**, no de qué periodo es el boletín. El periodo
+  > impreso se decide dos docenas de líneas más abajo, en
+  > `allNotasAlumno($alumno, $grupo_id, $user->periodo_id, true)` (`:221`). Reutilizar ese
+  > campo —o estrenar uno que se llame parecido— **cambia en silencio el acumulado de los
+  > tres boletines clásicos**, que es un renglón que nadie está mirando mientras prueba otro.
+  >
+  > **Y son cinco controladores, no cinco rutas**, que es como lo decía el párrafo de
+  > arriba: los cuatro de boletín más `PuestosController`. En rutas son **ocho**
+  > `PUT …/detailed-notas[-group]` —`boletines`, `boletines2`, `boletines3` y
+  > `boletines-competencias`, dos cada uno— más `puestos/detailed-notas-periodo`, que es
+  > `auth.personal` y por tanto ya lo resuelve el selector.
+  >
+  > **La forma sigue abierta**, y es lo único que falta para poder escribirlo: un campo en
+  > las ocho, una lectura por alumno al estilo de `notas/alumno`, o dejar que el alumno
+  > mueva su propio periodo. Las tres cumplen la regla y cuestan cosas distintas.
+
 - **Borrar una banda de la escala deja renglones impresos que se contradicen, y nadie lo ha
   decidido.** `EscalasDeValoracionController::deleteDestroy` es un **borrado lógico**
   (`UPDATE … SET deleted_at`), y la escala se lee siempre con `deleted_at IS NULL`. Una celda ya
@@ -2345,7 +2392,9 @@ automática al marcar.
   > [16-escribir-en-un-anio-pasado.md](16-escribir-en-un-anio-pasado.md).
 
 - **Los dos censos del día del despliegue** (§7). No se pueden correr desde una sesión de
-  desarrollo.
+  desarrollo — pero desde el 15 sep **ya no son una pregunta**: el bucle que los corre en
+  los diecisiete está escrito y probado tal cual se lee, con lo que decide cada número al
+  lado.
 - **Las materias que el MEN no cubre**: Religión, Artes, Ed. Física y Tecnología **nacen vacías**,
   y eso se dice en la pantalla.
 - ~~**La escala del alumno con PIAR dentro de un grupo numérico.**~~ **CERRADA el 15 sep 2026
@@ -2379,12 +2428,88 @@ delante**: «X de 17, N de M».
 
 1. **`por_defecto = 1` en `unidades` y `subunidades`** (doc 28 §5.1.e). Son literalmente
    las filas que el día del candado dejan de poder tocarse. En `simonbolivar`: **cero
-   de 51.519**.
+   de 51.519** *(medido el 2 sep; ver el punto 3 del recuadro de abajo — esa copia ya no
+   sirve de referencia para este renglón)*.
 2. **`default_unidades` / `default_subunidades`** (D21). No las lee nadie en `app/`,
    y nadie sabe qué hay dentro en producción. **Contar antes de tocar.**
 3. **Las frases cortadas** — `SUM(CHAR_LENGTH(frase) = 255)` — queda escrita en el doc
    28 §1.ter **por si algún día se quiere contar**: Joseth ya decidió que no se avisa
    (decisión 12). Se cuenta sólo si se pide.
+
+### Los dos primeros, en un bucle y listo para pegar · **15 sep 2026**
+
+Estaban escritos como pregunta y no como orden, que es la diferencia entre un censo que
+se corre a las tres de la mañana y uno que se pospone. Los dos leen la misma base y
+ninguno tarda, así que **van juntos**: entrar dos veces a diecisiete colegios para contar
+cuatro cosas es el trabajo que hace que no se cuente ninguna. **Sólo lee.**
+
+```bash
+for d in /home/micolev1/*.micolevirtual.com/8myvc; do
+  printf '%-22s ' "$(basename $(dirname $d))"
+  (cd "$d" && php artisan tinker --execute='
+    $a = DB::table("years")->where("actual",1)->whereNull("deleted_at")->value("id");
+    $u = DB::table("unidades")->whereNull("deleted_at")->count();
+    $u1= DB::table("unidades")->whereNull("deleted_at")->where("por_defecto",1)->count();
+    $s = DB::table("subunidades")->whereNull("deleted_at")->count();
+    $s1= DB::table("subunidades")->whereNull("deleted_at")->where("por_defecto",1)->count();
+    $ua= DB::table("unidades as u")->join("periodos as p","p.id","=","u.periodo_id")
+           ->whereNull("u.deleted_at")->where("p.year_id",$a)->where("u.por_defecto",1)->count();
+    $sa= DB::table("subunidades as s")->join("unidades as u","u.id","=","s.unidad_id")
+           ->join("periodos as p","p.id","=","u.periodo_id")->whereNull("s.deleted_at")
+           ->whereNull("u.deleted_at")->where("p.year_id",$a)->where("s.por_defecto",1)->count();
+    $du = DB::table("default_unidades")->count();
+    $dua= DB::table("default_unidades")->where("year_id",$a)->count();
+    $dun= DB::table("default_unidades")->whereNull("year_id")->count();
+    $ds = DB::table("default_subunidades")->count();
+    echo "uni $u1/$u (curso $ua)  sub $s1/$s (curso $sa)  def_uni $du (curso $dua, sin_anio $dun)  def_sub $ds";
+  ')
+  echo
+done            # repetir en la otra cuenta de cPanel (lalvirtual.edu.co)
+```
+
+Una línea por colegio, con el denominador dentro del renglón:
+
+```
+simonbolivar           uni 1/17109 (curso 1)  sub 1/34500 (curso 1)  def_uni 0 (curso 0, sin_anio 0)  def_sub 0
+```
+
+**El bloque está probado tal cual se lee**, no reescrito para el documento: corrió entero
+—bucle, comillas y todo— dentro del contenedor el 15 sep 2026 contra la copia de
+desarrollo. El comentario de la última línea es el de siempre: **son dos cuentas de
+cPanel**, y el bucle de arriba sólo alcanza a una.
+
+#### Qué decide cada número, que es lo que no se reconstruye mirando la salida
+
+| renglón | qué decide |
+|---|---|
+| `uni N/M` · `sub N/M` | **N** son las filas que el candado de D14 congela ese día. Con `N = 0` el candado no le quita nada a nadie y entra sin avisar; con `N > 0` hay docentes que **mañana pierden un campo que hoy editan**, y eso se avisa antes, no después |
+| `(curso X)` | de esas N, las del **año en curso** — las únicas que alguien tiene hoy en pantalla. `N > 0` con `X = 0` es historia de años cerrados y no molesta a nadie: la misma cifra, dos decisiones distintas |
+| `def_uni` · `def_sub` | las filas de las dos tablas que no lee nadie. **Cero en los diecisiete** y borrarlas es una migración de dos líneas; **un solo colegio con filas** y el borrado deja de ser limpieza y pasa a ser una decisión, porque ahí dentro hay trabajo de alguien |
+
+#### Tres cosas que hay que saber ANTES de leer la salida
+
+1. **El número se mueve solo, y sólo hacia arriba.** `plantilla-notas/sembrar` —Entrega 1,
+   desplegada el 4 sep— **inserta con `por_defecto = 1`**
+   (`PlantillaNotasController::sembrarEn`, que lo lleva escrito encima). Así que cada
+   colegio que estrene la plantilla empieza a fabricar filas marcadas. **El censo es una
+   foto, no una constante**: vale el día que se corre, y por eso se corre **el mismo día**
+   que entre el candado y no la semana anterior.
+2. **Ningún camino de la API pasa una fila de 0 a 1.** La columna sólo se escribe en los
+   dos `INSERT` que siembran —la plantilla nueva y `UnidadesController:184`—: no hay un
+   solo `UPDATE` sobre ella ni una asignación Eloquent en todo `app/`. O sea que **una
+   fila marcada nació marcada**, y ése es el mecanismo por el que el número sólo sube.
+3. **La copia de desarrollo ya no vale de referencia para el primer renglón.** Hoy da
+   `1/17109` donde el doc 28 §5.1.e midió **cero de 51.519**: el 13 sep alguien marcó a
+   mano una unidad y su subunidad (ids 18501 y 35777, creadas en 2025 y con `updated_at`
+   de ese día, y **sin endpoint que pueda haberlo hecho** — punto 2). No es un cambio del
+   producto: es una sesión gastando datos de desarrollo, que es para lo que están. **Lo
+   que decide es lo que salga en los diecisiete.**
+
+> **Y el mismo bloque contra la base de tests da `uni 0/238` y `sub 0/512`.** Las dos
+> cifras son ciertas y cuentan poblaciones distintas —el seed no es un colegio—, así que
+> lo falso no sería ninguna de ellas sino citarlas sin decir cuál se corrió. Aquí muerde
+> más que de costumbre porque **las dos bases viven en el mismo contenedor y se eligen con
+> una variable de entorno**, así que la orden es casi la misma y la respuesta no.
 
 ---
 

@@ -731,6 +731,15 @@ tocarse.** Un colegio con muchas es un colegio que usa la plantilla y donde el c
 va a notarse el primer día; un colegio con cero es uno donde no cambia nada. Se escribe
 aquí con la forma «X de 17 colegios, N filas candadas de M revisadas».
 
+> **Y el bucle que la corre en los diecisiete ya está escrito** *(15 sep 2026)*:
+> [35 §7](35-el-modelo-de-evaluacion-del-colegio.md), probado tal cual se lee dentro del
+> contenedor y con el censo de D21 dentro del mismo recorrido. Va con **dos avisos que
+> esta sección no podía dar**: el número **sube solo** en cuanto un colegio use
+> `plantilla-notas/sembrar` —inserta con `por_defecto = 1`—, así que el censo se corre el
+> mismo día que el candado; y **la copia de desarrollo ya no vale de referencia** para
+> este renglón, porque desde el 13 sep tiene dos filas marcadas a mano y las **cero de
+> 51.519** de arriba ya no se reproducen ahí.
+
 ##### Las cuatro preguntas que quedaban, contestadas el 2 sep 2026
 
 | pregunta | decisión de Joseth |
