@@ -73,6 +73,58 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## ✅ CALIFICAR POR COMPETENCIAS: RECORRIDO ENTERO Y CERRADO — EN `main` (15 sep 2026)
+>
+> **Pregunta de Joseth: *«¿qué falta de calificar por competencias en backend?»*.**
+> Respuesta, después de cruzar el plan con lo enrutado y con el esquema real: **nada
+> bloqueante**. Las siete fases del [35](35-el-modelo-de-evaluacion-del-colegio.md)
+> están en `main`, la herencia del plan de área al año nuevo también, y la **Entrega 7
+> del [28](28-competencias-e-indicadores.md) —preescolar— estaba cubierta pero sin
+> recorrer**.
+>
+> Ahora está recorrida: `PreescolarCalificaPorCompetenciasTest` construye un grupo de
+> Transición con `caritas = 1` y hace el camino entero —sembrar el plan de área, leer
+> la rejilla, marcar, verlo impreso en el boletín por competencias—. Verde, y **sin
+> backend nuevo**.
+>
+> ```
+> Tests: 1 skipped, 2327 passed   (php artisan test, .worktrees/pre, 7703a6b)
+> composer run stan -> [OK] No errors
+> route:list --json en el árbol principal -> 603, quieto
+> ```
+>
+> ### Los dos hallazgos que la composición no podía dar
+>
+> 1. **El seed no tiene preescolar**: sus únicos niveles son `Educación Básica
+>    Académica3` con Tercero y Cuarto, y **cero grupos con `caritas`**. Así que ningún
+>    test que espere el caso del seed lo cubre, y `BolfinalesPreescolarController` /
+>    `FrasesPreescolarTest` **tampoco**: ejercitan rutas, no un grupo de preescolar. El
+>    caso se construye, y va con un centinela que se pone rojo el día que el seed lo
+>    traiga.
+> 2. **La rejilla de preescolar viene sin premarcar, y es lo correcto**: premarca desde
+>    la definitiva numérica y preescolar no pone notas. Es el §5.7.c cumpliéndose —*«la
+>    valoración se MARCA, no se teclea»*—, y está fijado con un número.
+>
+> ### Las dos decisiones de Joseth de ese día
+>
+> - **La escala del alumno ERE** — *«no necesita escalas de valoración propias, debe
+>   usar las mismas que usan todos, las definidas para el año»*. Cierra la última
+>   pregunta abierta de D17, **y en una dirección que no estaba en la propuesta**: no
+>   es una carencia que tapar, es la regla. La pregunta estaba planteada como «dónde
+>   guardamos su escala», que da por hecho que la necesita.
+> - **`modelo_evaluacion` no lo lee ningún controlador, y es a propósito** (D3). Queda
+>   anotado en `Year.php` para que nadie lo tome por un `profesores.tono`, con el
+>   motivo por el que se descartó el 403: con ese `if`, volver atrás dejaría de ser
+>   cambiar el enum.
+>
+> ### Lo que queda, y no bloquea a nadie
+>
+> | | |
+> |---|---|
+> | el candado del docente sobre unidades/subunidades (D14) | espera un censo de `por_defecto = 1` en los dieciséis |
+> | `default_unidades` / `default_subunidades` | no las lee nadie; contar filas antes de borrar |
+> | la maqueta del boletín nuevo | es del front |
+
 > ## ✅ LOS TÍTULOS DEL CERTIFICADO — EN `main` (15 sep 2026)
 >
 > **Rama `feat/titulos-del-certificado`, worktree `.worktrees/tc`, base
