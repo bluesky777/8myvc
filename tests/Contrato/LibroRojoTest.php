@@ -65,10 +65,21 @@ class LibroRojoTest extends CasoDeContrato
         $profesorId = DB::selectOne('SELECT id FROM profesores WHERE user_id = ? AND deleted_at IS NULL',
             [$prof->id])->id;
 
+        // **El alumno tiene que ser del año EN CURSO, y eso entró el 15 sep 2026.**
+        //
+        // Antes salía el primero por id, y con él **el año de su matrícula** — que en el
+        // seed es uno viejo. Los dos casos de abajo dependían del año **por accidente**:
+        // uno mide «alumno ajeno» y el otro «periodo cerrado», y ninguno quería hablar
+        // del año. Con el candado del año cerrado puesto en `guardar-libro`, los dos
+        // empezaron a contestar 403 y a fallar por una razón que no es la suya.
+        //
+        // Acotarlo aquí es lo que deja que cada caso siga midiendo lo que dice su
+        // nombre. Quien quiera el año cerrado lo tiene en `DisciplinaDeUnAnioCerradoTest`.
         $alumno = DB::selectOne('SELECT a.id, g.year_id FROM alumnos a
             INNER JOIN matriculas m ON m.alumno_id = a.id AND m.deleted_at IS NULL
                 AND m.estado IN ("MATR","ASIS","PREM")
             INNER JOIN grupos g ON g.id = m.grupo_id AND g.deleted_at IS NULL
+            INNER JOIN years y ON y.id = g.year_id AND y.actual = 1 AND y.deleted_at IS NULL
             WHERE a.deleted_at IS NULL
               AND NOT EXISTS (
                 SELECT 1 FROM matriculas m2
@@ -130,6 +141,12 @@ class LibroRojoTest extends CasoDeContrato
         $this->assertSame('lo escribió un profesor de otro grupo',
             $this->columna($e->libro_id, 'per1_col1'),
             'Si esto deja de escribirse es que alguien decidió quién puede tocar el libro rojo: anótese la decisión.');
+
+        // **La decisión que este aserto pedía, anotada el 15 sep 2026**: NO se decidió
+        // quién puede tocar el libro rojo —sigue abierto a los 74, y por el motivo del
+        // docblock: el coordinador de convivencia no es titular de ningún grupo—. Lo que
+        // se decidió es **de qué AÑO**: un año cerrado sólo lo escribe un superusuario
+        // (37 §2.3). Son dos preguntas distintas y ésta sigue sin contestar.
     }
 
     /**
@@ -196,6 +213,14 @@ class LibroRojoTest extends CasoDeContrato
         $this->assertSame('escrito con el periodo 1 cerrado',
             $this->columna($e->libro_id, 'per1_col1'),
             'Si esto deja de escribirse es que el libro rojo entró bajo el candado del periodo: anótese la decisión y su porqué.');
+
+        // **Y la de éste, también del 15 sep**: el libro rojo NO entró bajo el candado
+        // del **periodo** —el interruptor `profes_pueden_editar_notas` sigue sin
+        // gobernarlo, que es lo que este caso mide—. Entró bajo el del **año cerrado**,
+        // que es otra cosa: el periodo se abre y se cierra dentro del año en curso, y un
+        // año cerrado ya no se abre. Este caso pasó a montar su libro en el año actual
+        // para poder seguir preguntando por el periodo sin que el otro candado le
+        // conteste primero.
     }
 
     /**

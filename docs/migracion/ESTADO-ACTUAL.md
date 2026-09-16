@@ -275,6 +275,35 @@
 > **2295 = los 2282 de `main` + los 13 nuevos**, y ninguna prueba existente se movió.
 > `composer run pint:test` PASS sobre 405 ficheros y `composer run stan` `[OK] No errors`.
 >
+> ### ✅ El año cerrado no cambia de modo, y el recálculo usa el suyo — a DIECISÉIS (15 sep)
+>
+> Dos huecos de la misma familia, los dos levantados por `myvc_front` con una regla que
+> formularon ellos: **no es el cálculo, es de qué año se pregunta el modo.**
+>
+> - **`PUT years/modelo-evaluacion`** recibía el `year_id` por el cuerpo y no miraba el
+>   año: con `can_edit_plantilla_notas` se podía poner 2023 en `promedio` y reescribir
+>   sus definitivas guardadas. Ahora `exigirEscrituraEnElAnio` — superusuario, **la lista
+>   pasa a dieciséis**— y el 422 del recuento delante. Se descartó el absoluto («ni el
+>   superusuario», que es lo que dice la letra del plan) porque dejaría a un colegio con
+>   el modo mal puesto sin más salida que un `UPDATE` a mano.
+> - **`PUT definitivas_periodos/calcular-grupo-periodo`** resolvía el modo desde la barra
+>   mientras el `DELETE` y el `SELECT` usan el `periodo_id` del cuerpo. **No se llega por
+>   la interfaz** —medido por el front en los tres clientes—, lo que cambia la urgencia y
+>   no la corrección.
+>
+> > **La raíz, que vale más que los dos arreglos**: el doc 28 §5.5 decía *«un año cerrado
+> > conserva su modo para siempre… Ésa es la garantía, y es la misma de §4»*. **No era la
+> > misma.** La de §4 es **estructural** —ninguna nota apunta a la plantilla, no se puede
+> > incumplir— y ésta era **una costumbre**, que sólo se cumplía mientras nadie pulsara.
+> > *Las dos se escriben igual*, así que la segunda heredó la solidez de la primera y
+> > viajó por **tres documentos** sin que nadie la comprobara — el front encontró que
+> > repetía la misma confianza dos veces, una de ellas como premisa **en el texto donde
+> > estaba destapando que no lo era**.
+> >
+> > Y la mitad de este lado: **esta sesión se hizo la pregunta construyendo el 422, la
+> > apartó y no la escribió en ninguna parte.** La duda que no se escribe no la hereda
+> > nadie: se vuelve a descubrir un día, y puede ser tarde.
+>
 > ### ✅ Las dos de disciplina — la lista pasa de trece a QUINCE (15 sep)
 >
 > `nota_comportamiento/guardar-libro` y `disciplina/cambiar-situacion-derivante`,

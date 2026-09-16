@@ -1053,6 +1053,35 @@ class YearsController extends Controller {
 		// año borrado no le sirve a nadie y reaparecería con `years/restore`.
 		$year = Year::findOrFail((int) $year_id);
 
+		// **Y un año cerrado sólo lo cambia un superusuario** — decisión de Joseth del
+		// 15 sep 2026, que sube la lista del año cerrado de quince a **dieciséis**.
+		//
+		// Esta ruta recibe el `year_id` **por el cuerpo** y hasta hoy no miraba el año:
+		// su único guard era `puedeEditarPlantillaNotas`. Así que cualquiera con ese
+		// permiso podía poner 2023 en `promedio` y **reescribir las definitivas
+		// guardadas de un año cerrado** — boletines ya impresos y firmados, con otros
+		// números la próxima vez que se impriman.
+		//
+		// **Y el doc 28 §5.5 prometía que eso no podía pasar**: *«el interruptor es del
+		// año, así que un año cerrado conserva su modo para siempre… Ésa es la
+		// garantía, y es la misma de §4»*. **No es la misma**, y ahí está la raíz: la de
+		// §4 es **estructural** —ninguna nota apunta a una fila de plantilla, así que no
+		// hay nada que romper— y ésta necesitaba **un permiso que nadie escribió**,
+		// porque el modo se lee vivo en cada cálculo del año. *Una garantía de
+		// construcción y una costumbre se escriben igual, y por eso ésta se heredó tres
+		// documentos sin que nadie la comprobara.*
+		//
+		// Lo levantó `myvc_front`; esta sesión se había hecho la pregunta construyendo
+		// el 422 de más abajo y la apartó **sin escribirla en ninguna parte**, que es lo
+		// que la dejó sin existir para nadie más.
+		//
+		// **Superusuario y no «nadie»**, que era la otra opción y la que dice la letra
+		// del plan: un colegio que cierre un año con el modo equivocado se quedaría sin
+		// más salida que un `UPDATE` a mano. Con el candado sigue pudiendo, y el 422 de
+		// abajo le pone delante cuántas definitivas recalcula — que es lo que convierte
+		// el paso en una decisión informada en vez de una pared.
+		Autoriza::exigirEscrituraEnElAnio($user, (int) $year->id, 'Ese año');
+
 		// **El aviso va AQUÍ: después de resolver el año y antes de tocar la fila.**
 		// Se lee `$year->reparto_subunidades` mientras todavía dice lo de antes; el
 		// bucle de abajo lo pisa.

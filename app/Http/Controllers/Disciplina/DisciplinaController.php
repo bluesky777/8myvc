@@ -567,8 +567,10 @@ class DisciplinaController extends Controller {
 		// anotación que lo cita**.
 		//
 		// Aquí muerde más que en su vecina del libro rojo, y por la medición: **316 de
-		// las 327 filas** de `dis_procesos` están en años cerrados —el 97 %—, así que
-		// esta ruta trabajaba casi siempre sobre años que ya nadie debería tocar.
+		// las 327 FILAS** de `dis_procesos` están en años cerrados —el 97 %—. Eso es
+		// dónde viven las filas y no con qué frecuencia se escribe: **de las escrituras
+		// no se ha medido nada**, y este método no tenía ni `updated_at` con el que
+		// mirarlo hasta ahora mismo.
 		//
 		// El año sale de la FILA (`fotoDelProceso` ya lo traía), no de la sesión: con
 		// el de quien llama se protegería el proceso equivocado.

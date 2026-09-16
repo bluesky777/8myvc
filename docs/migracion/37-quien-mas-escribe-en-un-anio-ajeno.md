@@ -153,9 +153,20 @@ artículo del manual, aquí la anotación que lo cita.
 > | `dis_libro_rojo` | **1.593** | 2.047 |
 > | `dis_procesos` | **316** | 327 |
 >
-> El **97 %** de `dis_procesos` vive en años cerrados: esa ruta trabajaba casi siempre
-> sobre años que ya nadie debería tocar, con `auth.personal` —los 74 del personal— como
-> única puerta.
+> El **97 %** de las **filas** de `dis_procesos` vive en años cerrados, con
+> `auth.personal` —los 74 del personal— como única puerta.
+>
+> > **Y eso es todo lo que dice esa cifra.** Este documento añadía *«esa ruta trabajaba
+> > casi siempre sobre años que ya nadie debería tocar»*, y **el número no lo sostiene**:
+> > es una población de **filas**, no de **escrituras**. Las filas son el acumulado
+> > histórico de dónde vivieron los años; las escrituras ocurren cuando alguien edita, y
+> > de eso no se ha medido nada —una de las dos tablas ni siquiera tenía `updated_at`
+> > hasta este mismo commit—. Lo levantó `myvc_front`. *La medida era buena y la frase
+> > que salía de ella, no: es la forma que no se discute porque suena a que viene del
+> > número de al lado.*
+> >
+> > **La decisión no se mueve**: proteger el registro disciplinario de un año cerrado no
+> > dependía de con qué frecuencia se escribe.
 >
 > **El año sale de la FILA y no de la sesión** en las dos, y no es estilo: con el año de
 > quien llama se protegería el registro equivocado —el suyo, no el que está tocando—.
@@ -173,7 +184,22 @@ artículo del manual, aquí la anotación que lo cita.
 > vía —el código, la fila y el autor—.
 >
 > **Lo trajo `myvc_front`**, que llevaba dos días preguntando por ellas: el 403 sale en
-> pantallas de **docente** y su predicado ya estaba montado para engancharlo.
+> pantallas de **docente**.
+>
+> > **Y aquí este documento decía «su predicado ya estaba montado para engancharlo», que
+> > es falso — lo cazó el propio front.** Su predicado resuelve el año **desde la barra**,
+> > porque las trece anteriores estampan `$user->year_id`. Estas dos lo resuelven **desde
+> > la fila**, que es lo correcto y es lo que se decidió. Con las dos cosas a la vez, el
+> > predicado existente **no vale**: con la barra en 2025 y una anotación de 2023 el botón
+> > se quedaría encendido y el servidor contestaría 403, que es la avería que el candado
+> > viene a evitar del lado del usuario.
+> >
+> > La frase venía de ellos —*«ya tenemos el predicado montado»*, cierto para las trece— y
+> > se copió aquí **sin comprobar si seguía valiendo con la implementación que se estaba
+> > eligiendo en ese mismo commit**. *Una frase heredada no viene comprobada: viene
+> > repetida.* Es la segunda vez el mismo día: la primera fue un
+> > *«`notas_finales.nota` es `int`»* copiado de un fichero vecino que llevaba dieciséis
+> > días sin ser verdad.
 
 ---
 

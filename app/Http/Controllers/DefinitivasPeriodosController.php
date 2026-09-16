@@ -150,11 +150,33 @@ class DefinitivasPeriodosController extends Controller {
 
 	public function putCalcularGrupoPeriodo()
 	{
-		$modo = RepartoDeLaNota::modoDelAnio($this->user->year_id ?? null);
-
 		$user 			= User::fromToken();
 		$grupo_id 		= Request::input('grupo_id');
 		$periodo_id 	= Request::input('periodo_id');
+
+		// **El modo sale del PERIODO que se está calculando, no de la barra de año.**
+		//
+		// Decía `modoDelAnio($this->user->year_id)` mientras todo lo demás del método
+		// —el `DELETE` de `notas_finales` y el `SELECT` que recalcula— usa el
+		// `periodo_id` **del cuerpo**, y en las ochenta líneas no hay una sola
+		// comprobación de que ese periodo sea del año de la sesión. O sea que un
+		// recálculo lanzado con la barra en un año y el periodo de otro **guardaba
+		// notas con el reparto equivocado**.
+		//
+		// La regla ya estaba escrita, en el otro escritor: *«éste es el único sitio
+		// que ESCRIBE una definitiva, así que aquí el modo no puede salir de la
+		// sesión»* (`DefinitivasDeAsignatura::calcular`). **Y esa frase se equivoca en
+		// su propia premisa**: no es el único —este método es otro de los seis que la
+		// fase 3 del 10 sustituye, y sigue desplegado en los dieciséis colegios—, así
+		// que la regla existía y no se aplicó al vecino.
+		//
+		// **Por la interfaz no se llega hoy**, medido por `myvc_front` en los tres
+		// clientes el 15 sep 2026: el catálogo de periodos del tablero sale de
+		// `informes/datos`, que liga `year_id = $user->year_id` en las dos consultas
+		// que lo construyen (`Informes\InformesController:65` y `:125`), y los dos
+		// fronts recrean la pantalla al cambiar de año. Eso cambia la urgencia y no la
+		// corrección: lo que protege la nota no puede ser que el cliente no sepa pedirlo.
+		$modo = RepartoDeLaNota::modoDelPeriodo($periodo_id);
 		$num_periodo 	= Request::input('num_periodo');
 		$now 			= Carbon::now('America/Bogota');
 

@@ -1145,8 +1145,29 @@ no se lee. Volver atrás es cambiar el enum, y todo reaparece como estaba.
 Encenderlo **cambia todas las definitivas guardadas del año**. No se puede tratar como
 un ajuste de pantalla:
 
-- El interruptor es **del año**, así que un año cerrado conserva su modo para siempre
-  y **ningún boletín ya impreso se mueve**. Ésa es la garantía, y es la misma de §4.
+- El interruptor es **del año**, así que un año cerrado conserva su modo y **ningún
+  boletín ya impreso se mueve**.
+
+  > **⚠️ Esto se escribió como una garantía y era una costumbre, hasta el 15 sep 2026.**
+  > Decía *«…para siempre. Ésa es la garantía, y es la misma de §4»*, y **no era la misma**:
+  >
+  > | | |
+  > |---|---|
+  > | la de §4 | **estructural** — ninguna nota apunta a una fila de plantilla, así que no hay nada que romper |
+  > | ésta | **una costumbre** — el modo se lee vivo en cada cálculo del año, y nadie comprobaba quién lo cambia |
+  >
+  > `PUT years/modelo-evaluacion` recibe el `year_id` **por el cuerpo** y su único guard
+  > era `puedeEditarPlantillaNotas`: con la barra en 2023 se podía poner ese año en
+  > `promedio` y reescribir sus definitivas guardadas. Cerrado el 15 sep con
+  > `exigirEscrituraEnElAnio` —superusuario, la lista pasa a dieciséis— y el 422 del
+  > recuento delante.
+  >
+  > **Lo que hay que llevarse no es el agujero: es que las dos frases se escriben igual.**
+  > *«Ninguna nota apunta a la plantilla»* no se puede incumplir; *«un año cerrado
+  > conserva su modo»* sólo se cumple mientras nadie pulse. Emparejarlas hizo que la
+  > segunda heredara la confianza de la primera, y así viajó por **tres documentos** sin
+  > que nadie fuera a comprobarla — los tres decían lo mismo, que es justo cuando todos
+  > pueden estar equivocados a la vez. Lo levantó `myvc_front`.
 - Cambiarlo en el año en curso: se calcula **antes de escribir** cuántas definitivas
   cambian y de cuánto es el salto mayor, se enseña, y se exige `acepto_recalcular`.
   Es el patrón de `acepto_perder` ([23](23-horarios.md)) y de `acepto_desviacion`
