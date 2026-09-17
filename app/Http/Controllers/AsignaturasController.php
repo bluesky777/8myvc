@@ -24,9 +24,14 @@ class AsignaturasController extends Controller {
 	{
 		$user = User::fromToken();
 
+		// `m.area_id` y `a.porcentaje_area` son de P5.bis: la pantalla agrupa las
+		// asignaturas de un mismo (grupo, área) para saber cuáles se reparten el 100 %
+		// y cuáles están solas. `nombre_area` ya venía, pero un NOMBRE no sirve para
+		// agrupar --dos áreas pueden llamarse igual tras un renombrado-- y el id sí.
 		$consulta = 'SELECT a.id, a.materia_id, a.grupo_id, a.profesor_id, a.creditos, a.orden, a.domingo, a.lunes, a.martes, a.miercoles, a.jueves, a.viernes, a.sabado,
+						a.porcentaje_area,
 						a.created_by, a.updated_by, a.created_at, a.updated_at, ar.nombre as nombre_area, ar.alias as alias_area,
-						m.materia as nombre_asignatura
+						m.area_id, m.materia as nombre_asignatura
 					FROM asignaturas a
 					inner join materias m on m.id=a.materia_id and m.deleted_at is null
 					left join areas ar on ar.id=m.area_id and ar.deleted_at is null
@@ -239,6 +244,32 @@ class AsignaturasController extends Controller {
 
 		if ($vinieron->trae('orden')) {
 			$asignatura->orden		=	Request::input('orden');
+		}
+
+		/*
+		 * EL PESO DENTRO DEL ÁREA (P5.bis). Vacío es `null` --«no repartida»-- y no 0:
+		 * un 0 es «esta materia no cuenta para el área», que es una decisión que
+		 * alguien toma, y `null` es que nadie ha decidido nada. `Area.php` distingue
+		 * las dos: con un `null` entre las hermanas promedia como siempre.
+		 *
+		 * El rango se comprueba aquí y no sólo en la columna: `unsignedTinyInteger`
+		 * dejaría entrar un 200, y un 422 con el número delante se puede leer.
+		 * Que las hermanas sumen 100 NO se comprueba aquí --es cosa de varias filas,
+		 * y guardar la primera de dos tiene que poder pasar por el 60 antes de que
+		 * exista el 40--: eso lo dice el panel de la pantalla.
+		 */
+		if ($vinieron->trae('porcentaje_area')) {
+			$peso = Request::input('porcentaje_area');
+
+			if ($peso === '' || $peso === null) {
+				$asignatura->porcentaje_area = null;
+			} else {
+				if (!is_numeric($peso) || (int) $peso != $peso || (int) $peso < 0 || (int) $peso > 100) {
+					abort(422, '`porcentaje_area` tiene que ser un entero entre 0 y 100. Llegó: '.json_encode($peso));
+				}
+
+				$asignatura->porcentaje_area = (int) $peso;
+			}
 		}
 
 		$asignatura->save();
