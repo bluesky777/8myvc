@@ -390,6 +390,39 @@ Guard `auth.personal` y, dentro, que la asignatura sea suya o que sea administra
 escribir tests nuevos (que espera a que Joseth pruebe a mano), es no dejar la suite roja afirmando
 un contrato que ya no existe.
 
+### Y lo que eso deja SIN cobertura, escrito para que nadie lo reponga copiándolo de git
+
+`BoletinPorCompetenciasTest` (14 casos) y `PreescolarCalificaPorCompetenciasTest` (1) **se borran
+enteros**, no se podan: los catorce fallan con `QueryException` porque su preparación escribe en
+`competencias` y `desempenos`, así que **no hay ni un caso rescatable sin reescribir la
+preparación** — y reescribirla es escribir tests, que es justo lo que espera a que Joseth pruebe a
+mano.
+
+**Lo que queda sin cobertura es el BLOQUE, no la ruta** — y la diferencia importa, porque decir «esa
+ruta se quedó sin pruebas» sería más alarmante que lo que pasa y mandaría a rehacer lo que ya
+existe. `BoletinDeUnPeriodoPasadoTest` sigue llamando a
+`boletines-competencias/detailed-notas[-group]` y sigue en verde (**5 casos, 65 asserts**): cubre el
+camino del `periodo_id` opcional, que este cambio no toca.
+
+**Lo que no cubre nadie es la forma nueva del bloque de desempeños**: que salga el catálogo entero,
+que el nivel se derive de la definitiva, que el prefijo se anteponga y que `asignaturas_sin_catalogo`
+cuente. Se dice aquí porque un hueco de cobertura que no está escrito no se distingue de un
+descuido.
+
+**De los quince, tres NO se deben reponer nunca tal como estaban**, porque hoy afirman lo contrario
+de lo decidido — y el peligro concreto es que alguien los recupere de la historia de git creyendo
+que rescata cobertura:
+
+| caso | por qué ya no vale |
+|---|---|
+| *«corregir el desempeño en el catálogo no cambia el boletín ya impreso»* | **es exactamente lo que ahora SÍ pasa**, y está aceptado en la §3 |
+| *«renombrar la competencia no cambia la cabecera ya impresa»* | no hay cabecera: el modelo es plano |
+| *«un desempeño que nadie marcó no se imprime y sale en la cuenta»* | no hay nada que marcar; **todo el catálogo se imprime** |
+
+Los otros doce sí describen cosas que siguen siendo ciertas —que abrir el boletín no escriba ni una
+fila, que el nivel viaje en texto y el icono sólo acompañe (D17)— y **ésos son los que hay que
+volver a escribir** el día que se escriban.
+
 ---
 
 ## 7 · El paso operativo que no es código
