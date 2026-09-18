@@ -64,6 +64,7 @@
         "mensaje_aprobo_con_pendientes": "int",
         "minu_hora_clase": "int",
         "mostrar_nota_comport_boletin": "int",
+        "mostrar_nota_numerica_boletin": "int",
         "mostrar_puesto_boletin": "int",
         "msg_when_students_blocked": "string",
         "nombre_colegio": "string",

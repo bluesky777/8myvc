@@ -158,6 +158,27 @@ class CentinelaDeLasTablasDelAnioNuevoTest extends TestCase
         'dis_libro_rojo' => 'el registro por alumno y periodo de ESE año, no el manual de convivencia',
         'dis_procesos' => 'los procesos disciplinarios abiertos ESE año, con su descargo y sus firmas',
 
+        // El panel de «lo que sacaste esta semana» de la pantalla nueva de informes
+        // (migración `2026_09_18_200000`). Es un registro de **lo que una persona
+        // abrió en ESE año**: copiarlo diría que alguien sacó informes en un año
+        // que acaba de empezar, o sea la misma falsedad que la bitácora.
+        //
+        // Y hay una razón de daño, no sólo de higiene: **`year_id` está en esa tabla
+        // justamente para que un informe del año pasado no se repita de un clic**
+        // —lo pidió así `myvc_front`, porque sacaría el papel equivocado—. Copiar las
+        // filas al año nuevo les cambiaría el `year_id` y convertiría cada renglón
+        // heredado en un botón que promete un informe de este año y trae los
+        // parámetros del anterior: exactamente lo que esa columna existe para
+        // impedir, hecho por el camino de copiarla.
+        //
+        // La lista se rehace sola en cuanto alguien abre un informe, así que no se
+        // pierde nada que haya que reponer a mano.
+        //
+        // (Su hermana `accesos_favoritos` **no aparece aquí y no es un olvido**: no
+        // tiene `year_id` —los favoritos son del menú, no de un año— así que este
+        // centinela no la mira.)
+        'informes_recientes' => 'lo que cada persona abrió ESE año; copiarlo fabricaría historia y, peor, heredaría botones que prometen este año con parámetros del anterior',
+
         // El puntero `years.horario_version_id` ya está excusado por lo mismo en
         // `CentinelaDeLasColumnasDelAnioNuevoTest::NACEN_VACIAS`, y las dos
         // excepciones tienen que decir lo mismo o una de las dos miente: cada año

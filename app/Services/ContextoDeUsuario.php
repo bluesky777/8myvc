@@ -129,6 +129,30 @@ class ContextoDeUsuario
      * que las pidió una familia. Una columna en tres de cuatro respuestas es una
      * rama muerta esperando.
      *
+     * ## Y `mostrar_nota_numerica_boletin` también, en las cuatro (18 sep 2026)
+     *
+     * **Se me olvidó al añadir la columna, y el modo de fallo es exactamente el que
+     * describe el párrafo de arriba.** La metí en `years`, en `Year::datos` y en su
+     * ruta, y **no aquí** — que es el único sitio que el front lee en **cada
+     * petición**. Como `app2` decide por la **presencia** de la clave («sin campo,
+     * encendido»), el interruptor habría quedado **encendido para siempre en los
+     * dieciséis colegios**: el coordinador lo apaga, se guarda bien en la base, y el
+     * boletín sigue imprimiendo el número **sin un error en ningún log**. Una
+     * escritura que funciona y una lectura que no la publica es peor que un fallo,
+     * porque no hay nada que investigar.
+     *
+     * Lo que lo destapó **no fue una prueba de esto**: fue que las cuatro
+     * instantáneas `login-contexto-*` **NO se movieron** cuando la migración movió a
+     * otras veintitantas. Un snapshot que no cambia cuando sus vecinos sí es una
+     * pregunta, no un alivio.
+     *
+     * Y va en la del **alumno** y la del **acudiente** a propósito, no de rebote: las
+     * rutas de boletín son `boletin.propio` y un estudiante abre el suyo desde
+     * `app2`, así que **el cliente necesita esta bandera para saber si pinta el
+     * número en su propio boletín**. Su hermana `mostrar_nota_comport_boletin` ya
+     * viajaba en las cuatro, o sea que la clase de exposición —una bandera de
+     * configuración del colegio— no la abre ésta.
+     *
      * Con los tres rótulos del desempeño al lado de los de unidad y subunidad, que es
      * donde los va a buscar quien ya lee ese bloque. **No añaden ninguna llamada**:
      * son cuatro columnas más del mismo `JOIN` que ya se hace.
@@ -159,7 +183,7 @@ class ContextoDeUsuario
                                 y.unidad_displayname, y.subunidad_displayname, y.unidades_displayname, y.subunidades_displayname, y.show_materias_todas,
                                 y.genero_unidad, y.genero_subunidad,
                                 y.desempeno_displayname, y.desempenos_displayname, y.genero_desempeno, per.fecha_plazo, y.alumnos_can_see_notas, y.logo_id,
-                                y.si_recupera_materia_recup_indicador, y.year_pasado_en_bol, y.mostrar_puesto_boletin, y.puestos_alfabeticamente, y.mostrar_nota_comport_boletin, y.profes_can_edit_alumnos,
+                                y.si_recupera_materia_recup_indicador, y.year_pasado_en_bol, y.mostrar_puesto_boletin, y.puestos_alfabeticamente, y.mostrar_nota_comport_boletin, y.mostrar_nota_numerica_boletin, y.profes_can_edit_alumnos,
                                 y.compromiso_familiar_label
                             from profesores p
                             left join images i on i.id=:imagen_id
@@ -189,7 +213,7 @@ class ContextoDeUsuario
                                 y.id as year_id, y.year, y.nota_minima_aceptada, y.regla_nivelacion, y.modelo_evaluacion, y.actual as year_actual, per.actual as periodo_actual,
                                 y.unidad_displayname, y.subunidad_displayname, y.unidades_displayname, y.subunidades_displayname,
                                 y.genero_unidad, y.genero_subunidad,
-                                y.desempeno_displayname, y.desempenos_displayname, y.genero_desempeno, per.fecha_plazo, y.mostrar_nota_comport_boletin, y.si_recupera_materia_recup_indicador, y.year_pasado_en_bol, y.alumnos_can_see_notas, y.logo_id,
+                                y.desempeno_displayname, y.desempenos_displayname, y.genero_desempeno, per.fecha_plazo, y.mostrar_nota_comport_boletin, y.mostrar_nota_numerica_boletin, y.si_recupera_materia_recup_indicador, y.year_pasado_en_bol, y.alumnos_can_see_notas, y.logo_id,
                                 y.prematr_antiguos, y.msg_when_students_blocked, y.compromiso_familiar_label
                             from alumnos a
                             inner join matriculas m on m.alumno_id=a.id and (m.estado="MATR" or m.estado="ASIS" or m.estado="PREM")
@@ -220,7 +244,7 @@ class ContextoDeUsuario
                                 y.id as year_id, y.year, y.nota_minima_aceptada, y.regla_nivelacion, y.modelo_evaluacion, y.actual as year_actual, per.actual as periodo_actual,
                                 y.unidad_displayname, y.subunidad_displayname, y.unidades_displayname, y.subunidades_displayname,
                                 y.genero_unidad, y.genero_subunidad,
-                                y.desempeno_displayname, y.desempenos_displayname, y.genero_desempeno, per.fecha_plazo, y.si_recupera_materia_recup_indicador, y.mostrar_nota_comport_boletin, y.alumnos_can_see_notas, y.logo_id,
+                                y.desempeno_displayname, y.desempenos_displayname, y.genero_desempeno, per.fecha_plazo, y.si_recupera_materia_recup_indicador, y.mostrar_nota_comport_boletin, y.mostrar_nota_numerica_boletin, y.alumnos_can_see_notas, y.logo_id,
                                 -- §140. `year_pasado_en_bol` estaba en las otras TRES ramas y no en
                                 -- ésta, y es una configuración del AÑO, no del tipo de usuario: dice
                                 -- si el boletín arrastra el año pasado. Sin ella, las maquetas 2 y 3
@@ -254,7 +278,7 @@ class ContextoDeUsuario
                                 y.id as year_id, y.year, y.nota_minima_aceptada, y.regla_nivelacion, y.modelo_evaluacion, y.actual as year_actual, per.actual as periodo_actual,
                                 y.unidad_displayname, y.subunidad_displayname, y.unidades_displayname, y.subunidades_displayname, y.show_materias_todas,
                                 y.genero_unidad, y.genero_subunidad,
-                                y.desempeno_displayname, y.desempenos_displayname, y.genero_desempeno, per.fecha_plazo, y.si_recupera_materia_recup_indicador, y.year_pasado_en_bol, y.mostrar_nota_comport_boletin, y.alumnos_can_see_notas, y.logo_id,
+                                y.desempeno_displayname, y.desempenos_displayname, y.genero_desempeno, per.fecha_plazo, y.si_recupera_materia_recup_indicador, y.year_pasado_en_bol, y.mostrar_nota_comport_boletin, y.mostrar_nota_numerica_boletin, y.alumnos_can_see_notas, y.logo_id,
                                 y.puestos_alfabeticamente, y.compromiso_familiar_label
                             from users u
                             left join periodos per on per.id=u.periodo_id

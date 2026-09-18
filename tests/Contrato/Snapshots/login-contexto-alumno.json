@@ -22,6 +22,7 @@
     "logo_id": "int",
     "modelo_evaluacion": "string",
     "mostrar_nota_comport_boletin": "int",
+    "mostrar_nota_numerica_boletin": "int",
     "msg_when_students_blocked": "string",
     "nombre_grupo": "string",
     "nombres": "string",

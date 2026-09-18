@@ -571,6 +571,7 @@
         "img_encabezado_id": "null",
         "logo": "string",
         "logo_id": "int",
+        "mostrar_nota_numerica_boletin": "int",
         "msg_when_students_blocked": "string",
         "nombre_colegio": "string",
         "nombres_rector": "string",
