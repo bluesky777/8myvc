@@ -240,10 +240,46 @@ tres líneas el día que Joseth diga.
 | | hoy | contrato nuevo |
 |---|---|---|
 | qué filas salen | las de `frases_asignatura` con `desempeno_id` | **todas** las de `desempenos_por_defecto` que le tocan a la asignatura |
-| qué filas le tocan | — | las de su `grado_id` **y** las de `grado_id IS NULL` (D25), `ORDER BY orden, id` |
+| qué filas le tocan | — | las de su `grado_id` **y** las de `grado_id IS NULL` (D25), `ORDER BY grado_id IS NOT NULL, orden, id` |
 | el nivel | `fa.nivel`, congelado al marcar | **derivado**: `bandaDeLaNota(definitiva de ESA asignatura en ESE periodo)`, uno para todas sus líneas (H4) |
 | la cabecera | la competencia, congelada | **no hay cabecera**: el modelo es plano (H3, P3) |
 | el prefijo | no hay | `escalas_de_valoracion.descripcion` de la banda, delante del texto. Vacía = como hoy (P2, H5) |
+
+> ### Dos cosas que esta tabla decía mal, corregidas al implementarla (17 sep 2026, 20:2x)
+>
+> **1 · El `ORDER BY` era `orden, id` y está mal, y no es cosmético.** Con filas de «todos los
+> grados» mezcladas, los dos órdenes dan **papeles distintos**:
+>
+> | `orden, id` (lo que decía) | `grado_id IS NOT NULL, orden, id` (lo que va) |
+> |---|---|
+> | g11/0 · NULL/5 · g11/7 · NULL/9 | NULL/5 · NULL/9 · g11/0 · g11/7 |
+>
+> El motivo bueno **no** es que sea el de `catalogoPara` —ése es el de `sembrar`—: es que
+> **`getPlantilla`, la ruta que lee la pantalla ③ donde el colegio teclea el plan**, ordena por
+> `d.grado_id`, y en MySQL un `ORDER BY` ascendente pone los **`NULL` primero**. O sea que las dos
+> expresiones agrupan igual —«todos los grados» arriba, el grado debajo— y **el papel sale en el
+> orden de la pantalla**. Un boletín que ordenara esas mismas filas distinto de la pantalla es un
+> fallo que sólo se ve comparando dos papeles.
+>
+> **2 · «las de `frases_asignatura` con `desempeno_id IS NULL`» — ese filtro NO SE PUEDE
+> ESCRIBIR**, y escribirlo sería un `Unknown column` en los dieciséis. Las cuatro columnas de la
+> rejilla las añadía `2026_09_13_400000_marca_del_desempeno`, que **nunca corrió en ningún
+> colegio**, y la prueba es el volcado, que es la verdad del esquema:
+>
+> ```
+> awk '/CREATE TABLE `frases_asignatura`/,/ENGINE=/' database/schema/mysql-schema.sql \
+>   | grep -c '^  `'
+> # 12 -- id alumno_id frase_id frase asignatura_id periodo_id created_by updated_by
+> #       deleted_by deleted_at created_at updated_at.  Ninguna de las cuatro.
+> ```
+>
+> **Así que no hay filtro: en producción, toda fila viva de esa tabla es una frase escrita a
+> mano**, porque las otras no las pudo crear nadie. Es la premisa de la §7 vista **desde el
+> esquema** en vez de desde los clientes — y es la comprobación más dura de las dos, porque no
+> depende de que nadie despliegue nada.
+>
+> *(En el docker sí existieron hasta hoy y hubo 151 filas marcadas; ahí esas 151 se imprimirán como
+> frases a mano. En un colegio no puede pasar.)*
 
 **Lo que NO se toca y hay que decirlo**: las frases escritas a mano de `frases_asignatura`
 **siguen imprimiéndose**. Son datos de producción de los dieciséis colegios y no vienen de ninguna
