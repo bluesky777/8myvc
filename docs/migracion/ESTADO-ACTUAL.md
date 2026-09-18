@@ -217,6 +217,55 @@
 > describe una respuesta que ya no existe y **nada se va a poner rojo por ello**. Es de la
 > tanda del modelo plano, no de ésta; se avisa y no se toca.
 
+> ## 🤝 RELEVO DE `8myvc-e2` → LO QUE DEJA HECHO Y LO QUE QUEDA (18 sep 2026, 09:2x)
+>
+> Cierro sesión y esto es lo que hay que saber para seguir. **El árbol principal está limpio** y
+> `main` en `6bf8e33`; el router, **595** contado con `route:list --json`.
+>
+> ### Lo que entró, en orden
+>
+> | | |
+> |---|---|
+> | El **modelo plano por competencias** entero — 21 rutas en 7, el boletín deriva el nivel, preescolar por grupo, el área pondera | contrato en **[39](39-el-modelo-plano-por-competencias.md)** |
+> | `d54cef6` · el área ponderada **deja de redondear** (decisión de Joseth) | |
+> | `6630e4d` · **`jefes_de_area` por año**, `areas.jefe_id` retirada y el `CASCADE` desarmado | |
+> | `7f17342` · el año nuevo **hereda** las jefaturas, sin filtrar por contrato | |
+> | `bb85752` · las **tres rutas** del director de área · `212fb39` · la foto como `foto_nombre` | |
+> | `myvc_front` `22284af1` + `8f3ca707` · **la pantalla `/areas/directores`** y su botón | |
+>
+> ### Lo que NO está hecho, y es lo que pediría yo primero
+>
+> 1. **Nada de esto está desplegado.** Ni el backend ni `app2`. Y hay un orden que muerde: la
+>    **migración del jefe de área va antes que la pantalla** — si la pantalla llega primero a un
+>    colegio, escribe contra una tabla que no está.
+> 2. **La forma nueva del bloque de desempeños no la prueba nadie.** La ruta sí sigue cubierta
+>    (`BoletinDeUnPeriodoPasadoTest`, 5 casos). Los tests esperan a que Joseth pruebe a mano, que es
+>    su regla — no es un olvido. La §6 del 39 dice **cuáles tres de los quince retirados no se deben
+>    reponer nunca**, porque hoy afirman lo contrario de lo decidido.
+> 3. **Adoptar del MEN son 43 peticiones desde el navegador**, con la deduplicación y el orden en el
+>    cliente. Joseth dijo **ahora no**; la forma elegida para el día que estorbe es
+>    `POST desempenos/lote`, no abrir `copiar` (eso sería re-litigar D12).
+>
+> ### Tres cosas que te van a morder si no las sabes
+>
+> - **Dos jefaturas de prueba quedaron en el docker** (year 9, áreas 2 y 17) para que la pantalla
+>   enseñara sus tres estados. Se van con `DELETE FROM jefes_de_area WHERE year_id=9;`.
+> - **`app.routes.ts` de `myvc_front` lleva ~104 inserciones de otra sesión sin commitear.** Mis dos
+>   líneas entraron reconstruyendo el índice desde `HEAD`; **no lo commitees entero**.
+> - **`git rm` stagea solo.** Un `git commit -m` sin pathspec se lleva lo que otro dejó preparado en
+>   el índice sin que nadie escribiera `git add`. Me pasó ayer y me llevé por delante trabajo a
+>   medias de un agente. Se deshace con `reset --soft HEAD~1` mientras nadie haya commiteado encima.
+>
+> ### Y dos lecciones de medición que costaron caro, por si sirven
+>
+> - **Un `grep` por nombre no demuestra que nadie usa un fichero** cuando el lector lo encuentra por
+>   `glob`. `HuecosDelSeedTest` lee **todas** las instantáneas por barrido del directorio, así que
+>   **en este repositorio ninguna está huérfana**: el censo se acopla a la LISTA de ficheros, y lo
+>   mueven el alta y la baja, no regenerar.
+> - **Compilar no es ver.** La pantalla de directores compilaba y salía titulada «Áreas»: la cáscara
+>   pinta el nombre de la ruta y **esconde el `h1` de la pantalla**. Sólo apareció al conducirla en
+>   Chrome y preguntarle al DOM.
+
 > ## ✅ EL MODELO PLANO POR COMPETENCIAS — LAS CUATRO TAREAS DENTRO, ROUTER EN 591 (17 sep 2026)
 >
 > **«Competencia» y «desempeño» son la misma cosa**, así que sobraba un piso entero. El contrato
