@@ -51,6 +51,10 @@ class Area extends Model {
 		$cantAr 	= count($areas);
 		$cantAs 	= count($asignaturas);
 
+		// Los pesos del grupo se leen UNA vez por llamada y sólo si alguna área los
+		// necesita: ver `repartoDelArea`, al final de la clase.
+		$pesosDelGrupo 	= null;
+
 		for ($i=0; $i < $cantAr; $i++) {
 			$found = 0;
 			$areas[$i]->sumatoria 		= 0;
@@ -99,7 +103,50 @@ class Area extends Model {
 			}
 
 			$areas[$i]->cant 				= $found;
-			if ($found>0) {
+
+			// ¿El colegio repartió esta área a mano? (`asignaturas.porcentaje_area`)
+			$reparto = self::repartoDelArea($grupo_id, $areas[$i]->asignaturas, $pesosDelGrupo);
+
+			if ($reparto !== null) {
+				// Ponderado: cada asignatura pesa lo que el colegio le puso, no 1/n.
+				//
+				// El caso que lo motiva es real y está en `simonbolivar`: el área 11
+				// agrupa INGLÉS · LENGUA CASTELLANA · TALLER DE LECTURA, en Sexto sólo
+				// existen las dos primeras, y el promedio simple imprime 50/50 donde el
+				// colegio quiere 60/40.
+				//
+				// **`sumatoria` y `cant` NO se tocan.** Siguen siendo la suma cruda y
+				// cuántas son —lo que significan desde siempre y lo que viaja en la
+				// respuesta—, porque un front que las divida por su cuenta tiene que
+				// seguir obteniendo lo mismo que obtenía. Lo que cambia es la nota.
+				$ponderada 	= 0;
+				$areas[$i]->per1 	= 0;
+				$areas[$i]->per2 	= 0;
+				$areas[$i]->per3 	= 0;
+				$areas[$i]->per4 	= 0;
+
+				foreach ($areas[$i]->asignaturas as $k => $asignatura) {
+					$peso = $reparto[$k] / 100;
+
+					$ponderada += $asignatura->nota_asignatura * $peso;
+
+					if (isset($asignatura->definitivas)) {
+						foreach ($asignatura->definitivas as $definitiva) {
+							if (isset($definitiva->periodo)) {
+								$field = 'per'.$definitiva->periodo;
+								$areas[$i]->{$field} += $definitiva->DefMateria * $peso;
+							}
+						}
+					}
+				}
+
+				// **El mismo `round()` que la rama de siempre, y a propósito.** Sobre una
+				// escala 0–50 se come medio punto y sobre una 0–5 un 4,6 cambia de banda,
+				// pero eso ya pasa hoy en los dieciséis: quitarlo AQUÍ haría que encender
+				// los pesos cambiara además el convenio de redondeo por la puerta de
+				// atrás, y son dos decisiones distintas. Un cambio a la vez.
+				$areas[$i]->area_nota 		= round($ponderada);
+			}elseif ($found>0) {
 				$areas[$i]->area_nota 		= round($areas[$i]->sumatoria / $found);
 				$areas[$i]->per1 		= $areas[$i]->per1 / $found;
 				$areas[$i]->per2 		= $areas[$i]->per2 / $found;
@@ -136,6 +183,10 @@ class Area extends Model {
 		$areas 		= DB::select($consulta, [ $grupo_id ]);
 		$cantAr 	= count($areas);
 		$cantAs 	= count($asignaturas);
+
+		// Los pesos del grupo se leen UNA vez por llamada y sólo si alguna área los
+		// necesita: ver `repartoDelArea`, al final de la clase.
+		$pesosDelGrupo 	= null;
 
 		for ($i=0; $i < $cantAr; $i++) {
 			$found = 0;
@@ -200,14 +251,23 @@ class Area extends Model {
 				continue;
 			}
 
-			$areas[$i]->per1_nota 			= round($areas[$i]->sumatoria_per1 / $found);
+			// ¿El colegio repartió esta área a mano? (`asignaturas.porcentaje_area`)
+			// Con `null` —hoy, en los dieciséis— las cuatro líneas de abajo son las de
+			// siempre, carácter por carácter.
+			$reparto = self::repartoDelArea($grupo_id, $areas[$i]->asignaturas, $pesosDelGrupo);
+
+			$areas[$i]->per1_nota 			= $reparto !== null
+				? round(self::ponderar($areas[$i]->asignaturas, $reparto, 'nota_final_per1'))
+				: round($areas[$i]->sumatoria_per1 / $found);
 			$des 							= EscalaDeValoracion::valoracion($areas[$i]->per1_nota, $escalas);
 			if ($des) {
 				$areas[$i]->desempenio_per1 	= $des->desempenio;
 			}
 
 			if ($num_periodo > 1) {
-				$areas[$i]->per2_nota 			= round($areas[$i]->sumatoria_per2 / $found);
+				$areas[$i]->per2_nota 			= $reparto !== null
+					? round(self::ponderar($areas[$i]->asignaturas, $reparto, 'nota_final_per2'))
+					: round($areas[$i]->sumatoria_per2 / $found);
 				$des 							= EscalaDeValoracion::valoracion($areas[$i]->per2_nota, $escalas);
 				if ($des) {
 					$areas[$i]->desempenio_per2 	= $des->desempenio;
@@ -215,14 +275,18 @@ class Area extends Model {
 
 			}
 			if ($num_periodo > 2) {
-				$areas[$i]->per3_nota 			= round($areas[$i]->sumatoria_per3 / $found);
+				$areas[$i]->per3_nota 			= $reparto !== null
+					? round(self::ponderar($areas[$i]->asignaturas, $reparto, 'nota_final_per3'))
+					: round($areas[$i]->sumatoria_per3 / $found);
 				$des 							= EscalaDeValoracion::valoracion($areas[$i]->per3_nota, $escalas);
 				if ($des) {
 					$areas[$i]->desempenio_per3 	= $des->desempenio;
 				}
 			}
 			if ($num_periodo == 4) {
-				$areas[$i]->per4_nota 			= round($areas[$i]->sumatoria_per4 / $found);
+				$areas[$i]->per4_nota 			= $reparto !== null
+					? round(self::ponderar($areas[$i]->asignaturas, $reparto, 'nota_final_per4'))
+					: round($areas[$i]->sumatoria_per4 / $found);
 				$des 							= EscalaDeValoracion::valoracion($areas[$i]->per4_nota, $escalas);
 				if ($des) {
 					$areas[$i]->desempenio_per4 	= $des->desempenio;
@@ -232,6 +296,101 @@ class Area extends Model {
 			//$areas[$i]->area_desempenio 	= EscalaDeValoracion::valoracion($areas[$i]->area_nota, $escalas)->desempenio;
 		}
 		return $areas;
+	}
+
+	/**
+	 * El reparto del área —cuánto pesa cada asignatura dentro de ella—, o `null`.
+	 *
+	 * Devuelve un array paralelo a `$asignaturas` con el `porcentaje_area` de cada
+	 * una, y **sólo** cuando TODAS lo tienen y entre todas suman 100. En cualquier
+	 * otro caso devuelve `null` y quien llama promedia como lleva promediando
+	 * siempre, que es lo que hace seguro encender esto: el día que entró había
+	 * **0 de 1.219** asignaturas vivas con peso puesto, así que los cinco informes
+	 * imprimen exactamente lo de ayer hasta que un coordinador rellene la columna.
+	 *
+	 * **Es «todas o ninguna» a propósito.** Media área con pesos no es un reparto
+	 * que haya escrito nadie: ponderar con la mitad daría un número que no cuadra
+	 * ni con el promedio ni con lo que quiso el coordinador, y que además cambiaría
+	 * otra vez el día que rellene la otra mitad.
+	 *
+	 * **Y se mide sobre las asignaturas que se están sumando de verdad** —las que
+	 * trajo quien llama—, no sobre las que el grupo tiene en la base. Si a este
+	 * boletín le falta una, los pesos que quedan ya no suman 100 y el área vuelve
+	 * al promedio: es la única lectura en la que el número del área cuadra con las
+	 * notas impresas a su lado.
+	 *
+	 * **La consulta es una por llamada y sólo si hace falta.** Un área de una sola
+	 * asignatura no se puede repartir —el 100 % de una nota es esa nota—, así que
+	 * un grupo sin áreas compuestas no gasta ninguna. `$pesosDelGrupo` entra por
+	 * referencia para que las veintidós áreas de un mismo alumno compartan la
+	 * lectura en vez de pedirla cada una.
+	 */
+	private static function repartoDelArea($grupo_id, $asignaturas, &$pesosDelGrupo)
+	{
+		if (count($asignaturas) < 2) {
+			return null;
+		}
+
+		if ($pesosDelGrupo === null) {
+			$pesosDelGrupo = [];
+
+			$filas = DB::select(
+				'SELECT a.id, a.porcentaje_area FROM asignaturas a
+					where a.grupo_id=? and a.deleted_at is null',
+				[ $grupo_id ]
+			);
+
+			foreach ($filas as $fila) {
+				// `null` es «nadie lo decidió» y `0` es «decidieron que no cuenta»: sólo
+				// entran los decididos, y abajo `isset` distingue los dos casos.
+				if ($fila->porcentaje_area !== null) {
+					$pesosDelGrupo[(int) $fila->id] = (int) $fila->porcentaje_area;
+				}
+			}
+		}
+
+		$reparto 	= [];
+		$suma 		= 0;
+
+		foreach ($asignaturas as $k => $asignatura) {
+			// `asignatura_id` puede llegar nulo: el boletín tipo 3 lo saca de un
+			// `right join` contra `notas_finales`, así que una asignatura sin nota en
+			// el primer periodo viene sin id. Sin id no hay peso, y sin peso no se
+			// pondera: el área cae al promedio, que es la caída segura.
+			$id = isset($asignatura->asignatura_id) ? (int) $asignatura->asignatura_id : 0;
+
+			if (!isset($pesosDelGrupo[$id])) {
+				return null;
+			}
+
+			$reparto[$k] 	= $pesosDelGrupo[$id];
+			$suma 			+= $pesosDelGrupo[$id];
+		}
+
+		return $suma === 100 ? $reparto : null;
+	}
+
+
+
+	/**
+	 * La nota del área aplicando el reparto: cada asignatura por su peso.
+	 *
+	 * `$campo` es la propiedad que se pondera (`nota_final_per1`, …). Una asignatura
+	 * que no la traiga suma 0, **igual que en la rama del promedio**: allí tampoco se
+	 * acumula y el divisor la sigue contando, así que las dos ramas tratan el hueco
+	 * de la misma manera.
+	 */
+	private static function ponderar($asignaturas, $reparto, $campo)
+	{
+		$nota = 0;
+
+		foreach ($asignaturas as $k => $asignatura) {
+			if (isset($asignatura->{$campo})) {
+				$nota += $asignatura->{$campo} * ($reparto[$k] / 100);
+			}
+		}
+
+		return $nota;
 	}
 
 
