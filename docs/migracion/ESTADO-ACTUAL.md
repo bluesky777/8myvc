@@ -73,47 +73,64 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
-> ## 🚧 EL MODELO PLANO POR COMPETENCIAS — EL CONTRATO PUBLICADO, LAS CUATRO TAREAS EN MARCHA (17 sep 2026)
+> ## ✅ EL MODELO PLANO POR COMPETENCIAS — LAS CUATRO TAREAS DENTRO, ROUTER EN 591 (17 sep 2026)
 >
-> **Joseth rehizo el modelo el 17 sep** tras investigarlo con otro colegio, y lo que cambia no es
-> una pantalla: **«competencia» y «desempeño» son la misma cosa**, así que sobra un piso entero.
-> Las decisiones y su porqué viven en `myvc_front/CORRECCIONES-MODELO-DE-EVALUACION.md`
-> (P1.bis, P1.ter, P1.quater, D31, D32); **el contrato del backend es
-> [39](39-el-modelo-plano-por-competencias.md)** y es lo que el front estaba esperando para
-> arrancar.
+> **«Competencia» y «desempeño» son la misma cosa**, así que sobraba un piso entero. El contrato
+> está en **[39](39-el-modelo-plano-por-competencias.md)**; las decisiones y su porqué, en
+> `myvc_front/CORRECCIONES-MODELO-DE-EVALUACION.md` (P1.bis, P1.ter, P1.quater, D31, D32).
 >
 > | | |
 > |---|---|
-> | una sola tabla, `desempenos_por_defecto` · sin copia · sin candado | contrato escrito |
-> | **21 rutas pasan a 7** — se va `competencias/` entera y la capa por asignatura | en marcha |
-> | el nivel **se deriva de la definitiva**; la rejilla y sus 734 líneas de front se van | en marcha |
-> | el permiso con alcance del docente, sin el cual su pantalla nueva abre en 403 | en marcha |
-> | preescolar **se queda en el tipo 4** y tendrá pantallas propias | en marcha |
+> | `09788cd` · el boletín **deriva** el nivel de la definitiva + prefijo por banda | en `main` |
+> | `8329718` · una tabla, **21 rutas se quedan en 7**, permiso con alcance del docente | en `main` |
+> | `53b50fa` · preescolar: el grupo entero de frases, **322 peticiones a 14** | en `main` |
+> | `b7c69d2` · el área **pondera** cuando el colegio reparte los pesos | en `main` |
+> | `6f34459` · las **tres** instantáneas · `d7155d0` · el rojo heredado de `d540906` | en `main` |
+> | `5007346` · fuera los quince casos que afirmaban el modelo de dos pisos | en `main` |
+> | **router en 591**, contado con `route:list --json` a las 20:48 · `CLAUDE.md` movido | — |
 >
-> ### Las tres correcciones que salieron de abrir los ficheros, y cambian el trabajo
+> ### Lo que ESPERA UNA LÍNEA TUYA, y es lo único que falta
 >
-> 1. **`2026_09_13_300000_desempenos.php` NO se borra**: crea `desempenos_por_defecto`, que es la
->    tabla que se queda. El plan la daba por borrable con las otras tres.
-> 2. **Copiar el plan de área entre AÑOS no está roto: calla y no copia nada.** `periodos` es por
->    año, así que el `periodo_id` del destino no existe en el origen y sale un `200` con
->    `copiados: 0` que no se distingue de «el año pasado no tenía nada escrito».
-> 3. **`Area.php` no es una línea**: son dos funciones, seis divisiones y cinco `round()`, y lo
->    llaman **cinco informes** que hoy corren en los dieciséis colegios.
+> **`Area.php`: quitar el `round()` sólo en la rama ponderada.** Está **escrito y verde** (`php -l`
+> limpio, phpstan nivel 7 sin errores) y **sin commitear**, porque la decisión me llegó relatada por
+> la sesión del front y no directamente — *el OK a una sesión no vale para las otras*. Es una línea
+> de confirmación.
 >
-> ### Lo que espera respuesta de Joseth, y no bloquea
+> Al hacerlo salieron dos cosas que nadie había visto y **la primera es mejor argumento que el que
+> motivó la decisión**: desde `bd02f66` (13 sep) el resto del sistema **ya no redondea**
+> —`valoracion()` perdió su `round()` en los trece sitios—, así que **el área era la que se había
+> quedado sola con la regla vieja**. Y la segunda es contraintuitiva: como `valoracion()` ya no
+> redondea, un ponderado de 29,6 **se queda en la banda de 29** en vez de subir a la de 30, o sea
+> que quitar el redondeo puede **bajar** de banda, no sólo subir.
 >
-> **Al borrar las copias congeladas, el texto del desempeño se lee vivo al imprimir**, así que
-> corregir una errata en octubre cambia el boletín del periodo 1 que ya fue a casa. Es
-> exactamente lo que `2026_09_14_100000_competencia_congelada` se escribió para impedir. Se
-> implementa aceptándolo —es lo que describe el plan— y la salida alternativa (pedir periodo
-> abierto también al coordinador) son tres líneas el día que se pida. §3 del [39](39-el-modelo-plano-por-competencias.md).
+> ### Tres cosas que salieron de construirlo y no estaban en ningún plan
 >
-> ### Lo que NO se ha hecho todavía
+> 1. **`DELETE escalas/{id}` sin `acepto_desviacion` es un 500 en producción desde el 14 sep**, y
+>    no lo estrena esto: contaba `frases_asignatura.escala_id`, una columna que **nunca corrió en
+>    ningún colegio**. Arreglado en `8329718`.
+> 2. **`YearsController::copiarElPlanDeArea` leía `competencias`**, así que borrar la tabla dejaba
+>    `POST years` —la creación del año siguiente— en 500. Arreglado en el mismo commit.
+> 3. **La premisa del borrado tiene una prueba mejor que la que estaba escrita.** La de siempre era
+>    «ningún cliente desplegado llama a esas rutas», que depende de que nadie despliegue. La nueva
+>    es el **volcado**: `frases_asignatura` tiene doce columnas y ninguna de las cuatro de la
+>    rejilla, o sea que esas migraciones **nunca corrieron en ningún colegio**. No depende de nada.
 >
-> **Los tres snapshots de rutas y el contador de `CLAUDE.md` están sin mover**: se regeneran y se
-> cuentan con `route:list --json` **en el árbol principal y después de fundir**, una sola vez,
-> cuando las cuatro tareas estén dentro. Cuatro tareas regenerando el mismo JSON es la forma de
-> que ninguna lo haga bien.
+> ### Lo que queda sin cobertura, dicho porque un hueco callado parece un descuido
+>
+> **La forma nueva del bloque de desempeños no la prueba nadie** — que salga el catálogo entero, que
+> el nivel se derive, que el prefijo se anteponga, que `asignaturas_sin_catalogo` cuente. La **ruta**
+> sí sigue cubierta (`BoletinDeUnPeriodoPasadoTest`, 5 casos verdes). Los tests nuevos esperan a que
+> Joseth pruebe a mano, que es su regla. Y **tres de los quince casos retirados no se deben reponer
+> nunca tal como estaban**: la §6 del 39 dice cuáles y por qué.
+>
+> ### Y lo que hay que avisar el día del despliegue
+>
+> - El área **no cambia nada** hasta que un coordinador rellene `porcentaje_area`: hoy 0 de 1.219.
+>   Cuando la rellene, **cambia el papel ya impreso** de cinco informes, y hay que rellenarla
+>   **entera** por área o no pasa nada.
+> - El texto del desempeño **se lee vivo al imprimir** (decisión aceptada, §3 del 39): corregir una
+>   errata en octubre cambia el boletín del periodo 1 que ya fue a casa.
+> - `GET desempenos` lo lee ahora **cualquier docente**; antes exigía `can_edit_plantilla_notas`.
 
 > ## ✅ EL BOLETÍN DE UN PERIODO CERRADO — `periodo_id` EN LAS OCHO (15 sep 2026)
 >

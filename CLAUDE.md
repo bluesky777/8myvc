@@ -12,7 +12,22 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**603 rutas** (contadas con
+**591 rutas** (contadas con `route:list --json` el **17 sep 2026 a las 20:48 en el ÁRBOL
+PRINCIPAL, sobre `main` y después de fundir** las cuatro tareas del modelo plano por competencias
+—`docs/migracion/39-el-modelo-plano-por-competencias.md`—. **Es la primera vez que este número
+BAJA**, y el motivo es que «competencia» y «desempeño» resultaron ser la misma cosa: sobraba un
+piso entero, así que las **21** de `competencias/` y `desempenos/` se quedan en **7**, y suben **2**
+de `frases_asignatura/grupo` para las pantallas de preescolar. 603 − 14 + 2 = 591, **y coincidió
+con lo contado, que es la única forma de saber que coincidía**.
+
+> **Y aquí el contador hizo por fin lo que esta línea lleva meses pidiendo: delatar.** A media
+> tarde dio **589** —14 rutas menos y sin las dos de preescolar, que aún no estaban— y a las 20:48
+> dio **591**. Las dos eran ciertas **y ninguna era el árbol que iba a quedar**: entre una y otra
+> se fundió otra tarea. Contar al principio de una tanda de trabajo paralelo no vale; **hay que
+> contar cuando `main` ya no se mueve**, que es lo que dice la frase de arriba y lo que esta vez sí
+> se hizo.
+
+El número anterior era **603**, contado con
 `route:list --json` el **13 sep 2026 por la noche en el ÁRBOL PRINCIPAL, sobre `main` y después de
 fundir**, con las fases 2, 3, **4 y 6** del doc 35 dentro. Las cuatro últimas, sobre las 599 de las
 fases 2 y 3: **600–601** son las **dos de la rejilla premarcada** —`GET`/`PUT desempenos/rejilla`,
