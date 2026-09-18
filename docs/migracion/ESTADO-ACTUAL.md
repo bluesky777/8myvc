@@ -73,6 +73,48 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## 🚧 EL MODELO PLANO POR COMPETENCIAS — EL CONTRATO PUBLICADO, LAS CUATRO TAREAS EN MARCHA (17 sep 2026)
+>
+> **Joseth rehizo el modelo el 17 sep** tras investigarlo con otro colegio, y lo que cambia no es
+> una pantalla: **«competencia» y «desempeño» son la misma cosa**, así que sobra un piso entero.
+> Las decisiones y su porqué viven en `myvc_front/CORRECCIONES-MODELO-DE-EVALUACION.md`
+> (P1.bis, P1.ter, P1.quater, D31, D32); **el contrato del backend es
+> [39](39-el-modelo-plano-por-competencias.md)** y es lo que el front estaba esperando para
+> arrancar.
+>
+> | | |
+> |---|---|
+> | una sola tabla, `desempenos_por_defecto` · sin copia · sin candado | contrato escrito |
+> | **21 rutas pasan a 7** — se va `competencias/` entera y la capa por asignatura | en marcha |
+> | el nivel **se deriva de la definitiva**; la rejilla y sus 734 líneas de front se van | en marcha |
+> | el permiso con alcance del docente, sin el cual su pantalla nueva abre en 403 | en marcha |
+> | preescolar **se queda en el tipo 4** y tendrá pantallas propias | en marcha |
+>
+> ### Las tres correcciones que salieron de abrir los ficheros, y cambian el trabajo
+>
+> 1. **`2026_09_13_300000_desempenos.php` NO se borra**: crea `desempenos_por_defecto`, que es la
+>    tabla que se queda. El plan la daba por borrable con las otras tres.
+> 2. **Copiar el plan de área entre AÑOS no está roto: calla y no copia nada.** `periodos` es por
+>    año, así que el `periodo_id` del destino no existe en el origen y sale un `200` con
+>    `copiados: 0` que no se distingue de «el año pasado no tenía nada escrito».
+> 3. **`Area.php` no es una línea**: son dos funciones, seis divisiones y cinco `round()`, y lo
+>    llaman **cinco informes** que hoy corren en los dieciséis colegios.
+>
+> ### Lo que espera respuesta de Joseth, y no bloquea
+>
+> **Al borrar las copias congeladas, el texto del desempeño se lee vivo al imprimir**, así que
+> corregir una errata en octubre cambia el boletín del periodo 1 que ya fue a casa. Es
+> exactamente lo que `2026_09_14_100000_competencia_congelada` se escribió para impedir. Se
+> implementa aceptándolo —es lo que describe el plan— y la salida alternativa (pedir periodo
+> abierto también al coordinador) son tres líneas el día que se pida. §3 del [39](39-el-modelo-plano-por-competencias.md).
+>
+> ### Lo que NO se ha hecho todavía
+>
+> **Los tres snapshots de rutas y el contador de `CLAUDE.md` están sin mover**: se regeneran y se
+> cuentan con `route:list --json` **en el árbol principal y después de fundir**, una sola vez,
+> cuando las cuatro tareas estén dentro. Cuatro tareas regenerando el mismo JSON es la forma de
+> que ninguna lo haga bien.
+
 > ## ✅ EL BOLETÍN DE UN PERIODO CERRADO — `periodo_id` EN LAS OCHO (15 sep 2026)
 >
 > **Regla de Joseth**: *«no importa si el periodo cerró, siempre se puede imprimir
