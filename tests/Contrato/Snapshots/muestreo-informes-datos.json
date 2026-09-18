@@ -36,6 +36,34 @@
             "user_id": "int"
         }
     ],
+    "periodos_desactualizados": [
+        {
+            "actual": "int",
+            "created_at": "string",
+            "created_by": "null",
+            "deleted_at": "null",
+            "deleted_by": "null",
+            "fecha_fin": "null",
+            "fecha_inicio": "null",
+            "fecha_plazo": "null",
+            "grupos": [
+                {
+                    "abrev": "string",
+                    "atrasadas": "int",
+                    "faltan": "int",
+                    "grupo_id": "int",
+                    "nombre": "string"
+                }
+            ],
+            "id": "int",
+            "numero": "int",
+            "profes_pueden_editar_notas": "int",
+            "profes_pueden_nivelar": "int",
+            "updated_at": "string",
+            "updated_by": "int|null",
+            "year_id": "int"
+        }
+    ],
     "periodos_grupos": [
         {
             "actual": "int",

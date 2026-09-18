@@ -922,4 +922,177 @@ class DefinitivasDeAsignatura
 
         return (float) ($fila->suma ?? 0);
     }
+
+    /**
+     * Lo que hace un informe cuando descubre que sus definitivas están por detrás.
+     *
+     * **Decisión de Joseth, 17 sep 2026: reparar el periodo abierto, avisar en los
+     * cerrados.** Era la pregunta del §«PARA JOSETH» del
+     * [10](../../docs/migracion/10-definitivas.md), abierta desde el 27 ago, y de
+     * las tres formas eligió la del medio por la razón que ya había dado el 15 sep
+     * para el boletín de un periodo pasado: **imprimir un histórico no debería
+     * reescribir definitivas de hace tres años.** Un boletín de un periodo que pasó
+     * es una lectura, y enseña lo que quedó guardado.
+     *
+     * ## Qué cuenta como «abierto»: `periodos.profes_pueden_editar_notas`
+     *
+     * Y no `periodos.actual`, que era el candidato obvio. Dos razones, y la segunda
+     * es la que decide:
+     *
+     * 1. `actual` dice **cuál es el periodo en curso**, uno solo por año. Un colegio
+     *    que todavía admite notas del periodo 2 mientras corre el 3 tiene dos
+     *    periodos que se pueden reparar, y con `actual` sólo se repararía uno.
+     * 2. `profes_pueden_editar_notas` es **el interruptor que el propio colegio
+     *    baja para cerrar un periodo** — es el que gobierna `pueden_editar_notas()`
+     *    y el que decide si un docente puede tocar una nota. Si las notas todavía se
+     *    pueden mover, la definitiva todavía tiene que seguirlas; si no, lo que hay
+     *    guardado es lo que se imprimió. **La regla se cuelga del interruptor que ya
+     *    existe en vez de inventar un segundo criterio de «cerrado»**, que es lo que
+     *    dejaría dos puertas al mismo dato con reglas distintas.
+     *
+     * ## Devuelve SIEMPRE lo que está por detrás, repare o no
+     *
+     * Con el periodo cerrado, `reparadas` vale 0 y `asignaturas` lleva lo que no se
+     * tocó: es el aviso, y es lo que deja que el informe salga marcando qué
+     * asignaturas están por detrás en vez de callarse. Con el periodo abierto se
+     * repara **y se vuelve a preguntar**, así que lo que quede en `asignaturas`
+     * después es lo que el recálculo **no pudo** arreglar — hoy eso son las filas
+     * que faltan cuando la asignatura no tiene unidades vivas, que el servicio no
+     * escribe a propósito (decisión del 28 ago).
+     *
+     * **Que `asignaturas` salga vacío con el periodo abierto no está garantizado, y
+     * es justo la señal que interesa**: si un informe sigue avisando después de
+     * haber reparado, es que hay un camino que el recálculo no cubre. Eso vale más
+     * que un booleano, y es lo que la lista del tablero nunca pudo decir.
+     *
+     * ## El caso que NO converge, medido antes de dejarlo así
+     *
+     * `estadoDelGrupo()` cuenta `faltan` como `SUM(nf_id IS NULL)` sobre **todas** las
+     * asignaturas del grupo, tengan unidades o no, y `recalcular()` **no escribe nada
+     * cuando la asignatura no tiene unidades vivas** en ese periodo (decisión del 28
+     * ago, para que borrar la última unidad no escriba treinta ceros). Las dos cosas
+     * juntas describen un bucle que no avanza: una asignatura sin plan saldría en
+     * `asignaturas` para siempre y se recalcularía **en cada carga del informe sin
+     * arreglar nada**, que es literalmente lo que avisa el docblock de
+     * `estadoDelGrupo()`.
+     *
+     * Medido el 17 sep 2026 sobre la base de tests, año en curso, los 13 grupos: de las
+     * **34** asignaturas con `faltan > 0`, **34 tienen unidades** y **0 no las tienen**.
+     * O sea que hoy las 198 filas que faltan **sí las escribe el recálculo** y el bucle
+     * converge en una pasada: el segundo informe ya no repara nada.
+     *
+     * **No se le pone un guardián a un caso de población cero** —«antes de optimizar
+     * algo: medirlo»—, pero queda escrito porque el coste del día que aparezca es
+     * conocido y pequeño: `recalcular()` sale por su comprobación de unidades en dos
+     * consultas, así que son ~2 por asignatura huérfana y carga. Lo que **no** se puede
+     * hacer es dejar de reportarla: una asignatura sin plan cuyos alumnos no tienen
+     * definitiva es un estado real, y es justo el que el coordinador tiene que ver.
+     *
+     * ## El coste, medido el 17 sep 2026
+     *
+     * Por grupo: **una consulta** (`estadoDelGrupo`, 2,5 ms) más un recálculo por
+     * asignatura que lo necesite (~5 ms cada uno). Por alumno: dos consultas por
+     * asignatura, que es lo que ya hacía `BoletinesController` a mano.
+     *
+     * @param  ?int  $soloAlumno  un id para el boletín individual; `null` para el grupo.
+     * @return array{periodo_abierto:bool, reparadas:int,
+     *     asignaturas:array<int, array{asignatura_id:int, faltan:int, atrasadas:int}>}
+     */
+    public static function ponerAlDiaUnInforme(
+        int $grupoId,
+        int $periodoId,
+        ?int $porUsuario = null,
+        ?int $soloAlumno = null
+    ): array {
+        $periodo = DB::selectOne(
+            'SELECT profes_pueden_editar_notas FROM periodos WHERE id = ? AND deleted_at IS NULL',
+            [$periodoId]
+        );
+
+        // Un periodo que no existe no se repara y tampoco se denuncia: no hay nada
+        // de qué avisar, y devolver «cerrado» haría que el informe pintara un aviso
+        // sobre un periodo inexistente.
+        if ($periodo === null) {
+            return ['periodo_abierto' => false, 'reparadas' => 0, 'asignaturas' => []];
+        }
+
+        $abierto = (int) $periodo->profes_pueden_editar_notas === 1;
+        $reparadas = 0;
+
+        if ($abierto) {
+            foreach (self::loQueEstaPorDetras($grupoId, $periodoId, $soloAlumno) as $fila) {
+                $recalculo = self::recalcular(
+                    $fila['asignatura_id'], $periodoId, $porUsuario, $soloAlumno
+                );
+
+                $reparadas += (int) ($recalculo['escritas'] ?? 0);
+            }
+        }
+
+        // Se vuelve a preguntar después de reparar, a propósito: lo que quede es lo
+        // que el recálculo no pudo arreglar, y eso es información y no ruido.
+        return [
+            'periodo_abierto' => $abierto,
+            'reparadas' => $reparadas,
+            'asignaturas' => array_values(self::loQueEstaPorDetras($grupoId, $periodoId, $soloAlumno)),
+        ];
+    }
+
+    /**
+     * Las asignaturas de un grupo cuya definitiva está por detrás, en ese periodo.
+     *
+     * Dos caminos porque son dos preguntas distintas y **la barata no contesta la
+     * del alumno**: `estadoDelGrupo()` cuenta el grupo entero en una consulta, y un
+     * boletín individual necesita saber si está por detrás **para ese alumno**, que
+     * es lo que contesta `estaDesactualizada()`. Usar la agregada para el individual
+     * haría que el boletín de un alumno al día se recalculara porque otro del grupo
+     * no lo está.
+     *
+     * @return array<int, array{asignatura_id:int, faltan:int, atrasadas:int}>
+     */
+    private static function loQueEstaPorDetras(int $grupoId, int $periodoId, ?int $soloAlumno): array
+    {
+        if ($soloAlumno === null) {
+            $porDetras = [];
+
+            foreach (self::estadoDelGrupo($grupoId, $periodoId) as $fila) {
+                if ((int) $fila['faltan'] === 0 && (int) $fila['atrasadas'] === 0) {
+                    continue;
+                }
+
+                $porDetras[] = [
+                    'asignatura_id' => (int) $fila['asignatura_id'],
+                    'faltan' => (int) $fila['faltan'],
+                    'atrasadas' => (int) $fila['atrasadas'],
+                ];
+            }
+
+            return $porDetras;
+        }
+
+        $asignaturas = DB::select(
+            'SELECT id FROM asignaturas WHERE grupo_id = ? AND deleted_at IS NULL',
+            [$grupoId]
+        );
+
+        $porDetras = [];
+
+        foreach ($asignaturas as $asignatura) {
+            if (! self::estaDesactualizada((int) $asignatura->id, $periodoId, $soloAlumno)) {
+                continue;
+            }
+
+            // Por alumno no se distingue «falta» de «atrasada» con más consultas de
+            // las que ya cuesta preguntarlo: la fila existe o no existe, y
+            // `estaDesactualizada()` ya contestó que hay que repararla. Se cuenta
+            // como `atrasadas` para que el que pinta el aviso tenga una sola forma.
+            $porDetras[] = [
+                'asignatura_id' => (int) $asignatura->id,
+                'faltan' => 0,
+                'atrasadas' => 1,
+            ];
+        }
+
+        return $porDetras;
+    }
 }

@@ -110,9 +110,21 @@ class AceptoRecalcularElRepartoTest extends CasoDeContrato
         $this->pedirElReparto($ctx['year'], RepartoDeLaNota::PROMEDIO, ['acepto_recalcular' => true])
             ->assertStatus(200);
 
-        // El cambio de modo NO recalcula por sí solo —este método guarda el año y se
-        // va—, así que se recalcula aquí lo mismo que el colegio recalcularía usando
-        // las pantallas. Es la deriva que el aviso existe para anunciar.
+        // **Desde el 17 sep 2026 el cambio de modo YA recalcula por sí solo**, así que
+        // este bucle es idempotente y no mueve nada. Se conserva a propósito y no se
+        // borra: es lo que hace que este test siga midiendo **el aviso** —que la cifra
+        // prometida coincida con las que se mueven— y no el momento en que se mueven.
+        //
+        // Decía «el cambio de modo NO recalcula por sí solo, este método guarda el año
+        // y se va», y era cierto: el 422 contaba las definitivas que iban a cambiar y
+        // **nadie las cambiaba**, así que lo que producía era deriva. Ese agujero se
+        // cerró con el recorrido del [10](../../docs/migracion/10-definitivas.md), y
+        // quien lo fije es `DefinitivasQueSeCalculanSolasTest`.
+        //
+        // Que el bucle sobre aquí **no es ruido, es el control**: si algún día el
+        // recálculo del año dejara de alcanzar a alguna asignatura, esto lo taparía
+        // recalculándola a mano y la cuenta seguiría cuadrando. Por eso el caso que
+        // comprueba que el endpoint recalcula vive en el otro fichero y **sin** bucle.
         foreach ($this->asignaturasYPeriodosDelAnio($ctx['year']) as $par) {
             DefinitivasDeAsignatura::recalcular((int) $par->asignatura_id, (int) $par->periodo_id, $ctx['user']);
         }

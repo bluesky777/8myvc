@@ -12,6 +12,7 @@ use App\Models\Periodo;
 use App\Models\Asignatura;
 use App\Models\Subunidad;
 use App\Models\Profesor;
+use App\Services\DefinitivasDeAsignatura;
 
 
 class InformesController extends Controller {
@@ -97,62 +98,108 @@ class InformesController extends Controller {
 	
 	
 	/**
-	 * Qué grupos tienen notas más nuevas que sus definitivas, periodo a periodo.
+	 * Qué grupos tienen definitivas por reparar, periodo a periodo.
 	 *
-	 * ## Sale en el detector del boletín independiente y **NO se acota**, a propósito
+	 * Es lo que el tablero de Informes pinta como «Notas finales desactualizadas» y
+	 * lo que decide si salen los botones «Calcular definitivas per N».
 	 *
-	 * `tools/unidades-sin-alcance.py` la marca porque baja de `notas` a `unidades`
-	 * sin comparar `u.alumno_id`. Es cierto y no es un fallo: **esto no pinta una
-	 * estructura, mide una fecha.** La familia es la de
-	 * `DefinitivasDeAsignatura::selloDeVersion` y `::estadoDelGrupo` —los dos leídos
-	 * y dejados igual el 31 ago 2026—, y el criterio es el mismo con las dos
-	 * direcciones contadas:
+	 * ## Desde el 17 sep 2026 lo mide `estadoDelGrupo()`, y antes NO medía esto
 	 *
-	 * - **sobre-aproximar** dice «desactualizado» de más: alguien recalcula sin
-	 *   necesidad, y eso cuesta tiempo;
-	 * - **acotar** dejaría que la nota de un independiente **no marcara nada**, y el
-	 *   colegio serviría una definitiva vieja **sin un error en el log**.
+	 * Hasta esa fecha era una consulta propia:
+	 * `MAX(notas.updated_at) > MAX(notas_finales.updated_at)` **por grupo entero** y
+	 * unidos por `INNER JOIN`. O sea **un detector distinto del que usa el
+	 * recalculador**, y los dos no contestaban la misma pregunta. Tres consecuencias,
+	 * las tres estructurales y ninguna visible desde la pantalla:
 	 *
-	 * Y aquí hay una razón que los sellos no tienen: el independiente **está** en
-	 * ese grupo, y su definitiva es justo la que nadie va a echar de menos. Acotar
-	 * escondería precisamente al alumno de la §9.1, que es el que este módulo entero
-	 * existe para no perder.
+	 * - **El `INNER JOIN` dejaba fuera al grupo sin ninguna definitiva** en ese
+	 *   periodo. Las filas que faltan —las 11.988 de la fase 0 del
+	 *   [10](../../../docs/migracion/10-definitivas.md)— eran **invisibles**, que es
+	 *   justo el caso que más duele: sin fila, el puesto cuenta cero, el boletín
+	 *   cuenta cero y la planilla borra al alumno de la lista (§6).
+	 * - **Era un `MAX` por grupo, no por asignatura**: una definitiva tecleada a mano
+	 *   en cualquier asignatura subía el `MAX` del grupo y **tapaba** las automáticas
+	 *   atrasadas de todas las demás.
+	 * - **Era ciega a los borrados**, como la comprobación vieja de la §4.2.
 	 *
+	 * Medido el 17 sep 2026 en la copia de desarrollo, año en curso, 13 grupos,
+	 * comparando la consulta vieja contra `estadoDelGrupo()`:
+	 *
+	 * ```
+	 * per1  tablero:0  servicio:3  | faltan:198  atrasadas:0
+	 * per2  tablero:0  servicio:3  | faltan:205  atrasadas:0
+	 * per3  tablero:0  servicio:3  | faltan:205  atrasadas:0
+	 * per4  tablero:0  servicio:3  | faltan:205  atrasadas:0
+	 * ```
+	 *
+	 * **La lista salía vacía con 205 definitivas sin existir**, y el bloque del
+	 * tablero va dentro de un `ng-show`, así que el falso negativo **no se veía como
+	 * un error: se veía como silencio**, que se lee igual que «no hay nada que
+	 * hacer». El control positivo es que la misma consulta sí disparaba en otros años
+	 * de esa base (2025: 2 grupos, 2024: 9), o sea que el cero era del detector.
+	 *
+	 * ## Lo que cuesta, y por qué se paga
+	 *
+	 * Una consulta por grupo y periodo: **13 × 4 = 52**, frente a las 4 de antes.
+	 * Medido el 17 sep: `estadoDelGrupo()` son 2,5 ms por grupo, o sea **~130 ms** en
+	 * una pantalla de coordinación que se abre pocas veces. Es lo que vale que la
+	 * lista deje de mentir en la dirección que no se nota.
+	 *
+	 * ## Y el detector NO se acota al boletín independiente, a propósito
+	 *
+	 * Se conserva el criterio que ya tenía la consulta vieja y que comparten
+	 * `selloDeVersion()` y `estadoDelGrupo()`: **sobre-aproximar** dice
+	 * «desactualizado» de más y alguien recalcula sin necesidad —cuesta tiempo—;
+	 * **acotar** dejaría que la nota de un independiente no marcara nada y el colegio
+	 * serviría una definitiva vieja **sin un error en el log**. El independiente está
+	 * en ese grupo y su definitiva es justo la que nadie va a echar de menos.
 	 * Ver la §1.5 del reparto de la noche del 31 ago 2026 y
 	 * docs/migracion/noche-2026-08-31/c.md.
 	 */
 	private function grupos_desactualizados(&$user){
-		$consulta 	= 'SELECT * FROM periodos WHERE deleted_at is null and year_id=?';	
-		$periodos 	= DB::select($consulta, [$user->year_id]);
-		
-		$cant_pers 	= count($periodos);
+		$periodos 	= DB::select(
+			'SELECT * FROM periodos WHERE deleted_at is null and year_id=?',
+			[$user->year_id]
+		);
+
+		$grupos 	= DB::select(
+			'SELECT id, nombre, abrev FROM grupos WHERE deleted_at is null and year_id=? order by orden',
+			[$user->year_id]
+		);
+
 		$result 	= [];
-		
-		for ($i=0; $i < $cant_pers; $i++) { 
-			$consulta 	= 'SELECT n.updated_at as n_updated_at, nf.updated_at as nf_updated_at, n.grupo_id, n.nombre, n.abrev FROM
-							(SELECT max(n.updated_at) as updated_at, g.id as grupo_id, g.nombre, g.abrev
-							FROM notas n
-							inner join subunidades s on s.id=n.subunidad_id and s.deleted_at is null and n.deleted_at is null
-							inner join unidades u on s.unidad_id=u.id and u.deleted_at is null and u.periodo_id=?
-							inner join asignaturas a on a.id=u.asignatura_id and a.deleted_at is null 
-							inner join grupos g on g.id=a.grupo_id and g.deleted_at is null and g.year_id=?
-							group by g.id)n
-						inner join
-							(SELECT max(nf.updated_at) as updated_at, g.id as grupo_id, g.nombre, g.abrev
-							FROM notas_finales nf
-							inner join asignaturas a on nf.asignatura_id=a.id and nf.periodo_id=? and a.deleted_at is null
-							inner join grupos g on g.id=a.grupo_id and g.deleted_at is null and g.year_id=?
-							group by g.id)nf
-						ON n.grupo_id=nf.grupo_id and n.updated_at>nf.updated_at';	
-						
-			$grupos_desactualizados = DB::select($consulta, [$periodos[$i]->id, $user->year_id, $periodos[$i]->id, $user->year_id]);
-			if (count($grupos_desactualizados) > 0) {
-				$periodos[$i]->grupos = $grupos_desactualizados;
-				array_push($result, $periodos[$i]);
+
+		foreach ($periodos as $periodo) {
+			$desactualizados = [];
+
+			foreach ($grupos as $grupo) {
+				$estado 	= DefinitivasDeAsignatura::estadoDelGrupo((int) $grupo->id, (int) $periodo->id);
+
+				$faltan 	= array_sum(array_column($estado, 'faltan'));
+				$atrasadas 	= array_sum(array_column($estado, 'atrasadas'));
+
+				if ($faltan === 0 && $atrasadas === 0) {
+					continue;
+				}
+
+				// Las tres primeras claves son las que el front ya lee
+				// (`informes.html:13` pinta `abrev` y manda `grupo_id`); las dos
+				// últimas son nuevas y dicen **por qué** está marcado, que es lo que
+				// la consulta vieja no podía distinguir.
+				$desactualizados[] = (object) [
+					'grupo_id' 		=> (int) $grupo->id,
+					'nombre' 		=> $grupo->nombre,
+					'abrev' 		=> $grupo->abrev,
+					'faltan' 		=> $faltan,
+					'atrasadas' 	=> $atrasadas,
+				];
 			}
-			
+
+			if (count($desactualizados) > 0) {
+				$periodo->grupos = $desactualizados;
+				$result[] = $periodo;
+			}
 		}
-		
+
 		return $result;
 	}
 

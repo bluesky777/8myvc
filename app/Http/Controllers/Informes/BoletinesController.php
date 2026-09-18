@@ -202,35 +202,43 @@ class BoletinesController extends Controller {
 	}
 
 	/**
-	 * Recalcula las definitivas de un alumno en las asignaturas de su grupo que lo
-	 * necesiten.
+	 * Pone al día las definitivas de un alumno antes de imprimir su boletín.
 	 *
 	 * Recorre las asignaturas y pregunta una por una, en vez de recalcular a lo
 	 * bruto: la comprobación es una consulta agregada barata y el recálculo escribe,
 	 * así que preguntar sale a cuenta en la pantalla que más veces se abre sin que
 	 * nada haya cambiado.
+	 *
+	 * ## Desde el 17 sep 2026 la regla vive en el servicio, no aquí
+	 *
+	 * Esto hacía a mano lo que ahora hace
+	 * `DefinitivasDeAsignatura::ponerAlDiaUnInforme()`, y se delega por lo de
+	 * siempre: **es la regla que van a necesitar los otros doce informes que hoy
+	 * imprimen a ciegas**, y escrita aquí se copiaría doce veces con doce matices.
+	 * Es el mismo movimiento que hizo el recalculador único con los seis escritores.
+	 *
+	 * Lo que añade el servicio y este método no tenía: **no escribe si el periodo
+	 * está cerrado** (`profes_pueden_editar_notas = 0`), que es la decisión de
+	 * Joseth del 17 sep — reparar el periodo abierto, avisar en los cerrados.
+	 *
+	 * ## Y la guarda del periodo PEDIDO sigue fuera, en el llamante
+	 *
+	 * Las dos reglas se componen y **ninguna sustituye a la otra**. La del 15 sep
+	 * —*pedir un periodo pasado NO recalcula*— es más fuerte que ésta y va antes: un
+	 * periodo pasado puede tener el interruptor de edición todavía levantado, y
+	 * entonces la regla nueva por sí sola lo repararía, que es justo lo que aquella
+	 * decisión prohibió. Por eso el `$pedido === null` se queda en `putDetailedNotas`
+	 * y no baja aquí: **quien pide un periodo concreto está leyendo**, sea cual sea
+	 * el estado de su interruptor.
 	 */
 	private function ponerAlDiaLasDefinitivas(int $grupo_id, int $alumno_id): void
 	{
-		$asignaturas = DB::select(
-			'SELECT id FROM asignaturas WHERE grupo_id = ? AND deleted_at IS NULL',
-			[$grupo_id]
+		DefinitivasDeAsignatura::ponerAlDiaUnInforme(
+			$grupo_id,
+			(int) $this->user->periodo_id,
+			(int) $this->user->user_id,
+			$alumno_id
 		);
-
-		foreach ($asignaturas as $asignatura) {
-			if (! DefinitivasDeAsignatura::estaDesactualizada(
-				(int) $asignatura->id, (int) $this->user->periodo_id, $alumno_id
-			)) {
-				continue;
-			}
-
-			DefinitivasDeAsignatura::recalcular(
-				(int) $asignatura->id,
-				(int) $this->user->periodo_id,
-				(int) $this->user->user_id,
-				$alumno_id
-			);
-		}
 	}
 
 	public function detailedNotasGrupo($grupo_id, &$user, $requested_alumnos='', $periodo_a_calcular=10)

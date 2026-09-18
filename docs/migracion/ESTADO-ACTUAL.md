@@ -73,6 +73,78 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## ✅ LAS DEFINITIVAS SE CALCULAN SOLAS — LOS DOS AGUJEROS, CERRADOS (17 sep 2026)
+>
+> **Encargo de Joseth por la sesión de `myvc_front`**: *«solucionar el problema de las
+> definitivas automáticas, que haga el recorrido para saber dónde tiene que hacer estos
+> cálculos y podamos quitar los botones de la UI que manualmente calculan… pienso
+> esconderlos para ponerlos en otro sitio para resolución de errores. Pero no quiero que se
+> tenga que usar.»*
+>
+> **El recorrido está en la §«El recorrido para quitar los botones» del
+> [10](10-definitivas.md), y su resultado fue que casi todo estaba hecho**: la fase 3
+> cableó el recalculador en **las once** escrituras de notas. Lo que quedaba eran dos
+> escrituras que cambian el resultado **sin tocar nada de lo que el sello vigila**, y por
+> eso ni el recálculo ansioso ni el perezoso las veían. **Eran exactamente el trabajo que
+> le quedaba al botón.**
+>
+> | | |
+> |---|---|
+> | desmarcar `manual` congelaba el valor tecleado | **cerrado** — recalcula y devuelve la definitiva |
+> | cambiar `reparto_subunidades` no recalculaba el año | **cerrado** — 536 pares, 1.680 definitivas, 2,5 s |
+> | el detector del tablero no veía las filas que faltan | **cambiado** a `estadoDelGrupo()` |
+> | `BoletinPorCompetencias` imprimía a ciegas | **cerrado** — avisa y repara según el periodo |
+> | `DefinitivasQueSeCalculanSolasTest` — 9 casos, los cuatro arreglos en negativo | en `main` |
+>
+> ### La decisión de Joseth, y dónde vive
+>
+> A *«qué hace un informe cuando descubre que está por detrás»* —abierta desde el 27 ago—
+> contestó **reparar el periodo abierto, avisar en los cerrados**. Vive en
+> `DefinitivasDeAsignatura::ponerAlDiaUnInforme()`, en el servicio y no en cada
+> controlador, por lo mismo que el recalculador único: la necesitan los otros doce
+> informes.
+>
+> **«Abierto» es `periodos.profes_pueden_editar_notas`, no `periodos.actual`** — si las
+> notas todavía se pueden mover, la definitiva tiene que seguirlas, y así la regla se
+> cuelga del interruptor que el colegio ya baja para cerrar un periodo en vez de inventar
+> un segundo criterio. **Y se compone con la del 15 sep sin sustituirla**: *pedir un
+> periodo pasado NO recalcula* es más fuerte y va antes, porque un periodo pasado puede
+> tener el interruptor levantado.
+>
+> ### Lo que hay que saber antes de esconder los botones
+>
+> 1. **`periodos_desactualizados` NO servía de semáforo, y por construcción.** Era
+>    `MAX(notas.updated_at) > MAX(notas_finales.updated_at)` **por grupo** y con `INNER
+>    JOIN`, así que las filas que faltan eran invisibles. Medido: daba **0** en el año en
+>    curso de la copia de desarrollo con **205 definitivas inexistentes**. La lista se
+>    vaciaba sin que el trabajo estuviera hecho.
+> 2. **El botón tampoco crea la fila que falta.** Su `INSERT` sale de un `inner join
+>    notas`, o sea sólo repone al alumno que tiene notas. Para el caso que más duele —§6
+>    del 10: sin fila, el puesto cuenta cero, el boletín cuenta cero y la planilla borra al
+>    alumno— pulsarlo **no cambia nada**. El rincón de mantenimiento no puede anunciarse
+>    como «aquí se arregla lo que no calculó».
+> 3. **Sí respeta `manual` y `recuperada`**, comprobado: la preocupación que traía el
+>    encargo no se materializa por ese lado.
+>
+> ### Lo que queda, y el único bloqueante
+>
+> - **Once informes siguen imprimiendo a ciegas** (`Boletines2`, `Boletines3`,
+>   `Bolfinales`, `BolfinalesPreescolar`, `NotasActualesAlumnos`, `Puestos`, `Planillas`,
+>   `Promovidos`, `Historiales`, `Editnota`, `CertificadosPersona` y
+>   `CalcPerdidasDefinitivas`). Cablearlos es llamar a `ponerAlDiaUnInforme()` y decidir
+>   dónde va el aviso en cada respuesta — **no hace falta ninguna decisión más**.
+> - **El punto 6 de la fase 2** —rellenar las filas que faltan— sigue bloqueado por los
+>   dieciséis números de la fase 0. **Es lo único que puede vaciar la lista honesta**, así
+>   que mientras no exista, el tablero va a seguir marcando grupos y eso es correcto.
+>
+> ### Y un hallazgo que no es de este trabajo
+>
+> **`tests/Contrato/Snapshots/boletines-competencias-detailed-notas.json` está huérfana**:
+> ningún test la referencia, y su `poblacion` todavía lleva `competencias`,
+> `desempenos_del_grupo` y `desempenos_sueltos`, que el modelo plano quitó. O sea que
+> describe una respuesta que ya no existe y **nada se va a poner rojo por ello**. Es de la
+> tanda del modelo plano, no de ésta; se avisa y no se toca.
+
 > ## ✅ EL MODELO PLANO POR COMPETENCIAS — LAS CUATRO TAREAS DENTRO, ROUTER EN 591 (17 sep 2026)
 >
 > **«Competencia» y «desempeño» son la misma cosa**, así que sobraba un piso entero. El contrato

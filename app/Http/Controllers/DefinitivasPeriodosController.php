@@ -19,6 +19,7 @@ use \Log;
 use App\Http\Controllers\Alumnos\Solicitudes;
 use App\Services\Auditoria;
 use App\Services\BoletinIndependiente;
+use App\Services\DefinitivasDeAsignatura;
 use App\Support\EscalaDeNotas;
 use App\Support\PeriodoDeLaFila;
 use App\Support\NombreDelAlumno;
@@ -1049,11 +1050,53 @@ class DefinitivasPeriodosController extends Controller {
 
 
 
+	/**
+	 * Marcar o desmarcar una definitiva como puesta a mano.
+	 *
+	 * ## Desmarcar RECALCULA, y hasta el 17 sep 2026 no lo hacía
+	 *
+	 * Marcar es fácil: la fila se desengancha del recálculo y su valor es el que
+	 * escribió una persona. **Desmarcar es lo contrario y no lo era.** El método
+	 * escribía `manual = 0` y `updated_at = NOW()` y se iba, así que la fila volvía
+	 * al control automático **conservando el número tecleado** — y como
+	 * `estaDesactualizada()` compara el sello de la asignatura contra ese
+	 * `updated_at`, el sello quedaba **por detrás** y la fila se declaraba al día.
+	 * Ningún camino automático la volvía a mirar nunca.
+	 *
+	 * Medido el 17 sep 2026 en la copia de desarrollo, en una transacción con
+	 * rollback (fila 7266154, alumno 132, asignatura 1328, periodo 30): tras
+	 * desmarcar quedaban `nota = 1.0000` y `desactualizada = false`, con el cálculo
+	 * de verdad dando `48.15`. No es que se recalculara tarde: es que **no se
+	 * recalculaba nunca**, y el único camino que lo reparaba era el botón «Calcular
+	 * definitivas per N» de Informes.
+	 *
+	 * **Y el front ya prometía esto.** Los cuatro llamantes sacan el mismo toast al
+	 * desmarcar —*«Ahora la calculará el sistema»*— desde antes de que fuera cierto
+	 * (`NotasCtrl.ts:951`, `DefinitivasPeriodosCtrl.ts:377`, `NotasAlumnoCtrl` y
+	 * `PromocionarNotasCtrl`). La pantalla describía la conducta que el backend no
+	 * tenía, que es la forma en que un fallo así sobrevive años: nadie lo reporta
+	 * porque la interfaz ya dice que funciona.
+	 *
+	 * Es uno de los dos agujeros del recorrido del 17 sep —[10 §«El recorrido para
+	 * quitar los botones»](../../../docs/migracion/10-definitivas.md)— y **son
+	 * exactamente el trabajo que le quedaba al botón**: cerrados los dos, el botón
+	 * deja de tener ninguna función que no tenga ya otro camino.
+	 *
+	 * El recálculo va **sólo en la rama de desmarcar**: marcar no cambia el valor y
+	 * recalcular ahí pisaría justo lo que se acaba de proteger. Y va **acotado a ese
+	 * alumno**, no a la asignatura entera: lo que cambió de dueño es una fila.
+	 *
+	 * Devuelve la definitiva recalculada, como hace `putUpdate` con su clave
+	 * `definitiva`. **Antes devolvía la cadena `'Cambiada'` y ningún cliente la
+	 * lee** —los cuatro llamantes son `.then(function(){…})` sin argumento—, así que
+	 * ampliar la respuesta no rompe a nadie y le da al front con qué repintar la
+	 * celda sin pedir la pantalla entera.
+	 */
 	public function putToggleManual()
 	{
 		$user 			= User::fromToken();
 		User::pueden_modificar_definitivas($user, PeriodoDeLaFila::deNotaFinal(Request::input('nf_id')));
-		
+
 		if ($user->tipo == 'Profesor' || ($user->is_superuser)) {
 			// No pasa nada
 		}else{
@@ -1061,15 +1104,44 @@ class DefinitivasPeriodosController extends Controller {
 		}
 		$now 		= Carbon::now('America/Bogota');
 		$manual 	= Request::input('manual');
+		$nf_id		= Request::input('nf_id');
+
 		if ($manual){
 			$consulta 	= 'UPDATE notas_finales SET manual=?, updated_by=?, updated_at=? WHERE id=?';
-			DB::update($consulta, [ $manual, $user->user_id, $now, Request::input('nf_id') ]);
-		}else{
-			$consulta 	= 'UPDATE notas_finales SET manual=?, recuperada=?, updated_by=?, updated_at=? WHERE id=?';
-			DB::update($consulta, [ $manual, false, $user->user_id, $now, Request::input('nf_id') ]);
+			DB::update($consulta, [ $manual, $user->user_id, $now, $nf_id ]);
+
+			return [ 'message' => 'Cambiada', 'manual' => true, 'definitiva' => null ];
 		}
-		
-		return 'Cambiada';
+
+		// La fila se lee **antes** del UPDATE: después ya no se distingue de
+		// cualquier otra automática, y lo que hace falta para recalcular —de qué
+		// alumno, asignatura y periodo es— vive en ella.
+		$fila = DB::selectOne(
+			'SELECT alumno_id, asignatura_id, periodo_id FROM notas_finales WHERE id=?',
+			[ $nf_id ]
+		);
+
+		$consulta 	= 'UPDATE notas_finales SET manual=?, recuperada=?, updated_by=?, updated_at=? WHERE id=?';
+		DB::update($consulta, [ $manual, false, $user->user_id, $now, $nf_id ]);
+
+		$definitiva = null;
+
+		// Sin `periodo_id` no hay a qué periodo recalcular. La columna es anulable
+		// —es la §2.1, las tres formas de identificar la fila— y esa fila la limpia
+		// el punto 3 de la fase 2, no ésta: aquí se desmarca igual y se dice que no
+		// se pudo recalcular, en vez de reventar en la cara de quien pulsa.
+		if ($fila !== null && $fila->periodo_id !== null) {
+			$recalculo = DefinitivasDeAsignatura::recalcular(
+				(int) $fila->asignatura_id,
+				(int) $fila->periodo_id,
+				(int) $user->user_id,
+				(int) $fila->alumno_id
+			);
+
+			$definitiva = $recalculo['definitiva'] ?? null;
+		}
+
+		return [ 'message' => 'Cambiada', 'manual' => false, 'definitiva' => $definitiva ];
 	}
 
 

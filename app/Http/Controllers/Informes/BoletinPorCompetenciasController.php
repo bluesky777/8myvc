@@ -10,6 +10,7 @@ use App\Models\Grupo;
 use App\Models\NotaComportamiento;
 use App\Models\Year;
 use App\Services\BoletinIndependiente;
+use App\Services\DefinitivasDeAsignatura;
 use App\Support\PeriodoDelBoletin;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Request;
@@ -279,6 +280,58 @@ class BoletinPorCompetenciasController extends Controller
         $year->periodo = $this->user->numero_periodo;
 
         /*
+         * **Este boletín nació imprimiendo lo que hubiera, como los otros doce.** Es
+         * la §5 del recorrido del 17 sep
+         * ([10](../../../../docs/migracion/10-definitivas.md)): el único informe que
+         * preguntaba por el sello antes de pintar era `BoletinesController`, y una
+         * familia nueva no hereda lo que no tiene test. Se cablea ahora y no dentro de
+         * un mes porque `myvc_front` está construyendo esta pantalla esta semana, y
+         * retrofitear un aviso a una pantalla ya pintada sale más caro.
+         *
+         * La regla es la de Joseth del 17 sep —**reparar el periodo abierto, avisar en
+         * los cerrados**— y vive entera en el servicio, así que aquí no se decide
+         * nada: sólo se dice **de qué** se pregunta.
+         *
+         * **Las dos guardas del llamante, y ninguna sobra:**
+         *
+         *   1. `$pedido === null` — la regla del 15 sep, que es más fuerte que la del
+         *      17: quien pide un periodo concreto **está leyendo**, tenga ese periodo
+         *      el interruptor levantado o no. Sin esto, abrir el boletín de un periodo
+         *      cerrado que todavía admite notas lo reescribiría, que es exactamente lo
+         *      que aquella decisión prohibió.
+         *   2. `$soloAlumno` sale de **lo que se pidió**, no de `$alumnos`: ese método
+         *      devuelve un superconjunto (ver el bloque de arriba), así que contar sus
+         *      filas diría «treinta» para una petición de uno y ensancharía la
+         *      escritura al grupo entero **desde una ruta `boletin.propio`**. Es el
+         *      mismo criterio que usa `BoletinesController`, y por el mismo motivo.
+         *
+         * ## Y va AQUÍ ARRIBA, no abajo con el resto de la población
+         *
+         * Que las tres cuentas se devuelvan dentro de `$poblacion` invita a poner esta
+         * llamada al final, junto a ellas, donde encaja sin romper nada. **Sería un
+         * fallo silencioso**: en este boletín el **nivel se deriva de la definitiva**
+         * —`bandaDeLaNota()`, D31—, así que reparar después del bucle dejaría la base
+         * al día y devolvería el boletín con el nivel viejo dentro.
+         *
+         * Y aquí eso pesa más que en los otros tres boletines, que es lo que decide el
+         * orden en que conviene cablear los doce que faltan: **una definitiva atrasada
+         * aquí no imprime un número viejo, imprime una PALABRA equivocada** —«BAJO»
+         * donde debería poner «ALTO»—. De una cifra rara el que la lee puede
+         * desconfiar; de una valoración traducida, no.
+         */
+        $alDia = ['reparadas' => 0, 'asignaturas' => []];
+
+        if ($pedido === null) {
+            $unoSolo = is_array($requested_alumnos) && count($requested_alumnos) === 1
+                ? (int) $requested_alumnos[0]['alumno_id']
+                : null;
+
+            $alDia = DefinitivasDeAsignatura::ponerAlDiaUnInforme(
+                $grupo_id, $periodo_id, (int) $this->user->user_id, $unoSolo
+            );
+        }
+
+        /*
          * **El plan de área se lee UNA vez para el grupo entero, y no por alumno.**
          * No es optimización de galería: es lo que dice el dato. Una fila de
          * `desempenos_por_defecto` se dirige a (año, materia, grado, periodo) y
@@ -339,6 +392,20 @@ class BoletinPorCompetenciasController extends Controller
         }
 
         $poblacion['caritas'] = (bool) $grupo->caritas;
+
+        // **El aviso va en la población y no en una clave suelta**, porque es
+        // exactamente lo que este bloque ya es: el recuento de lo que se imprimió. Un
+        // «0 por detrás» sin el resto de la población no distingue *«miré doce
+        // asignaturas y ninguna lo estaba»* de *«no miré nada»* — la regla del
+        // CLAUDE.md, y aquí muerde porque con un periodo pedido **no se mira**.
+        //
+        // Las dos cuentas van separadas y el front las pinta distinto: `atrasadas` se
+        // repara sola y `faltan` **no la arregla nadie** hasta el punto 6 de la fase 2
+        // —ni el recálculo ni el botón de Informes—, así que sumarlas en un número
+        // haría que el coordinador pulsara esperando que bajara y no bajara.
+        $poblacion['definitivas_reparadas'] = $alDia['reparadas'];
+        $poblacion['definitivas_atrasadas'] = array_sum(array_column($alDia['asignaturas'], 'atrasadas'));
+        $poblacion['definitivas_que_faltan'] = array_sum(array_column($alDia['asignaturas'], 'faltan'));
 
         return [$grupo, $year, $respuesta, $this->escalasVal(), $poblacion];
     }

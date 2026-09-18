@@ -1015,6 +1015,262 @@ recálculo cuesta ~4 ms por nota.
 
 ---
 
+---
+
+### El recorrido para quitar los botones, y las DOS razones por las que siguen vivos  *(17 sep 2026)*
+
+Encargo de Joseth por la sesión de `myvc_front`: *«que las definitivas se calculen
+solas para poder quitar los botones de la UI; pienso esconderlos y ponerlos en otro
+sitio para resolución de errores»*. O sea la fase 5, pero con el matiz que cambia el
+diseño: **los endpoints no se borran**, se esconden. `calcular-grupo-periodo` tiene
+que seguir existiendo y funcionando.
+
+Recorrido hecho sobre el árbol principal el 17 sep 2026. **La premisa se sostiene, y
+la mayor parte del trabajo ya estaba hecha**: la fase 3 cableó el recalculador en
+**todos** los caminos que escriben una nota. Lo que queda no está donde el encargo
+suponía.
+
+#### 1. Las escrituras ya están cubiertas — las once
+
+| Camino | Recalcula |
+|---|---|
+| `NotasController::putUpdate` · `putLote` · `deleteDestroy` · `putSubunidad` | sí |
+| `NotasController::putNivelar` · `deleteNivelar` · `putNivelarLote` | sí |
+| `NotasController::putDetailed` (cada carga de /notas) | sí, si el sello lo pide |
+| `Unidades`/`SubunidadesController` (alta, edición y baja) | sí, por unidad/subunidad |
+| `PeriodosController::putCopiar` | sí |
+| `BoletinIndependienteController::postCopiar` | sí |
+| **Rúbricas** | **no escribe `notas.nota`** — pasa por `notas/update`, que sí recalcula |
+| **Importaciones** | **no escriben notas**: `Alumnos/Definitivas` es el 410 y no lo llama nadie |
+
+`NotaFinal::calcularAsignaturaPeriodo` sigue sin llamantes (recomprobado).
+
+#### 2. Los dos agujeros que quedan — y son exactamente el trabajo que le queda al botón
+
+**(a) `putToggleManual` con `manual=0` congela el valor tecleado.** Desmarcar «manual»
+devuelve la fila al control automático, pero el método escribe `updated_at = NOW()`
+**sin recalcular**. Como `estaDesactualizada()` compara el sello contra ese
+`updated_at`, la fila queda declarada **al día** con el número que puso una persona, y
+ningún camino automático la volverá a mirar nunca.
+
+Medido el 17 sep en la copia de desarrollo, dentro de una transacción con rollback
+(fila 7266154, alumno 132, asignatura 1328, periodo 30):
+
+```
+sello                   = 2025-03-27 18:41:22
+con manual=1            → desactualizada: false   (correcto: no se toca)
+tras desmarcar manual   → nota=1.0000  manual=0  updated_at=2026-09-18 02:18:06
+                        → desactualizada: false   ← el agujero
+calculada de verdad     = 48.1500
+```
+
+`1.0` guardada, `48.15` calculada, y el detector dice que está al día. `putToggleRecuperada`
+con `recuperada=0` tiene la misma forma cuando la fila no quedó marcada como manual.
+
+**(b) Cambiar `reparto_subunidades` cambia todas las definitivas del año y no recalcula
+ninguna.** Ya está escrito en el docblock de `YearsController::avisarDeLoQueRecalcula`
+(15 sep): el método avisa con el recuento delante y un `acepto_recalcular`, **pero no
+recalcula**. Y el sello **no lo ve**: `selloDeVersion()` mira `notas`, `unidades`,
+`subunidades` y `matriculas` — no mira `years`. Así que después de girar el
+interruptor nada, ni perezoso ni ansioso, repara la deriva.
+
+> **Y de ahí sale la conclusión que ordena la fase 5:** los dos únicos trabajos que
+> hoy le quedan de verdad al botón son reparar (a) y reparar (b) — los dos los arregla
+> porque su `DELETE` se lleva las automáticas y las repone con el modo del periodo.
+> **El botón sobrevive porque existen esos dos agujeros.** Cerrarlos lo deja sin
+> ninguna función que no tenga ya otro camino, que es la condición que la fase 5 pedía
+> y nunca se había escrito en términos comprobables.
+
+#### 3. Lo que el botón NO arregla, y conviene decirlo antes de esconderlo
+
+`putCalcularGrupoPeriodo` **sí respeta `manual` y `recuperada`** —su `DELETE` los
+excluye y su `INSERT` lleva `WHERE NOT EXISTS`—, así que la preocupación de reutilizarlo
+en automático no se materializa por ese lado. Lo que no hace es **crear la fila que
+falta**: su `INSERT` sale de un `inner join notas`, o sea sólo repone al alumno que
+tiene notas. Un alumno sin ninguna nota en una asignatura **sigue sin definitiva después
+de pulsar el botón** (§1.3, sin cambios desde el 20 ago).
+
+Eso importa para el encargo: **el botón no es la red de seguridad que parece.** Para el
+caso que más duele —la §6: sin fila, el puesto cuenta cero, el boletín cuenta cero y la
+planilla borra al alumno— pulsarlo no cambia nada.
+
+#### 4. `periodos_desactualizados` no sirve como señal de que el trabajo esté hecho
+
+Sale de `Informes\InformesController::grupos_desactualizados`, y **no es el detector del
+recalculador**: es `MAX(notas.updated_at) > MAX(notas_finales.updated_at)` **por grupo
+entero**, unidos por `INNER JOIN`. Tres consecuencias, las tres estructurales:
+
+- **El `INNER JOIN` deja fuera al grupo que no tiene ninguna definitiva** en ese periodo.
+  Las filas que faltan —las 11.988 de la fase 0— son **invisibles** para esta lista.
+- **Es un `MAX` por grupo, no por asignatura**: una definitiva tecleada a mano en
+  cualquier asignatura sube el `MAX` del grupo y **tapa** las automáticas atrasadas de
+  las demás.
+- **Es ciega a los borrados**, como la comprobación vieja de la §4.2.
+
+Medido el 17 sep sobre la copia de desarrollo, año en curso (2026, 13 grupos), comparando
+la consulta del tablero contra `DefinitivasDeAsignatura::estadoDelGrupo()`:
+
+```
+per1  tablero:0   servicio:3   | faltan:198   atrasadas:0
+per2  tablero:0   servicio:3   | faltan:205   atrasadas:0
+per3  tablero:0   servicio:3   | faltan:205   atrasadas:0
+per4  tablero:0   servicio:3   | faltan:205   atrasadas:0
+```
+
+**La lista ya está vacía hoy, con 205 definitivas sin existir.** El control positivo está
+en que la misma consulta sí dispara en otros años de la misma base (2025: 2 grupos, 2024:
+9), así que el cero de 2026 es del detector y no de la reproducción.
+
+> Esto invierte el criterio que traía el encargo. *«Cuando el cálculo sea automático esa
+> lista debería quedar vacía sola; si no puede quedar vacía, falta un camino por
+> cubrir»* es razonable y **aquí no vale**: la lista se vacía sin que el trabajo esté
+> hecho, porque mide otra cosa.
+>
+> **Y el falso negativo no se ve como un error: se ve como silencio.** Corregido por la
+> sesión de `myvc_front` el 17 sep, y la precisión importa: el bloque entero del tablero
+> va dentro de un `@if (periodosPorRecalcular().length)` —`app2`,
+> `informes/tablero/tablero.html:43`—, así que con la lista vacía **no se pinta nada**.
+> No hay ninguna marca verde ni ningún «todo al día»: la pantalla no afirma nada, sólo
+> repite lo que le mandan. Sigue siendo igual de peligroso —el silencio se lee como «no
+> hay nada que hacer»— pero **no es una pantalla mintiendo, es una pantalla callando**, y
+> eso cambia dónde hay que arreglarlo: en el detector, no en el aviso.
+
+#### 5. Las lecturas siguen imprimiendo lo que haya — veintidós de veintitrés
+
+Censo del 17 sep sobre los controladores que nombran `notas_finales`. **El único que
+comprueba antes de pintar sigue siendo `Informes\BoletinesController`**, y sólo en
+`putDetailedNotas`, sólo con **un** alumno pedido y sólo si **no** se pidió `periodo_id`
+(lo de la regla del periodo cerrado, 15 sep). Imprimen a ciegas:
+
+`Boletines2`, `Boletines3`, `BoletinPorCompetencias`, `Bolfinales`,
+`BolfinalesPreescolar`, `NotasActualesAlumnos`, `Puestos`, `Planillas`, `Promovidos`,
+`Historiales`, `Editnota`, `CertificadosPersona` y `CalcPerdidasDefinitivas`.
+
+`BoletinPorCompetencias` es nuevo desde que se escribió la §«los informes leen a ciegas»
+(27 ago) y **nació sin la comprobación**, que es la forma de siempre: lo que no tiene
+test no lo hereda una familia nueva.
+
+#### 6. Qué cuesta hacer honesta la lista del tablero
+
+`estadoDelGrupo()` sigue sin llamantes fuera de su test. Medido el 17 sep en la copia de
+desarrollo, los 13 grupos del año en curso: **13 consultas, 33 ms — 2,5 ms por grupo**.
+Sustituir `grupos_desactualizados` por esto en `informes/datos` son **52 consultas**
+(13 grupos × 4 periodos) frente a las 4 de hoy, o sea ~130 ms en una pantalla de
+coordinación que se abre pocas veces. **Es la única de las piezas de este recorrido que
+no necesita ninguna decisión de Joseth**: la lista pasa a decir la verdad, y lo que se
+haga con ella sigue siendo la pregunta de abajo.
+
+#### 7. Lo que hace falta decidir, y lo que no
+
+**No hace falta decidir** (son fallos, no opciones): (a) que desmarcar `manual`
+recalcule, (b) que cambiar `reparto_subunidades` recalcule el año —o que diga que no lo
+hizo—, y (c) que el tablero mida con el detector del recalculador.
+
+**Sí hace falta decidir**, y es la pregunta del §«PARA JOSETH» de más arriba, sin
+cambios desde el 27 ago: **qué hace un informe cuando descubre que está por detrás** —
+repararlo antes de pintar, avisar sin escribir, o reparar sólo el periodo abierto.
+
+**Y queda un bloqueante que no es una decisión sino una medición**: las filas que faltan
+las rellena el punto 6 de la fase 2, que sigue esperando los dieciséis números de la fase
+0. Mientras no existan, **ningún recálculo automático puede vaciar la lista honesta**,
+porque el alumno sin notas no tiene quien le escriba la fila. Esconder los botones no
+empeora eso —el botón tampoco la escribe (§3)— pero conviene que se cuente así y no como
+«ya está resuelto».
+
+#### Contestado por Joseth el mismo día, y lo que se hizo con las dos respuestas
+
+**1. Qué hace un informe cuando se descubre por detrás: reparar el periodo abierto,
+avisar en los cerrados.** De las tres formas eligió la del medio, que es la regla del
+[16](16-escribir-en-un-anio-pasado.md) aplicada aquí y la misma que ya había dado el 15
+sep para el boletín de un periodo pasado — *imprimir un histórico no reescribe
+definitivas de hace tres años*.
+
+Vive en `DefinitivasDeAsignatura::ponerAlDiaUnInforme()`, en el servicio y no en cada
+controlador, **por lo mismo que el recalculador único**: es la regla que necesitan los
+otros doce informes que hoy imprimen a ciegas, y escrita en el primero se copiaría doce
+veces con doce matices.
+
+Dos decisiones de forma que salieron de construirlo:
+
+- **«Abierto» es `periodos.profes_pueden_editar_notas`, no `periodos.actual`.** `actual`
+  dice cuál es el periodo en curso, uno por año; un colegio que todavía admite notas del
+  periodo 2 mientras corre el 3 tiene **dos** periodos reparables y con `actual` sólo se
+  repararía uno. Y el interruptor de editar notas es **el que el propio colegio baja para
+  cerrar un periodo**: si las notas todavía se pueden mover, la definitiva tiene que
+  seguirlas. La regla se cuelga del interruptor que ya existe en vez de inventar un
+  segundo criterio de «cerrado», que es lo que dejaría dos puertas al mismo dato.
+- **Las dos reglas del periodo se componen, ninguna sustituye a la otra.** La del 15 sep
+  —*pedir un periodo pasado NO recalcula*— es **más fuerte** y va antes: un periodo
+  pasado puede tener el interruptor todavía levantado, y la regla nueva por sí sola lo
+  repararía, que es justo lo que aquella prohibió. Por eso el `$pedido === null` se queda
+  en `putDetailedNotas` y no baja al servicio.
+
+Devuelve **siempre** lo que está por detrás, repare o no, y **vuelve a preguntar después
+de reparar**: lo que quede es lo que el recálculo *no pudo* arreglar. Que eso salga vacío
+con el periodo abierto **no está garantizado, y es justo la señal que interesa** — hoy
+ahí caen las filas que faltan cuando la asignatura no tiene unidades vivas, que el
+servicio no escribe a propósito (28 ago). Es lo que la lista del tablero nunca pudo
+decir, y vale más que un booleano.
+
+**2. Los dos agujeros: cerrados el 17 sep.**
+
+| | |
+|---|---|
+| `putToggleManual` con `manual=0` | recalcula esa fila y devuelve la definitiva en la respuesta |
+| `years/modelo-evaluacion` con `reparto_subunidades` distinto | recalcula el año entero y devuelve `recalculadas: {pares, escritas}` |
+
+Del primero salió un detalle que conviene tener escrito porque explica cómo sobrevive un
+fallo así: **el front ya prometía la conducta que el backend no tenía.** Los cuatro
+llamantes sacan el mismo toast al desmarcar —*«Ahora la calculará el sistema»*— desde
+antes de que fuera cierto. Nadie lo reporta porque la interfaz ya dice que funciona.
+
+El segundo va **síncrono y no perezoso**, porque es el único momento en que se sabe que
+hay que hacerlo: el sello no mira `years`, así que ningún recálculo posterior lo
+descubriría. Medido el 17 sep en la copia de desarrollo, año en curso: **536 pares
+(asignatura, periodo), 1.680 definitivas, 2,5 s**. Los pares salen de `unidades` y no del
+cartesiano `asignaturas × periodos` — no por rendimiento, sino porque el servicio no
+escribe donde no hay unidades vivas y el cartesiano pediría miles de recálculos que él
+descartaría igual.
+
+**3. El detector del tablero pasa a `estadoDelGrupo()`**, que no necesitaba decisión. El
+diff de la instantánea `muestreo-informes-datos` es **sólo aditivo** —aparece
+`periodos_desactualizados`, que antes no salía porque el detector viejo no encontraba
+nada— y ninguna clave existente cambió de forma, así que el front sigue leyendo
+`numero`, `grupo_id`, `nombre` y `abrev` igual que antes. Se añaden `faltan` y
+`atrasadas`, que dicen **por qué** está marcado.
+
+> **Y la comprobación que hace creíble el cambio de detector no es que la suite siga
+> verde**: es que el `faltan` del detector nuevo coincide **exactamente** con una consulta
+> independiente que no usa el servicio. Sobre la base de tests: **777** matriculados sin
+> definitiva contados con un `LEFT JOIN … IS NULL`, y 0 + 37 + 370 + 370 = **777**
+> sumando los cuatro periodos. Una consulta agregada que sustituye a otra es rápida **por
+> ser otra consulta**, así que hay que demostrar que contesta la misma pregunta — la misma
+> lección que dejó `test_el_estado_del_grupo_dice_lo_mismo_que_preguntar_una_a_una`.
+
+Lo fija `DefinitivasQueSeCalculanSolasTest`, **7 casos y los tres arreglos comprobados en
+negativo**: neutralizado el recálculo de `putToggleManual` caen dos casos, neutralizado el
+del año cae uno, y neutralizada la regla del periodo cerrado cae el suyo y sólo el suyo.
+Sin esa vuelta, un test que pasa no distingue «el arreglo funciona» de «el caso no lo
+toca».
+
+#### Lo que sigue pendiente después de esto
+
+- **Once informes siguen imprimiendo a ciegas** (§5). Cableados: `BoletinesController`
+  —que ya lo hacía a mano y ahora delega— y `BoletinPorCompetencias`.
+
+  > **Y el orden en que se cablee el resto no es indiferente, por una razón que salió de
+  > construirlo.** En el boletín por competencias **el nivel se deriva de la definitiva**
+  > (`bandaDeLaNota`, D31), así que una definitiva atrasada ahí **no imprime un número
+  > viejo: imprime una PALABRA equivocada** —«BAJO» donde debería poner «ALTO»—. De una
+  > cifra rara el que la lee puede desconfiar; de una valoración traducida, no. Los
+  > siguientes que conviene cablear son los que traducen la nota a texto, no los que la
+  > enseñan tal cual.
+- **El punto 6 de la fase 2** —rellenar las filas que faltan—, que sigue bloqueado por los
+  dieciséis números de la fase 0. **Es lo único que puede vaciar la lista honesta.**
+- **Retirar los botones** (fase 5) es ya sólo la decisión de presentación: el rincón de
+  mantenimiento no puede anunciarse como «aquí se arregla lo que no calculó», porque para
+  el alumno sin notas el botón tampoco escribe la fila.
+
 ### Fase 5 — Quitar los botones
 
 Solo cuando las fases 1-4 estén desplegadas y la fase 0 se pueda volver a correr

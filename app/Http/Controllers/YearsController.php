@@ -9,6 +9,7 @@ use App\Models\Year;
 use App\Services\Auditoria;
 use App\Support\Autoriza;
 use App\Services\BoletinIndependiente;
+use App\Services\DefinitivasDeAsignatura;
 use App\Support\RepartoDeLaNota;
 use App\Models\Periodo;
 use App\Models\ConfigCertificado;
@@ -1083,6 +1084,38 @@ class YearsController extends Controller {
 		$year->updated_by = $user->user_id;
 		$year->save();
 
+		// **Y ahora se recalcula, que es la mitad que faltaba desde el 15 sep 2026.**
+		//
+		// El 422 de `avisarDeLoQueRecalcula` cuenta cuántas definitivas cambian y pide
+		// `acepto_recalcular`, y hasta hoy ahí se acababa: el método guardaba el año y
+		// se iba. O sea que el aviso decía la verdad —«esto recalcula N definitivas»— y
+		// **nadie las recalculaba**. Lo que producía no era un salto sino deriva: las
+		// guardadas seguían en el modo viejo mientras las pantallas ya calculaban con
+		// el nuevo, y se iban reescribiendo asignatura a asignatura según alguien las
+		// fuera tocando, durante días.
+		//
+		// **El sello no podía taparlo**, y por eso no bastaba con dejarlo al recálculo
+		// perezoso: `DefinitivasDeAsignatura::selloDeVersion()` mira `notas`,
+		// `unidades`, `subunidades` y `matriculas` — **no mira `years`**. Girar este
+		// interruptor no mueve ninguna de las cuatro, así que las definitivas del año
+		// quedaban declaradas al día con el reparto viejo dentro. Es el segundo de los
+		// dos agujeros del recorrido del 17 sep ([10](../../../docs/migracion/10-definitivas.md)),
+		// y el otro —desmarcar `manual`— tiene la misma forma: una escritura que cambia
+		// el resultado sin tocar nada de lo que el sello vigila.
+		//
+		// Se hace **síncrono y no perezoso** porque es el único momento en que se sabe
+		// que hay que hacerlo. Medido el 17 sep en la copia de desarrollo sobre el año
+		// en curso: **536 pares (asignatura, periodo), 1.680 definitivas escritas,
+		// 2,5 s**. Es caro para una petición y barato para lo que es — un cambio de
+		// configuración que ocurre una vez al año y que ya viene detrás de un 422 con
+		// el recuento delante.
+		$recalculadas = null;
+
+		if (isset($antes['reparto_subunidades'])
+			&& (string) $antes['reparto_subunidades'] !== (string) $year->reparto_subunidades) {
+			$recalculadas = $this->recalcularElAnioEntero((int) $year->id, (int) $user->user_id);
+		}
+
 		// `anterior` a secas se conserva **sólo cuando se tocó el modelo**, porque es
 		// lo que el front ya lee para decir «pasó de ponderado a competencias». Si un
 		// día se retira, que sea con el front delante y no de paso.
@@ -1107,7 +1140,66 @@ class YearsController extends Controller {
 			'desempeno_displayname' => $year->desempeno_displayname,
 			'desempenos_displayname' => $year->desempenos_displayname,
 			'genero_desempeno' => $year->genero_desempeno,
+			// `null` cuando no se tocó el reparto — que no es lo mismo que `0`, y por eso
+			// no se rellena con cero: `0` dice «se recalculó y no cambió ninguna»,
+			// `null` dice «no había nada que recalcular».
+			'recalculadas' => $recalculadas,
 		];
+	}
+
+	/**
+	 * Recalcula todas las definitivas de un año, por pares (asignatura, periodo).
+	 *
+	 * Sólo lo llama el cambio de `reparto_subunidades`, que es lo único que cambia
+	 * el resultado de **todas** las asignaturas a la vez sin tocar ninguna nota.
+	 *
+	 * ## Los pares salen de `unidades`, no de `asignaturas` × `periodos`
+	 *
+	 * Y la diferencia no es de rendimiento. `DefinitivasDeAsignatura::recalcular()`
+	 * no escribe nada cuando la asignatura no tiene unidades vivas en ese periodo
+	 * —decisión de Joseth del 28 ago, para que borrar la última unidad no escriba
+	 * treinta ceros—, así que el producto cartesiano pediría miles de recálculos que
+	 * el servicio descartaría de todos modos. Preguntando por `unidades` se piden
+	 * **sólo los pares que existen**: 536 en el año en curso de la copia de
+	 * desarrollo, frente a los 1.219 × 4 del cartesiano.
+	 *
+	 * **`manual` y `recuperada` quedan fuera solas**, sin filtro aquí: las respeta el
+	 * servicio, que es donde esa regla vive desde la fase 1. Repetirla aquí sería el
+	 * quinto sitio que decide lo mismo, que es justo lo que el recalculador único
+	 * vino a quitar.
+	 *
+	 * **No va en una transacción que lo envuelva todo.** Cada par abre la suya dentro
+	 * del servicio; envolver los 536 en una sola dejaría la tabla de definitivas del
+	 * colegio bloqueada dos segundos y medio, y un fallo a mitad no deja nada
+	 * inconsistente — deja definitivas recalculadas y definitivas por recalcular, que
+	 * es exactamente el estado del que se viene y el que el aviso ya describe.
+	 *
+	 * @return array{pares:int, escritas:int}
+	 */
+	private function recalcularElAnioEntero(int $yearId, int $porUsuario): array
+	{
+		$pares = DB::select(
+			'SELECT DISTINCT u.asignatura_id, u.periodo_id
+			   FROM unidades u
+			   INNER JOIN periodos p ON p.id = u.periodo_id AND p.deleted_at IS NULL AND p.year_id = ?
+			   INNER JOIN asignaturas a ON a.id = u.asignatura_id AND a.deleted_at IS NULL
+			  WHERE u.deleted_at IS NULL',
+			[$yearId]
+		);
+
+		$escritas = 0;
+
+		foreach ($pares as $par) {
+			$recalculo = DefinitivasDeAsignatura::recalcular(
+				(int) $par->asignatura_id,
+				(int) $par->periodo_id,
+				$porUsuario
+			);
+
+			$escritas += (int) ($recalculo['escritas'] ?? 0);
+		}
+
+		return ['pares' => count($pares), 'escritas' => $escritas];
 	}
 
 	/**
