@@ -539,7 +539,7 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
   > | `composer run pint` | **ESCRIBE**: formatea los ficheros de la lista |
   > | `pint --test` a secas | mide **todo el repo**, incluido lo que no se formatea a propósito |
   >
-  > Los dos primeros corren sobre **la lista curada de `composer.json`** —hoy **415**
+  > Los dos primeros corren sobre **la lista curada de `composer.json`** —hoy **417**
   > ficheros—; el tercero sobre **662**, y da `FAIL` con **189** avisos. **Las dos cifras
   > son correctas y cuentan poblaciones distintas**: con la tercera se archivó como ruido
   > un rojo real que llevaba desde el 7 sep en `CorsDelEscritorioTest`.
@@ -553,7 +553,11 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
   > > *Y subía otra vez esa misma tarde, de **413** a **415**: las dos familias nuevas de
   > > `informes-recientes` y `accesos-favoritos` metieron sus dos controladores en la lista.
   > > Se apuntan aquí **en el mismo commit que los escribe**, que es la única forma de que
-  > > este número no vuelva a llevar meses de retraso.*
+  > > este número no vuelva a llevar meses de retraso. Y **417** un rato después, con los dos
+  > > ficheros de prueba de esas mismas familias —`tests/` ya estaba en la lista, así que ahí
+  > > no hubo nada que añadir: el número sube solo. **Que se mueva tres veces en una tarde no
+  > > es que esté mal medido; es lo que hace esta cifra**, y por eso lleva al lado la orden que
+  > > la rehace en vez de una fecha de caducidad.*
   > >
   > > **Y el 647 tiene una trampa que conviene dejar dicha: hoy es el número de LARASTAN,
   > > no el de Pint.** `composer run stan` analiza **647** ficheros y `pint --test` mide

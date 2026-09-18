@@ -167,9 +167,34 @@
 > la salida es un índice con prefijo y NO acortar la columna**, que perdería direcciones largas en
 > silencio.
 >
+> ### Los tests — HECHOS, con luz verde expresa de Joseth (18 sep 2026)
+>
+> `InformesRecientesTest` (13 casos) y `AccesosFavoritosTest` (18) — **31 passed**, y `tests/` ya
+> estaba en la lista de Pint, así que sube a **417** sin tocar `composer.json`.
+>
+> **Se le preguntó señalando que iba contra su propia regla** de esperar a la pasada a mano, y
+> los pidió igual. Eso hace la luz verde **de este trozo y no general**.
+>
+> Lo que cubren es lo que **rompe en silencio**, porque esta familia no tiene ningún camino que
+> reviente: la huella no se acepta del cuerpo; las claves desordenadas y las vacías dan la misma
+> huella; `params` **no** entra en la huella —si entrara, renombrar un grupo orfanaría la fila—;
+> el recorte al tope está en el servidor; `user_id`/`year_id` salen de la sesión; una lista de
+> favoritos rechazada **no escribe ni los renglones buenos que van delante del malo**; y reordenar
+> conserva `created_at`.
+>
+> > **Dos rojos al escribirlos, los dos míos y ninguno del código**, que valen como aviso: `+`
+> > entre arrays **no sobrescribe** —la clave larga nunca se mandaba, de ahí un 200 donde se
+> > esperaba 422—, y acuñar un token por petición hace un `login` por llamada, así que el bucle
+> > del tope se comió un **429** del limitador. El token se cachea por test desde entonces.
+> >
+> > Y una cifra que bajó al arreglarlo: de **166** aserciones a **138** con dos tests más pasando.
+> > No es que se compruebe menos — `tokenDe()` lleva un `assertStatus(200)` **dentro**, así que
+> > cada login sumaba una. *Una cifra que se mueve en la dirección rara se explica antes de seguir,
+> > también cuando el resultado es verde.*
+>
 > ### Lo que NO está hecho
 >
-> **No hay tests de contrato de estas cinco rutas.** Por la regla de arriba, no por olvido. Las
+> Las
 > instantáneas sí se movieron —`rutas.json`, `guards-por-ruta.json` y `guard-por-familia.json`, con
 > las dos familias como **«3 de 3»** y **«2 de 2»**— y
 > `familias-que-nunca-entran-en-el-candado.json` **no se movió**, que era la predicción: con dos o
