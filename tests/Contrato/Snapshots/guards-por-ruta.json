@@ -2,6 +2,7 @@
     "auth.personal": [
         "DELETE api/actividades/destroy/{id}",
         "DELETE api/areas/destroy/{id}",
+        "DELETE api/areas/jefes/{area_id}",
         "DELETE api/asignaturas/destroy/{id}",
         "DELETE api/aspiraciones/destroy/{id}",
         "DELETE api/ausencias/destroy/{id}",
@@ -55,6 +56,7 @@
         "GET api/alumnos",
         "GET api/alumnos/sin-matriculas",
         "GET api/alumnos/trashed",
+        "GET api/areas/jefes",
         "GET api/asignaturas/list-asignaturas-year/{profesor_id}/{periodo_id}",
         "GET api/asignaturas/papelera",
         "GET api/asistencias-app/datos-solo-alumnos",
@@ -221,6 +223,7 @@
         "PUT api/alumnos/de-grupo/{grupo_id}",
         "PUT api/alumnos/documento-check",
         "PUT api/alumnos/personas-check",
+        "PUT api/areas/jefes/{area_id}",
         "PUT api/areas/update-orden",
         "PUT api/areas/update/{id}",
         "PUT api/asignaturas/datos-asignaturas",

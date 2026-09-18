@@ -37,6 +37,15 @@ Route::put('areas/update-orden', [AreasController::class, 'putUpdateOrden'])->mi
 Route::delete('areas/destroy/{id}', [AreasController::class, 'deleteDestroy'])->middleware('auth.personal');
 Route::put('areas/update/{id}', [AreasController::class, 'putUpdate'])->middleware('auth.personal');
 
+// El director de área, POR AÑO — `jefes_de_area`, no `areas`. Los tres van con
+// `auth.personal` en la ruta porque quién dirige un área es dato del personal, y
+// las dos escrituras piden además coordinación académica DENTRO del método.
+// No chocan con `areas/update/{id}` ni con `areas/destroy/{id}`: el segundo
+// segmento es un literal distinto en los tres casos.
+Route::get('areas/jefes', [AreasController::class, 'getJefes'])->middleware('auth.personal');
+Route::put('areas/jefes/{area_id}', [AreasController::class, 'putJefe'])->middleware('auth.personal');
+Route::delete('areas/jefes/{area_id}', [AreasController::class, 'deleteJefe'])->middleware('auth.personal');
+
 // MateriasController
 Route::get('materias', [MateriasController::class, 'getIndex']);
 Route::post('materias', [MateriasController::class, 'postIndex'])->middleware('auth.personal');
