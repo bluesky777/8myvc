@@ -19,9 +19,11 @@ use Illuminate\Support\Facades\Request;
  * [35-el-modelo-de-evaluacion-del-colegio.md](../../../../docs/migracion/35-el-modelo-de-evaluacion-del-colegio.md),
  * con **D16** y **D17** encima.
  *
- * La competencia arriba, sus desempeños debajo y los sueltos al final, que es la fila
- * del plan de área tal como la teclea un colegio y como la leen los catorce SIEE del
- * corpus (`myvc_front/PLAN-FRONT-MODELO-DE-EVALUACION.md` §4.3).
+ * El plan de área de la asignatura línea a línea y las frases escritas a mano al
+ * final: **el modelo es plano** (D31 y P3 del
+ * [39](../../../../docs/migracion/39-el-modelo-plano-por-competencias.md) §4), que es
+ * la fila del plan de área tal como la teclea un colegio y como la leen los catorce
+ * SIEE del corpus (`myvc_front/PLAN-FRONT-MODELO-DE-EVALUACION.md` §4.3).
  *
  * ## No es una cuarta copia, y la Fase 5 es la que lo autoriza
  *
@@ -61,45 +63,82 @@ use Illuminate\Support\Facades\Request;
  *   `deGrupo`, contra `detailed-notas/{g}` y `detailed-notas-group/{g}`. Una cuarta
  *   copia idéntica sería código muerto el día que entra.
  *
- * ## Lo que se imprime es lo que el docente guardó, y ni un nivel más
+ * ## Lo que se imprime es el PLAN DE ÁREA entero, y el nivel se deriva
  *
- * **Sólo salen las filas que existen en `frases_asignatura`.** Un desempeño del grupo
- * que nadie haya marcado **no aparece**, ni siquiera en blanco: es la decisión 10 y la
- * Fase 4 la sostiene por el otro lado —*«ningún boletín afirma un nivel que nadie
- * miró»*—. Lo que la respuesta sí hace es **contarlo**: `poblacion.desempenos_del_grupo`
- * frente a `poblacion.desempenos_impresos` dice cuántas casillas quedaron sin mirar,
- * que es la pregunta que el colegio hace antes de imprimir.
+ * **Salen todas las filas de `desempenos_por_defecto` que le tocan a la asignatura**
+ * —las de su grado **y** las de «todos los grados», que acumulan y no compiten
+ * (D25)—, tenga el alumno nota o no. Aquí ya no hay nada que marcar: la rejilla que
+ * elegía casilla por casilla se fue con la **D31**, y con ella la decisión 10 —*«ningún
+ * boletín afirma un nivel que nadie miró»*—, porque ya no hay nadie que mire. **El
+ * nivel lo dice la definitiva.**
  *
- * ## Lo que se imprime son COPIAS, y son cuatro
+ * Así que el nivel es **uno por asignatura, repetido en todas sus líneas** (P1.bis,
+ * H4): la banda en la que cae `nota_asignatura` de **esa** asignatura en **ese**
+ * periodo. Que se repita no es un descuido de la maqueta, es lo que significa —*«en
+ * esta materia el alumno está en ALTO»*— y debajo, el plan de área que el colegio
+ * escribió para ella.
  *
- * Nada de lo que sale en el bloque de desempeños se lee del catálogo de hoy: las cuatro
- * cosas están copiadas en `frases_asignatura` el día que el docente marcó la casilla, y
- * las cuatro por el mismo argumento —**el id pinta y el texto imprime**—, porque las
- * cuatro tablas de origen son **por año y editables**.
+ * El otro bloque son **las frases escritas a mano** —la pantalla de
+ * `frases_asignatura`, que no se toca—: **12.294 filas sólo en `simonbolivar`** (§4 del
+ * 39), datos de producción de los dieciséis colegios que nunca vinieron de ninguna
+ * rejilla. Salen **al final y sin nivel**, porque una frase a mano no es una fila de un
+ * plan de área y no hay banda que ponerle.
  *
- *     texto        ← fa.frase         el desempeño, como estaba         (D9,  Fase 4)
- *     nivel        ← fa.nivel         la banda, como se llamaba         (D23, Fase 4)
- *     competencia  ← fa.competencia   la cabecera, como se llamaba      (2026_09_14_100000)
- *     (el icono)   ← se lee vivo, y es adorno: ver más abajo
+ * > **Y por eso la consulta de las frases NO nombra `frases_asignatura.desempeno_id`,
+ * > ni `escala_id`, ni `nivel`, ni `competencia`.** Las cuatro columnas las añadió
+ * > `2026_09_13_400000_marca_del_desempeno`, que se borra con la rejilla, y en los
+ * > dieciséis colegios **nunca corrió**: el volcado de
+ * > `database/schema/mysql-schema.sql` —que es la verdad del esquema— tiene
+ * > `frases_asignatura` con **doce** columnas y ninguna de las cuatro. Nombrar una sería
+ * > un `Unknown column` allí, y ésa es la clase de rojo que **este docker no puede
+ * > enseñar**: aquí la migración sí corrió, así que las columnas existieron hasta que se
+ * > podó la rejilla (§7 del 39) y una consulta que las nombrara habría pasado en verde
+ * > el día de escribirla. Filtrar «las escritas a mano» por `desempeno_id IS NULL` sería
+ * > exactamente esa trampa — y **no hace falta filtrar nada**, porque las de la rejilla
+ * > no existen en ningún colegio.
+ * >
+ * > Lo que eso deja **en este docker y en ningún sitio más**: las filas que una sesión
+ * > tecleó por la rejilla antes de podarla se quedaron sin la columna que las
+ * > distinguía, así que se imprimen como frases a mano. No es un caso que pueda
+ * > reproducir un colegio: es una base de desarrollo con la migración corrida.
  *
- * La cuarta llegó **una entrega después** que las otras tres y no por descuido: la
- * competencia está a **dos saltos** de la celda —`fa.desempeno_id` →
- * `desempenos.competencia_id` → `competencias`—, así que no se veía desde donde se veían
- * las otras. Mientras faltó, **renombrar una competencia en 2028 cambiaba la cabecera de
- * un boletín de 2026**.
+ * ## Lo que se imprime se lee VIVO, y eso deshace una migración a propósito
  *
- * **Y lo que de verdad protege un papel del año pasado no es la copia: es que su periodo
- * esté cerrado.** La copia se rehace cada vez que esa celda se vuelve a guardar —y eso se
- * quiere, es el docente corrigiendo una errata—; lo que no puede pasar es que cambie
- * **sin que nadie guarde**, que es lo que hacía la cabecera.
+ * Hasta la D31 aquí no se leía **nada** del catálogo de hoy: el texto, el nivel y la
+ * cabecera estaban copiados en `frases_asignatura` el día que el docente marcó la
+ * casilla, los tres por el mismo argumento —**el id pinta y el texto imprime**—. Sin
+ * casilla que marcar no hay día en el que copiar, así que los tres se leen vivos: el
+ * texto de `desempenos_por_defecto.definicion` y el nivel de la definitiva.
+ *
+ * **Eso deshace `2026_09_14_100000_competencia_congelada`**, cuyo comentario decía
+ * literalmente que sin ella *«renombrar una competencia en 2028 cambiaba la cabecera de
+ * un boletín de 2026»*. Hoy no hay cabecera, pero el cuerpo tiene el mismo problema:
+ * **corregir una errata del plan de área en octubre cambia el papel del periodo 1 que
+ * ya fue a casa**.
+ *
+ * **Es una consecuencia aceptada, no un descuido.** Está en la §3 del
+ * [39](../../../../docs/migracion/39-el-modelo-plano-por-competencias.md) con sus dos
+ * salidas y delante de Joseth:
+ *
+ *     aceptarlo (lo implementado)     el papel del periodo 1 puede cambiar hasta que acabe el año
+ *     pedir periodo abierto TAMBIÉN   el coordinador no puede arreglar una errata del plan
+ *     al coordinador                  una vez cerrado el periodo
+ *
+ * Lo que la acota es que las filas son **por año**: sólo la puede tocar quien esté
+ * trabajando en ese año, así que la exposición real es **dentro del mismo año y después
+ * de cerrar un periodo**. La segunda salida son tres líneas en
+ * `Autoriza::puedeEscribirDesempenos` el día que Joseth lo diga — **y no se ven desde
+ * aquí**: este controlador sólo lee, así que lo que protege el papel se decide donde se
+ * escribe.
  *
  * ## `caritas`: el nivel va en TEXTO, siempre (D17)
  *
- * `grupos.caritas` viaja en `grupo.caritas` y **el icono nunca va solo**: cada
- * desempeño lleva su `nivel` —el texto congelado el día que se puso— y, además,
- * `icono_infantil` / `icono_adolescente` como adorno. El Decreto 2247 art. 10 y el
- * 1411/2022 piden *«informes descriptivos … de corte cualitativo»*, y una carita no lo
- * es. **El front no puede pintar sólo el icono porque el texto siempre está.**
+ * `grupos.caritas` viaja en `grupo.caritas` y **el icono nunca va solo**: cada línea
+ * lleva su `nivel` —el texto de la banda en la que cayó la definitiva de su asignatura—
+ * y, además, `icono_infantil` / `icono_adolescente` como adorno. El Decreto 2247 art.
+ * 10 y el 1411/2022 piden *«informes descriptivos … de corte cualitativo»*, y una
+ * carita no lo es. **El front no puede pintar sólo el icono porque el texto siempre
+ * está.**
  *
  * > **Y `caritas` se toca con el guante puesto**: es la columna de la §153 de
  * > `GruposController`, que tenía defecto `false` y ese defecto la apagaba, así que
@@ -120,6 +159,27 @@ use Illuminate\Support\Facades\Request;
  *
  * Los dos acaban impresos distinto porque **`poblacion` los cuenta por separado**, que
  * es lo único que hace que un nivel que falta se vea **antes** de que salga el papel.
+ *
+ * **Y ahora cada uno se lleva por delante TODAS las líneas de su asignatura**, no una
+ * celda: el nivel es uno por asignatura, así que una definitiva que falta imprime en
+ * blanco el nivel de sus cinco desempeños. Se cuentan igual **por asignatura** —que es
+ * donde se decide— y no por línea, porque contarlos por línea multiplicaría un fallo
+ * por el tamaño del plan de área y haría parecer grave el de la materia que más
+ * desempeños tiene escritos.
+ *
+ * ## `poblacion` contesta otra pregunta, porque la de antes ya no existe
+ *
+ * Contaba `desempenos_del_grupo` frente a `desempenos_impresos` —*«cuántas casillas
+ * nadie miró»*—. Sin casillas, eso no es una pregunta. La que sí se va a hacer, porque
+ * es el fallo que de verdad va a ocurrir, es **`asignaturas_sin_catalogo`: cuántas
+ * asignaturas imprimieron sin una sola fila de plan de área** para su materia y su
+ * grado. Es el `saltadas_sin_catalogo` de `desempenos/copiar`, pero en el papel: la
+ * asignatura sale con su nota y su nivel y **debajo no hay nada**, que desde la pantalla
+ * se ve igual que un colegio que no imprime desempeños.
+ *
+ * `con_nivel` y `sin_nivel` cuentan **sólo las líneas de catálogo**, y por eso suman
+ * exactamente `desempenos_impresos`: una frase escrita a mano no puede tener nivel, así
+ * que contarla en `sin_nivel` sería denunciar un fallo que no ha pasado.
  */
 class BoletinPorCompetenciasController extends Controller
 {
@@ -218,11 +278,26 @@ class BoletinPorCompetenciasController extends Controller
         $grupo->cantidad_alumnos = count($alumnos);
         $year->periodo = $this->user->numero_periodo;
 
+        /*
+         * **El plan de área se lee UNA vez para el grupo entero, y no por alumno.**
+         * No es optimización de galería: es lo que dice el dato. Una fila de
+         * `desempenos_por_defecto` se dirige a (año, materia, grado, periodo) y
+         * **ninguna de las cuatro depende del alumno**, así que leerlo dentro del
+         * bucle sería la misma consulta treinta veces con el mismo resultado. Lo que
+         * sí es por alumno son las frases escritas a mano, y ésas siguen dentro.
+         */
+        $catalogo = $this->catalogoDelGrupo(
+            $grupo_id,
+            (int) $this->user->year_id,
+            $grupo->grado_id === null ? null : (int) $grupo->grado_id,
+            $periodo_id
+        );
+
         $conteos = [];
 
         foreach ($alumnos as $alumno) {
             $conteos[(int) $alumno->alumno_id] = $this->boletinDelAlumno(
-                $alumno, $grupo_id, $periodo_id, (bool) $grupo->caritas
+                $alumno, $grupo_id, $periodo_id, (bool) $grupo->caritas, $catalogo
             );
         }
 
@@ -245,10 +320,11 @@ class BoletinPorCompetenciasController extends Controller
         $poblacion = [
             'alumnos' => count($respuesta),
             'asignaturas' => 0,
-            'desempenos_del_grupo' => $this->cuantosDesempenosTieneElGrupo($grupo_id, $periodo_id),
-            'competencias' => 0,
+            // El fallo que sí va a ocurrir: el plan de área que el colegio no escribió
+            // para esa materia y ese grado. Sustituye al par `desempenos_del_grupo` /
+            // `desempenos_impresos`, que preguntaba por casillas que ya no existen.
+            'asignaturas_sin_catalogo' => 0,
             'desempenos_impresos' => 0,
-            'desempenos_sueltos' => 0,
             'frases_sueltas' => 0,
             'con_nivel' => 0,
             'sin_nivel' => 0,
@@ -306,9 +382,10 @@ class BoletinPorCompetenciasController extends Controller
      * cuáles son: el boletín se calcula para el grupo entero —hace falta para el
      * puesto— y se filtra después.
      *
+     * @param  array<int,list<\stdClass>>  $catalogo  el plan de área del grupo, por `asignatura_id`
      * @return array<string,int>
      */
-    private function boletinDelAlumno(\stdClass $alumno, int $grupo_id, int $periodo_id, bool $caritas): array
+    private function boletinDelAlumno(\stdClass $alumno, int $grupo_id, int $periodo_id, bool $caritas, array $catalogo): array
     {
         $alumno_id = (int) $alumno->alumno_id;
 
@@ -320,13 +397,12 @@ class BoletinPorCompetenciasController extends Controller
         // asignatura. No es optimización de galería: la Fase 5 midió **1.061
         // consultas** en una petición de UN alumno del primero.
         $faltas = $this->faltasPorAsignatura($alumno_id, $periodo_id);
-        $marcas = $this->marcasDelAlumno($alumno_id, $grupo_id, $periodo_id);
+        $frases = $this->frasesDelAlumno($alumno_id, $grupo_id, $periodo_id);
 
         $conteo = [
             'asignaturas' => 0,
-            'competencias' => 0,
+            'asignaturas_sin_catalogo' => 0,
             'desempenos_impresos' => 0,
-            'desempenos_sueltos' => 0,
             'frases_sueltas' => 0,
             'con_nivel' => 0,
             'sin_nivel' => 0,
@@ -365,7 +441,13 @@ class BoletinPorCompetenciasController extends Controller
 
             $asignatura->bol_independiente = BoletinIndependiente::aplica($alumno_id, $periodo_id);
 
-            $this->repartirLasMarcas($asignatura, $marcas[$asignatura_id] ?? [], $caritas, $conteo);
+            $this->ponerLosDesempenos(
+                $asignatura,
+                $catalogo[$asignatura_id] ?? [],
+                $frases[$asignatura_id] ?? [],
+                $caritas,
+                $conteo
+            );
 
             $suma += (float) $asignatura->nota_asignatura;
         }
@@ -384,211 +466,213 @@ class BoletinPorCompetenciasController extends Controller
     }
 
     /**
-     * La competencia arriba, sus desempeños debajo, y los sueltos al final.
+     * Las líneas que se imprimen debajo de una asignatura: **el plan de área primero
+     * y las frases escritas a mano al final**, en un solo array y sin cabeceras.
      *
-     * @param  array<int,\stdClass>  $marcas
+     * **El nivel se calcula UNA vez por asignatura y se copia en todas sus líneas.**
+     * No es un atajo: es lo que dice P1.bis —el nivel se deriva de la definitiva— y
+     * significa que aquí no hay ninguna decisión por línea que tomar. Calcularlo dentro
+     * del bucle sería recorrer la escala una vez por desempeño para obtener siempre la
+     * misma banda.
+     *
+     * @param  list<\stdClass>  $catalogo  las filas de `desempenos_por_defecto` que le tocan
+     * @param  list<\stdClass>  $frases  las de `frases_asignatura`, escritas a mano
      * @param  array<string,int>  $conteo
      */
-    private function repartirLasMarcas(\stdClass $asignatura, array $marcas, bool $caritas, array &$conteo): void
+    private function ponerLosDesempenos(\stdClass $asignatura, array $catalogo, array $frases, bool $caritas, array &$conteo): void
     {
-        $competencias = [];
-        $sueltos = [];
-
         /*
-         * **El texto congelado de cada competencia, y por qué va en un array aparte.**
-         *
-         * La cabecera es **una por bloque** y las celdas son varias, así que hace falta
-         * una regla de grupo. Es ésta: **gana la primera copia congelada que aparezca**
-         * en el orden en que se imprime, y el texto vivo sólo cuando ninguna de sus
-         * celdas tiene copia.
-         *
-         * Va en un array local y **no en una clave más del objeto** porque ese objeto se
-         * serializa tal cual: una clave de trabajo ahí dentro se convierte en contrato
-         * del front sin que nadie lo decida.
+         * **La misma nota que ya trae la asignatura, y la misma regla.**
+         * `$asignatura->desempenio` viene del `left join` de
+         * `Grupo::detailed_materias_notafinal`, que compara igual que `bandaDeLaNota`
+         * —lo sostiene `CentinelaDeLaReglaDeLaBandaTest`—, así que estas dos líneas no
+         * pueden discrepar de `motivo_del_nivel`: el nivel sale vacío **exactamente**
+         * cuando ese motivo está puesto, y por eso el motivo explica el papel.
          */
-        $congelada = [];
+        $banda = $this->bandaDeLaNota(
+            $asignatura->nota_asignatura === null ? null : (float) $asignatura->nota_asignatura
+        );
 
-        foreach ($marcas as $marca) {
-            $fila = $this->filaDelDesempeno($marca, $caritas);
+        // El plan de área que el colegio no escribió para esta materia y este grado.
+        // Se cuenta aquí y no al leer el catálogo porque lo que importa es **lo que
+        // se imprimió en blanco**, que es por asignatura y por alumno.
+        if ($catalogo === []) {
+            $conteo['asignaturas_sin_catalogo']++;
+        }
 
-            if ($fila->nivel === null) {
-                $conteo['sin_nivel']++;
-            } else {
-                $conteo['con_nivel']++;
-            }
+        $lineas = [];
 
-            /*
-             * **Suelto es lo que no cuelga de una competencia**, y son dos casos que
-             * el front tiene que poder distinguir, por eso va `origen`:
-             *
-             *   - `frase`   — una frase escrita a mano en la pantalla de siempre
-             *                 (`desempeno_id IS NULL`). Son las **12.294** filas que ya
-             *                 hay en `simonbolivar` y ninguna vino de una rejilla.
-             *   - `rejilla` — una celda de un desempeño que el colegio dejó **sin
-             *                 competencia** (`desempenos.competencia_id IS NULL`), que
-             *                 es legal: D5 permite el desempeño suelto.
-             *
-             * Las dos se imprimen al final y **con su nivel si lo tienen**: una frase a
-             * mano no lo tiene y un desempeño suelto sí.
-             */
-            /*
-             * **Y una competencia BORRADA no manda su desempeño a los sueltos, si la celda
-             * lleva el texto congelado.** Es el agujero que dejó
-             * `2026_09_14_100000_competencia_congelada`: aquélla arregló el **renombrado**
-             * —el texto sale de `frases_asignatura`— y no el **borrado**, porque lo que
-             * agrupa seguía siendo `competencias.id` y el `LEFT JOIN` de abajo lo deja en
-             * `null` en cuanto la fila entra en la papelera. Resultado: un boletín impreso
-             * en 2026 con tres desempeños bajo su competencia pasaba a imprimirlos sueltos
-             * en 2028 **porque alguien borró una fila del catálogo**, que es justo lo que
-             * el invariante de la §4 del doc 28 prohíbe.
-             *
-             * **Se agrupa por el texto congelado, y no hace falta ninguna columna nueva**:
-             * la celda ya lo lleva. Las otras dos salidas que se plantearon eran peores —
-             * *aceptar la cabecera huérfana* cambia el papel, y *congelar el id* deja un id
-             * que no se puede seguir a ninguna fila.
-             *
-             * El único caso que degrada es **dos competencias distintas, las dos borradas y
-             * con el mismo texto**: se funden en un bloque. Es preferible a partir uno que
-             * el colegio vio junto, y no puede pasar mientras alguna de las dos exista.
-             */
-            $clave = $marca->competencia_id !== null
-                ? (int) $marca->competencia_id
-                : ($marca->competencia_congelada !== null ? 'txt:'.$marca->competencia_congelada : null);
-
-            if ($clave === null) {
-                $conteo[$fila->origen === 'frase' ? 'frases_sueltas' : 'desempenos_sueltos']++;
-                $sueltos[] = $fila;
-
-                continue;
-            }
-
-            if (! isset($competencias[$clave])) {
-                $conteo['competencias']++;
-                $competencias[$clave] = (object) [
-                    // `null` cuando la competencia está borrada: la clave de agrupación es
-                    // el texto, pero **no se inventa un id** que el front no podría seguir.
-                    'competencia_id' => is_int($clave) ? $clave : null,
-                    /*
-                     * **El texto vivo, que aquí es el suelo y no el techo**: lo pisa unas
-                     * líneas más abajo la copia congelada si alguna de las celdas de este
-                     * bloque la tiene. Se pone igualmente porque es lo único que hay para
-                     * las filas escritas **antes** de
-                     * `2026_09_14_100000_competencia_congelada`, que no la van a tener
-                     * nunca — y son las 12.294 que ya estaban.
-                     */
-                    'definicion' => $marca->definicion_competencia,
-                    'codigo_men' => $marca->codigo_men,
-                    'orden' => (int) $marca->orden_competencia,
-                    'desempenos' => [],
-                ];
-            }
-
-            if ($marca->competencia_congelada !== null && ! isset($congelada[$clave])) {
-                $congelada[$clave] = $marca->competencia_congelada;
-            }
-
+        foreach ($catalogo as $fila) {
             $conteo['desempenos_impresos']++;
-            $competencias[$clave]->desempenos[] = $fila;
+            $conteo[$banda === null ? 'sin_nivel' : 'con_nivel']++;
+
+            $lineas[] = (object) [
+                'desempeno_id' => (int) $fila->id,
+                'frase_asignatura_id' => null,
+                'texto' => $this->conElPrefijo($banda, (string) $fila->definicion),
+                'tipo' => $fila->tipo,
+                'orden' => (int) $fila->orden,
+                // `grado_id` a `null` es «todos los grados», y viaja porque es lo único
+                // que distingue una fila que el docente puede editar de una que no
+                // (§3 del 39). Sin ella, la pantalla no puede explicar el candado.
+                'grado_id' => $fila->grado_id === null ? null : (int) $fila->grado_id,
+                // D17: **el texto siempre**, tenga o no `caritas` el grupo.
+                'escala_id' => $banda === null ? null : (int) $banda->id,
+                'nivel' => $banda === null ? null : $banda->desempenio,
+                // Y el icono como adorno, sólo cuando el grupo lo pidió. Nunca solo.
+                'icono_infantil' => $caritas && $banda !== null ? $banda->icono_infantil : null,
+                'icono_adolescente' => $caritas && $banda !== null ? $banda->icono_adolescente : null,
+                'origen' => 'catalogo',
+            ];
         }
 
         /*
-         * **Y aquí gana el congelado.** Es la misma regla que `texto` y que `nivel`, que
-         * ya salen de `frases_asignatura` y no del catálogo: *el id pinta y el texto
-         * imprime*. Lo que decide no es cuál es «más correcto» sino **de qué papel
-         * estamos hablando**: un boletín impreso en 2026 dice lo que decía en 2026, y
-         * `CompetenciasController::putUpdate` edita la fila viva, así que el texto de hoy
-         * es el de hoy y no el de entonces.
-         *
-         * `!== null` y no `?:`: la cadena vacía no existe aquí —`putRejilla` copia lo que
-         * hay o deja `null`— y tratarla como ausencia sería decidir por el colegio que una
-         * competencia sin texto se imprime con el texto de otro día.
+         * **Las de a mano, al final y sin nivel.** No llevan `escala_id` ni icono, y no
+         * es que se hayan quedado sin él: una frase que escribió el docente para ESE
+         * alumno no es una fila de un plan de área, así que ponerle la banda de la
+         * asignatura sería afirmar sobre ella algo que nadie dijo.
          */
-        foreach ($congelada as $clave => $texto) {
-            $competencias[$clave]->definicion = $texto;
+        foreach ($frases as $frase) {
+            $conteo['frases_sueltas']++;
+
+            $lineas[] = (object) [
+                'desempeno_id' => null,
+                'frase_asignatura_id' => (int) $frase->frase_asignatura_id,
+                'texto' => $frase->texto,
+                'tipo' => null,
+                'orden' => null,
+                'grado_id' => null,
+                'escala_id' => null,
+                'nivel' => null,
+                'icono_infantil' => null,
+                'icono_adolescente' => null,
+                'origen' => 'frase',
+            ];
         }
 
-        $asignatura->competencias = array_values($competencias);
-        $asignatura->desempenos_sueltos = $sueltos;
+        $asignatura->desempenos = $lineas;
     }
 
     /**
-     * Una fila de lo que se imprime debajo de la asignatura.
+     * El texto de la banda delante del desempeño, cuando el colegio lo ha escrito.
      *
-     * **El texto es el congelado, no el del catálogo de hoy.** `texto` sale de
-     * `frases_asignatura`, que es donde la Fase 4 lo copió, y `desempenos.definicion`
-     * **no se emite**: emitir los dos invita a imprimir el que no es, que es justo lo
-     * que la tercera columna de la Fase 4 existe para evitar.
+     * `escalas_de_valoracion.descripcion` es la frase del SIEE —*«El estudiante alcanza
+     * de manera superior…»*— y va **delante**, que es como la imprimen los boletines de
+     * papel del corpus (P2, H5).
+     *
+     * **Vacía = exactamente como hoy**, y el `trim` es lo que decide las dos cosas a la
+     * vez. Medido en el docker el 17 sep 2026: **36 escalas vivas, 5 con `descripcion`
+     * a `NULL`, 31 a cadena vacía y NINGUNA con texto**, así que hoy esto no cambia un
+     * solo boletín — el día que cambie será porque un colegio escribió la frase de su
+     * SIEE, que es cuando tiene que cambiar. `NULL` y `''` significan lo mismo aquí, y
+     * ese 5 / 31 es el porqué: la columna las reparte según qué versión del formulario
+     * la escribió, y tratarlas distinto imprimiría un espacio de más en unos colegios y
+     * no en otros.
      */
-    private function filaDelDesempeno(\stdClass $marca, bool $caritas): \stdClass
+    private function conElPrefijo(?\stdClass $banda, string $texto): string
     {
-        return (object) [
-            'frase_asignatura_id' => (int) $marca->frase_asignatura_id,
-            'desempeno_id' => $marca->desempeno_id === null ? null : (int) $marca->desempeno_id,
-            'texto' => $marca->texto,
-            'tipo' => $marca->tipo_desempeno,
-            'orden' => $marca->orden_desempeno === null ? null : (int) $marca->orden_desempeno,
-            // D17: **el texto siempre**, tenga o no `caritas` el grupo.
-            'escala_id' => $marca->escala_id === null ? null : (int) $marca->escala_id,
-            'nivel' => $marca->nivel,
-            // Y el icono como adorno, sólo cuando el grupo lo pidió. Nunca solo.
-            'icono_infantil' => $caritas ? $marca->icono_infantil : null,
-            'icono_adolescente' => $caritas ? $marca->icono_adolescente : null,
-            'origen' => $marca->desempeno_id === null ? 'frase' : 'rejilla',
-        ];
+        $prefijo = $banda === null ? '' : trim((string) $banda->descripcion);
+
+        return $prefijo === '' ? $texto : $prefijo.' '.$texto;
     }
 
     /**
-     * Todas las marcas de un alumno en el grupo, **en una consulta**.
+     * El plan de área del grupo entero, **en una consulta y no una por asignatura**.
      *
-     * Los tres boletines de hoy llaman a `FraseAsignatura::deAlumno` **una vez por
-     * asignatura**; aquí es una por alumno y trae además de qué casilla salió cada una,
-     * con qué nivel y **cómo se llamaba su competencia el día que se marcó**.
+     * Una fila de `desempenos_por_defecto` se dirige a (año, materia, grado, periodo) y
+     * lo que la convierte en líneas de un boletín son las **asignaturas** del grupo, que
+     * son las que ponen la materia. Por eso el `INNER JOIN` es por `materia_id` y el
+     * resultado sale ya repartido por `asignatura_id`: un grupo de diez asignaturas son
+     * diez listas y una sola ida a la base.
      *
-     * **`fa.competencia` y `c.definicion` viajan las dos, y no es redundancia.** La
-     * primera es la copia congelada —lo que se imprime— y la segunda es el texto vivo,
-     * que es lo único que hay para las filas anteriores a
-     * `2026_09_14_100000_competencia_congelada`. Cuál gana lo decide
-     * `repartirLasMarcas()`, en un solo sitio y por escrito.
-     *
-     * **`c.id AS competencia_id` y no `d.competencia_id`**, que es la diferencia entre
-     * imprimir bien e imprimir una cabecera en blanco: el `left join` filtra
-     * `c.deleted_at IS NULL`, así que con la competencia borrada `d.competencia_id` sigue
-     * puesto y `c.*` viene todo nulo. Leyendo el de `desempenos`, ese desempeño abriría
-     * un bloque con el título vacío; leyendo el de `competencias` cae entre los sueltos,
-     * que es donde estaría si nunca hubiera tenido una.
+     * **`grado_id IS NULL` acumula, no compite** (D25): una fila de «todos los grados» y
+     * una del grado se imprimen **las dos**. Ése `OR` es la regla entera, y es también
+     * lo que hace segura la única rama que aquí no se puede probar: `grupos.grado_id` es
+     * **`NOT NULL`** —comprobado en el volcado y en el docker—, así que el `?int` nunca
+     * llega nulo hoy; y si llegara, `= NULL` no es cierto nunca y la consulta devolvería
+     * **sólo las de «todos los grados»**, que es exactamente lo que le toca a un grupo
+     * sin grado. Degrada bien, que es lo que se le pide a una rama que nadie recorre.
      *
      * *(El comentario va aquí y no dentro del SQL a propósito: un `--` dentro de la
      * cadena comentaría el resto de la consulta el día que alguien normalice los saltos
      * de línea. Es el aviso de `Grupo::detailed_materias_notafinal`.)*
      *
-     * El `ORDER BY` es el contrato de la maqueta: competencia por su orden, y dentro el
-     * desempeño por el suyo. **Las tres claves llevan su `id` detrás** porque `orden`
-     * empata —es `int NOT NULL DEFAULT 0` en las dos tablas— y un orden que empata sin
+     * El `ORDER BY` es **el mismo que el de la pantalla donde se escribe**
+     * —`DesempenosController::catalogoPara`—, y eso es lo que decide su primera clave:
+     * las de «todos los grados» arriba y las del grado debajo. Un boletín que ordenara
+     * estas mismas filas de otra manera que la pantalla en la que el colegio las tecleó
+     * sería un fallo que sólo se ve comparando dos papeles. **Y `id` detrás de `orden`**
+     * porque `orden` es `int NOT NULL DEFAULT 0` y empata: un orden que empata sin
      * desempate es un boletín que cambia de forma entre dos impresiones del mismo día
      * (03-tests.md, «`ORDER BY` que empata»).
      *
-     * @return array<int,array<int,\stdClass>> por `asignatura_id`
+     * @return array<int,list<\stdClass>> por `asignatura_id`
      */
-    private function marcasDelAlumno(int $alumno_id, int $grupo_id, int $periodo_id): array
+    private function catalogoDelGrupo(int $grupo_id, int $year_id, ?int $grado_id, int $periodo_id): array
+    {
+        $consulta = 'SELECT a.id AS asignatura_id,
+                            d.id, d.definicion, d.tipo, d.orden, d.grado_id
+                       FROM asignaturas a
+                       INNER JOIN desempenos_por_defecto d
+                               ON d.materia_id = a.materia_id
+                              AND d.year_id = :year_id
+                              AND d.periodo_id = :periodo_id
+                              AND (d.grado_id IS NULL OR d.grado_id = :grado_id)
+                              AND d.deleted_at IS NULL
+                      WHERE a.grupo_id = :grupo_id AND a.deleted_at IS NULL
+                      ORDER BY a.id, d.grado_id IS NOT NULL, d.orden, d.id';
+
+        $filas = DB::select($consulta, [
+            ':year_id' => $year_id,
+            ':periodo_id' => $periodo_id,
+            ':grado_id' => $grado_id,
+            ':grupo_id' => $grupo_id,
+        ]);
+
+        $por_asignatura = [];
+
+        foreach ($filas as $fila) {
+            $por_asignatura[(int) $fila->asignatura_id][] = $fila;
+        }
+
+        return $por_asignatura;
+    }
+
+    /**
+     * Las frases escritas a mano de un alumno en el grupo, **en una consulta**.
+     *
+     * Los tres boletines de hoy llaman a `FraseAsignatura::deAlumno` **una vez por
+     * asignatura**; aquí es una por alumno.
+     *
+     * **`IFNULL(f.frase, fa.frase)` y no una sola de las dos**, que es lo que hace la
+     * pantalla de siempre: `frase_id` apunta al banco de frases del colegio y `frase` es
+     * lo que se tecleó a mano, y una fila tiene una u otra.
+     *
+     * **Aquí no se filtra por `desempeno_id`, y no es un olvido**: esa columna la añadió
+     * la migración de la rejilla, que se borra, y en los dieciséis colegios **nunca
+     * existió** — nombrarla sería un `Unknown column` allí con la suite verde aquí. El
+     * porqué largo está en el docblock de la clase; lo que importa en este método es que
+     * **todas las filas de esta tabla son frases escritas a mano**, porque las otras no
+     * las pudo crear nadie: su única pantalla nunca se desplegó (§7 del 39).
+     *
+     * *(El comentario va aquí y no dentro del SQL a propósito: un `--` dentro de la
+     * cadena comentaría el resto de la consulta el día que alguien normalice los saltos
+     * de línea. Es el aviso de `Grupo::detailed_materias_notafinal`.)*
+     *
+     * `ORDER BY fa.id` y no por texto: es el orden en que el docente las escribió, que
+     * es el único que existe en esta tabla, y desempata siempre.
+     *
+     * @return array<int,list<\stdClass>> por `asignatura_id`
+     */
+    private function frasesDelAlumno(int $alumno_id, int $grupo_id, int $periodo_id): array
     {
         $consulta = 'SELECT fa.id AS frase_asignatura_id, fa.asignatura_id,
-                            IFNULL(f.frase, fa.frase) AS texto,
-                            fa.desempeno_id, fa.escala_id, fa.nivel,
-                            fa.competencia AS competencia_congelada,
-                            d.tipo AS tipo_desempeno, d.orden AS orden_desempeno,
-                            c.id AS competencia_id,
-                            c.definicion AS definicion_competencia, c.codigo_men, c.orden AS orden_competencia,
-                            e.icono_infantil, e.icono_adolescente
+                            IFNULL(f.frase, fa.frase) AS texto
                        FROM frases_asignatura fa
                        INNER JOIN asignaturas a ON a.id = fa.asignatura_id AND a.deleted_at IS NULL AND a.grupo_id = :grupo_id
                        LEFT JOIN frases f ON f.id = fa.frase_id AND f.deleted_at IS NULL
-                       LEFT JOIN desempenos d ON d.id = fa.desempeno_id AND d.deleted_at IS NULL
-                       LEFT JOIN competencias c ON c.id = d.competencia_id AND c.deleted_at IS NULL
-                       LEFT JOIN escalas_de_valoracion e ON e.id = fa.escala_id AND e.deleted_at IS NULL
                       WHERE fa.deleted_at IS NULL AND fa.alumno_id = :alumno_id AND fa.periodo_id = :periodo_id
-                      ORDER BY fa.asignatura_id,
-                               c.orden IS NULL, c.orden, c.id,
-                               d.orden, d.id, fa.id';
+                      ORDER BY fa.asignatura_id, fa.id';
 
         $filas = DB::select($consulta, [
             ':grupo_id' => $grupo_id,
@@ -731,25 +815,5 @@ class BoletinPorCompetenciasController extends Controller
 
         $comportamiento->definiciones = DefinicionComportamiento::frases($comportamiento->id);
         $alumno->comportamiento = $comportamiento;
-    }
-
-    /**
-     * Cuántos desempeños tiene puestos el grupo en el periodo — el denominador.
-     *
-     * Cuenta los del reparto del curso (`alumno_id IS NULL`) **y** los de los boletines
-     * independientes, porque los dos se pueden marcar. Es el número contra el que se lee
-     * `desempenos_impresos`: la distancia entre los dos son las casillas que nadie miró.
-     */
-    private function cuantosDesempenosTieneElGrupo(int $grupo_id, int $periodo_id): int
-    {
-        $fila = DB::selectOne(
-            'SELECT COUNT(*) AS cuantos
-               FROM desempenos d
-               INNER JOIN asignaturas a ON a.id = d.asignatura_id AND a.deleted_at IS NULL
-              WHERE a.grupo_id = ? AND d.periodo_id = ? AND d.deleted_at IS NULL',
-            [$grupo_id, $periodo_id]
-        );
-
-        return (int) ($fila->cuantos ?? 0);
     }
 }
