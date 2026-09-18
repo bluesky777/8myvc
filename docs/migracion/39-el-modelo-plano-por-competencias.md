@@ -434,6 +434,31 @@ que el nivel se derive de la definitiva, que el prefijo se anteponga y que `asig
 cuente. Se dice aquí porque un hueco de cobertura que no está escrito no se distingue de un
 descuido.
 
+> **Y había algo peor que el hueco: una instantánea que parecía taparlo.**
+> `tests/Contrato/Snapshots/boletines-competencias-detailed-notas.json` se quedó **huérfana y
+> caducada** al retirar los quince casos, y lo levantó `8myvc-33` de paso. Comprobado con control:
+>
+> ```bash
+> grep -rn "boletines-competencias-detailed-notas" tests/ --include="*.php"   # nada
+> grep -c "compararConInstantanea" tests/Contrato/BoletinDeUnPeriodoPasadoTest.php   # 0
+> ```
+>
+> Su `poblacion` llevaba `competencias`, `desempenos_del_grupo` y `desempenos_sueltos` —las tres
+> retiradas— y le faltaba `asignaturas_sin_catalogo`. O sea: **un fichero que describe una respuesta
+> que ya no existe y que no puede ponerse rojo nunca, porque no lo lee ningún test.** Es la forma
+> exacta que tendría un agujero, y es peor que no tener nada: quien lo vea en el directorio da por
+> fijada una respuesta que no lo está.
+>
+> **Se borra, no se regenera**, y por tres motivos que van en este orden: regenerarla exige un test
+> que la use, y los tests esperan a que Joseth pruebe a mano; `compararConInstantanea` **la vuelve a
+> crear sola** el día que ese test exista, así que borrarla no pierde nada recuperable; y hay otra
+> tanda a punto de añadir tres claves a ese mismo `poblacion`
+> (`definitivas_reparadas`, `definitivas_atrasadas`, `definitivas_que_faltan`), así que regenerarla
+> hoy sería hacerlo dos veces.
+>
+> **La regla que sale de aquí y vale para el resto**: al retirar un test hay que mirar **si deja
+> instantáneas detrás**. Un test borrado se nota; su instantánea huérfana no, y encima miente.
+
 **De los quince, tres NO se deben reponer nunca tal como estaban**, porque hoy afirman lo contrario
 de lo decidido — y el peligro concreto es que alguien los recupere de la historia de git creyendo
 que rescata cobertura:
