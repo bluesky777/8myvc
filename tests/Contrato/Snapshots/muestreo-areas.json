@@ -6,7 +6,6 @@
         "deleted_at": "null",
         "deleted_by": "null",
         "id": "int",
-        "jefe_id": "null",
         "nombre": "string",
         "orden": "int",
         "updated_at": "string",

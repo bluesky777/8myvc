@@ -17,7 +17,6 @@ use \Log;
  * @property int $id
  * @property string $nombre
  * @property ?string $alias
- * @property ?int $jefe_id
  * @property ?int $orden
  * @property ?int $created_by
  * @property ?int $updated_by

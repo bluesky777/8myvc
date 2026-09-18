@@ -7,7 +7,6 @@
             "deleted_at": "null",
             "deleted_by": "null",
             "id": "int",
-            "jefe_id": "null",
             "materias": [
                 {
                     "alias": "string",
