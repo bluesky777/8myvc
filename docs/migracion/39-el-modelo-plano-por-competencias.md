@@ -484,6 +484,15 @@ descuido.
 > **Regla operativa, que es la reutilizable**: **borrar una instantánea son DOS ficheros**, la suya y
 > `huecos-del-seed.json` regenerado. Y la tanda entera es lo único que lo demuestra: ningún filtro
 > por el nombre del test que borras toca `HuecosDelSeedTest`.
+>
+> > **Y la regla buena es más ancha que ésa, afinada por `8myvc-33` el 17 sep**: el censo está
+> > acoplado a **la LISTA de ficheros** de `Snapshots/`, no a su contenido. O sea que lo mueven **el
+> > alta y la baja** —una instantánea nueva también añade su renglón— y **no lo mueve regenerar** una
+> > que ya existía. Lo comprobó sobre su propio trabajo: regeneró `muestreo-informes-datos.json` y
+> > `huecos-del-seed.json` no se movió.
+> >
+> > Dicho así se aplica sin pensarlo: **¿cambió la lista de ficheros de `Snapshots/`?** Si sí,
+> > `huecos-del-seed.json` va detrás.
 
 **De los quince, tres NO se deben reponer nunca tal como estaban**, porque hoy afirman lo contrario
 de lo decidido — y el peligro concreto es que alguien los recupere de la historia de git creyendo
