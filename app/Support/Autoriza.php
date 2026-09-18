@@ -201,11 +201,39 @@ class Autoriza
      * **Por qué NO es `esAdministrativo()`, que es lo primero que se prueba.** Aquél
      * es `is_superuser || Secretario` y **no incluye el rol `Admin`**, al que la
      * decisión 5 nombra explícitamente. Hoy los dos criterios admiten a la misma
-     * gente, y eso es exactamente lo que lo hace peligroso: en `simonbolivar` los
-     * diez `Admin` **son** los diez `is_superuser`, así que coinciden **por
+     * gente, y eso es exactamente lo que lo hace peligroso: coinciden **por
      * población y no por definición**. El colegio que le dé `Admin` a alguien sin
      * `is_superuser` es el que descubre la diferencia — el paso 0 de
      * `DESPLIEGUE.md` en su forma exacta.
+     *
+     * > **Este párrafo decía «los diez `Admin` SON los diez `is_superuser`», y eso
+     * > llevaba caducado desde el 4 sep 2026 — corregido el 18.** Lo incómodo es que
+     * > **la corrección ya estaba en este mismo fichero**, en el docblock de
+     * > `esAdministrativo()` cincuenta líneas más arriba: allí se remidió el 4 sep y
+     * > se escribió que `Admin` es un **subconjunto estricto**. Se arregló el sitio
+     * > donde se descubrió y no el hermano que decía lo mismo. *Una cifra corregida
+     * > en un sitio no corrige a su gemela: al remedir algo hay que buscar dónde más
+     * > está escrito.*
+     * >
+     * > Remedido el 18 sep 2026 sobre `simonbolivar`, y **las dos direcciones
+     * > contadas por separado**, que es lo que da el argumento entero:
+     * >
+     * > ```sql
+     * > SELECT COUNT(*) FROM users WHERE deleted_at IS NULL AND is_superuser=1;      -- 11
+     * > SELECT COUNT(DISTINCT u.id) FROM users u INNER JOIN role_user ru
+     * >        ON ru.user_id=u.id AND ru.role_id=1 WHERE u.deleted_at IS NULL;       -- 10
+     * > -- con la bandera y sin el rol ................................................ 1
+     * > -- con el rol y sin la bandera ................................................ 0
+     * > ```
+     * >
+     * > **El cero es el que importa aquí**: hoy nadie entra por `Admin` que no
+     * > entrara ya por la columna, así que este método **no admite a nadie de más**.
+     * > Lo que el uno significa es lo contrario y es de quien decida por el rol: un
+     * > criterio escrito con `Admin` **deja fuera** a un superusuario. Eso es lo que
+     * > le pasa a `myvc_front`, que decide por rol donde esta API decide por columna
+     * > — levantado por esa sesión el 18 sep con la misma medida.
+     * >
+     * > De un colegio, el de desarrollo. En los otros quince no ha mirado nadie.
      *
      * **Y no se escribe con los nombres del encargo:** `Role::hasRoleOrPerm` es del
      * **front**. En este backend aparece en cinco comentarios de controlador y en
