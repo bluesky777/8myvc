@@ -524,6 +524,36 @@ class DesempenosController extends Controller
         }
 
         /*
+         * **Y tiene que ser un periodo DE ESE AÑO, aunque venga escrito en el
+         * cuerpo.** Sin esto quedaba abierta la misma mentira por la otra puerta:
+         * `mismoNumeroEnElAnio` protege el caso de **omitirlo** —contesta 422 si el
+         * año de origen no tiene ese número—, pero un `periodo_id` **mandado** se
+         * usaba tal cual. Como los ids de `periodos` son por año y disjuntos, uno
+         * del año destino no casa ninguna fila del origen y la respuesta era **200
+         * con `copiados: 0`**, que no se distingue de «el año pasado no tenía nada
+         * escrito». Son dos cosas distintas y el colegio no puede saber cuál le
+         * tocó.
+         *
+         * Lo destapó el front (`myvc-front-47`, 17 sep) construyendo el diálogo de
+         * «traer de otro año»: **mandaba justo ese cuerpo**, y midió las dos formas
+         * —0 copiadas con el viejo, 2 y 3 con el bueno, sobre las mismas filas—.
+         * O sea que no es un caso de laboratorio: es el que escribe un cliente que
+         * no sabe que los periodos son por año, que es lo normal.
+         *
+         * No se reutiliza `periodoDelAnio` porque su mensaje dice «de este año» y
+         * aquí el año es **el de origen**: un 422 que nombra el año equivocado
+         * manda a buscar el fallo donde no está.
+         */
+        $existe = DB::table('periodos')->where('id', $dePeriodo)
+            ->where('year_id', $deYear)->whereNull('deleted_at')->exists();
+
+        if (! $existe) {
+            abort(422, '`origen.periodo_id` no es un periodo del año de origen. Los '
+                .'periodos son por año: mande el del año '.$deYear.', o no mande el '
+                .'campo y se resolverá por número de periodo.');
+        }
+
+        /*
          * **El origen no puede ser el destino.** Copiar un grupo sobre sí mismo
          * daría `revisados = N`, `saltados_por_duplicado = N` y `copiados = 0`: un
          * 200 que parece que funcionó y no hizo nada.
