@@ -19,7 +19,7 @@ use Tests\TestCase;
  *
  *     puestos_con_bol_independiente  columna de `years` sin copiar   31 ago 2026
  *     subunidades_por_defecto        tabla hija sin copiar            2 sep 2026
- *     competencias                   tabla por año sin copiar        13 sep 2026
+ *     competencias                   tabla por año sin copiar        13 sep 2026  (tabla retirada el 17 sep)
  *     desempenos_por_defecto         tabla por año sin copiar        13 sep 2026
  *
  * Las dos últimas son las que pagan este fichero. Se crearon el 13 sep 2026
@@ -95,15 +95,22 @@ class CentinelaDeLasTablasDelAnioNuevoTest extends TestCase
      * horario subido **pasaron en un año concreto**, y copiarlos al siguiente no
      * sería ahorrarle trabajo a nadie — sería **fabricar historia que no ocurrió**.
      *
-     * ## El par que se lee al revés: `competencias` **sí** se copia y `rubricas` **no**
+     * ## El par que se lee al revés: el plan de área **sí** se copia y `rubricas` **no**
+     *
+     * > **Aquí ponía `competencias` y esa tabla ya no existe** (17 sep 2026): «competencia» y
+     * > «desempeño» resultaron ser la misma cosa, sobraba un piso y quedó
+     * > `desempenos_por_defecto` sola — `docs/migracion/39-el-modelo-plano-por-competencias.md`.
+     * > **El razonamiento no se movió ni un milímetro**, sólo el nombre de la tabla, y por eso se
+     * > corrige en vez de reescribirse: el par sigue siendo el sitio donde se ve por qué dos cosas
+     * > que parecen iguales están decididas al revés.
      *
      * Son las dos únicas tablas de este censo que hablan de **cómo se evalúa una
      * materia**, están decididas en direcciones contrarias, y leídas seguidas
      * parecen una contradicción. No lo son, y el sitio donde se ve la diferencia
      * tiene que ser éste y no dos ficheros distintos:
      *
-     *     competencias   SE COPIA      El plan de área. Lo escribe el colegio —o el
-     *                                  jefe de área— por **materia y grado**, una vez,
+     *     desempenos_    SE COPIA      El plan de área. Lo escribe el colegio —o el
+     *     por_defecto                  jefe de área— por **materia y grado**, una vez,
      *                                  y vale para siempre. No copiarlo obliga a
      *                                  reescribir el plan de área cada enero, que es
      *                                  literalmente el fallo que pagó este fichero el
@@ -160,15 +167,19 @@ class CentinelaDeLasTablasDelAnioNuevoTest extends TestCase
         // Los tres del PIAR. El Decreto 1421/2017 lo hace **anual**: se valora, se
         // acuerda con la familia y se firma cada año. Un PIAR copiado sería un
         // acuerdo que nadie volvió a firmar, y lleva documentos y firmas dentro.
-        // (Las `competencias` con `alumno_id` sí viajan, y no es contradicción:
-        // aquéllas son el texto que el colegio escribió, no el acta firmada.)
+        // (Aquí se citaba que las `competencias` con `alumno_id` sí viajaban. **Ya no
+        // vale por partida doble, 17 sep 2026**: la tabla se fue, y la que queda
+        // —`desempenos_por_defecto`— **no tiene `alumno_id`**, así que el plan de área
+        // dirigido a un estudiante dejó de existir. El contraste que ilustraba sigue
+        // siendo cierto sin ella: el plan de área es el texto que el colegio escribió
+        // y viaja; el acta del PIAR se firmó ESE año y no.)
         'piars_actas_acuerdo' => 'el acta firmada con la familia ESE año (Decreto 1421/2017, el PIAR es anual)',
         'piars_alumnos' => 'la valoración pedagógica y los ajustes acordados ESE año, con sus documentos',
         'piars_grupos' => 'la caracterización del grupo de ESE año, y cuelga de un grupo que en el año nuevo tiene otro id',
 
         // **Decidida el 13 sep 2026 por Joseth (D27)**, después de haber estado
         // declarada `SIN_DECIDIR` desde que se escribió este centinela. Y es la que
-        // se lee al revés que `competencias`, que **sí** se copia: el porqué de que
+        // se lee al revés que el plan de área, que **sí** se copia: el porqué de que
         // las dos estén bien está arriba, en el docblock de esta constante. Una rúbrica
         // es la matriz criterios × niveles que **produce la nota de una subunidad**
         // (26 §1, decisión 4 de Joseth), y lo que la hacía dudosa era su segunda
@@ -267,25 +278,13 @@ class CentinelaDeLasTablasDelAnioNuevoTest extends TestCase
      * @var array<string, string>
      */
     public const SIN_DECIDIR = [
-        // Lo que entra aquí es una tabla con `year_id` de la que **no se sabe** si
-        // el año nuevo la hereda, con la pregunta escrita entera y el nombre de
-        // quien la tiene que contestar — nunca un motivo provisional.
+        // Vacía otra vez desde el 18 sep 2026: `jefes_de_area` estuvo aquí unas
+        // horas y Joseth contestó que el año nuevo SÍ hereda, así que pasó a
+        // copiarse en `YearsController::copiarLosJefesDeArea` y salió del censo por
+        // la puerta buena. Lo que entra aquí es una tabla con `year_id` de la que
+        // **no se sabe** si el año nuevo la hereda, con la pregunta escrita entera y
+        // el nombre de quien la tiene que contestar — nunca un motivo provisional.
 
-        'jefes_de_area' => 'PREGUNTA PARA JOSETH (17 sep 2026, la trae la migración '
-            .'`2026_09_17_200000_jefe_de_area_por_anio`): al crear el año nuevo, '
-            .'¿hereda los jefes de área del año anterior, o nace sin ninguno? '
-            .'Su frase al pedir la tabla fue «cada año es un dueño diferente '
-            .'(director de área)», que dice que PUEDE cambiar, no si se reescribe '
-            .'cada enero. Los dos caminos tienen precedente aquí mismo y por eso no '
-            .'se puede deducir: el PLAN DE ÁREA sí se copia (`copiarElPlanDeArea`), '
-            .'y los CONTRATOS no —«la planta se contrata cada año; copiarlos daría '
-            .'por contratada a gente sin renovar»—. Una jefatura es las dos cosas a '
-            .'la vez: estructura académica que se repite, dada a una persona que '
-            .'puede no renovar. Copiarla nombraría jefe a quien quizá ya no esté; '
-            .'no copiarla obliga a rehacer 22 filas cada enero. Si la respuesta es '
-            .'«hereda», es un método privado más en `postStore` y esta entrada pasa '
-            .'a la lista de copiadas; si es «nace vacío», pasa a DATOS_DEL_ANIO con '
-            .'ese motivo.',
     ];
 
     #[Test]

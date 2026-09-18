@@ -517,9 +517,75 @@ class YearsController extends Controller {
 		// uno, porque lee por `year_id` **y** `periodo_id` a la vez.
 		if ($pasado) {
 			$this->copiarElPlanDeArea($pasado, $year, $periodos, $user->user_id, $ahora);
+			$this->copiarLosJefesDeArea($pasado, $year, $user->user_id, $ahora);
 		}
 
 		return $year;
+	}
+
+
+	/**
+	 * Los jefes de área del año anterior — **decisión de Joseth, 17 sep 2026**.
+	 *
+	 * La pregunta la levantó `CentinelaDeLasTablasDelAnioNuevoTest` el día que entró
+	 * `jefes_de_area`: la tabla lleva `year_id`, así que alguien tenía que decir si
+	 * el año nuevo la hereda. **Hereda**, por el precedente del plan de área de aquí
+	 * arriba: la estructura académica se repite con retoques y rehacer las 22 filas
+	 * cada enero es trabajo que nadie quiere.
+	 *
+	 * **Y NO se filtra por contrato, que era la otra salida y se descartó.** El año
+	 * nuevo puede nacer con un jefe que todavía no ha renovado —los contratos
+	 * tampoco se copian, precisamente porque se firman cada año— y eso es aceptado:
+	 * se corrige desde la pantalla, que es un clic, y el orden en que el colegio crea
+	 * el año y firma los contratos no debería cambiar quién sale de jefe.
+	 *
+	 * **Mucho más simple que `copiarElPlanDeArea`, y por una razón de esquema**: esta
+	 * tabla sólo tiene `year_id` propio. `area_id` y `profesor_id` apuntan a tablas
+	 * **globales al colegio** —`areas` no tiene año, y `profesores` tampoco—, así que
+	 * los ids siguen valiendo en el año nuevo y no hay nada que remapear. El plan de
+	 * área necesita todo aquel baile porque su `periodo_id` sí cambia de año.
+	 *
+	 * Las columnas van nombradas y no `*`, por lo mismo que el método de al lado: un
+	 * `*` funcionaría hoy y se callaría la próxima vez que esta tabla gane una
+	 * columna.
+	 */
+	private function copiarLosJefesDeArea(Year $pasado, Year $year, int $user_id, Carbon $ahora): void
+	{
+		$jefes = DB::select('SELECT area_id, profesor_id FROM jefes_de_area WHERE year_id=? ORDER BY id;', [$pasado->id]);
+
+		$en_papelera = [];
+
+		foreach ($jefes as $jefe) {
+			DB::insert('INSERT INTO jefes_de_area(year_id, area_id, profesor_id, created_by, created_at, updated_at) VALUES(?,?,?,?,?,?)',
+				[$year->id, $jefe->area_id, $jefe->profesor_id, $user_id, $ahora, $ahora]);
+		}
+
+		/*
+		 * **Un jefe en la papelera se copia igual, y se dice.** Es la consecuencia
+		 * de no filtrar: `profesores` tiene borrado lógico, así que la fila sigue ahí
+		 * y la clave ajena la acepta, pero ese docente ya no sale en ninguna lista y
+		 * su área abriría el año con un jefe que la pantalla no sabe pintar.
+		 *
+		 * No se salta —saltárselo sería implementar por la puerta de atrás el filtro
+		 * que se descartó— pero tampoco se calla: la diferencia entre «el colegio no
+		 * tenía jefes» y «los tenía y uno ya no existe» no se puede reconstruir
+		 * después si nadie la escribe.
+		 */
+		foreach ($jefes as $jefe) {
+			$vivo = DB::selectOne('SELECT id FROM profesores WHERE id=? AND deleted_at is null;', [$jefe->profesor_id]);
+
+			if ($vivo === null) {
+				$en_papelera[] = (int) $jefe->area_id;
+			}
+		}
+
+		if ($en_papelera !== []) {
+			Log::warning('Crear el año '.$year->year.' heredó '.count($en_papelera).' jefaturas de área cuyo docente está en la papelera.', [
+				'year_id_nuevo'  => $year->id,
+				'year_id_pasado' => $pasado->id,
+				'areas'          => $en_papelera,
+			]);
+		}
 	}
 
 
