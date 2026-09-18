@@ -351,6 +351,20 @@ Guard `auth.personal` y, dentro, que la asignatura sea suya o que sea administra
 > no puede borrarle nada a nadie por omisión. `frases: []` es «quítaselas todas» y **omitir la
 > clave es 422**, porque «la vacié» y «no la mandé» tienen que poder decirse distinto.
 
+> ### El grano es por ASIGNATURA y la pantalla es por GRUPO — apuntado, y a propósito sin hacer
+>
+> Lo levantó el front al recibir el contrato, y no es una petición suya: su pantalla lleva a la
+> izquierda los niños con su «7/7», o sea que necesita **las siete dimensiones a la vez** y hace
+> **siete peticiones para pintarse**.
+>
+> **No se toca ahora, y el motivo es un número**: siete contra las **126** de hoy. Un `?grupo_id=`
+> que devolviera las asignaturas del grupo en una respuesta bajaría de 7 a 1, y esa séptima parte
+> **no paga** añadir hoy un segundo grano a una familia que acaba de estrenar el primero — con dos
+> formas de pedir lo mismo, la que se use de verdad será la que alguien eligió por costumbre.
+>
+> Queda escrito aquí **con su salida ya elegida** para el día que estorbe, que es lo que impide que
+> se rediseñe desde cero: `?grupo_id=` en el mismo `GET`, no una ruta nueva.
+
 ---
 
 ## 6 · Lo que se borra, y lo que la §6.C daba por borrado y no lo está
