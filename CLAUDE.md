@@ -12,8 +12,22 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**595 rutas** (contadas con `route:list --json` el **18 sep 2026 en el ÁRBOL PRINCIPAL, sobre
-`main`**. Las cuatro que entraron sobre las 591: **tres** son la familia nueva `areas/jefes`
+**600 rutas** (contadas con `route:list --json` el **18 sep 2026 en el ÁRBOL PRINCIPAL, sobre
+`main`**. Las cinco que entraron sobre las 595 son **dos familias nuevas de una vez**, y el
+alcance lo autorizó Joseth con el precio delante: **tres** de `informes-recientes` —`GET`,
+`POST` idempotente por huella y `DELETE`— y **dos** de `accesos-favoritos` —`GET` y `PUT`—,
+que son el historial de informes y los favoritos del menú de la pantalla nueva de `/informes`
+en `app2`. Las tablas llevaban desde esa mañana en `main` sin ningún endpoint.
+
+> **El plan decía SEIS y son CINCO, y no por recorte.** Favoritos iba a llevar tres y lleva
+> dos: `orden` es una propiedad de la **lista** y no de un renglón, así que el `PUT` manda la
+> lista entera y con eso marcar, desmarcar, reordenar y renombrar son **una sola escritura
+> atómica**; un `DELETE` aparte no haría nada que no haga mandar la lista sin ese renglón, y
+> una ruta que duplica a otra hay que mantenerla, documentarla y probarla para siempre. Es el
+> mismo caso que la Fase 6 del doc 35, que preveió cuatro y entregó dos. **Quedarse corto
+> respecto a lo autorizado se cuenta y se dice; no se rellena para cuadrar.**
+
+Y las cuatro anteriores, que entraron sobre las 591: **tres** son la familia nueva `areas/jefes`
 —`GET`, `PUT` y `DELETE`, el jefe de área— y **una** es
 `PUT years/toggle-mostrar-nota-numerica`, el interruptor de si el boletín imprime el número
 además del desempeño. **Esta cifra la mueven varias sesiones a la vez y por eso se vuelve a
@@ -525,7 +539,7 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
   > | `composer run pint` | **ESCRIBE**: formatea los ficheros de la lista |
   > | `pint --test` a secas | mide **todo el repo**, incluido lo que no se formatea a propósito |
   >
-  > Los dos primeros corren sobre **la lista curada de `composer.json`** —hoy **413**
+  > Los dos primeros corren sobre **la lista curada de `composer.json`** —hoy **415**
   > ficheros—; el tercero sobre **662**, y da `FAIL` con **189** avisos. **Las dos cifras
   > son correctas y cuentan poblaciones distintas**: con la tercera se archivó como ruido
   > un rojo real que llevaba desde el 7 sep en `CorsDelEscritorioTest`.
@@ -535,6 +549,11 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
   > > quien las escribió —la lista curada crece sola, porque a `composer.json` se le añade
   > > cada fichero el día que se formatea— y por eso se remiden en vez de discutirse. Se
   > > rehacen con las tres órdenes de la tabla de arriba, que son las que las produjeron.
+  > >
+  > > *Y subía otra vez esa misma tarde, de **413** a **415**: las dos familias nuevas de
+  > > `informes-recientes` y `accesos-favoritos` metieron sus dos controladores en la lista.
+  > > Se apuntan aquí **en el mismo commit que los escribe**, que es la única forma de que
+  > > este número no vuelva a llevar meses de retraso.*
   > >
   > > **Y el 647 tiene una trampa que conviene dejar dicha: hoy es el número de LARASTAN,
   > > no el de Pint.** `composer run stan` analiza **647** ficheros y `pint --test` mide

@@ -7,6 +7,10 @@
         "total": 3,
         "con_guard": 3
     },
+    "accesos-favoritos": {
+        "total": 2,
+        "con_guard": 2
+    },
     "actas-evaluacion": {
         "total": 3,
         "con_guard": 3
@@ -218,6 +222,10 @@
     "informes": {
         "total": 2,
         "con_guard": 2
+    },
+    "informes-recientes": {
+        "total": 3,
+        "con_guard": 3
     },
     "login": {
         "total": 7,

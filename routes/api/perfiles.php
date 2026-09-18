@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Perfiles\AccesosFavoritosController;
 use App\Http\Controllers\Perfiles\CalendarioController;
 use App\Http\Controllers\Perfiles\ImagesController;
 use App\Http\Controllers\Perfiles\ImagesUsuariosController;
@@ -135,3 +136,19 @@ Route::put('calendario/eliminar-evento', [CalendarioController::class, 'putElimi
 Route::put('calendario/guardar-evento', [CalendarioController::class, 'putGuardarEvento']);
 Route::put('calendario/sincronizar-cumples', [CalendarioController::class, 'putSincronizarCumples']);
 Route::put('calendario/this-year', [CalendarioController::class, 'putThisYear']);
+
+// AccesosFavoritosController
+//
+// **Familia nueva (18 sep 2026)**, autorizada por Joseth con el precio delante.
+// Los accesos favoritos del menú de cada persona en `app2`.
+//
+// **Son DOS y no tres**: `orden` es una propiedad de la lista y no de un renglón, así
+// que el `PUT` manda la lista entera y con eso marcar, desmarcar, reordenar y
+// renombrar son una sola escritura atómica. Un `DELETE` aparte no haría nada que no
+// haga mandar la lista sin ese renglón. El razonamiento largo, y lo que se paga por
+// elegirlo, están en el docblock del controlador.
+//
+// Van en `perfiles` y no en `informes` porque **no son de informes**: son del menú.
+// Y la tabla no lleva `year_id` a propósito — una ruta del menú no es de un año.
+Route::get('accesos-favoritos', [AccesosFavoritosController::class, 'getIndex'])->middleware('auth.personal');
+Route::put('accesos-favoritos', [AccesosFavoritosController::class, 'putIndex'])->middleware('auth.personal');

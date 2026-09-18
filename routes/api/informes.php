@@ -13,6 +13,7 @@ use App\Http\Controllers\Informes\BolfinalesPreescolarController;
 use App\Http\Controllers\Informes\CertificadosPersonaController;
 use App\Http\Controllers\Informes\ExcelListadoDocentesController;
 use App\Http\Controllers\Informes\InformesController;
+use App\Http\Controllers\Informes\InformesRecientesController;
 use App\Http\Controllers\Informes\NotasPerdidasController;
 use App\Http\Controllers\Informes\ObservadorController;
 use App\Http\Controllers\Informes\ObservadorHorizontalController;
@@ -155,3 +156,19 @@ Route::put('actas-evaluacion/cambiar-descripcion', [ActasEvaluacionController::c
 // CertificadosEstudioController
 Route::get('certificados-estudio/certificado-alumno/{grupo_id}', [CertificadosEstudioController::class, 'getCertificadoAlumno'])->middleware('auth.personal');
 Route::get('certificados-estudio/certificado-grupo/{grupo_id}', [CertificadosEstudioController::class, 'getCertificadoGrupo'])->middleware('auth.personal');
+
+// InformesRecientesController
+//
+// **Familia nueva (18 sep 2026)**, autorizada por Joseth con el precio delante.
+// Guardan lo que cada quien sacó hace poco, para el «repetir esto» de la pantalla
+// nueva de `/informes` en `app2`.
+//
+// `auth.personal` en las tres, y la razón no es proteger la fila —`user_id` y
+// `year_id` salen de la sesión, así que nadie puede pedir la lista de otro—: es que
+// el catálogo de informes es una pantalla del personal, y el guard baja la
+// superficie de 2.358 cuentas a 74 sin quitárselo a nadie que tenga uso para ella.
+// Consecuencia, no causa: con tres rutas guardadas la familia no entra en
+// `familias-que-nunca-entran-en-el-candado.json`.
+Route::get('informes-recientes', [InformesRecientesController::class, 'getIndex'])->middleware('auth.personal');
+Route::post('informes-recientes', [InformesRecientesController::class, 'postStore'])->middleware('auth.personal');
+Route::delete('informes-recientes', [InformesRecientesController::class, 'deleteIndex'])->middleware('auth.personal');

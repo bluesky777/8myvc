@@ -73,6 +73,108 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## ✅ EL HISTORIAL DE INFORMES Y LOS FAVORITOS DEL MENÚ — CINCO RUTAS, ROUTER EN 600 (18 sep 2026)
+>
+> **Autorizado por Joseth con el precio delante**, que es como entra una familia nueva aquí. Las
+> dos tablas llevaban desde esa mañana en `main` (`2026_09_18_200000`) **sin un solo endpoint**.
+>
+> | | |
+> |---|---|
+> | `GET` / `POST` / `DELETE informes-recientes` | `Informes/InformesRecientesController` |
+> | `GET` / `PUT accesos-favoritos` | `Perfiles/AccesosFavoritosController` |
+> | `auth.personal` en las cinco — un alumno recibe **403**, medido | |
+> | **600** contado con `route:list --json` en el árbol principal, no sumado | |
+>
+> ### El plan decía SEIS y son CINCO, y eso se cuenta, no se rellena
+>
+> Favoritos iba a llevar tres rutas y lleva dos. **`orden` es una propiedad de la LISTA y no de un
+> renglón**: con rutas por elemento el cliente tiene que mantener un orden total coherente a lo
+> largo de N peticiones, y un fallo a mitad deja huecos o empates en una columna que nadie vuelve a
+> mirar. Con un `PUT` de la lista entera, marcar, desmarcar, reordenar y renombrar son **una sola
+> escritura atómica**, y entonces un `DELETE` aparte no hace nada que no haga mandar la lista sin
+> ese renglón. Mismo caso que la Fase 6 del [35](35-el-modelo-de-evaluacion-del-colegio.md), que
+> preveió cuatro y entregó dos.
+>
+> **Lo que se paga, escrito antes de que muerda**: dos pestañas se pisan y gana la última. Se
+> acepta porque es el menú de una persona —el conflicto sólo puede ser con uno mismo y se ve al
+> instante—, y a cambio se quita la clase entera de fallos de orden, que no se ven.
+>
+> ### LA LECCIÓN CARA DEL DÍA: un resumen conserva el dato y pierde la ADVERTENCIA
+>
+> La especificación viajó `8myvc-33` → `myvc-front-dc` → aquí, y **se degradó justo en el punto
+> sobre el que iba la advertencia**. `33` había avisado de que `periodo_id` y `periodo_a_calcular`
+> **son dos campos distintos** —uno es el **id** de la fila de `periodos`, el otro el **número**
+> (1..4)— y de que el `3` de una URL como `/boletines-periodo/96/3` parece el número. Llegó
+> resumido como *«`periodo_a_calcular` guarda el número»*: cierto de ese campo, **y sin la
+> advertencia**.
+>
+> Se resolvió midiendo, no deduciendo. `dc` lo comprobó contra el docker: en el año 2026 los
+> periodos son `id 34, 40, 41, 42` → `numero 1, 2, 3, 4`. **Ni siquiera son seguidos**, así que
+> confundirlos no es un error que se disimule — y si se hashea hoy el número y mañana el id, el
+> mismo informe da dos huellas y dos filas, que es lo que el `UNIQUE` existe para impedir.
+>
+> *Un dato sobrevive a un resumen; una advertencia no, porque no parece información. Cuando algo
+> pase por tres sesiones, lo que hay que repreguntar es la advertencia.*
+>
+> ### Conducido contra el docker, mirando el RESULTADO y no el 200
+>
+> Claves de `eleccion` **al revés → la misma huella**; campos vacíos descartados → la misma
+> huella; el mismo informe dos veces → **una fila**; siete distintos → **seis**; el favorito que
+> falta en el `PUT` se quita y **`created_at` se conserva** al reordenar; los seis 422 con su
+> mensaje; 401 sin token y **403 con token de alumno**.
+>
+> > **Y un rojo que era mío y no del código**: el primer barrido dio **400** en las cinco contra el
+> > token de alumno, y `ExigirPersonal` hace `abort(403)`. Era un fallo de **mi bucle de bash**, no
+> > de la API — rehecho, **403 en las cinco**. Es literalmente lo que avisa `CLAUDE.md`: *el primer
+> > sitio donde mirar cuando el número sale raro es el detector*.
+>
+> ### ⚠️ DOS PRUEBAS EN ROJO EN `main`, Y NO SON DE ESTE TRABAJO
+>
+> `AutorizacionTest > el alumno recibe su boletin y solo el suyo` y
+> `AutorizacionTest > boletines3 sale con un area sin asignaturas` **fallan también sin este
+> cambio**. Comprobado guardando el trabajo con `git stash` y corriendo la clase sobre el árbol
+> limpio: **2 failed, 53 passed**. Con el cambio son las mismas dos.
+>
+> Se dejan dichas y **no se tocan**: los tests esperan a que Joseth pruebe a mano, que es regla
+> suya. Pero el relevo anterior decía *«está todo en verde»*, y de estas dos no se había enterado
+> nadie. *Una línea base se establece antes de atribuirse un rojo, en las dos direcciones.*
+>
+> ### Revisado por el front, y cuatro apuntes suyos que ya están en el código
+>
+> `myvc-front-dc` —que heredó `cascara/favoritos/` de `myvc-front-e7`— confirmó el contrato antes
+> de commitear. El `PUT` de lista entera **es lo que su servicio ya hacía** (`guardar(lista)`
+> reescribe entera, porque el orden es del array), así que enchufarlo no le cuesta refactor. Y
+> aporta una mitigación gratis del «gana la última pestaña»: como el `PUT` **devuelve la lista
+> guardada**, el front adopta la respuesta del servidor y la pestaña perdedora se corrige sola.
+>
+> Los otros tres están escritos en el docblock de `AccesosFavoritosController`, que es donde se
+> buscan: que **`ruta` lleva parámetros** y no es una pantalla; que el tope del front es **12** y
+> el de aquí **30** —y que el cliente sea más estricto es lo correcto—; y el que más vale:
+> **favoritos no tiene `year_id` y una dirección con parámetros sí depende del año**. Un favorito
+> a `/informes/boletines-periodo/96/3` guardado en 2026 y abierto en 2025 lleva a otro grupo. **Se
+> deja así a sabiendas** —meter `year_id` haría desaparecer `/lista-alumnos` al cambiar de año— y
+> se escribe porque el síntoma será *«me lleva al grupo equivocado»* y se irá a buscar a informes.
+>
+> ### Lo que hay que avisar el día del despliegue
+>
+> **Nada aquí añade migración**: las dos tablas ya entraron esa mañana con `2026_09_18_200000`.
+> Lo único que mirar es que esa migración **llegue antes que el código**, como todas.
+>
+> Y un número medido por si alguna falla: el `UNIQUE (user_id, ruta)` de `accesos_favoritos` son
+> **1.024 bytes** (4 + 255×4 en `utf8mb4`). Con `ROW_FORMAT=Dynamic` el tope es **3.072** y sobra;
+> con el `COMPACT` antiguo serían **767** y no se podría crear. MariaDB 10.5 trae `dynamic` de
+> serie desde la 10.2, así que haría falta un colegio con esa variable cambiada a mano. **Si pasa,
+> la salida es un índice con prefijo y NO acortar la columna**, que perdería direcciones largas en
+> silencio.
+>
+> ### Lo que NO está hecho
+>
+> **No hay tests de contrato de estas cinco rutas.** Por la regla de arriba, no por olvido. Las
+> instantáneas sí se movieron —`rutas.json`, `guards-por-ruta.json` y `guard-por-familia.json`, con
+> las dos familias como **«3 de 3»** y **«2 de 2»**— y
+> `familias-que-nunca-entran-en-el-candado.json` **no se movió**, que era la predicción: con dos o
+> más hermanas guardadas, una familia no entra en ese censo.
+
 > ## ⚠️ LAS DOS JEFATURAS DE PRUEBA DEL DOCKER SIGUEN PUESTAS — A PROPÓSITO (18 sep 2026, 09:3x)
 >
 > **`8myvc-e2` dejó dicho que se borraran y NO se han borrado.** No es un olvido: es que al ir a
