@@ -328,11 +328,28 @@ Hacen falta dos rutas nuevas, con la población en la respuesta y no un `OK`:
 | método | ruta | qué |
 |---|---|---|
 | `GET` | `frases_asignatura/grupo/{asignatura_id}` | los alumnos del grupo con sus frases; `periodo_id` opcional |
-| `PUT` | `frases_asignatura/grupo/{asignatura_id}` | guarda el grupo entero; contesta `revisados · escritos · borrados · saltados_por_periodo_cerrado` |
+| `PUT` | `frases_asignatura/grupo/{asignatura_id}` | guarda el grupo entero; contesta el grupo releído más `alumnos_del_grupo · alumnos_revisados · frases_revisadas · escritas · cambiadas · sin_cambio · borradas · vacias` |
 
 Guard `auth.personal` y, dentro, que la asignatura sea suya o que sea administrativo —**no
 `persona.propia`**, que es de la ruta de un alumno y aquí no aplica. La escritura respeta
 `pueden_editar_notas` del periodo destino.
+
+> **Aquí ponía `saltados_por_periodo_cerrado` y ese contador no puede existir.** Corregido al
+> implementarlo, y la corrección es mejor que lo que pedí: **el periodo cerrado corta la petición
+> entera con 403 antes de mirar el cuerpo**, así que ese renglón valdría cero siempre — y la regla
+> de esta casa es justo que *un contador que no puede subir no dice si la regla corrió*. Pedí la
+> población y describí un contador inerte en la misma frase.
+>
+> Es la decisión de `putRejilla`: **un 200 que guardó media pantalla miente**. Quien quiera saberlo
+> **antes** de mandar el cuerpo tiene `puede_escribir` en el `GET`, que no es lo mismo que
+> `periodo_abierto` — la primera es la columna del periodo, la segunda es lo que el `PUT` le
+> contestará **a quien está mirando**: un superusuario escribe con el periodo cerrado y un docente
+> no.
+>
+> **Y el `PUT` es declarativo con un límite**: cada alumno trae su lista completa y lo que no viene
+> se va, pero **sólo se tocan los alumnos nombrados**, así que una pantalla que guarde por partes
+> no puede borrarle nada a nadie por omisión. `frases: []` es «quítaselas todas» y **omitir la
+> clave es 422**, porque «la vacié» y «no la mandé» tienen que poder decirse distinto.
 
 ---
 
