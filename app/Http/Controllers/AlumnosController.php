@@ -1119,8 +1119,27 @@ class AlumnosController extends Controller {
 	public function putPersonasCheck()
 	{
 		$texto = Request::input('texto');
-		//$todos_anios = Request::input('todos_anios');
-		$todos_anios = true;
+
+		/*
+		 * EL PARAMETRO SE VUELVE A LEER, Y LLEVABA TIEMPO IGNORADO. Estaba comentado y debajo un
+		 * `$todos_anios = true;` escrito a pelo, asi que daba igual lo que mandara el cliente.
+		 * Medido contra el docker el 2026-09-18: con `todos_anios=false` devolvia las mismas cinco
+		 * personas que con `true`, incluida una alumna cuya unica matricula es del `year_id` 1
+		 * estando el usuario en el 9.
+		 *
+		 * A quien le importa, de los cinco que llaman aqui:
+		 *
+		 *   - `PersonaCtrl.ts:856` (front viejo) manda **la casilla que marca el usuario**: era una
+		 *     casilla muerta, y vuelve a servir con esto.
+		 *   - el buscador de `app2` mandaba `false` y recibia todos los años igual.
+		 *   - `sidebarMenu.ts` y `AlumnosNewCtrl.ts` NO lo mandan, y `AsignarAcudienteAOtroModal`
+		 *     manda `true`. Por eso el valor por defecto es `true`: para esos tres no cambia nada.
+		 *
+		 * `filter_var` y no un `(bool)`: por JSON llega un booleano, pero por formulario llegaria la
+		 * cadena `"false"`, y `(bool) "false"` es `true` -- que es como un arreglo de esto se
+		 * convierte en el mismo fallo con otra cara.
+		 */
+		$todos_anios = filter_var(Request::input('todos_anios', true), FILTER_VALIDATE_BOOLEAN);
 		
 		if ($todos_anios) {
 				$consulta = 'SELECT a.id as alumno_id, a.nombres, a.apellidos, "alumno" as tipo, a.deleted_at, 
