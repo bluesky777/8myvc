@@ -312,6 +312,21 @@
 > > docker exec -e DB_TEST_DATABASE=<la_suya> 8myvc-app-1 \
 > >     php artisan migrate:status --database=mysql_testing | grep -i pending
 > > ```
+> >
+> > **Y el renglón que hace que esas 22 importen MÁS ADELANTE, que no es lo de hoy.**
+> > Comprobado con `ListAgents`: las 22 son de sesiones muertas y no había a quién
+> > avisar. Lo que queda es una mina con retardo — **una sesión nueva que reutilice el
+> > nombre de un worktree viejo** (`.worktrees/b`, `.worktrees/f`…) se encuentra una
+> > base **que ya existe y está varias migraciones atrás**, y no la reconstruye
+> > precisamente porque «ya está». El síntoma será otra vez `Unknown column` en
+> > ficheros que esa sesión no ha tocado.
+> >
+> > **El remedio es trivial y por eso conviene que esté escrito:
+> > `tools/construir-bd-test.sh` hace `DROP DATABASE IF EXISTS` y la vuelve a crear**,
+> > así que no hay nada que reparar a mano ni riesgo de dejarla a medias — **correrlo
+> > siempre da una base limpia y migrada**. O sea que el peligro no está en el script,
+> > está en **no correrlo** por creer que una base que existe está al día. Reutilizar
+> > el nombre de un worktree es exactamente cuando esa creencia es falsa.
 >
 > Y el vecino con el que se va a confundir: **`years.solo_escalas_valorativas` también vacía
 > un número**, pero sólo en la cabecera de comportamiento y con la polaridad invertida.
