@@ -230,6 +230,18 @@ Route::delete('escalas/destroy/{id}', [EscalasDeValoracionController::class, 'de
 Route::delete('frases_asignatura/destroy/{id}', [FrasesAsignaturaController::class, 'deleteDestroy'])->middleware('auth.personal');
 Route::get('frases_asignatura/show/{alumno_id}/{asignatura_id}', [FrasesAsignaturaController::class, 'getShow'])->middleware('persona.propia');
 Route::post('frases_asignatura/store/{frase_id?}', [FrasesAsignaturaController::class, 'postStore'])->middleware('auth.personal');
+// Las dos del grupo entero, §5 de docs/migracion/39-el-modelo-plano-por-competencias.md:
+// las pantallas propias de preescolar escriben un grupo y un periodo de una vez, y
+// `store` guarda UNA frase por petición — medido sobre el grupo 3 de la copia de
+// desarrollo, un periodo entero eran 322 peticiones y son 14.
+//
+// Guard `auth.personal` y **no** `persona.propia`, que es el de `show`: aquél
+// pregunta si el id de UN alumno es el de quien llama, y aquí se pide un grupo
+// entero — no hay id que comparar y dejaría la ruta cerrada para todos. El criterio
+// fino —la asignatura es suya, o quien llama es administrativo— va DENTRO del
+// método, que es la forma de `PlantillaNotasController`.
+Route::get('frases_asignatura/grupo/{asignatura_id}', [FrasesAsignaturaController::class, 'getGrupo'])->middleware('auth.personal');
+Route::put('frases_asignatura/grupo/{asignatura_id}', [FrasesAsignaturaController::class, 'putGrupo'])->middleware('auth.personal');
 
 // BolfinalesController
 //
