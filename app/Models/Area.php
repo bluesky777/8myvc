@@ -140,12 +140,32 @@ class Area extends Model {
 					}
 				}
 
-				// **El mismo `round()` que la rama de siempre, y a propósito.** Sobre una
-				// escala 0–50 se come medio punto y sobre una 0–5 un 4,6 cambia de banda,
-				// pero eso ya pasa hoy en los dieciséis: quitarlo AQUÍ haría que encender
-				// los pesos cambiara además el convenio de redondeo por la puerta de
-				// atrás, y son dos decisiones distintas. Un cambio a la vez.
-				$areas[$i]->area_nota 		= round($ponderada);
+				// **Sin `round()`, y SÓLO en esta rama** — decisión de Joseth, 17 sep 2026.
+				// La rama que promedia sigue redondeando carácter por carácter, así que el
+				// papel de los dieciséis no se mueve: hoy no hay ni una asignatura con peso.
+				//
+				// El motivo que lo decidió es que el redondeo **se comía la ponderación**:
+				// con 60/40 la ponderada se separa de la media en `0,1 × (mayor − menor)`,
+				// así que sobre 0–50 sólo se ve con las materias a ~5 puntos, y sobre una
+				// escala 0–5 no se vería nunca (un 60/40 entre 4,6 y 4,2 desplaza 0,04). El
+				// coordinador rellenaría la columna entera y el papel imprimiría el promedio.
+				//
+				// Y hay un motivo mejor que ése, que se vio al ir a hacerlo: **desde
+				// `bd02f66` (13 sep) el resto del sistema ya no redondea**. `valoracion()`
+				// perdió su `round()` ese día en los trece sitios, porque la nota es
+				// `decimal(7,4)` y redondear subía un 45,5 a SUPERIOR donde el colegio
+				// escribió que ALTO llega hasta 45. O sea que el área era **la que se había
+				// quedado sola con la regla vieja**, y esto la devuelve al redil.
+				//
+				// **Lo que esto mueve y no es obvio**: como `valoracion()` ya no redondea,
+				// un ponderado de 29,6 se queda en la banda de 29 en vez de subir a la de
+				// 30. O sea que quitar el redondeo puede bajar de banda respecto a hoy, no
+				// sólo subir. Es la misma regla que las notas de al lado, que es justo lo
+				// que hace que el papel no se contradiga consigo mismo.
+				//
+				// Y `area_nota` pasa a poder ser decimal en esta rama: la maqueta que la
+				// imprima tiene que formatearla, como ya hace con las definitivas.
+				$areas[$i]->area_nota 		= $ponderada;
 			}elseif ($found>0) {
 				$areas[$i]->area_nota 		= round($areas[$i]->sumatoria / $found);
 				$areas[$i]->per1 		= $areas[$i]->per1 / $found;
@@ -253,11 +273,12 @@ class Area extends Model {
 
 			// ¿El colegio repartió esta área a mano? (`asignaturas.porcentaje_area`)
 			// Con `null` —hoy, en los dieciséis— las cuatro líneas de abajo son las de
-			// siempre, carácter por carácter.
+			// siempre, carácter por carácter. La rama ponderada **no redondea** (Joseth,
+			// 17 sep 2026): el porqué, largo, está en `agrupar_asignaturas`.
 			$reparto = self::repartoDelArea($grupo_id, $areas[$i]->asignaturas, $pesosDelGrupo);
 
 			$areas[$i]->per1_nota 			= $reparto !== null
-				? round(self::ponderar($areas[$i]->asignaturas, $reparto, 'nota_final_per1'))
+				? self::ponderar($areas[$i]->asignaturas, $reparto, 'nota_final_per1')
 				: round($areas[$i]->sumatoria_per1 / $found);
 			$des 							= EscalaDeValoracion::valoracion($areas[$i]->per1_nota, $escalas);
 			if ($des) {
@@ -266,7 +287,7 @@ class Area extends Model {
 
 			if ($num_periodo > 1) {
 				$areas[$i]->per2_nota 			= $reparto !== null
-					? round(self::ponderar($areas[$i]->asignaturas, $reparto, 'nota_final_per2'))
+					? self::ponderar($areas[$i]->asignaturas, $reparto, 'nota_final_per2')
 					: round($areas[$i]->sumatoria_per2 / $found);
 				$des 							= EscalaDeValoracion::valoracion($areas[$i]->per2_nota, $escalas);
 				if ($des) {
@@ -276,7 +297,7 @@ class Area extends Model {
 			}
 			if ($num_periodo > 2) {
 				$areas[$i]->per3_nota 			= $reparto !== null
-					? round(self::ponderar($areas[$i]->asignaturas, $reparto, 'nota_final_per3'))
+					? self::ponderar($areas[$i]->asignaturas, $reparto, 'nota_final_per3')
 					: round($areas[$i]->sumatoria_per3 / $found);
 				$des 							= EscalaDeValoracion::valoracion($areas[$i]->per3_nota, $escalas);
 				if ($des) {
@@ -285,7 +306,7 @@ class Area extends Model {
 			}
 			if ($num_periodo == 4) {
 				$areas[$i]->per4_nota 			= $reparto !== null
-					? round(self::ponderar($areas[$i]->asignaturas, $reparto, 'nota_final_per4'))
+					? self::ponderar($areas[$i]->asignaturas, $reparto, 'nota_final_per4')
 					: round($areas[$i]->sumatoria_per4 / $found);
 				$des 							= EscalaDeValoracion::valoracion($areas[$i]->per4_nota, $escalas);
 				if ($des) {
