@@ -35,6 +35,19 @@ database/migrations/2026_09_13_300000_desempenos.php
 segundo `Schema::create`, fuera `competencia_id` del primero, fuera el `dropIfExists(desempenos)`
 del `down`. Las otras tres sí se borran enteras.
 
+> **Y esto hay que leerlo en `d540906`, no en el árbol de trabajo — ya confundió a una sesión el
+> mismo día.** En cuanto se aplica la edición, el fichero tiene **un** `Schema::create` y un
+> docblock que dice *«nació con dos»*, así que quien lo abra después mide el resultado y concluye
+> que el segundo nunca existió. La orden que lo zanja, y que no depende de en qué momento se corra:
+>
+> ```bash
+> git show d540906:database/migrations/2026_09_13_300000_desempenos.php | grep -c "Schema::create"   # 2
+> ```
+>
+> Es la misma trampa que el docker compartido —**medir el mismo sitio en dos momentos y creer que
+> se discrepa**—, sólo que en el árbol de git en vez de en la base. Por eso una medición se ancla a
+> **un hash**, no a «el fichero».
+
 ### 0.2 · Copiar entre AÑOS no está roto: **calla y no copia nada**
 
 Era la pregunta 5 del encargo, y se contesta leyendo `putCopiarPlantilla` (línea 446) con el
@@ -232,9 +245,20 @@ tres líneas el día que Joseth diga.
 | la cabecera | la competencia, congelada | **no hay cabecera**: el modelo es plano (H3, P3) |
 | el prefijo | no hay | `escalas_de_valoracion.descripcion` de la banda, delante del texto. Vacía = como hoy (P2, H5) |
 
-**Lo que NO se toca y hay que decirlo**: las frases escritas a mano —`frases_asignatura` con
-`desempeno_id IS NULL`, **12.294 filas sólo en `simonbolivar`**— **siguen imprimiéndose**. Son datos
-de producción de los dieciséis colegios y no vienen de ninguna rejilla.
+**Lo que NO se toca y hay que decirlo**: las frases escritas a mano de `frases_asignatura`
+**siguen imprimiéndose**. Son datos de producción de los dieciséis colegios y no vienen de ninguna
+rejilla. Medidas en el docker el **17 sep 2026 a las 20:14**: **11.004 vivas** y **12.445 contando
+las borradas**.
+
+> **Aquí ponía «12.294» y yo no la había medido: la copié de un comentario de
+> `BoletinPorCompetenciasController`.** Es exactamente lo que este repositorio prohíbe —una cifra
+> se publica con la orden que la produjo—, y lo destapó el front midiendo y obteniendo otra.
+>
+> **Las tres son ciertas y cuentan poblaciones distintas**, que es lo que hace que reconciliarlas
+> valga más que sustituir una por otra: `12.445 − 151 = 12.294`, o sea que el comentario contaba
+> **todas las filas, borradas incluidas, sin `desempeno_id`**. Esa cuenta **ya no se puede rehacer**
+> —`desempeno_id` deja de existir con este cambio—, y por eso la que se queda escrita es la de las
+> vivas, con su hora al lado.
 
 **`bandaDeLaNota` ya existe** (línea 686) y **no se toca**: su comparación
 `nota >= porc_inicial && nota < porc_final + 1` la vigila `CentinelaDeLaReglaDeLaBandaTest`, que
