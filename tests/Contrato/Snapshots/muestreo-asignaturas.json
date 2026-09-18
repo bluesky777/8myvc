@@ -1,6 +1,7 @@
 [
     {
         "alias_area": "string",
+        "area_id": "int",
         "created_at": "string",
         "created_by": "null",
         "creditos": "int",
@@ -15,6 +16,7 @@
         "nombre_area": "string",
         "nombre_asignatura": "string",
         "orden": "null",
+        "porcentaje_area": "null",
         "profesor_id": "int",
         "sabado": "null",
         "updated_at": "string",
