@@ -267,9 +267,25 @@ class CentinelaDeLasTablasDelAnioNuevoTest extends TestCase
      * @var array<string, string>
      */
     public const SIN_DECIDIR = [
-        // Vacía. Lo que entra aquí es una tabla con `year_id` de la que **no se
-        // sabe** si el año nuevo la hereda, con la pregunta escrita entera y el
-        // nombre de quien la tiene que contestar — nunca un motivo provisional.
+        // Lo que entra aquí es una tabla con `year_id` de la que **no se sabe** si
+        // el año nuevo la hereda, con la pregunta escrita entera y el nombre de
+        // quien la tiene que contestar — nunca un motivo provisional.
+
+        'jefes_de_area' => 'PREGUNTA PARA JOSETH (17 sep 2026, la trae la migración '
+            .'`2026_09_17_200000_jefe_de_area_por_anio`): al crear el año nuevo, '
+            .'¿hereda los jefes de área del año anterior, o nace sin ninguno? '
+            .'Su frase al pedir la tabla fue «cada año es un dueño diferente '
+            .'(director de área)», que dice que PUEDE cambiar, no si se reescribe '
+            .'cada enero. Los dos caminos tienen precedente aquí mismo y por eso no '
+            .'se puede deducir: el PLAN DE ÁREA sí se copia (`copiarElPlanDeArea`), '
+            .'y los CONTRATOS no —«la planta se contrata cada año; copiarlos daría '
+            .'por contratada a gente sin renovar»—. Una jefatura es las dos cosas a '
+            .'la vez: estructura académica que se repite, dada a una persona que '
+            .'puede no renovar. Copiarla nombraría jefe a quien quizá ya no esté; '
+            .'no copiarla obliga a rehacer 22 filas cada enero. Si la respuesta es '
+            .'«hereda», es un método privado más en `postStore` y esta entrada pasa '
+            .'a la lista de copiadas; si es «nace vacío», pasa a DATOS_DEL_ANIO con '
+            .'ese motivo.',
     ];
 
     #[Test]
