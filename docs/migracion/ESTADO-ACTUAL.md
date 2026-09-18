@@ -73,6 +73,78 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## 🔧 LA NOTA NUMÉRICA DEL BOLETÍN Y LAS DOS TABLAS DE LA PANTALLA DE INFORMES (18 sep 2026)
+>
+> **Encargo de Joseth por la sesión de `myvc_front`**, que está rehaciendo `/informes` en
+> `app2`. Tres piezas de backend; **las tres están en `main` salvo el consumo**, que es del
+> front.
+>
+> ### 1. El interruptor de la nota numérica — EN `main`
+>
+> Hoy es un «boletín tipo 5» —*el tipo 1 pero sin números*— que se elige **al imprimir**, y
+> pasa a ser **configuración del año**: es una decisión del SIEE, no algo que se decida cada
+> vez que alguien saca un papel. `apagado` → sólo el texto del desempeño; `encendido` → el
+> número **y** el desempeño.
+>
+> | | |
+> |---|---|
+> | `years.mostrar_nota_numerica_boletin`, `tinyint(1) NOT NULL DEFAULT 1` | `2026_09_18_100000` |
+> | `PUT years/toggle-mostrar-nota-numerica` — **la ruta 595** | `estructura.php` |
+> | `Autoriza::puedeCambiarLaNotaNumerica()` | superusuario, Secretario, Coord académico, Rector |
+> | excluida de `years/toggle-cambiar-valor` (lista `$conDueno`, ahora son **tres**) | `YearsController` |
+> | la hereda el año nuevo desde el anterior | `YearsController:226` |
+>
+> **Quién la cambia costó una pregunta y conviene saber por qué**: Joseth contestó
+> **«interruptor corriente»** en una sesión y **«superadmin, secretario, coord académico»**
+> —más el rector, después— en otra. Son **74 personas y 12**. No se eligió: se le puso
+> delante que había contestado dos cosas, con las dos cifras medidas, y eligió los cuatro.
+> *Dos respuestas de la misma persona en dos sesiones no se promedian ni se deduce cuál es
+> la buena; se le enseñan las dos.*
+>
+> Y dos trampas que estaban escondidas en ese conjunto:
+>
+> - **`is_superuser` y NO el rol `Admin`.** Dijo «superadmin». Hoy los diez `Admin` de
+>   `simonbolivar` son diez de los once `is_superuser`, así que **coinciden por población y
+>   no por definición**; con el rol, el conjunto cambiaría solo el día que un colegio dé
+>   `Admin` a alguien sin la bandera.
+> - **La vecina que se le parece y no es igual.** `puedeMarcarBoletinIndependiente()` es
+>   `Admin`, `Secretario`, `Rector`; ésta cambia `Admin` por `Coord académico`. Las dos
+>   frases suenan igual en voz alta. Aquí decide **lo académico**, allí **la administración**.
+>
+> ### 2 y 3. Historial de informes y favoritos del menú — LAS TABLAS, EN `main`
+>
+> `2026_09_18_200000`: `informes_recientes` y `accesos_favoritos`. **Dos tablas y no una**
+> aunque las dos sean «preferencias del usuario»: la primera es un log que se escribe solo y
+> se poda, la segunda una lista corta que el usuario ordena a mano. Juntarlas obliga a una
+> columna `tipo` y entonces **la poda tiene que acordarse de no borrar favoritos**.
+>
+> **La dedup es un `UNIQUE`, no un `GROUP BY`**: `(user_id, year_id, clave,
+> huella_parametros)`, con la huella siendo un `sha256` de los parámetros **normalizados y
+> ordenados** —sin ordenar, `{grupo:1,periodo:2}` y `{periodo:2,grupo:1}` dan dos huellas—.
+> El motivo está a la vista en este mismo repositorio: media § del [10](10-definitivas.md)
+> existe porque `notas_finales` es una caché sin clave única.
+>
+> `year_id` va en el historial —repetir de un clic un informe del año pasado saca el papel
+> equivocado— y **no** en los favoritos, que son del menú.
+>
+> **Lo que NO está hecho**: los endpoints de esas dos tablas. El front avanza con
+> `localStorage` y no los necesita todavía.
+>
+> ### Lo que hay que avisar el día del despliegue
+>
+> **La migración tiene que llegar antes o con el código.** `Year::datos` nombra las columnas
+> una a una, así que en un colegio sin la migración esto no es «falta un campo»: es
+> `Unknown column` y **500 en todo lo que pida el año**. Y es un rojo que **este docker no
+> puede enseñar**, porque aquí la migración sí corrió. El front ya lee con «sin campo,
+> encendido», pero esa regla protege al cliente, no al servidor.
+>
+> Y el vecino con el que se va a confundir: **`years.solo_escalas_valorativas` también vacía
+> un número**, pero sólo en la cabecera de comportamiento y con la polaridad invertida.
+> **No se unifican** —los colegios que la tienen encendida imprimen así desde hace años— y
+> lo acordado con `myvc_front` es que la pantalla de configuración los enseñe **juntos y con
+> el alcance escrito al lado de cada uno**. Separados, el colegio enciende uno esperando lo
+> del otro.
+
 > ## ✅ LAS DEFINITIVAS SE CALCULAN SOLAS — LOS DOS AGUJEROS, CERRADOS (17 sep 2026)
 >
 > **Encargo de Joseth por la sesión de `myvc_front`**: *«solucionar el problema de las

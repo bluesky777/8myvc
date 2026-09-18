@@ -590,6 +590,7 @@
     "PUT api/years/toggle-ignorar-notas-perdidas": "App\\Http\\Controllers\\YearsController@putToggleIgnorarNotasPerdidas",
     "PUT api/years/toggle-mostrar-anio-pasado-en-boletin": "App\\Http\\Controllers\\YearsController@putToggleMostrarAnioPasadoEnBoletin",
     "PUT api/years/toggle-mostrar-nota-comport-en-boletin": "App\\Http\\Controllers\\YearsController@putToggleMostrarNotaComportEnBoletin",
+    "PUT api/years/toggle-mostrar-nota-numerica": "App\\Http\\Controllers\\YearsController@putToggleMostrarNotaNumerica",
     "PUT api/years/toggle-mostrar-puestos-en-boletin": "App\\Http\\Controllers\\YearsController@putToggleMostrarPuestosEnBoletin",
     "PUT api/years/toggle-solo-valorativas": "App\\Http\\Controllers\\YearsController@putToggleSoloValorativas",
     "PUT api/years/useractive/{year_id}": "App\\Http\\Controllers\\YearsController@putUseractive"

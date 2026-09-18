@@ -223,6 +223,12 @@ class YearsController extends Controller {
 			// **sin esta línea**. No la cazó ningún test de la entrega porque la
 			// entrega no tenía ninguno.
 			$year->reparto_subunidades 			 = $pasado->reparto_subunidades;
+			// El año nuevo hereda la elección del anterior por lo mismo que las de
+			// arriba: es una decisión del SIEE del colegio, no algo que se vuelva a
+			// tomar cada enero. Sin esta línea, un colegio que imprime sin número
+			// vuelve a imprimirlo con número al abrir el año y **nadie lo pide** —se
+			// descubre en el primer boletín que sale a casa.
+			$year->mostrar_nota_numerica_boletin = $pasado->mostrar_nota_numerica_boletin;
 			$year->solo_escalas_valorativas 	 = $pasado->solo_escalas_valorativas;
 			$year->year_pasado_en_bol 			 = $pasado->year_pasado_en_bol;
 			$year->titulo_rector 				 = $pasado->titulo_rector;
@@ -1538,6 +1544,72 @@ class YearsController extends Controller {
 		}
 	}
 
+	/**
+	 * Si el boletín imprime el número además del texto del desempeño.
+	 *
+	 * `PUT years/toggle-mostrar-nota-numerica`. Encargo de Joseth del 17 sep 2026
+	 * por la sesión de `myvc_front`: deja de ser un «boletín tipo 5» que se elige al
+	 * imprimir y pasa a ser configuración del año, porque es una decisión del SIEE.
+	 *
+	 *     apagado  ->  sólo el texto del desempeño
+	 *     encendido -> el número Y el desempeño
+	 *
+	 * ## Por qué gasta una ruta, que en este repositorio no es gratis
+	 *
+	 * Porque el permiso no cabe en ninguna de las que ya hay. La columna **no puede**
+	 * ir por `years/toggle-cambiar-valor` —ésa escribe cualquier columna de `years`
+	 * con sólo `auth.personal`, o sea las 74 cuentas del personal— y tampoco por
+	 * `years/modelo-evaluacion`, que exige `can_edit_plantilla_notas`: es **otro**
+	 * permiso, y meter dos en una ruta la convierte en una ruta sin criterio.
+	 *
+	 * Así que la elección real era «una ruta nueva» o «este interruptor lo mueve
+	 * cualquier docente», y la segunda no es lo que se decidió. Va con el nombre de
+	 * su familia —`years/toggle-…`, como las otras cinco— y con `auth.personal` en
+	 * la ruta más el permiso **dentro**, que es la forma de `plantilla-notas/`.
+	 *
+	 * ## El permiso se pregunta ANTES de resolver el año
+	 *
+	 * `Year::findOrFail()` contesta **404** a un año que no existe, y hacerlo primero
+	 * convertiría «no tienes permiso» en «ese año no existe» para quien no debería
+	 * estar preguntando — un 404 que confirma o desmiente la existencia de un año a
+	 * quien no puede tocarlo. Es barato ponerlo en el orden correcto y no hay ninguna
+	 * razón para el otro.
+	 */
+	public function putToggleMostrarNotaNumerica(){
+		$user = User::fromToken();
+
+		Autoriza::exigir(
+			Autoriza::puedeCambiarLaNotaNumerica($user),
+			'Solo un superusuario, secretario, coordinador académico o rector puede '
+				.'cambiar si el boletín muestra la nota numérica.'
+		);
+
+		$year_id = Request::input('year_id');
+
+		// **`can` se lee igual que en las otras cinco de esta familia**, con el `(bool)`
+		// delante, y eso hace que cualquier cadena no vacía valga por «sí» —incluida
+		// `"false"`—. Se conserva a propósito: `myvc_flutter` es una sola app para los
+		// dieciséis y una versión vieja convive meses, así que cambiar la forma de leer
+		// este campo aquí y no en las otras cinco dejaría dos criterios para el mismo
+		// `can` según el interruptor. La familia se endurece entera o no se endurece.
+		$can = (bool) Request::input('can');
+
+		$year = Year::findOrFail($year_id);
+		$year->mostrar_nota_numerica_boletin = $can;
+		$year->updated_by = $user->user_id;
+		$year->save();
+
+		// Devuelve el valor y no una frase suelta: la pantalla de configuración pinta
+		// este interruptor al lado de `solo_escalas_valorativas`, que es el otro que
+		// vacía un número —con otro alcance y la polaridad invertida—, y ahí conviene
+		// que el cliente confirme lo que quedó guardado en vez de deducirlo de lo que
+		// mandó.
+		return [
+			'year_id' => (int) $year->id,
+			'mostrar_nota_numerica_boletin' => (bool) $year->mostrar_nota_numerica_boletin,
+		];
+	}
+
 	public function putToggleCambiarValor(){
 		$user 		= User::fromToken();
 		$now 		= Carbon::now('America/Bogota');
@@ -1584,16 +1656,34 @@ class YearsController extends Controller {
 		// Las dos se escriben por `PUT years/modelo-evaluacion`, que exige
 		// `can_edit_plantilla_notas` DENTRO. Esta ruta es `auth.personal`: sin este
 		// corte, las dos decisiones se saltan aquí en una línea y no lo diría nada.
+		// **Y el 18 sep 2026 entró la tercera, y con ella el mensaje deja de poder ser
+		// uno solo.** `mostrar_nota_numerica_boletin` también tiene dueño, pero **no el
+		// mismo**: no va por `years/modelo-evaluacion` ni exige
+		// `can_edit_plantilla_notas`, sino por su propia ruta y con el permiso de la
+		// decisión de Joseth —superusuario, Secretario, Coord académico y Rector—.
+		//
+		// Así que cada columna trae **su** ruta. Escrito de la forma corta —una lista de
+		// nombres y un mensaje fijo— esta tercera habría mandado a quien la intentara a
+		// `years/modelo-evaluacion`, donde no se puede escribir, y el rastro de eso es
+		// una persona probando un endpoint que no era y concluyendo que no tiene
+		// permiso. Es el fallo de la §3.4 del 10 otra vez: **dos causas distintas con la
+		// misma cara**, y de las caras, la que manda a investigar al sitio equivocado.
 		$conDueno = [
-			'modelo_evaluacion' => 'El modelo de evaluación',
-			'reparto_subunidades' => 'El reparto de las subunidades',
+			'modelo_evaluacion' => ['El modelo de evaluación', 'years/modelo-evaluacion',
+				'el permiso de la plantilla de notas'],
+			'reparto_subunidades' => ['El reparto de las subunidades', 'years/modelo-evaluacion',
+				'el permiso de la plantilla de notas'],
+			'mostrar_nota_numerica_boletin' => ['La nota numérica del boletín',
+				'years/toggle-mostrar-nota-numerica',
+				'ser superusuario, Secretario, Coord académico o Rector'],
 		];
 
 		$normalizado = strtolower(trim((string) $campo));
 
 		if (isset($conDueno[$normalizado])) {
-			abort(422, $conDueno[$normalizado].' se cambia con years/modelo-evaluacion, '
-				.'que exige el permiso de la plantilla de notas.');
+			[$que, $ruta, $permiso] = $conDueno[$normalizado];
+
+			abort(422, $que.' se cambia con '.$ruta.', que exige '.$permiso.'.');
 		}
 
 		// **Y los dos títulos del certificado, desde el 15 sep 2026 (doc 38), que es un

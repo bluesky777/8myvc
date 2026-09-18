@@ -156,6 +156,11 @@ Route::put('years/toggle-cambiar-valor', [YearsController::class, 'putToggleCamb
 Route::put('years/toggle-ignorar-notas-perdidas', [YearsController::class, 'putToggleIgnorarNotasPerdidas'])->middleware('auth.personal');
 Route::put('years/toggle-mostrar-anio-pasado-en-boletin', [YearsController::class, 'putToggleMostrarAnioPasadoEnBoletin'])->middleware('auth.personal');
 Route::put('years/toggle-mostrar-nota-comport-en-boletin', [YearsController::class, 'putToggleMostrarNotaComportEnBoletin'])->middleware('auth.personal');
+// `auth.personal` en la ruta como sus cinco hermanas, y el permiso de verdad
+// DENTRO —superusuario, Secretario, Coord académico o Rector—: la forma de
+// `plantilla-notas/`. Mirar la familia y suponer que ésta también la mueve
+// cualquier docente es el error que este renglón viene a evitar.
+Route::put('years/toggle-mostrar-nota-numerica', [YearsController::class, 'putToggleMostrarNotaNumerica'])->middleware('auth.personal');
 Route::put('years/toggle-mostrar-puestos-en-boletin', [YearsController::class, 'putToggleMostrarPuestosEnBoletin'])->middleware('auth.personal');
 Route::put('years/toggle-solo-valorativas', [YearsController::class, 'putToggleSoloValorativas'])->middleware('auth.personal');
 Route::get('years/trashed', [YearsController::class, 'getTrashed'])->middleware('auth.personal');

@@ -12,7 +12,18 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**591 rutas** (contadas con `route:list --json` el **17 sep 2026 a las 20:48 en el ÁRBOL
+**595 rutas** (contadas con `route:list --json` el **18 sep 2026 en el ÁRBOL PRINCIPAL, sobre
+`main`**. Las cuatro que entraron sobre las 591: **tres** son la familia nueva `areas/jefes`
+—`GET`, `PUT` y `DELETE`, el jefe de área— y **una** es
+`PUT years/toggle-mostrar-nota-numerica`, el interruptor de si el boletín imprime el número
+además del desempeño. **Esta cifra la mueven varias sesiones a la vez y por eso se vuelve a
+contar entera**: quien añadió las tres de `areas/` regeneró sus instantáneas y **no tocó este
+número**, así que el contador ya llevaba tres de retraso antes de que la cuarta se escribiera —
+que es exactamente lo que el recuadro de más abajo lleva meses avisando, ocurriendo otra vez.
+La forma de verlo sin contar de memoria es diferenciar `rutas.json` contra el commit que
+registró la cifra anterior, que es de donde salen estas cuatro.
+
+El número anterior era **591**, contado con `route:list --json` el **17 sep 2026 a las 20:48 en el ÁRBOL
 PRINCIPAL, sobre `main` y después de fundir** las cuatro tareas del modelo plano por competencias
 —`docs/migracion/39-el-modelo-plano-por-competencias.md`—. **Es la primera vez que este número
 BAJA**, y el motivo es que «competencia» y «desempeño» resultaron ser la misma cosa: sobraba un

@@ -166,6 +166,25 @@ class Autoriza
     private const ROLES_QUE_MARCAN_BOLETIN_INDEPENDIENTE = ['Admin', 'Secretario', 'Rector'];
 
     /**
+     * Los roles que deciden si el boletín imprime el número además del desempeño.
+     * Superusuario va por encima, como siempre.
+     *
+     * **`Coord académico` lleva tilde y aquí eso importa.** La comparación la hace
+     * `Role::hasRole()` en PHP, byte a byte contra lo que devuelve la tabla, así que
+     * el literal de este fichero tiene que estar en UTF-8 igual que la fila. No es
+     * una precaución de manual: el 18 sep 2026, midiendo quién entraba en este
+     * mismo conjunto, un `WHERE r.name IN ('Coord académico')` desde el cliente
+     * `mysql` devolvió **cero filas** teniendo un titular, y la conclusión
+     * —«ese rol no lo tiene nadie»— estuvo a punto de irse en un mensaje. Es
+     * [33-la-tilde-que-sql-no-ve](../../docs/migracion/33-la-tilde-que-sql-no-ve.md).
+     * Contado por `role_id` hay **uno**, y **no es superusuario**, o sea que este
+     * rol añade a alguien de verdad.
+     *
+     * @var list<string>
+     */
+    private const ROLES_QUE_CAMBIAN_LA_NOTA_NUMERICA = ['Secretario', 'Coord académico', 'Rector'];
+
+    /**
      * Marcar y desmarcar un periodo de un alumno como boletín independiente.
      * `PUT boletin-independiente/periodo`, §6.3 del
      * [19](../../docs/migracion/19-boletin-independiente.md).
@@ -308,6 +327,69 @@ class Autoriza
         $userId = $user->user_id ?? null;
 
         return $userId !== null && Role::isCoordAcademico($userId);
+    }
+
+    /**
+     * Cambiar si el boletín imprime el número además del texto del desempeño.
+     * `PUT years/toggle-mostrar-nota-numerica`, columna
+     * `years.mostrar_nota_numerica_boletin`.
+     *
+     * Decisión de Joseth del 17 sep 2026: **superusuario, Secretario, Coord
+     * académico y Rector**. Medido ese día en la copia de desarrollo: **12**
+     * personas, frente a las **74** que tiene el personal entero.
+     *
+     * ## Por qué no es ninguno de los que ya hay
+     *
+     * No es `esAdministrativo()` —`is_superuser || Secretario`—, que deja fuera al
+     * coordinador y al rector. No es `puedePublicarHorario()` —superusuario o
+     * coordinador—, que deja fuera a secretaría. Y **no es
+     * `puedeMarcarBoletinIndependiente()`, que es la que más se le parece y es la
+     * trampa**: aquélla es `Admin`, `Secretario` y `Rector`; ésta cambia `Admin`
+     * por `Coord académico`. Las dos frases suenan igual leídas en voz alta y
+     * admiten a gente distinta.
+     *
+     * Esa diferencia se levantó y se preguntó, no se dedujo: la decisión 5 era
+     * *«administradores, secretario y rector»* y ésta salió como *«superadmin,
+     * secretario y coord académico»*, a lo que Joseth añadió el rector. Lo que
+     * queda es que aquí decide **lo académico** y allí **la administración del
+     * colegio**, que es coherente con lo que cada una hace.
+     *
+     * ## `is_superuser` y NO el rol `Admin`, que es la otra mitad de la trampa
+     *
+     * La decisión dijo «superadmin». Se implementa con la **columna**
+     * `is_superuser` y no con el rol `Admin`, igual que `puedePublicarHorario()`.
+     * Hoy da lo mismo —los diez `Admin` de `simonbolivar` son diez de los once
+     * `is_superuser`— y por eso es peligroso: **coinciden por población, no por
+     * definición**. El colegio que le dé `Admin` a alguien sin la bandera es el que
+     * descubre la diferencia, y ahí el conjunto habría cambiado sin que nadie lo
+     * notara.
+     *
+     * ## Una sola consulta
+     *
+     * Misma razón que en la vecina: `Role::hasRole()` es una consulta por nombre
+     * preguntado, así que tres seguidos son tres consultas idénticas. Se pide la
+     * lista una vez y se cruza aquí, y sale de `Role::getUserRoles()` —que filtra
+     * `r.deleted_at is null`— y no de `$user->roles`, que no lo filtra.
+     */
+    public static function puedeCambiarLaNotaNumerica($user): bool
+    {
+        if (self::esSuperusuario($user)) {
+            return true;
+        }
+
+        $userId = $user->user_id ?? null;
+
+        if ($userId === null) {
+            return false;
+        }
+
+        foreach (Role::getUserRoles($userId) as $rol) {
+            if (in_array($rol->name, self::ROLES_QUE_CAMBIAN_LA_NOTA_NUMERICA, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
