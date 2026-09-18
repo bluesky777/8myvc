@@ -73,6 +73,47 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## ⚠️ LAS DOS JEFATURAS DE PRUEBA DEL DOCKER SIGUEN PUESTAS — A PROPÓSITO (18 sep 2026, 09:3x)
+>
+> **`8myvc-e2` dejó dicho que se borraran y NO se han borrado.** No es un olvido: es que al ir a
+> hacerlo apareció el dato que cambiaba la pregunta, y la salida barata resultó no ser la buena.
+>
+> | | |
+> |---|---|
+> | `jefes_de_area` tiene **dos filas y son éstas** — year 9, áreas 2 y 17 | sembradas hoy 14:03 UTC |
+> | Las sembró `8myvc-e2` para que `/areas/directores` de `app2` enseñara **sus tres estados** | |
+> | Se van con `DELETE FROM jefes_de_area WHERE year_id=9;` | y vuelven con tres `PUT areas/jefes` |
+>
+> ### Por qué no se borran, que es lo único que no se puede rehacer midiendo
+>
+> **Borrar cuesta algo y no borrar no cuesta nada.** Son las **dos únicas filas de la tabla**, así
+> que borrarlas deja `/areas/directores` sin ningún director — y esa pantalla entró en `myvc_front`
+> hoy mismo (`22284af1`, 09:02 local). Contra eso, el único daño de dejarlas es que alguien las
+> confunda con datos de verdad, **y eso lo arregla este párrafo, no un `DELETE`**.
+>
+> Se preguntó a las tres sesiones de front vivas y **ninguna las usa**: `myvc-front-dc` está en
+> `/informes-nuevo`, `myvc-front-eb` conduciendo otras nueve pantallas y `myvc-front-57` en un
+> documento de notas. Pero **ninguna de las tres es quien escribió la pantalla**, y a esa no se la
+> encuentra: `dc` mandó a una `myvc-front-fb` que **no aparece en `ListAgents`**. *Un censo de
+> sesiones no prueba una ausencia — los nombres cambian, y a una sesión viva se la puede estar
+> buscando por un nombre que ya no tiene.*
+>
+> ### CUÁNDO SE BORRAN — la condición, porque una instrucción sin ella envejece a mentira
+>
+> **En cuanto Joseth haya mirado `/areas/directores` a mano**, que es la prueba que estas filas
+> existen para permitir. Hecho eso no sirven para nada y se van. Si alguien llega antes y las ve,
+> que sepa que **están puestas a propósito**.
+>
+> Y el revés, para quien venga dentro de dos días y ya no estén: **`/areas/directores` vacía es el
+> estado normal de este docker y no una regresión.** La tabla nació vacía el 17 sep con `6630e4d`
+> y ningún seed la llena.
+>
+> > **De camino, una comprobación que salió gratis y vale para cualquier medición de este docker:
+> > la base guarda UTC y las sesiones hablan en hora local (UTC−5).** Las filas dicen `14:03:17` y
+> > el commit de la pantalla dice `09:02`: no son cinco horas de diferencia, **son el mismo
+> > minuto**. Quien compare una marca de la base con la hora de un commit sin convertir va a
+> > deducir un orden de los hechos que no ocurrió.
+
 > ## 🔧 LA NOTA NUMÉRICA DEL BOLETÍN Y LAS DOS TABLAS DE LA PANTALLA DE INFORMES (18 sep 2026)
 >
 > **Encargo de Joseth por la sesión de `myvc_front`**, que está rehaciendo `/informes` en

@@ -525,11 +525,32 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
   > | `composer run pint` | **ESCRIBE**: formatea los ficheros de la lista |
   > | `pint --test` a secas | mide **todo el repo**, incluido lo que no se formatea a propósito |
   >
-  > Los dos primeros corren sobre **la lista curada de `composer.json`** —hoy **398**
-  > ficheros—; el tercero sobre **647**, y da `FAIL` con **190** avisos que son deuda
-  > conocida de `tools/`, `app/Exports` y `app/Exceptions`. **Las dos cifras son
-  > correctas y cuentan poblaciones distintas**: con la tercera se archivó como ruido un
-  > rojo real que llevaba desde el 7 sep en `CorsDelEscritorioTest`.
+  > Los dos primeros corren sobre **la lista curada de `composer.json`** —hoy **413**
+  > ficheros—; el tercero sobre **662**, y da `FAIL` con **189** avisos. **Las dos cifras
+  > son correctas y cuentan poblaciones distintas**: con la tercera se archivó como ruido
+  > un rojo real que llevaba desde el 7 sep en `CorsDelEscritorioTest`.
+  >
+  > > **Remedidas el 18 sep 2026 en el árbol principal sobre `main` (`83cbcd9`), y las
+  > > tres habían envejecido**: decían **398**, **647** y **190**. Ninguna es un error de
+  > > quien las escribió —la lista curada crece sola, porque a `composer.json` se le añade
+  > > cada fichero el día que se formatea— y por eso se remiden en vez de discutirse. Se
+  > > rehacen con las tres órdenes de la tabla de arriba, que son las que las produjeron.
+  > >
+  > > **Y el 647 tiene una trampa que conviene dejar dicha: hoy es el número de LARASTAN,
+  > > no el de Pint.** `composer run stan` analiza **647** ficheros y `pint --test` mide
+  > > **662**. Que la cifra vieja de Pint coincida exactamente con la de stan puede ser
+  > > casualidad o puede ser que se copiara de la salida equivocada —**no se puede saber
+  > > desde aquí**, y da igual: son dos poblaciones distintas y a partir de ahora van las
+  > > dos escritas, que es lo que impide volver a confundirlas.
+  >
+  > **Y los 189 avisos NO son «deuda de `tools/`», que es lo que decía este párrafo hasta
+  > el 18 sep 2026.** Repartidos, son **`app/Http` 106** y **`app/Models` 48** —o sea
+  > **163 de 189, el 86%**—, y sólo después `tools/` 17, `app/Exports` 6, `config/` 5 y
+  > siete sueltos. Nombrar la cola y callar el grueso hacía leer ese `FAIL` como un rincón
+  > raro, cuando es exactamente **la regla de dos líneas más arriba funcionando**: los
+  > controladores y los modelos no se formatean hasta el día que se tocan. *Un desglose no
+  > es un adorno del número: aquí es lo único que distingue «deuda conocida» de «algo se
+  > rompió».*
   >
   > **La confusión cara es la segunda**, no la tercera: quien corre `composer run pint`
   > *para comprobar* **reformatea ficheros sin pedirlo**. En un árbol que comparten
