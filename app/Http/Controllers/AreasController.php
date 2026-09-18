@@ -163,10 +163,14 @@ class AreasController extends Controller
             'SELECT a.id AS area_id, a.nombre AS area, a.alias AS area_alias, a.orden,
 					j.profesor_id, p.nombres, p.apellidos, p.foto_id,
 					CASE WHEN j.profesor_id IS NULL THEN NULL
+						 ELSE IFNULL(i.nombre, IF(p.sexo = "F", "default_female.png", "default_male.png"))
+					END AS foto_nombre,
+					CASE WHEN j.profesor_id IS NULL THEN NULL
 						 WHEN c.id IS NULL THEN 0 ELSE 1 END AS contratado
 			   FROM areas a
 			   LEFT JOIN jefes_de_area j ON j.area_id = a.id AND j.year_id = ?
 			   LEFT JOIN profesores p ON p.id = j.profesor_id AND p.deleted_at is null
+			   LEFT JOIN images i ON i.id = p.foto_id AND i.deleted_at is null
 			   LEFT JOIN contratos c ON c.profesor_id = j.profesor_id AND c.year_id = ? AND c.deleted_at is null
 			  WHERE a.deleted_at is null
 			  ORDER BY a.orden, a.id;',
@@ -292,10 +296,14 @@ class AreasController extends Controller
             'SELECT a.id AS area_id, a.nombre AS area, a.alias AS area_alias, a.orden,
 					j.profesor_id, p.nombres, p.apellidos, p.foto_id,
 					CASE WHEN j.profesor_id IS NULL THEN NULL
+						 ELSE IFNULL(i.nombre, IF(p.sexo = "F", "default_female.png", "default_male.png"))
+					END AS foto_nombre,
+					CASE WHEN j.profesor_id IS NULL THEN NULL
 						 WHEN c.id IS NULL THEN 0 ELSE 1 END AS contratado
 			   FROM areas a
 			   LEFT JOIN jefes_de_area j ON j.area_id = a.id AND j.year_id = ?
 			   LEFT JOIN profesores p ON p.id = j.profesor_id AND p.deleted_at is null
+			   LEFT JOIN images i ON i.id = p.foto_id AND i.deleted_at is null
 			   LEFT JOIN contratos c ON c.profesor_id = j.profesor_id AND c.year_id = ? AND c.deleted_at is null
 			  WHERE a.id = ?;',
             [$year_id, $year_id, $area_id]
