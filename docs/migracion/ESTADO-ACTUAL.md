@@ -277,9 +277,41 @@
 >
 > **La migración tiene que llegar antes o con el código.** `Year::datos` nombra las columnas
 > una a una, así que en un colegio sin la migración esto no es «falta un campo»: es
-> `Unknown column` y **500 en todo lo que pida el año**. Y es un rojo que **este docker no
-> puede enseñar**, porque aquí la migración sí corrió. El front ya lee con «sin campo,
+> `Unknown column` y **500 en todo lo que pida el año**. El front ya lee con «sin campo,
 > encendido», pero esa regla protege al cliente, no al servidor.
+>
+> > **Y aquí decía «es un rojo que este docker no puede enseñar, porque aquí la migración sí
+> > corrió». Es FALSO, y se demostró solo a las pocas horas.** `8myvc-d7` estableció línea base
+> > con `git stash` y encontró **dos rojos que no eran suyos** —`AutorizacionTest > el alumno
+> > recibe su boletin y solo el suyo` y `> boletines3 sale con un area sin asignaturas`—, los dos
+> > con `PDOException: Unknown column 'y.mostrar_nota_numerica_boletin'` desde `Year::datos`.
+> > Causa: **`simonbolivar_testing` no tenía esta migración**, porque yo migré la base de
+> > desarrollo y **la mía**, y en este docker hay **veinticuatro bases de test**.
+> >
+> > Medido el 18 sep 2026 después de que él arreglara la compartida: **22 de las 24 siguen sin
+> > la columna**. La mayoría son de sesiones muertas y no molestan a nadie; la que molesta es la
+> > que esté usando alguien vivo, y el modo de fallo es el peor —**dos rojos que parecen del
+> > trabajo de otro**, en ficheros que ese otro no ha tocado.
+> >
+> > **Lo que NO es cierto es la parte tranquilizadora, y es la que hace daño**: la frase le dice
+> > al lector que no busque el fallo en local, que es exactamente cuando lo tiene delante. Lo que
+> > sí es cierto es más estrecho: **la base de DESARROLLO no lo enseña** —está migrada—, y
+> > cualquier otra que no lo esté, sí.
+> >
+> > **Y este mismo documento ya llevaba la reproducción escrita**, en la casilla de la tanda de
+> > migraciones: *«Reproducido contra una base sin migrar: `Unknown column 'y.regla_nivelacion'
+> > in 'field list'`»*. O sea que la afirmación no sólo era falsa: **se contradecía con algo que
+> > ya estaba escrito unos miles de líneas más abajo, sobre la misma tabla y el mismo mecanismo.**
+> >
+> > **La regla que sale de aquí, y es la accionable:** una migración que añade una columna que
+> > una consulta nombra **explícitamente** no se termina migrando la base de desarrollo. Hay que
+> > **migrar también la base de tests que se vaya a usar y avisar a las sesiones vivas**, porque
+> > el resto de bases del docker son suyas y no se tocan sin decírselo. La orden que lo ve:
+> >
+> > ```bash
+> > docker exec -e DB_TEST_DATABASE=<la_suya> 8myvc-app-1 \
+> >     php artisan migrate:status --database=mysql_testing | grep -i pending
+> > ```
 >
 > Y el vecino con el que se va a confundir: **`years.solo_escalas_valorativas` también vacía
 > un número**, pero sólo en la cabecera de comportamiento y con la polaridad invertida.

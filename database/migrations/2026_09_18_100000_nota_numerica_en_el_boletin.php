@@ -29,9 +29,29 @@ use Illuminate\Support\Facades\Schema;
  * que en un colegio donde esta migración no haya corrido, nombrarla allí no
  * devuelve un campo ausente — devuelve `Unknown column` y **500 en todo lo que
  * pida el año**. O sea que esto tiene que llegar a los dieciséis **antes o con**
- * el código que la nombra, y es un rojo que este docker no puede enseñar porque
- * aquí la migración sí habrá corrido. (Le pasó a otra sesión el 17 sep con
+ * el código que la nombra. (Le pasó a otra sesión el 17 sep con
  * `frases_asignatura`.)
+ *
+ * > **Aquí decía que «es un rojo que este docker no puede enseñar porque aquí la
+ * > migración sí habrá corrido», y es FALSO — corregido el 18 sep 2026, el mismo
+ * > día, porque se desmintió solo en unas horas.** Otra sesión estableció línea base
+ * > con `git stash` y encontró **dos rojos que no eran suyos** —dos casos de
+ * > boletines en `AutorizacionTest`— con
+ * > `Unknown column 'y.mostrar_nota_numerica_boletin'` desde `Year::datos`: la base
+ * > de tests compartida no tenía esta migración. **En este docker hay veinticuatro
+ * > bases de test**, y ese día **22 seguían sin la columna**, porque quien migra
+ * > migra la de desarrollo y la suya.
+ * >
+ * > Lo cierto es más estrecho: **la base de DESARROLLO no lo enseña**, porque está
+ * > migrada; cualquier otra que no lo esté, sí. Y el modo de fallo es el peor que
+ * > puede tener — **dos rojos que parecen del trabajo de otra sesión**, en ficheros
+ * > que esa sesión no ha tocado.
+ * >
+ * > La frase hacía daño por la parte tranquilizadora: **le decía al lector que no
+ * > buscara el fallo en local**, que es justo cuando lo tiene delante. Migrar la base
+ * > de desarrollo **no termina** una migración como ésta: hay que migrar también la
+ * > base de tests que se vaya a usar y **avisar a las sesiones vivas** — las suyas no
+ * > se tocan sin decírselo.
  *
  * ## El vecino con el que se va a confundir
  *
