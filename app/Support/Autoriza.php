@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Role;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Comprobaciones de autorización para las operaciones de alcance de colegio.
@@ -472,6 +473,89 @@ class Autoriza
         // los permisos de TODOS los roles del usuario, y viaja dentro del
         // contexto: retirar el permiso tiene efecto sin tocar la sesión.
         return in_array(self::PERMISO_PLANTILLA_NOTAS, (array) ($user->perms ?? []), true);
+    }
+
+    /**
+     * Escribir el **plan de área** —`desempenos_por_defecto`—, §3 de
+     * [39](../../docs/migracion/39-el-modelo-plano-por-competencias.md).
+     *
+     * **Es un permiso con alcance, y ésa es la pieza entera.** Hasta hoy esas
+     * rutas exigían `puedeEditarPlantillaNotas`, que el docente **no tiene** (D13,
+     * D28: va a Coordinación académica), así que la pantalla del docente nacía en
+     * 403. **P1.quater** pide una segunda puerta, y es ésta.
+     *
+     * Verdad si se cumple **una** de las dos:
+     *
+     *  1. `puedeEditarPlantillaNotas` — el colegio escribe en cualquier (materia,
+     *     grado) del año; o
+     *  2. el docente **da esa materia en ese grado y ese año**, o sea tiene una
+     *     asignatura viva en un grupo vivo que case con los tres.
+     *
+     * ## Las tres reglas que lo hacen defendible, y ninguna es de estilo
+     *
+     * **`$gradoId === null` es sólo del colegio.** Una fila de «todos los grados»
+     * alcanza a grados que ese docente no da, así que dejársela editar sería
+     * darle por la puerta de atrás el alcance que este permiso le niega por la de
+     * delante. Con el grado a `null` sólo pasa la rama 1, y por eso el `return`
+     * está **antes** de la consulta y no dentro de ella: un `grado_id <=> NULL`
+     * casaría con la fila del colegio.
+     *
+     * **La rama 2 exige `tipo === 'Profesor'`, y no es defensivo.**
+     * `$user->persona_id` es el id de la **ficha**, no el de `users`: para un
+     * `Profesor` es `profesores.id`, que es lo que compara `asignaturas.profesor_id`,
+     * pero para un `Usuario` administrativo es `users.id` — un número que casaría
+     * con la ficha de **otra persona**. Sin esta línea, el administrativo número 5
+     * heredaría las asignaturas del profesor número 5.
+     *
+     * **`nuevo_responsable_id` NO cuenta, y se comprobó antes de escribirlo al
+     * revés.** Sus cuatro apariciones en `app/` son una `@property`, un `INSERT` al
+     * duplicar asignaturas y una copia al renovar el año: **ningún camino de
+     * lectura la usa para decidir quién da una asignatura**, y en el docker hay
+     * **0 de 1.219** asignaturas vivas con ella puesta (17 sep 2026). Meterla aquí
+     * sería inventarle un significado que el repo no le da y **ensanchar el
+     * permiso** con una columna que nadie escribe. Si algún colegio la usa como
+     * «el docente que sustituye», eso es una decisión aparte y se toma con el dato
+     * delante.
+     *
+     * **El periodo cerrado NO se comprueba aquí**, y también es a propósito: la
+     * rama 2 lo pide y la rama 1 no —el coordinador cierra las notas *para*
+     * congelar las notas, y sigue teniendo que poder montar el plan de área—, así
+     * que quien decide es quien sabe por qué rama entró. Lo hace
+     * `DesempenosController::exigirEscrituraDelPlan`, que llama a
+     * `exigirPeriodoAbierto` **sólo cuando la rama 1 no valió**.
+     *
+     * @param  int  $yearId  el año del token: el plan de área es por año
+     * @param  ?int  $gradoId  `null` es «todos los grados», o sea del colegio
+     */
+    public static function puedeEscribirDesempenos($user, int $yearId, int $materiaId, ?int $gradoId): bool
+    {
+        if (self::puedeEditarPlantillaNotas($user)) {
+            return true;
+        }
+
+        if ($gradoId === null) {
+            return false;
+        }
+
+        if (($user->tipo ?? null) !== 'Profesor') {
+            return false;
+        }
+
+        $profesorId = $user->persona_id ?? null;
+
+        if ($profesorId === null) {
+            return false;
+        }
+
+        return DB::selectOne(
+            'SELECT 1 AS si FROM asignaturas a
+               INNER JOIN grupos g ON g.id = a.grupo_id AND g.deleted_at IS NULL
+              WHERE a.deleted_at IS NULL
+                AND a.profesor_id = ?
+                AND g.year_id = ? AND a.materia_id = ? AND g.grado_id = ?
+              LIMIT 1',
+            [(int) $profesorId, $yearId, $materiaId, $gradoId]
+        ) !== null;
     }
 
     /**

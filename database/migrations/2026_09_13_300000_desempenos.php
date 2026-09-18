@@ -5,25 +5,44 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /*
- * Los desempeños: **el par que ya funciona en este sistema**, otra vez.
+ * El plan de área del colegio: **una tabla, plana y por año**.
  *
- * Es la **Fase 3** de
- * [35-el-modelo-de-evaluacion-del-colegio.md](../../docs/migracion/35-el-modelo-de-evaluacion-del-colegio.md),
- * y sale de la **D5**: el texto del boletín es *«un catálogo del colegio que se
- * siembra»*, escrito **una vez por materia + grado + periodo** y copiado a cada
- * asignatura de ese grado.
+ * Es la Fase 3 de
+ * [35-el-modelo-de-evaluacion-del-colegio.md](../../docs/migracion/35-el-modelo-de-evaluacion-del-colegio.md)
+ * **reescrita por el modelo plano** de
+ * [39](../../docs/migracion/39-el-modelo-plano-por-competencias.md), que es lo que
+ * el colegio pidió al mirar el resultado: **D31** —el colegio y el docente escriben
+ * las mismas filas físicas— y **P1.bis** —el nivel se deriva de la definitiva, no se
+ * congela—.
  *
- *     desempenos_por_defecto   ──  sembrar  ──▶   desempenos
- *     (del año, del colegio)                      (de la asignatura y el periodo)
+ *     desempenos_por_defecto      el plan de área: un texto por materia + grado + periodo
  *
- * Es `unidades_por_defecto` → `unidades` con otro nombre, y a propósito: esa
- * pareja lleva años funcionando y sus fallos están fichados uno a uno.
+ * ## Qué se cayó de la versión del 13 sep, y por qué esta migración se EDITÓ
+ *
+ * Nació con **dos** `Schema::create` —ésta y `desempenos`, la copia por asignatura—
+ * y con una columna `competencia_id`. Las dos cosas eran la misma idea: *sembrar*
+ * el plan de área en cada asignatura y colgarlo de una competencia padre. D31 la
+ * quitó entera:
+ *
+ *   - **la copia**, porque si el colegio y el docente escriben las mismas filas, no
+ *     hay a dónde sembrar — el boletín lee el catálogo vivo;
+ *   - **`competencia_id`**, porque el modelo es plano (H3, P3): no hay cabecera de
+ *     competencia en el boletín, así que un padre que nadie imprime es una columna
+ *     que sólo puede desincronizarse.
+ *
+ * Y se **edita** en vez de borrarse y escribirse otra —que es lo que decía el plan—
+ * porque esta migración **crea la única tabla del modelo nuevo**: borrarla entera
+ * borraría lo que se queda. Se puede editar en sitio por una premisa que hay que
+ * volver a comprobar el día que se ejecute: **ningún colegio la tiene desplegada**
+ * (§7 de [39](../../docs/migracion/39-el-modelo-plano-por-competencias.md)), así que
+ * no existe un solo servidor donde la versión vieja haya corrido y esta versión
+ * tenga que alcanzarla.
  *
  * ## Ningún dato existente se toca
  *
- * Dos `CREATE TABLE` y nada más. Ni `ALTER`, ni `UPDATE`, ni back-fill. **Con las
- * dos tablas vacías, la planilla y los tres boletines dan byte a byte lo de hoy**,
- * porque nadie las lee todavía. Volver atrás es borrarlas.
+ * Un `CREATE TABLE` y nada más. Ni `ALTER`, ni `UPDATE`, ni back-fill. **Con la
+ * tabla vacía, la planilla y los boletines dan byte a byte lo de hoy**, porque nadie
+ * la lee todavía. Volver atrás es borrarla.
  *
  * ## `definicion` es `text`, y aquí es donde de verdad importa
  *
@@ -33,14 +52,17 @@ use Illuminate\Support\Facades\Schema;
  * repetir ese trabajo dentro de dos años, y MySQL **no está en modo estricto** en
  * este contenedor: el corte llega con un 200 y sin una línea en el log.
  *
- * ## `por_defecto` significa lo MISMO que en `unidades`, y eso es lo que hace D14
+ * ## No hay columna de dueño, y no es un olvido
  *
- * «Esta fila la sembró el colegio». No hay ninguna columna nueva de permisos y no
- * hace falta: el candado de la **D14** —*«el docente no toca los del colegio, pero
- * añade los suyos»*— es exactamente `por_defecto = 1`, que es lo que ya decidió la
- * §5.1.e del doc 28 al contestar *«¿excepción por fila? No: candado binario.
- * Sembrada es candada»*. **La migración de los cuatro `can_change_*` desapareció
- * con esa respuesta y no vuelve aquí.**
+ * **D31**: el colegio y el docente escriben **las mismas filas físicas**. Una
+ * columna que distinguiera «ésta es del colegio» sería exactamente el candado que
+ * esa decisión quita — y el `por_defecto` que tenía la tabla borrada. Quién escribió
+ * cada fila se sigue sabiendo por `created_by` y por `auditoria`.
+ *
+ * Lo que sí gobierna quién puede escribir es `Autoriza::puedeEscribirDesempenos`, y
+ * **el alcance vive en `grado_id`**: `NULL` es «todos los grados», o sea una fila que
+ * alcanza a grados que el docente no da, y por eso ésa **es sólo del colegio** (§3
+ * del 39).
  *
  * ## `tipo` nace vacía y es del colegio (D7)
  *
@@ -50,52 +72,36 @@ use Illuminate\Support\Facades\Schema;
  * `enum('saber','hacer','ser')`: este sistema ya gastó seis columnas de
  * `displayname` en no hacer eso. El que no la quiera **no la ve**.
  *
- * ## `competencia_id` es anulable, y ésa es la D10 entera
- *
- * *«El colegio que sólo quiera los textos del periodo no escribe ni una
- * competencia y no ve nada.»* Un desempeño sin padre es un desempeño válido.
- *
- * ## Las claves foráneas: las mismas tres decisiones que `competencias`
+ * ## Las claves foráneas: dos, y las mismas razones de siempre
  *
  * Llevan FK **lo que no puede significar nada estando a NULL y cuyo borrado físico
- * deja basura de verdad**: `year_id`, `periodo_id` y `asignatura_id`. Es lo mismo
- * que tiene `unidades` hoy (`asignatura_id` y `periodo_id`, las dos en cascada).
+ * deja basura de verdad**: `year_id` y `periodo_id`.
  *
- * **`materia_id`, `grado_id`, `alumno_id` y `competencia_id` NO la llevan**, y por
- * el argumento de `2026_09_05_200000_alcance_de_la_plantilla`, que aquí se repite
- * con un añadido que lo cierra:
+ * **`materia_id` y `grado_id` NO la llevan**, y por el argumento de
+ * `2026_09_05_200000_alcance_de_la_plantilla`:
  *
  *   - `ON DELETE SET NULL` es el peor: `grado_id NULL` significa **«para todos los
- *     grados»** y `competencia_id NULL` significa **«sin padre»**, así que borrar un
- *     grado convertiría el plan de área de 6.º en el del colegio entero, y borrar
- *     una competencia dejaría a sus hijos **diciendo que nunca tuvieron madre**.
+ *     grados»**, así que borrar un grado convertiría el plan de área de 6.º en el del
+ *     colegio entero.
  *   - `ON DELETE CASCADE` borraría en silencio lo que el colegio escribió.
- *   - **Y las dos fallan donde más se usa**: materias, grados, alumnos y
- *     competencias se borran **en lógico** en los caminos normales de esta API, y
- *     una FK **no se entera de un `UPDATE deleted_at`**. Daría integridad en el caso
- *     raro y ninguna en el frecuente.
+ *   - **Y las dos fallan donde más se usa**: materias y grados se borran **en lógico**
+ *     en los caminos normales de esta API, y una FK **no se entera de un
+ *     `UPDATE deleted_at`**. Daría integridad en el caso raro y ninguna en el frecuente.
  *
  * Sin FK, un desempeño huérfano **se ve y se arregla** en la pantalla en vez de
  * desaparecer o de cambiar de alcance solo. Que el id exista se comprueba **al
  * escribir**, con 422 y el nombre del campo delante.
- *
- * ## El prefijo `09_13_300000`
- *
- * Detrás de `2026_09_13_200000_competencias`, que es de quien cuelga
- * `competencia_id`. **No hay FK entre las dos** —ver arriba— pero el orden escrito
- * hace determinista el despliegue, que es la razón de siempre.
  */
 class Desempenos extends Migration
 {
     public function up()
     {
         /*
-         * El catálogo del colegio: **por año, materia, grado y PERIODO**.
+         * El plan de área: **por año, materia, grado y PERIODO**.
          *
-         * El periodo es lo que separa esta tabla de `competencias`, y es D5 otra
-         * vez: *«sin periodo, el boletín de periodo acabaría imprimiendo los mismos
-         * textos cuatro veces»*. Es también el grano del Decreto 230 art. 3 c) —«al
-         * finalizar cada uno de los períodos del año escolar, en cada área y
+         * El periodo es D5: *«sin periodo, el boletín de periodo acabaría imprimiendo
+         * los mismos textos cuatro veces»*. Es también el grano del Decreto 230 art. 3
+         * c) —«al finalizar cada uno de los períodos del año escolar, en cada área y
          * grado»— y el de los trece programas y los catorce SIEE.
          */
         Schema::create('desempenos_por_defecto', function (Blueprint $tabla) {
@@ -110,7 +116,6 @@ class Desempenos extends Migration
             $tabla->unsignedInteger('grado_id')->nullable();
 
             $tabla->unsignedInteger('periodo_id');
-            $tabla->unsignedInteger('competencia_id')->nullable();
             $tabla->string('tipo', 60)->nullable();
             $tabla->text('definicion');
             $tabla->integer('orden')->default(0);
@@ -129,58 +134,16 @@ class Desempenos extends Migration
             $tabla->foreign('year_id')->references('id')->on('years')->onDelete('cascade');
             $tabla->foreign('periodo_id')->references('id')->on('periodos')->onDelete('cascade');
         });
-
-        /*
-         * Lo que ve el docente: **por asignatura y periodo**, igual que `unidades`.
-         *
-         * `alumno_id NULL` es el reparto del curso y se lee con `<=>` a través de
-         * `BoletinIndependiente::alcance()` — la regla 5 de la §4 del doc 28, y el
-         * mismo operador que `unidades`. Con `= NULL` el alumno normal se queda sin
-         * desempeños **en 200 y sin dar ningún error**.
-         */
-        Schema::create('desempenos', function (Blueprint $tabla) {
-            $tabla->increments('id');
-            $tabla->unsignedInteger('asignatura_id');
-            $tabla->unsignedInteger('periodo_id');
-            $tabla->unsignedInteger('alumno_id')->nullable();
-            $tabla->unsignedInteger('competencia_id')->nullable();
-            $tabla->string('tipo', 60)->nullable();
-            $tabla->text('definicion');
-            $tabla->integer('orden')->default(0);
-
-            // **El candado de la D14, y nada más que esto.** `1` = la sembró el
-            // colegio; `0` = es del docente y la edita y la borra sin permiso
-            // ninguno. `NOT NULL DEFAULT 0` para que una fila escrita por un
-            // cliente viejo nazca **libre** y no candada: equivocarse hacia «el
-            // docente puede» es una molestia; hacia «no puede» es una llamada a
-            // soporte.
-            $tabla->boolean('por_defecto')->default(0);
-
-            $tabla->integer('created_by')->nullable();
-            $tabla->integer('updated_by')->nullable();
-            $tabla->integer('deleted_by')->nullable();
-            $tabla->timestamps();
-            $tabla->softDeletes();
-
-            $tabla->index(['asignatura_id', 'periodo_id', 'alumno_id'], 'desempenos_alcance');
-
-            $tabla->foreign('asignatura_id')->references('id')->on('asignaturas')->onDelete('cascade');
-            $tabla->foreign('periodo_id')->references('id')->on('periodos')->onDelete('cascade');
-        });
     }
 
     /*
-     * Exacto: lo que había antes de `up()` era que ninguna de las dos existía. Se
-     * pierden los desempeños escritos desde entonces, y **ninguna nota, ninguna
-     * definitiva y ningún boletín de hoy los mira** — que es lo que hace que este
-     * `down()` sea de verdad la vuelta atrás.
-     *
-     * El orden es el inverso porque nada apunta a nada: da igual, y por eso se
-     * escribe al revés, que es la costumbre que salva el día en que sí importe.
+     * Exacto: lo que había antes de `up()` era que no existía. Se pierde el plan de
+     * área escrito desde entonces, y **ninguna nota, ninguna definitiva y ningún
+     * boletín de hoy lo mira** — que es lo que hace que este `down()` sea de verdad
+     * la vuelta atrás.
      */
     public function down()
     {
-        Schema::dropIfExists('desempenos');
         Schema::dropIfExists('desempenos_por_defecto');
     }
 }

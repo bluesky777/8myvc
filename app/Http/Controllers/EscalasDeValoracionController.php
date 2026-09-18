@@ -198,12 +198,17 @@ class EscalasDeValoracionController extends Controller {
 	 * mismo: un aviso que se puede aceptar convierte un efecto invisible en una
 	 * decisión, sin quitarle al colegio nada de lo que ya podía hacer.
 	 *
-	 * **Las dos poblaciones viajan y no es de adorno.** `definitivas` es lo que
-	 * pierde la palabra en los boletines de siempre; `celdas` son las casillas de
-	 * la rejilla de desempeños que apuntan a esa banda por su id, y ésas
-	 * **conservan su palabra** —se congeló al guardarlas— pero se quedan sin
-	 * posición en el medidor. Son dos daños distintos y quien acepta tiene que ver
-	 * los dos.
+	 * **La población viaja y no es de adorno**: `definitivas` es lo que pierde la
+	 * palabra en los boletines.
+	 *
+	 * > **Eran DOS hasta el 17 sep 2026** —`celdas`, las casillas de la rejilla de
+	 * > desempeños que apuntaban a esa banda por `frases_asignatura.escala_id`— y se
+	 * > fue con la rejilla entera (modelo plano,
+	 * > [39](../../../docs/migracion/39-el-modelo-plano-por-competencias.md)). **El
+	 * > daño que contaba ya no existe**: sin celdas que guarden un `escala_id`, el
+	 * > boletín por competencias deriva el nivel de la definitiva igual que el
+	 * > papel de siempre, así que borrar una banda le hace exactamente lo que le
+	 * > hace a los otros tres — y eso es lo que cuenta `definitivas`.
 	 */
 	public function deleteDestroy(Request $request, $id)
 	{
@@ -212,8 +217,7 @@ class EscalasDeValoracionController extends Controller {
 
 		$escala = $this->exigirQueLaEscalaExista($id);
 
-		// Antes de mirar el cuerpo: lo que no se puede hacer no se valida. Es el
-		// orden de `DesempenosController::putRejilla`.
+		// Antes de mirar el cuerpo: lo que no se puede hacer no se valida.
 		Autoriza::exigirEscrituraEnElAnio($user, $escala->year_id, 'Esa escala de valoración');
 
 		$this->avisarDeLoQueArrastra($escala, $request);
@@ -242,20 +246,16 @@ class EscalasDeValoracionController extends Controller {
 	 * si aquí se contara con `<=` el aviso diría un número y el boletín pintaría
 	 * otro, que es exactamente el fallo que aquel arreglo vino a cerrar.
 	 *
-	 * ## Las dos recorren la tabla, y NO se les pone índice
+	 * ## Recorre la tabla, y NO se le pone índice
 	 *
-	 * Ninguna tiene índice aplicable: `notas_finales` no lo tiene por `nota` —es un
-	 * rango— y `frases_asignatura` no lo tiene por `escala_id` (sus dos índices son
-	 * `(alumno_id, asignatura_id, periodo_id)` y `desempeno_id`). Son **127.891 y
-	 * 12.294 filas** en la copia de producción.
+	 * `notas_finales` no tiene índice aplicable por `nota` —es un rango— y son
+	 * **127.891 filas** en la copia de producción.
 	 *
 	 * Se deja así **a propósito y con la medición delante**: en los nueve años de
 	 * `simonbolivar` se han borrado **cero** bandas —36 vivas, ninguna con
 	 * `deleted_at`—, o sea que esto corre casi nunca y sólo desde una pantalla de
-	 * administración. Un índice por `escala_id` costaría escritura en la tabla que
-	 * más escribe la rejilla para ahorrar un escaneo que ocurre una vez por década.
-	 * Quien venga con `tools/indices-que-faltan.php` en la mano: el índice no falta,
-	 * está descartado.
+	 * administración. Quien venga con `tools/indices-que-faltan.php` en la mano: el
+	 * índice no falta, está descartado.
 	 */
 	private function avisarDeLoQueArrastra(object $escala, Request $request): void
 	{
@@ -270,22 +270,15 @@ class EscalasDeValoracionController extends Controller {
 			[ $escala->year_id, $escala->porc_inicial, $escala->porc_final ]
 		)->n;
 
-		$celdas = (int) DB::selectOne(
-			'SELECT COUNT(*) AS n FROM frases_asignatura
-			  WHERE escala_id = ? AND deleted_at IS NULL',
-			[ $escala->id ]
-		)->n;
-
-		if ($definitivas === 0 && $celdas === 0) {
+		if ($definitivas === 0) {
 			return;
 		}
 
 		abort(response()->json([
-			'message' => 'Esa banda la están usando '.$definitivas.' definitivas y '.$celdas
-				.' casillas de desempeño de ese año: al borrarla, sus boletines se imprimen sin '
-				.'el nivel. Mande `acepto_desviacion` para borrarla igual.',
+			'message' => 'Esa banda la están usando '.$definitivas.' definitivas de ese año: al '
+				.'borrarla, sus boletines se imprimen sin el nivel. Mande `acepto_desviacion` '
+				.'para borrarla igual.',
 			'definitivas' => $definitivas,
-			'celdas' => $celdas,
 			'year_id' => (int) $escala->year_id,
 		], 422));
 	}

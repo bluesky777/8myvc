@@ -33,19 +33,23 @@ use Illuminate\Support\Facades\DB;
  * se puede aceptar convierte un efecto invisible en una decisión **sin quitarle al
  * colegio nada de lo que ya podía hacer**.
  *
- * ## Las dos poblaciones, que son dos daños distintos
+ * ## La población, y va acotada al año de la banda
  *
- *   - **`definitivas`** — lo que pierde la palabra en los boletines de siempre.
- *   - **`celdas`** — las casillas de la rejilla de desempeños que apuntan a esa
- *     banda por su `escala_id`. Ésas **conservan su palabra** —se congeló al
- *     guardarlas, D23— pero se quedan sin posición en el medidor: en papel,
- *     `▯▯▯▯ BÁSICO`. Es el renglón que se contradice a sí mismo que encontró el
- *     agente de `myvc-front-50`.
+ * **`definitivas`** — lo que pierde la palabra en los boletines. Viaja porque quien
+ * acepta tiene que ver a cuántos alcanza, y va **acotada al año de la banda**: sin
+ * el `INNER JOIN periodos` la cuenta suma los nueve años y diría 14.054 donde el
+ * daño real son 4.178. *Una cifra que exagera se aprende a ignorar, y entonces el
+ * aviso deja de avisar.*
  *
- * Las dos viajan porque quien acepta tiene que ver las dos. Y las dos van
- * **acotadas al año de la banda**: sin el `INNER JOIN periodos` la cuenta suma los
- * nueve años y diría 14.054 donde el daño real son 4.178. *Una cifra que exagera
- * se aprende a ignorar, y entonces el aviso deja de avisar.*
+ * > **Eran DOS poblaciones hasta el 17 sep 2026** —`celdas`, las casillas de la
+ * > rejilla de desempeños que apuntaban a la banda por
+ * > `frases_asignatura.escala_id`—, y se fueron con la rejilla entera (modelo
+ * > plano, [39](../../docs/migracion/39-el-modelo-plano-por-competencias.md)). Con
+ * > ella se fue `test_borrar_la_banda_no_toca_las_celdas_que_la_apuntaban`, que
+ * > defendía que el `nivel` congelado sobrevivía al borrado: **ya no hay nivel
+ * > congelado**, el boletín por competencias lo deriva de la definitiva como el
+ * > papel de siempre, así que el daño que esa columna medía es ahora el mismo que
+ * > mide `definitivas`.
  */
 class BorrarUnaBandaDeLaEscalaTest extends CasoDeContrato
 {
@@ -64,7 +68,7 @@ class BorrarUnaBandaDeLaEscalaTest extends CasoDeContrato
         $r = $this->withToken($token)->json('DELETE', '/api/escalas/destroy/'.$banda->id);
 
         $r->assertStatus(422)
-            ->assertJsonStructure(['message', 'definitivas', 'celdas', 'year_id']);
+            ->assertJsonStructure(['message', 'definitivas', 'year_id']);
 
         $this->assertSame((int) $banda->definitivas, $r->json('definitivas'),
             'El aviso no dice la misma población que la consulta de control. Si la cuenta del '
@@ -96,45 +100,6 @@ class BorrarUnaBandaDeLaEscalaTest extends CasoDeContrato
             DB::selectOne('SELECT deleted_at FROM escalas_de_valoracion WHERE id = ?', [$banda->id])->deleted_at,
             'Aceptó la desviación y la banda sigue viva.'
         );
-    }
-
-    /**
-     * Y las celdas de la rejilla **no se tocan**, que es la premisa del boletín por
-     * competencias.
-     *
-     * La fila de `frases_asignatura` conserva su `escala_id` y su `nivel`
-     * congelado: el borrado es un `UPDATE` sobre `escalas_de_valoracion` y nada
-     * más. Va escrito aquí porque el plan del front (§11.2) **depende de esto**
-     * para poder enseñar el medidor vacío, y si alguien «limpiara» las celdas
-     * huérfanas en una futura entrega, este caso es lo que lo dice.
-     */
-    public function test_borrar_la_banda_no_toca_las_celdas_que_la_apuntaban(): void
-    {
-        $banda = $this->unaBandaConDefinitivas();
-        $token = $this->tokenDelPersonalLlano();
-
-        DB::table('frases_asignatura')->insert([
-            'alumno_id' => $this->unAlumnoCualquiera(),
-            'asignatura_id' => 1,
-            'periodo_id' => $this->unPeriodoDe((int) $banda->year_id),
-            'frase' => 'EL DESEMPEÑO QUE SE GUARDÓ',
-            'escala_id' => $banda->id,
-            'nivel' => $banda->desempenio,
-            'desempeno_id' => 999999,
-        ]);
-
-        $this->withToken($token)->json('DELETE', '/api/escalas/destroy/'.$banda->id,
-            ['acepto_desviacion' => true])->assertStatus(200);
-
-        $celda = DB::selectOne('SELECT escala_id, nivel, deleted_at FROM frases_asignatura
-            WHERE escala_id = ? ORDER BY id DESC LIMIT 1', [$banda->id]);
-
-        $this->assertNotNull($celda, 'La celda desapareció al borrar la banda.');
-        $this->assertNull($celda->deleted_at, 'Borrar la banda mandó la celda a la papelera.');
-        $this->assertSame($banda->desempenio, $celda->nivel,
-            'Borrar la banda se llevó por delante la palabra congelada de la celda. El boletín por '
-            .'competencias imprime `nivel`, no la escala: si esto se limpia, lo que se pierde es lo '
-            .'que decía un boletín ya impreso.');
     }
 
     /**
@@ -237,24 +202,5 @@ class BorrarUnaBandaDeLaEscalaTest extends CasoDeContrato
             .'fichero comprueba el aviso sin que haya nada que avisar, que es un verde hueco.');
 
         return $banda;
-    }
-
-    private function unAlumnoCualquiera(): int
-    {
-        $fila = DB::selectOne('SELECT id FROM alumnos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
-
-        $this->assertNotNull($fila, 'El seed no tiene alumnos.');
-
-        return (int) $fila->id;
-    }
-
-    private function unPeriodoDe(int $yearId): int
-    {
-        $fila = DB::selectOne('SELECT id FROM periodos
-            WHERE year_id = ? AND deleted_at IS NULL ORDER BY id LIMIT 1', [$yearId]);
-
-        $this->assertNotNull($fila, "El seed no tiene periodos del año {$yearId}.");
-
-        return (int) $fila->id;
     }
 }

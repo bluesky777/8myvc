@@ -44,8 +44,8 @@ class CensoDeInterruptoresTest extends TestCase
     private const CENSO = [
         'columnas tinyint(1) distintas' => 157,
         'ni se nombran' => 64,
-        'no deciden nada' => 28,
-        'alguien decide con ellas' => 65,
+        'no deciden nada' => 29,
+        'alguien decide con ellas' => 64,
     ];
 
     /*
@@ -74,6 +74,30 @@ class CensoDeInterruptoresTest extends TestCase
      * > puede hacerlo** —`myvc_front`, `myvc_front_2`, `myvc_flutter` y un bundle
      * > construido no están aquí—, así que se anota y se deja fechado, que es lo que
      * > manda el docblock de arriba.
+     */
+
+    /*
+     * ## 17 sep 2026 — `por_defecto` volvió a cruzar, en la dirección contraria
+     *
+     * `28 / 65` vuelve a `29 / 64`, y la suma `nunca + mudas` vuelve de **92** a
+     * **93**. **Se movió la misma columna del renglón de arriba y en sentido
+     * inverso**: `por_defecto`, y por la razón exacta por la que había cruzado.
+     *
+     * Lo que la leía era `DesempenosController::exigirElCandado` —el candado de la
+     * **D14**—, y la **D31** lo borró entero: si el colegio y el docente escriben
+     * **las mismas filas físicas**, no hay nada que marcar como «del colegio».
+     * Con el candado se fue el único `if` del backend que decidía con esa columna, y
+     * `unidades.por_defecto` y `subunidades.por_defecto` vuelven a ser lo que eran:
+     * columnas que los sembradores **escriben** y que nadie **lee** para decidir.
+     *
+     * **Este renglón no registra un accidente, registra que una decisión se
+     * deshizo** — y es la prueba de que el centinela sirve en las dos direcciones,
+     * que es lo que no se puede saber escribiéndolo una sola vez.
+     *
+     * > **Y el 49 y el 53 del §105 vuelven a quedar pendientes de remedir**, por lo
+     * > mismo que decía el renglón del 13 sep y con la suma en el mismo sitio en el
+     * > que estaba antes de aquél: **93**. Quien los mida contra los cuatro clientes
+     * > está midiendo, otra vez, exactamente la población del 25 de agosto.
      */
 
     /**
@@ -106,7 +130,7 @@ class CensoDeInterruptoresTest extends TestCase
      * precio es este comentario cada vez que se mueva el reparto; es más barato que
      * un guardián que no distingue.
      */
-    private const SIN_LECTOR_EN_EL_BACKEND = 92;
+    private const SIN_LECTOR_EN_EL_BACKEND = 93;
 
     /** Las `tinyint(1)` del volcado, con las tablas donde están. Igual que la herramienta. */
     private function columnasBooleanas(): array

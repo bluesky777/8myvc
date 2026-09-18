@@ -168,15 +168,17 @@ final class Auditoria
         'subunidad' => 'subunidades',
 
         // 2.bis — el plan de área: lo que el colegio escribe una vez y se copia.
-        // Sólo se graba `PUT competencias/copiar`, que es una escritura masiva;
-        // el CRUD de una en una no, por lo mismo que la plantilla: **lo que tiene
-        // consecuencia es la copia, no el original**.
-        'competencia' => 'competencias',
-
-        // El plan de área: `PUT desempenos/plantilla/copiar` y `PUT desempenos/sembrar`,
-        // las dos escrituras masivas de la Fase 3. El CRUD de una en una tampoco,
-        // por el mismo motivo que arriba.
-        'desempeno' => 'desempenos',
+        // Sólo se graba `PUT desempenos/copiar`, que es una escritura masiva; el CRUD
+        // de una en una no, por lo mismo que la plantilla: **lo que tiene consecuencia
+        // es la copia, no el original**.
+        //
+        // > **Eran dos y la tabla era otra, hasta el 17 sep 2026.** `competencia` se
+        // > fue con su tabla, y `desempeno` decía `desempenos` —la copia por
+        // > asignatura— y ahora dice `desempenos_por_defecto`, que es la única que
+        // > queda (modelo plano, doc 39). El nombre de la entidad **no se toca**: es
+        // > lo que hay escrito en las filas de `auditoria` que ya existen, y
+        // > renombrarlo las dejaría huérfanas.
+        'desempeno' => 'desempenos_por_defecto',
 
         // 3 — asistencia y faltas.
         'ausencia' => 'ausencias',

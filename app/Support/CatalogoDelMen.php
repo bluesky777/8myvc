@@ -19,9 +19,22 @@ namespace App\Support;
  * copias que ya habrían divergido. Es el mismo invariante que la plantilla:
  * **el catálogo siembra, no manda**.
  *
- * Y por eso `CompetenciasController::putCopiar` con `origen.tipo = "men"`
- * **copia el texto** a `competencias.definicion`. Lo adoptado es del colegio: si
- * mañana este fichero cambia una tilde, **la fila del colegio no se entera**.
+ * ## Y desde el 17 sep 2026 **esta API no adopta nada**: sugiere
+ *
+ * Hasta ese día lo adoptaba `CompetenciasController::putCopiar` con
+ * `origen.tipo = "men"`, que copiaba el texto a `competencias.definicion`. Esa
+ * familia se fue entera con el modelo plano
+ * ([39](../../docs/migracion/39-el-modelo-plano-por-competencias.md)), y **la
+ * adopción no se mudó a `desempenos/copiar`**: no es un olvido, es la **D12** —el
+ * MEN publica por *conjunto de grados* y el desempeño va **por periodo**, así que
+ * no hay forma de repartir un estándar en cuatro periodos que no sea decidirlo el
+ * colegio—.
+ *
+ * O sea que hoy este catálogo se **lee** por `GET desempenos/catalogo-men` y el
+ * texto lo copia **quien mira la pantalla**, con un `POST desempenos` por fila. El
+ * invariante no cambia y por eso sigue valiendo entero: **lo escrito es del
+ * colegio**, y si mañana este fichero cambia una tilde, la fila del colegio no se
+ * entera.
  *
  * ## Lo que el MEN no cubre nace vacío, y hay que DECIRLO
  *

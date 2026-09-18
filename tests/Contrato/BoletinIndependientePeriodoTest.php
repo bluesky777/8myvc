@@ -910,44 +910,19 @@ class BoletinIndependientePeriodoTest extends CasoDeContrato
         }
     }
 
-    /**
-     * **Marcar NO siembra desempeños, y eso contradice a propósito la última línea de D18.**
+    /*
+     * **Aquí vivía `test_marcar_no_siembra_desempenos`**, y se fue el 17 sep 2026 con la
+     * tabla `desempenos` entera (modelo plano,
+     * [39](../../docs/migracion/39-el-modelo-plano-por-competencias.md)).
      *
-     * El doc 35 §5 decía *«con D5, al marcar se siembran también los desempeños del grupo a
-     * nombre del alumno»*, y **su premisa es falsa en esa tabla**: `unidades` y `desempenos`
-     * se leen con semánticas **opuestas**, aunque la columna se llame igual en las dos.
-     *
-     * ```
-     * unidades     u.alumno_id <=> :alcance                      EXCLUYE
-     * desempenos   d.alumno_id IS NULL OR d.alumno_id IN (…)     SUMA
-     * ```
-     *
-     * Al marcado le desaparecen las unidades del curso —por eso hay que dárselas, §9.1— y
-     * **no le desaparece ningún desempeño**. Sembrárselos le duplicaría cada columna de la
-     * rejilla, y a todo el grupo, porque las columnas son la unión y la rejilla es de la
-     * asignatura entera. Este caso fija la decisión para que nadie «arregle» el módulo
-     * leyendo sólo el documento.
+     * Lo que fijaba **sigue siendo cierto y ya no puede romperse**: la última línea de D18
+     * pedía que marcar sembrara los desempeños del grupo a nombre del alumno, y su premisa
+     * era falsa porque `unidades` y `desempenos` leían `alumno_id` con semánticas opuestas
+     * —una EXCLUYE, la otra SUMA—. Con D31 **no hay copia por asignatura donde sembrar
+     * nada**: el plan de área es una sola tabla por año, sin `alumno_id`, y marcar un
+     * boletín independiente no la toca ni podría. El caso se quita porque la tabla que
+     * miraba no existe, no porque la regla se haya relajado.
      */
-    public function test_marcar_no_siembra_desempenos(): void
-    {
-        $e = $this->escenario();
-        $periodo = $e['periodos'][1];
-
-        $suyos = static fn (): int => (int) DB::selectOne(
-            'SELECT COUNT(*) c FROM desempenos WHERE alumno_id = ? AND periodo_id = ? AND deleted_at IS NULL',
-            [$e['alumno'], $periodo]
-        )->c;
-
-        $antes = $suyos();
-
-        $this->withToken($this->tokenDelPersonalDe($e['year']))
-            ->putJson(self::RUTA, ['alumno_id' => $e['alumno'], 'periodo_id' => $periodo, 'aplica' => true])
-            ->assertStatus(200);
-
-        $this->assertSame($antes, $suyos(),
-            'Marcar sembró desempeños a nombre del alumno: la rejilla de la Fase 4 ya suma los del '
-            .'curso, así que eso le duplica cada columna a todo el grupo.');
-    }
 
     /**
      * **El sembrado de marcar queda auditado, también cuando no siembra nada.**
