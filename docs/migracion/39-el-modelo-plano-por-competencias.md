@@ -382,6 +382,31 @@ Guard `auth.personal` y, dentro, que la asignatura sea suya o que sea administra
 |---|---|
 | `2026_09_13_300000_desempenos.php` | crea la tabla que se queda (§0.1) |
 | `app/Support/CatalogoDelMen.php` (396) y `resources/datos/catalogo-men.json` (4.372) | **el catálogo del MEN ya es plano** — reconfirmado: 523 entradas, `tipo` 83 `enunciado` / 50 `eje` / 390 `estandar`, 24 `grupo` distintos, sin anidamiento. `grupo` → `tipo`, `conjunto` → grado |
+
+> ### Los 50 `eje` están en DOS áreas de seis, y eso cambia la conclusión de P1.ter
+>
+> P1.ter cierra con *«con prefijos se ofrecen los 50 ejes»*. **El total es cierto y el reparto lo
+> desmiente**: lo levantó el front el 17 sep y se reprodujo por dos caminos —contando el JSON aquí y
+> su agente contra el docker—.
+>
+> | área | eje | enunciado | estandar |
+> |---|---|---|---|
+> | matemáticas | **25** | 0 | 172 |
+> | inglés | **25** | 0 | 218 |
+> | lenguaje | **0** | 35 | 0 |
+> | ciencias naturales | **0** | 18 | 0 |
+> | ciencias sociales | **0** | 15 | 0 |
+> | competencias ciudadanas | **0** | 15 | 0 |
+>
+> **En cuatro de las seis áreas no hay ejes a los que retirarse.** Así que para un colegio con
+> prefijos la frase no es «se le ofrecen los ejes»: es que **en Lenguaje, Naturales, Sociales y
+> Ciudadanas no se le puede ofrecer nada** y adoptar del MEN no le sirve. Eso no debilita la
+> conclusión de P1.ter —*«un colegio con prefijos escribe su catálogo, no lo adopta»*—, **la
+> endurece**: no es una preferencia de redacción, es que en dos tercios del catálogo no hay
+> alternativa.
+>
+> *(El comentario de `myvc_front/app2/src/app/datos/competencias.ts:242` dice que Naturales y
+> Sociales van por eje. No es cierto y el front lo corrige de su lado.)*
 | `DesempenosController.php` (2.480) | fuera rejilla, sembrar y la capa por asignatura |
 | `BoletinPorCompetenciasController.php` (755) | §4 |
 | `tests/Contrato/DesempenosTest.php` · `BoletinPorCompetenciasTest.php` · `PreescolarCalificaPorCompetenciasTest.php` | quitan lo que prueba rutas que ya no existen |
