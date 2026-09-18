@@ -458,6 +458,32 @@ descuido.
 >
 > **La regla que sale de aquí y vale para el resto**: al retirar un test hay que mirar **si deja
 > instantáneas detrás**. Un test borrado se nota; su instantánea huérfana no, y encima miente.
+>
+> #### Y «huérfana» era falso: en este repositorio NINGUNA instantánea lo está
+>
+> Escrito arriba que *«no lo lee ningún test»*, comprobado con `grep` del nombre por `tests/` y con
+> control. **El `grep` no podía encontrarlo**, y la tanda entera lo cazó media hora después:
+> `HuecosDelSeedTest` falló al borrarla.
+>
+> ```php
+> tests/Contrato/HuecosDelSeedTest.php:80
+>     $ficheros = glob(__DIR__.'/Snapshots/*.json');
+> ```
+>
+> **Las lee todas por barrido del directorio, nunca por nombre.** Así que el censo de huecos del
+> seed lleva un renglón por cada fichero que haya ahí, y **borrar cualquier instantánea mueve
+> `huecos-del-seed.json`** — pasó exactamente eso: se fue su renglón
+> (`alumnos.comportamiento.definiciones`, `alumnos.situaciones`) y nada más.
+>
+> **La decisión no cambia** —la instantánea seguía describiendo una respuesta muerta y nadie la
+> comparaba con nada—, pero el argumento con el que se tomó estaba mal: no era inerte, aportaba una
+> fila a otro censo. *Un `grep` por nombre no puede demostrar que nadie usa un fichero cuando el
+> lector lo encuentra por `glob`* — es el detector que cuenta bien un síntoma y no está contando la
+> causa, otra vez.
+>
+> **Regla operativa, que es la reutilizable**: **borrar una instantánea son DOS ficheros**, la suya y
+> `huecos-del-seed.json` regenerado. Y la tanda entera es lo único que lo demuestra: ningún filtro
+> por el nombre del test que borras toca `HuecosDelSeedTest`.
 
 **De los quince, tres NO se deben reponer nunca tal como estaban**, porque hoy afirman lo contrario
 de lo decidido — y el peligro concreto es que alguien los recupere de la historia de git creyendo

@@ -47,10 +47,6 @@
         "grupos.resumen.iniciaron.ids",
         "grupos.resumen.sin_fecha_matricula.ids"
     ],
-    "boletines-competencias-detailed-notas": [
-        "alumnos.comportamiento.definiciones",
-        "alumnos.situaciones"
-    ],
     "boletines-detailed-notas": [
         "alumnos.asignaturas.ausencias",
         "alumnos.asignaturas.frases",
