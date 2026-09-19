@@ -162,6 +162,25 @@ Route::put('years/toggle-mostrar-nota-comport-en-boletin', [YearsController::cla
 // cualquier docente es el error que este renglón viene a evitar.
 Route::put('years/toggle-mostrar-nota-numerica', [YearsController::class, 'putToggleMostrarNotaNumerica'])->middleware('auth.personal');
 Route::put('years/toggle-mostrar-puestos-en-boletin', [YearsController::class, 'putToggleMostrarPuestosEnBoletin'])->middleware('auth.personal');
+// **Los dos interruptores de la campaña de prematrícula** (19 sep 2026). La pantalla
+// de ajustes del año de `app2` ya los pintaba y las dos contestaban 404: hasta hoy
+// `years.prematr_nuevos` y `years.prematr_antiguos` **no las escribía ninguna
+// aplicación** —sólo crear un año, que las copia del anterior—, así que abrir la
+// campaña era un `UPDATE` a mano colegio por colegio. El porqué de que sean dos y de
+// que no vayan por `years/toggle-cambiar-valor` está en el docblock de los métodos.
+//
+// **`auth.personal` y NADA dentro, por decisión de Joseth de ese día**, igual que los
+// otros diez interruptores del año. No es el caso de `toggle-mostrar-nota-numerica`,
+// tres líneas más arriba, que sí lleva permiso dentro — y la diferencia está escrita
+// en los métodos para que no se lea como un olvido, porque `prematr_nuevos` abre una
+// puerta que se ve desde internet.
+//
+// Son dos segmentos literales, así que no los puede tapar ningún `{id}`. No son
+// públicas: no mueven `RutasPreLoginTest::TOTAL_PUBLICAS` (siguen doce) ni
+// `AutenticacionTest::SIN_GUARD`, y la familia `years` ya tiene muchas hermanas con
+// guard, así que tampoco mueven `familias-que-nunca-entran-en-el-candado.json`.
+Route::put('years/toggle-prematricula-antiguos', [YearsController::class, 'putTogglePrematriculaAntiguos'])->middleware('auth.personal');
+Route::put('years/toggle-prematricula-nuevos', [YearsController::class, 'putTogglePrematriculaNuevos'])->middleware('auth.personal');
 Route::put('years/toggle-solo-valorativas', [YearsController::class, 'putToggleSoloValorativas'])->middleware('auth.personal');
 Route::get('years/trashed', [YearsController::class, 'getTrashed'])->middleware('auth.personal');
 Route::delete('years/delete/{id}', [YearsController::class, 'deleteDelete'])->middleware('auth.personal');

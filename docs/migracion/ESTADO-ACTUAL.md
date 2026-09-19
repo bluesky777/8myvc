@@ -73,6 +73,70 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## ✅ ABRIR Y CERRAR LA CAMPAÑA DE PREMATRÍCULA — DOS RUTAS, ROUTER EN 602 (19 sep 2026)
+>
+> **Lo reportó Joseth con el error delante**: la pantalla de ajustes del año de `app2` ya pintaba
+> los dos interruptores y contestaban *«The route api/years/toggle-prematricula-nuevos could not be
+> found»*. El front las había dejado escritas con el aviso puesto y el precio delante
+> (`myvc_front/app2/src/app/datos/years.ts`), que es exactamente como se pide una ruta que no
+> existe.
+>
+> | | |
+> |---|---|
+> | `PUT years/toggle-prematricula-nuevos` | `years.prematr_nuevos` — el enlace público del login |
+> | `PUT years/toggle-prematricula-antiguos` | `years.prematr_antiguos` — la portada del acudiente |
+> | `auth.personal` en las dos y **nada dentro** (decisión de Joseth de ese día) | |
+> | **602** contado con `route:list --json` en el árbol principal, no sumado | |
+>
+> ### El hueco que tapan estaba medido, y es `profesores.tono` otra vez
+>
+> Hasta ese día **ninguna aplicación podía escribir esas dos columnas**: `years/guardar-cambios`
+> nombra veintiún campos y ninguno es éste, ninguna ruta las nombraba, y lo único que las tocaba en
+> todo el backend era **crear un año** (`YearsController::postStore`), que las copia del anterior.
+> O sea que abrir la campaña de 2027 era heredar el valor bueno o un `UPDATE` a mano en la base,
+> **colegio por colegio**. Las lee media aplicación —el enlace público del login, la portada del
+> acudiente (`ChangeAskedController`, tres sitios), `Perfiles/PublicacionesController` y los modos
+> de la pantalla de formularios de inscripción ([41](41-el-formulario-de-inscripcion.md))— y no las
+> escribía nadie.
+>
+> ### Dos rutas, y aquí `toggle-cambiar-valor` SÍ podía — se dice
+>
+> A diferencia de `modelo_evaluacion`, el conmutador genérico escribe cualquier columna de `years`
+> con este mismo `auth.personal`, así que la ruta nueva **no es una necesidad: es una decisión de
+> forma**. Los otros diez interruptores del año son `{year_id, can}` contra ruta propia y aquél
+> pide **el nombre de la columna dentro del cuerpo**; serían doce interruptores con once formas, y
+> el raro es el que un día se llama mal. Por lo mismo se descartó una sola ruta con
+> `flujo: 'nuevos'|'antiguos'`.
+>
+> ### El permiso va al revés que el del día anterior, y NO es un olvido
+>
+> `auth.personal` y **sin permiso dentro** —las 74 cuentas de personal—, preguntado con las tres
+> opciones y sus poblaciones delante. `toggle-mostrar-nota-numerica` (18 sep) hizo lo contrario, y
+> el caso de aquí ni siquiera es el más inocente: `prematr_nuevos` enciende **una puerta que se ve
+> desde internet sin cuenta**. Por eso la diferencia va escrita en los dos métodos y en el router:
+> *quien lea las dos familias seguidas tiene que poder distinguir una decisión de un olvido.*
+>
+> **Lo que queda abierto si algún día se estrecha**: la pantalla de `app2` va tras el rol `Admin`,
+> y el backend no tiene ningún predicado que signifique eso —`esAdministrativo` es
+> `is_superuser || Secretario`—. `Admin` e `is_superuser` **coinciden por población y no por
+> definición**, así que estrechar el backend sin tocar el menú le pintaría el interruptor a alguien
+> que va a rebotar en un 403.
+>
+> ### Cuatro pruebas, y las dos que importan vistas en ROJO
+>
+> Las dos rutas entran en la tabla de `test_los_conmutadores_guardan_lo_que_dicen`, más un test de
+> que **mover uno no mueve el otro** —el fallo natural de un par de métodos gemelos escritos
+> seguidos—, otro de que la respuesta es **texto y no un objeto** (la pantalla los llama con
+> `putTexto`, o sea `responseType: 'text'`: un array dejaría el aviso enseñando JSON en crudo, y
+> eso no sale en rojo en ningún sitio) y otro de que un año inexistente es **404**. Control visto:
+> haciendo que el gemelo escriba la columna del otro caen **dos**; devolviendo un array cae el de
+> la frase. `YearsTest`: **46 passed (510 assertions)** (`--filter=YearsTest`, `--testsuite=Contrato`).
+>
+> Instantáneas movidas, las **tres** de una ruta nueva: `rutas.json`, `guards-por-ruta.json` y
+> `guard-por-familia.json` (`years` pasa de 21/19 a **23/21**).
+> `familias-que-nunca-entran-en-el-candado.json` **no** se mueve: `years` ya tenía muchas hermanas
+> con guard.
+
 > ## ✅ EL HISTORIAL DE INFORMES Y LOS FAVORITOS DEL MENÚ — CINCO RUTAS, ROUTER EN 600 (18 sep 2026)
 >
 > **Autorizado por Joseth con el precio delante**, que es como entra una familia nueva aquí. Las

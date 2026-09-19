@@ -434,6 +434,8 @@
         "PUT api/years/toggle-mostrar-nota-comport-en-boletin",
         "PUT api/years/toggle-mostrar-nota-numerica",
         "PUT api/years/toggle-mostrar-puestos-en-boletin",
+        "PUT api/years/toggle-prematricula-antiguos",
+        "PUT api/years/toggle-prematricula-nuevos",
         "PUT api/years/toggle-solo-valorativas",
         "PUT api/years/useractive/{year_id}"
     ],

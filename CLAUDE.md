@@ -12,8 +12,34 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**600 rutas** (contadas con `route:list --json` el **18 sep 2026 en el ÁRBOL PRINCIPAL, sobre
-`main`**. Las cinco que entraron sobre las 595 son **dos familias nuevas de una vez**, y el
+**602 rutas** (contadas con `route:list --json` el **19 sep 2026 en el ÁRBOL PRINCIPAL, sobre
+`main` y después de fundir**. Las dos que entraron sobre las 600 son los **dos interruptores de
+la campaña de prematrícula** —`PUT years/toggle-prematricula-nuevos` y `…-antiguos`—, y **no las
+pidió una pantalla nueva: las pidió un 404**. `app2` ya las llamaba desde su pantalla de ajustes
+del año, y el front las había dejado escritas con el aviso puesto. El hueco que tapan estaba
+medido: hasta ese día `years.prematr_nuevos` y `years.prematr_antiguos` **no las escribía ninguna
+aplicación** —`years/guardar-cambios` nombra veintiún campos y ninguno es éste, y lo único que las
+tocaba en todo el backend era **crear un año**, que las copia del anterior—, así que abrir la
+campaña de 2027 era heredar el valor bueno o un `UPDATE` a mano, colegio por colegio. Es
+`profesores.tono` otra vez.
+
+> **Son DOS y no una, y aquí `toggle-cambiar-valor` SÍ podía.** A diferencia de
+> `modelo_evaluacion` —que no cabía en ninguna ruta existente— el conmutador genérico escribe
+> cualquier columna de `years` con este mismo `auth.personal`, así que esto no es una
+> imposibilidad: es una decisión de forma. Los otros diez interruptores del año son
+> `{year_id, can}` contra ruta propia y aquél pide **el nombre de la columna dentro del cuerpo**;
+> serían doce interruptores con once formas. Por lo mismo se descartó una sola ruta con
+> `flujo: 'nuevos'|'antiguos'`. **Cuando la ruta nueva es forma y no necesidad, se dice.**
+>
+> **Y el permiso va al revés que el del día anterior, a propósito**: `auth.personal` y **nada
+> dentro** —las 74 cuentas de personal—, decidido por Joseth el 19 sep con las dos poblaciones
+> delante, mientras que `toggle-mostrar-nota-numerica` (18 sep) puso el permiso dentro. El caso
+> ni siquiera es el más inocente: `prematr_nuevos` enciende **una puerta que se ve desde
+> internet sin cuenta**. Por eso la diferencia va escrita en los dos métodos y en el router —
+> quien lea las dos familias seguidas tiene que poder distinguir una decisión de un olvido.
+
+El número anterior era **600**, contado con `route:list --json` el **18 sep 2026 en el ÁRBOL
+PRINCIPAL, sobre `main`**. Las cinco que entraron sobre las 595 son **dos familias nuevas de una vez**, y el
 alcance lo autorizó Joseth con el precio delante: **tres** de `informes-recientes` —`GET`,
 `POST` idempotente por huella y `DELETE`— y **dos** de `accesos-favoritos` —`GET` y `PUT`—,
 que son el historial de informes y los favoritos del menú de la pantalla nueva de `/informes`
@@ -560,7 +586,9 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
   > > la rehace en vez de una fecha de caducidad.*
   > >
   > > **Y el 647 tiene una trampa que conviene dejar dicha: hoy es el número de LARASTAN,
-  > > no el de Pint.** `composer run stan` analiza **647** ficheros y `pint --test` mide
+  > > no el de Pint.** `composer run stan` analiza **647** ficheros —**651 el 19 sep 2026 sobre
+  > > `main` en el árbol principal**, o sea que se movió cuatro en un día: esta cifra la sube
+  > > cualquiera que añada un fichero, igual que la de Pint— y `pint --test` mide
   > > **662**. Que la cifra vieja de Pint coincida exactamente con la de stan puede ser
   > > casualidad o puede ser que se copiara de la salida equivocada —**no se puede saber
   > > desde aquí**, y da igual: son dos poblaciones distintas y a partir de ahora van las

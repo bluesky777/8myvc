@@ -427,6 +427,11 @@ class YearsTest extends CasoDeContrato
             'years/toggle-mostrar-anio-pasado-en-boletin' => 'year_pasado_en_bol',
             'years/toggle-solo-valorativas' => 'solo_escalas_valorativas',
             'years/toggle-ignorar-notas-perdidas' => 'si_recupera_materia_recup_indicador',
+            // Los dos de la campaña de prematrícula, 19 sep 2026. Entran en esta tabla
+            // porque son de la misma familia —`{year_id, can}` y una columna— aunque no
+            // sean del boletín; el rótulo del test ya no es exacto y la tabla vale más.
+            'years/toggle-prematricula-nuevos' => 'prematr_nuevos',
+            'years/toggle-prematricula-antiguos' => 'prematr_antiguos',
         ];
 
         foreach ($conmutadores as $ruta => $columna) {
@@ -438,6 +443,101 @@ class YearsTest extends CasoDeContrato
                     (int) DB::table('years')->where('id', $year->id)->value($columna),
                     "{$ruta} no dejó {$columna} en {$valor}.");
             }
+        }
+    }
+
+    /**
+     * **Los dos interruptores de la campaña son dos, y mover uno no mueve el otro.**
+     *
+     * La tabla de arriba no lo demuestra: comprueba cada ruta con su columna por
+     * separado, así que dos métodos gemelos escritos por copia —el fallo natural de un
+     * par que se escribe seguido— pasan la mitad de los casos sin que nada lo diga. Y
+     * aquí las dos columnas **no son intercambiables**: `prematr_nuevos` enciende el
+     * enlace público de la pantalla de entrada, que se ve desde internet sin cuenta, y
+     * `prematr_antiguos` sólo lo que ve en su portada un acudiente que ya está dentro.
+     * Confundirlas abre una puerta a la calle creyendo abrir una de dentro.
+     *
+     * Se prueban las dos direcciones y con el otro en los dos valores, porque encender
+     * el gemelo que ya estaba encendido tampoco se nota.
+     */
+    public function test_los_dos_interruptores_de_la_prematricula_son_independientes(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $year = DB::selectOne('SELECT id FROM years WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        $pareja = [
+            'years/toggle-prematricula-nuevos' => ['prematr_nuevos', 'prematr_antiguos'],
+            'years/toggle-prematricula-antiguos' => ['prematr_antiguos', 'prematr_nuevos'],
+        ];
+
+        foreach ($pareja as $ruta => [$mia, $ajena]) {
+            foreach ([0, 1] as $ajenoEmpiezaEn) {
+                foreach ([1, 0] as $valor) {
+                    DB::table('years')->where('id', $year->id)
+                        ->update([$ajena => $ajenoEmpiezaEn, $mia => $valor === 1 ? 0 : 1]);
+
+                    $r = $this->withToken($token)->putJson('/api/'.$ruta,
+                        ['year_id' => $year->id, 'can' => $valor]);
+                    $r->assertStatus(200);
+
+                    $fila = DB::table('years')->where('id', $year->id)->first();
+
+                    $this->assertSame($valor, (int) $fila->$mia,
+                        "{$ruta} no dejó {$mia} en {$valor}.");
+                    $this->assertSame($ajenoEmpiezaEn, (int) $fila->$ajena,
+                        "{$ruta} movió {$ajena}, que es del otro flujo de la campaña.");
+                }
+            }
+        }
+    }
+
+    /**
+     * **La respuesta es TEXTO, no un objeto**, y eso es contrato con la pantalla.
+     *
+     * `app2` los llama con `putTexto`, que pide `responseType: 'text'` a Angular. Un
+     * método que devolviera un array —como hace su vecino `putToggleMostrarNotaNumerica`,
+     * a propósito y por otra razón— no rompería la escritura: dejaría el aviso de la
+     * pantalla enseñando el JSON en crudo. Es un fallo que no sale en rojo en ningún
+     * sitio y que sólo ve quien pulsa el interruptor.
+     */
+    public function test_la_campana_contesta_una_frase_y_no_un_objeto(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $year = DB::selectOne('SELECT id FROM years WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        foreach (['years/toggle-prematricula-nuevos', 'years/toggle-prematricula-antiguos'] as $ruta) {
+            foreach ([1 => 'ABIERTA', 0 => 'CERRADA'] as $valor => $palabra) {
+                $r = $this->withToken($token)->putJson('/api/'.$ruta,
+                    ['year_id' => $year->id, 'can' => $valor]);
+                $r->assertStatus(200);
+
+                $cuerpo = $r->getContent();
+
+                $this->assertStringStartsWith('Prematrícula ', $cuerpo,
+                    "{$ruta} tiene que contestar una frase que la pantalla pueda enseñar.");
+                $this->assertStringContainsString($palabra, $cuerpo,
+                    "{$ruta} con can={$valor} tiene que decir {$palabra}.");
+                $this->assertNull(json_decode($cuerpo, true),
+                    "{$ruta} contestó algo que se decodifica como JSON; la pantalla lo pide como texto.");
+            }
+        }
+    }
+
+    /**
+     * Un año que no existe es **404**, no un 200 que no escribió nada.
+     *
+     * Sale gratis —`Year::findOrFail`— y se fija porque la pantalla manda el `year_id`
+     * de la URL: un `/panel/colegio/99999/ajustes` tecleado a mano tiene que fallar
+     * donde se ve, no contestar «Prematrícula ABIERTA» sin haber abierto nada.
+     */
+    public function test_la_campana_de_un_ano_que_no_existe_es_404(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $inexistente = ((int) DB::table('years')->max('id')) + 1000;
+
+        foreach (['years/toggle-prematricula-nuevos', 'years/toggle-prematricula-antiguos'] as $ruta) {
+            $this->withToken($token)->putJson('/api/'.$ruta,
+                ['year_id' => $inexistente, 'can' => 1])->assertStatus(404);
         }
     }
 

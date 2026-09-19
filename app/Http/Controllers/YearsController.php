@@ -1610,6 +1610,104 @@ class YearsController extends Controller {
 		];
 	}
 
+	/**
+	 * Abrir y cerrar la campaña de prematrícula, que son DOS interruptores distintos.
+	 *
+	 *     PUT years/toggle-prematricula-nuevos    ->  years.prematr_nuevos
+	 *     PUT years/toggle-prematricula-antiguos  ->  years.prematr_antiguos
+	 *
+	 * Encargo de Joseth del 19 sep 2026, y llegó por el camino incómodo: la pantalla de
+	 * ajustes del año de `app2` ya pintaba los dos interruptores y las dos rutas
+	 * contestaban **404**. El front las dejó escritas con el aviso puesto y el precio
+	 * delante (`app2/src/app/datos/years.ts`), que es exactamente lo que hay que hacer
+	 * cuando una pantalla necesita una ruta que no existe.
+	 *
+	 * ## Lo que esto viene a quitar, y está medido
+	 *
+	 * Hasta hoy **ninguna aplicación podía escribir estas dos columnas**:
+	 *
+	 *   - `years/guardar-cambios` nombra veintiún campos y ninguno es éste;
+	 *   - no había ninguna ruta que las nombrara — `grep prematr routes/api/*.php` sólo
+	 *     saca las de matricular;
+	 *   - lo único que las escribía en todo el backend es **crear un año**
+	 *     (`postStore`), que las copia del año anterior.
+	 *
+	 * O sea que abrir la campaña de 2027 era heredar el valor bueno del año pasado o un
+	 * `UPDATE` a mano en la base, colegio por colegio. Es `profesores.tono` otra vez:
+	 * una columna que lee media aplicación —el enlace público del login, la portada del
+	 * acudiente y los modos de los formularios de inscripción— y que no escribe nadie.
+	 *
+	 * ## Dos rutas, y NO `years/toggle-cambiar-valor`, que sí podría
+	 *
+	 * Aquélla escribe cualquier columna de `years` con este mismo `auth.personal`, así
+	 * que esto no es una imposibilidad: es una decisión de forma. Los otros diez
+	 * interruptores del año son `{year_id, can}` contra una ruta propia, y
+	 * `toggle-cambiar-valor` pide el **nombre de la columna dentro del cuerpo**. Sería el
+	 * único de los doce en el que el cliente nombra la columna, y un endpoint con forma
+	 * distinta al de al lado es el que un día se llama mal. Por lo mismo se descartó una
+	 * sola ruta con `flujo: 'nuevos'|'antiguos'`: sale más barata en el recuento del
+	 * router y deja doce interruptores con once formas.
+	 *
+	 * ## El permiso: cualquiera del personal, y está DECIDIDO, no olvidado
+	 *
+	 * Decisión de Joseth del 19 sep 2026, con las dos poblaciones delante: se quedan en
+	 * `auth.personal` y **sin permiso dentro** —las 74 cuentas de personal de la copia de
+	 * desarrollo—, igual que los otros diez interruptores del año.
+	 *
+	 * Se escribe aquí porque la decisión de anteayer fue la contraria
+	 * —`putToggleMostrarNotaNumerica`, 18 sep, puso el permiso dentro— y quien lea las
+	 * dos seguidas va a concluir que a ésta se le olvidó. No se le olvidó, y el caso ni
+	 * siquiera es el más inocente: `prematr_nuevos` enciende el enlace público de la
+	 * pantalla de entrada, o sea **una puerta que se ve desde internet sin cuenta**. Aun
+	 * así la llave es la de la familia. El día que se quiera estrechar, el sitio son
+	 * estos dos métodos —un `Autoriza::exigir` delante, antes de `findOrFail`— y la
+	 * pantalla de `app2`, que hoy va tras el rol `Admin`.
+	 *
+	 * ## `can` se lee con `(bool)`, como los otros once
+	 *
+	 * Con lo que eso arrastra —cualquier cadena no vacía vale por «sí», `"false"`
+	 * incluida—. El porqué está entero en `putToggleMostrarNotaNumerica` y es el mismo:
+	 * `myvc_flutter` es una sola app para los dieciséis y la familia se endurece entera
+	 * o no se endurece.
+	 */
+	public function putTogglePrematriculaNuevos(){
+		$user = User::fromToken();
+
+		$year_id 	= 	Request::input('year_id');
+		$can 		= 	(bool) Request::input('can');
+
+		$year = Year::findOrFail($year_id);
+		$year->prematr_nuevos = $can;
+		$year->updated_by = $user->user_id;
+		$year->save();
+
+		if ($can) { return 'Prematrícula ABIERTA para estudiantes nuevos.';
+		} else { return 'Prematrícula CERRADA para estudiantes nuevos.';}
+	}
+
+	/**
+	 * La otra mitad de la campaña: los que ya están.
+	 *
+	 * Escribe `years.prematr_antiguos`, que es lo que ve en su portada un acudiente que
+	 * ya es del colegio (`ChangeAskedController`, tres sitios) — no el enlace público.
+	 * Todo lo demás —las dos rutas, el permiso, la forma del cuerpo— está en el docblock
+	 * de su gemela, aquí encima.
+	 */
+	public function putTogglePrematriculaAntiguos(){
+		$user = User::fromToken();
+
+		$year_id 	= 	Request::input('year_id');
+		$can 		= 	(bool) Request::input('can');
+
+		$year = Year::findOrFail($year_id);
+		$year->prematr_antiguos = $can;
+		$year->updated_by = $user->user_id;
+		$year->save();
+
+		if ($can) { return 'Prematrícula ABIERTA para los alumnos que ya están.';
+		} else { return 'Prematrícula CERRADA para los alumnos que ya están.';}
+	}
+
 	public function putToggleCambiarValor(){
 		$user 		= User::fromToken();
 		$now 		= Carbon::now('America/Bogota');
