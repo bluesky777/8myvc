@@ -128,7 +128,25 @@ return new class extends Migration
 
             // El lote impreso. Sin esto, recargar la pantalla vuelve a acuñar y
             // una impresora atascada cuesta diez códigos.
-            $tabla->char('lote_id', 36);
+            //
+            // **Y en `antiguos` NO es aleatorio: es `antiguos-<campaña>-g<grupo>`.**
+            // Un lote de renovación no es «una tanda que salió por la impresora»,
+            // es **«las renovaciones de 5°A para 2027»**, que es una cosa sola
+            // aunque se imprima cinco veces. Siendo determinista, reimprimir
+            // devuelve **el mismo lote y los mismos códigos**, y el `GET` de ese
+            // lote sigue encontrándolos meses después.
+            //
+            // Con un aleatorio por llamada la reimpresión reusaría los códigos
+            // —eso lo garantiza el `UNIQUE`— pero **dejaría el lote anterior
+            // colgado**: la fila sólo puede apuntar a uno, así que el primer
+            // `lote_id` que se le dio a la pantalla dejaría de resolver.
+            //
+            // En `nuevos` sí es un UUID: imprimir cincuenta formularios en blanco
+            // otra vez son otros cincuenta papeles de verdad.
+            //
+            // `varchar` y no `char`: MySQL rellena un `char` con espacios y los
+            // quita al leer, y una clave que se compara no debe depender de eso.
+            $tabla->string('lote_id', 40);
 
             $tabla->string('modo', 10);                          // nuevos | antiguos
             $tabla->unsignedInteger('alumno_id')->nullable();    // sólo en antiguos

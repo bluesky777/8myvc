@@ -30,7 +30,7 @@ esto es sólo el contrato y sus porqués.
   campos sale de `AlumnoNuevo` y de la pantalla de alta, que son los campos que el colegio
   guarda de verdad, y por eso el papel del colegio manda sobre ella el día que aparezca.**
 
-## 2. El contrato
+## 2. El contrato  *(las dos primeras, ENTREGADAS el 19 sep 2026)*
 
 ```
 POST informes/formularios-inscripcion        (auth.personal)   ACUÑA
@@ -45,6 +45,38 @@ respuesta: { lote_id, year, cierra, colegio:{…membrete…},
 Código: `2027-4K7M2` — año + 5 caracteres de un alfabeto sin `O/0`, `I/1/L`, `S/5`, más un
 carácter de control. **Aleatorio dentro del año, no secuencial**: si son 171, 172, 173,
 cualquiera se imprime su propio 174.
+
+### Lo que cambió al construirlas, y por qué se dice
+
+Tres cosas se movieron entre el contrato y el código. Ninguna la pidió nadie: las tres salieron
+de escribirlo.
+
+1. **`year_campana` es una columna, no `year_id + 1`.** La fila de `years` del año que viene
+   **puede no existir todavía** —el colegio abre la campaña antes de crear el año, el mismo hecho
+   que ya nos obligó a elegir el grupo del año actual— y además **la campaña no siempre es la del
+   año siguiente**: un aspirante que entra a mitad de curso (`ASIS`) se inscribe al año en curso, y
+   un `+1` le imprimiría 2027. Así que aquí hay **tres años distintos**: `year_id` la fila desde la
+   que se imprimió, `year_campana` el año al que se inscribe, y `grupo_id` el grupo actual desde el
+   que se eligió.
+
+2. **El `UNIQUE` se mueve a `(year_campana, alumno_id)`.** Con `year_id`, imprimir en diciembre de
+   2026 y otra vez en enero de 2027 para la MISMA campaña daba dos códigos al mismo alumno — justo
+   lo que el índice existe para impedir. Remedido: tres filas con `alumno_id` NULL pasan, el segundo
+   del mismo alumno en la misma campaña choca, y el mismo alumno en **otra** campaña pasa. La
+   tercera es nueva; el índice viejo no la distinguía.
+
+3. **En `antiguos` el `lote_id` es determinista** —`antiguos-<campaña>-g<grupo>`— y no un UUID. «Las
+   renovaciones de 5°A para 2027» son UNA cosa aunque se impriman cinco veces. Con un aleatorio por
+   llamada la reimpresión reusaría los códigos —eso lo garantiza el `UNIQUE`— pero **dejaría el lote
+   anterior colgado**: la fila apunta a uno solo, así que el primer `lote_id` que se le dio a la
+   pantalla dejaría de resolver. Es más de lo que pidió el front y sale gratis.
+
+### Y un candado del repositorio cazó un cuarto
+
+El método se llamaba `postIndex`, lo que lo metía en la cohorte de `@postIndex` —donde viven tres
+rutas públicas por diseño— y `AutorizacionTest` lo delató como *«una ruta sola entre sus
+hermanas»*. **El arreglo no fue añadirlo a ninguna lista de excepciones: fue llamarlo
+`postAcunar`, que es lo que hace.** Un candado de consistencia diciendo la verdad sobre un nombre.
 
 ## 3. Las cinco decisiones, con su porqué
 

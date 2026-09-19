@@ -12,6 +12,7 @@ use App\Http\Controllers\Informes\BoletinPorCompetenciasController;
 use App\Http\Controllers\Informes\BolfinalesPreescolarController;
 use App\Http\Controllers\Informes\CertificadosPersonaController;
 use App\Http\Controllers\Informes\ExcelListadoDocentesController;
+use App\Http\Controllers\Informes\FormulariosInscripcionController;
 use App\Http\Controllers\Informes\InformesController;
 use App\Http\Controllers\Informes\InformesRecientesController;
 use App\Http\Controllers\Informes\NotasPerdidasController;
@@ -50,6 +51,24 @@ Route::put('historiales/sesion', [HistorialesController::class, 'putSesion'])->m
 // InformesController
 Route::put('informes/cumpleanos-por-meses', [InformesController::class, 'putCumpleanosPorMeses'])->middleware('auth.personal');
 Route::put('informes/datos', [InformesController::class, 'putDatos'])->middleware('auth.personal');
+
+// FormulariosInscripcionController
+//
+// El formulario de inscripción que se imprime, en sus dos modos, con el código que
+// ata el papel al alumno. Autorizado por Joseth el 19 sep 2026 con el precio
+// delante; decisiones en `docs/migracion/41-el-formulario-de-inscripcion.md`.
+//
+// SON DOS Y NO UNA, y la segunda no es comodidad: **sin el `GET`, recargar la
+// pantalla vuelve a acuñar códigos** y una impresora atascada cuesta diez. El
+// `POST` escribe —acuñar es escribir— y el `GET` relee un lote ya acuñado sin
+// tocar nada. Lo pidió el front y era el defecto más grave del contrato.
+//
+// Las dos con `auth.personal` y **nada dentro**: imprimir un formulario en blanco
+// no es más delicado que listar un grupo, y la familia que lo llena no tiene cuenta
+// en MYVC. La que sí necesitará permiso propio es la de aprobar la colilla del
+// pago, que va aparte y todavía no está escrita.
+Route::post('informes/formularios-inscripcion', [FormulariosInscripcionController::class, 'postAcunar'])->middleware('auth.personal');
+Route::get('informes/formularios-inscripcion/{lote}', [FormulariosInscripcionController::class, 'getLote'])->middleware('auth.personal');
 
 // CertificadosPersonaController
 //

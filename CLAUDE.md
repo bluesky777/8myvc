@@ -12,7 +12,27 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**602 rutas** (contadas con `route:list --json` el **19 sep 2026 en el ÁRBOL PRINCIPAL, sobre
+**604 rutas** (contadas con `route:list --json` el **19 sep 2026 en `.worktrees/92`, o sea SIN
+FUNDIR: hay que recontarlas en el árbol principal el día que esta rama entre**. Las dos que suben
+sobre las 602 son las del **formulario de inscripción impreso** —`POST
+informes/formularios-inscripcion`, que acuña, y `GET …/{lote}`, que relee sin acuñar—, las dos con
+`auth.personal`. Las autorizó Joseth el 19 sep con el precio delante, y el alcance entero del
+formulario son **diez**: éstas dos, dos de configuración de campos, cuatro de la colilla del pago y
+dos de la pasarela, con **tres públicas** entre ellas (12 → 15).
+
+> **La segunda no es comodidad y por poco no existe: la pidió el front y tenía razón.** Mi contrato
+> sólo llevaba el `POST`, y con eso **recargar la pantalla vuelve a acuñar**: una impresora atascada
+> cuesta diez códigos, y acuñar es irreversible. Es el mismo error que el `antiguos` que yo había
+> escrito como «acuña» cuando el requisito era «un código por alumno y año» — las dos frases no
+> podían ser ciertas a la vez.
+>
+> **Y el candado del nombre del método cazó un tercero.** El método se llamaba `postIndex`, que lo
+> metía en la cohorte de `@postIndex` —donde hay tres rutas públicas por diseño— y
+> `AutorizacionTest` lo delató como «una ruta sola entre sus hermanas». El arreglo no fue añadirlo a
+> ninguna lista: fue **llamarlo `postAcunar`, que es lo que hace**. Un candado de consistencia
+> diciendo la verdad sobre un nombre.
+
+El número anterior era **602**, contado con `route:list --json` el **19 sep 2026 en el ÁRBOL PRINCIPAL, sobre
 `main` y después de fundir**. Las dos que entraron sobre las 600 son los **dos interruptores de
 la campaña de prematrícula** —`PUT years/toggle-prematricula-nuevos` y `…-antiguos`—, y **no las
 pidió una pantalla nueva: las pidió un 404**. `app2` ya las llamaba desde su pantalla de ajustes
@@ -565,7 +585,7 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
   > | `composer run pint` | **ESCRIBE**: formatea los ficheros de la lista |
   > | `pint --test` a secas | mide **todo el repo**, incluido lo que no se formatea a propósito |
   >
-  > Los dos primeros corren sobre **la lista curada de `composer.json`** —hoy **417**
+  > Los dos primeros corren sobre **la lista curada de `composer.json`** —hoy **423**
   > ficheros—; el tercero sobre **662**, y da `FAIL` con **189** avisos. **Las dos cifras
   > son correctas y cuentan poblaciones distintas**: con la tercera se archivó como ruido
   > un rojo real que llevaba desde el 7 sep en `CorsDelEscritorioTest`.
