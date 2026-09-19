@@ -12,8 +12,9 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**612 rutas** (contadas con `route:list --json` el **19 sep 2026 en `.worktrees/92`, SIN FUNDIR:
-hay que recontarlas en el árbol principal el día que entren**. Las dos que suben sobre las 610 son
+**612 rutas** (contadas con `route:list --json` el **19 sep 2026 a las 18:54 en el ÁRBOL
+PRINCIPAL, sobre `main` y después de fundir** (`982a8cb`) — y **coincidió con las 612 contadas
+antes en `.worktrees/92`, que es la única forma de saber que coincidía**. Las dos que suben sobre las 610 son
 las de `pagos-inscripcion/` —el checkout y el webhook del pago en línea del formulario—, que
 **cierran las diez** que autorizó Joseth ese día. Las 610 anteriores se contaron a las 18:35 **en
 el ÁRBOL PRINCIPAL, sobre `main` y después de fundir** (`d3e57c7`), y coincidieron con las 610
@@ -554,27 +555,42 @@ Usuario). Lo monta `App\Services\ContextoDeUsuario`; el token lo valida
 
 `routes/api/*.php`, un fichero por dominio. **El guard va por defecto a toda la
 API** y las excepciones públicas se marcan una a una — son
-**`RutasPreLoginTest::TOTAL_PUBLICAS`, hoy trece**, y son un test que las ata por las
+**`RutasPreLoginTest::TOTAL_PUBLICAS`, hoy quince**, y son un test que las ata por las
 dos direcciones: que la lista no tenga de más y que el router no tenga de menos.
-La duodécima entró el 1 sep 2026 y es la única que no va del login ni del logout:
+Las tres últimas son del formulario de inscripción y entraron el 19 sep 2026 —la colilla del
+pago y las dos de la pasarela—, y las tres por el mismo motivo: **quien paga es la familia de un
+aspirante que todavía no es alumno, no tiene cuenta y no puede tenerla**; la del webhook ni
+siquiera la llama una persona. La duodécima entró el 1 sep 2026 y es la única que no va del login ni del logout:
 `GET colegio/logo`, para que la puerta de entrada del colegio pueda enseñar el logo
 que se cambió dentro. La exposición se midió antes de proponerla y está en la §245
 del 05 — el fichero ya se descargaba sin sesión.
 
-> **Y una pública mueve dos sitios más que una normal**, que es lo que nadie previó el
-> día que entró la duodécima y cantó la suite entera: `AutenticacionTest::SIN_GUARD`
+> **Y una pública mueve dos sitios más que una normal —y TRES cuando además escribe**, que es
+> lo que nadie previó el día que entró la duodécima y cantó la suite entera: `AutenticacionTest::SIN_GUARD`
 > —la lista de las que no exigen token, **con el motivo al lado**— y el censo
 > `familias-que-nunca-entran-en-el-candado.json`, donde una familia nueva de una sola
 > ruta sin guard entra como «0 de 1». Ese renglón **es la forma que tendría un agujero
 > nuevo**, así que se acepta escribiendo por qué no lo es, nunca regenerando y pasando.
 > En cambio `guards-por-ruta.json` **no** se mueve: lista las que llevan guard.
+>
+> **El tercero, medido el 19 sep 2026 con las dos de `pagos-inscripcion/`:**
+> `FamiliasQueNuncaEntranTest::test_cuantas_escrituras_viven_donde_el_candado_no_llega` y su
+> instantánea, que cuentan las **escrituras** que viven en familias que el candado de familia no
+> mira nunca — de **22 a 24**. Sólo se mueve si la ruta nueva **escribe** y su familia tiene menos
+> de dos hermanas con guard: la colilla no lo movió porque sus tres hermanas sí lo llevan. O sea
+> que *«una pública mueve cinco sitios»* vale mientras la familia esté guardada por otro lado, y
+> **una familia nueva entera de públicas que escriben mueve seis**.
 
 > **Ese número no se cuenta con un `grep`, y aquí está el porqué porque ya costó
-> tres cifras.** Hay **18** rutas sin `auth.token` en `routes/`, y **seis
-> contestan 401 igual** porque se defienden dentro del método: **quitarle el guard
-> a una ruta no la hace pública**. (Eran 19 y siete hasta el 2 sep 2026, cuando
+> tres cifras.** Hay **21** rutas `api/` sin `auth.token` —remedidas el 19 sep 2026 en el árbol
+> principal sobre `main` (`982a8cb`), con `route:list --json`; eran 18 antes de la colilla y las
+> dos de la pasarela— y **seis contestan 401 igual** porque se defienden dentro del método:
+> **quitarle el guard a una ruta no la hace pública**. 21 − 6 = **15**, que es `TOTAL_PUBLICAS`
+> y cuadra — pero *cuadrar no es de dónde sale*: el quince lo da el test, y esta resta sólo
+> sirve para comprobarlo después. (Eran 19 y siete hasta el 2 sep 2026, cuando
 > Joseth mandó retirar `tardanzas/login/traer-datos`: **las dos bajaron y la docena
-> de públicas no se movió**, que es lo que demuestra que aquella contestaba 401.) Doce es del **resultado** —quién recibe datos sin
+> de públicas no se movió**, que es lo que demuestra que aquella contestaba 401.) Ese número —doce
+> entonces, quince hoy— es del **resultado** —quién recibe datos sin
 > presentar token—, no del mecanismo, y por eso el día que entró la duodécima se
 > **corrió el test** en vez de restar 19 − 7.
 >

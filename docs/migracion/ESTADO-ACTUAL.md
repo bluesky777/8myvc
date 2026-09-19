@@ -86,7 +86,8 @@
 > | `GET` / `PUT colillas-inscripcion/pendientes · {id}/aprobar · {id}/rechazar` | el tesorero |
 > | `POST pagos-inscripcion/{codigo}/checkout` | **PÚBLICA** — el pago en línea |
 > | `POST pagos-inscripcion/webhook` | **PÚBLICA** — la llama la pasarela, no una persona |
-> | **612** contado con `route:list --json`, y **15 públicas** (eran 12 por la mañana) | |
+> | **612** contado en el árbol principal tras fundir (`982a8cb`), no sumado; **15 públicas** | |
+> | `php artisan test`: **2.342 passed, 1 skipped (50.663 assertions)**, `.worktrees/92` | |
 >
 > Más `App\Services\CodigoDeInscripcion`, `App\Services\Pasarela\Wompi`, **cinco tablas** y tres
 > migraciones (`2026_09_19_100000`, `_200000` y `_300000`).
