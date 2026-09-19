@@ -421,6 +421,45 @@ class Autoriza
     }
 
     /**
+     * Quién aprueba o rechaza la colilla del pago de un formulario.
+     *
+     * Decidido por Joseth el 19 sep 2026: **el tesorero, y si no hay, secretaría.**
+     * El respaldo no es un adorno — `years.tesorero_id` está **en NULL en los cuatro
+     * años de la copia de desarrollo** y no lo lee nadie en toda la API, así que sin
+     * la segunda mitad el pago no lo podría aprobar nadie hasta que alguien se
+     * acordara de nombrar a un tesorero.
+     *
+     * ## `tesorero_id` es un `profesores.id`, NO un `users.id`
+     *
+     * Lo dice el esquema —`Year::datos` hace `left join profesores pRec on
+     * pRec.id=y.rector_id`— y comparar contra `user_id` es el reflejo natural y
+     * **está mal**. Medido en la base de desarrollo: el id 5 es la profesora
+     * MARYELINE y el usuario 5 es MARYOLY, o sea que el error no daría un 403
+     * ruidoso: **le daría permiso de aprobar pagos a otra persona**. Es la nota del
+     * `CLAUDE.md` —«`user_id` es el id de `users`; `persona_id` es el de la ficha»—
+     * con consecuencia de dinero.
+     */
+    public static function puedeResolverColillas($user, int $yearId): bool
+    {
+        if (self::esAdministrativo($user)) {
+            return true;
+        }
+
+        $persona = $user->persona_id ?? null;
+
+        if ($persona === null) {
+            return false;
+        }
+
+        $anio = DB::selectOne('SELECT tesorero_id FROM years WHERE id=? AND deleted_at IS NULL',
+            [$yearId]);
+
+        return $anio !== null
+            && $anio->tesorero_id !== null
+            && (int) $anio->tesorero_id === (int) $persona;
+    }
+
+    /**
      * Solo superusuario. Para lo que arrastra el esquema entero.
      */
     public static function esSuperusuario($user): bool

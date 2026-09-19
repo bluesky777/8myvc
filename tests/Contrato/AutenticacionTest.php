@@ -73,6 +73,16 @@ class AutenticacionTest extends CasoDeContrato
         ['PUT',    'publicaciones/ultimas'],
         ['GET',    'publicaciones/ultimas'],
         ['GET',    'colegio/logo'],
+
+        // **La decimotercera, y la primera que RECIBE algo en vez de darlo.**
+        // Quien sube el comprobante del pago del formulario es la familia de un
+        // aspirante que todavía no es alumno: no tiene cuenta y no puede tenerla,
+        // así que no hay token que exigir. Lo que la defiende no es un guard —es el
+        // carácter de control del código, el limitador `colilla` por IP y por
+        // código, la lista blanca de tipos, y sobre todo el tope de tres
+        // comprobantes por orden y uno solo pendiente, que es lo único que no se
+        // reinicia con el reloj. Doc 41 §5; autorizada por Joseth el 19 sep 2026.
+        ['POST',   'colillas-inscripcion/{codigo}'],
     ];
 
     /**

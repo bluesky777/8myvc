@@ -12,7 +12,27 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**606 rutas** (contadas con `route:list --json` el **19 sep 2026 a las 17:19 en el ÁRBOL PRINCIPAL,
+**610 rutas** (contadas con `route:list --json` el **19 sep 2026 en `.worktrees/92`, SIN FUNDIR:
+hay que recontarlas en el árbol principal el día que entren**. Las cuatro que suben sobre las 606
+son las de `colillas-inscripcion/`, el comprobante del pago del formulario y su aprobación.
+
+> **Y aquí sube LA DECIMOTERCERA PÚBLICA, la primera que RECIBE algo en vez de darlo.** Las doce
+> anteriores entregan datos sin token; `POST colillas-inscripcion/{codigo}` **acepta un fichero de
+> un desconocido**. No es por comodidad: quien paga el formulario es la familia de un aspirante que
+> todavía no es alumno, **no tiene cuenta y no puede tenerla**, así que no hay guard de propiedad
+> que aplicarle. Por eso mueve **cinco** sitios y no tres — las tres instantáneas más
+> `AutenticacionTest::SIN_GUARD` y `RutasPreLoginTest::TOTAL_PUBLICAS` (12 → 13)— y además hay que
+> declararla en `AutorizacionTest::EXCEPCIONES_DE_FAMILIA`, porque sus tres hermanas sí llevan
+> guard y el candado la delata como «sola sin el guard de su familia». **Se declara con el motivo,
+> nunca regenerando y pasando.**
+>
+> Lo que la acota no es un middleware: el carácter de control del código —comprobado antes de tocar
+> la base—, el limitador `colilla` por IP y por código, la lista blanca de tipos **por extensión y
+> por contenido**, y sobre todo **tres comprobantes por orden con uno solo pendiente**, que es lo
+> único que no se reinicia con el reloj. Un limitador protege la base; lo que protege el disco es
+> la cuenta por fila.
+
+El número anterior era **606**, contado con `route:list --json` el **19 sep 2026 a las 17:19 en el ÁRBOL PRINCIPAL,
 sobre `main` y después de fundir** (`45f6e4f`) — y **coincidió con las 606 contadas antes en
 `.worktrees/92`, que es la única forma de saber que coincidía**. Las cuatro que suben
 sobre las 602 son las del **formulario de inscripción impreso**: `POST
@@ -504,7 +524,7 @@ Usuario). Lo monta `App\Services\ContextoDeUsuario`; el token lo valida
 
 `routes/api/*.php`, un fichero por dominio. **El guard va por defecto a toda la
 API** y las excepciones públicas se marcan una a una — son
-**`RutasPreLoginTest::TOTAL_PUBLICAS`, hoy doce**, y son un test que las ata por las
+**`RutasPreLoginTest::TOTAL_PUBLICAS`, hoy trece**, y son un test que las ata por las
 dos direcciones: que la lista no tenga de más y que el router no tenga de menos.
 La duodécima entró el 1 sep 2026 y es la única que no va del login ni del logout:
 `GET colegio/logo`, para que la puerta de entrada del colegio pueda enseñar el logo

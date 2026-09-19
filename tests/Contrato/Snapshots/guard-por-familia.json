@@ -135,6 +135,10 @@
         "total": 1,
         "con_guard": 0
     },
+    "colillas-inscripcion": {
+        "total": 4,
+        "con_guard": 3
+    },
     "comportamiento": {
         "total": 4,
         "con_guard": 3

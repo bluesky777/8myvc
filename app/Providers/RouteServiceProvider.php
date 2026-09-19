@@ -101,6 +101,38 @@ class RouteServiceProvider extends ServiceProvider
             return Limit::perHour(20)->by($request->ip());
         });
 
+        /*
+         * La colilla del pago del formulario de inscripción, que es **la única
+         * ruta pública de esta API que recibe un FICHERO de un desconocido**.
+         *
+         * Son DOS límites a la vez, como en `login`, y cada uno tapa un agujero
+         * distinto que el otro deja abierto:
+         *
+         *   por IP      corta al que sube en bucle desde un sitio. Diez por hora es
+         *               más de lo que hace una familia —sube una, se equivoca, sube
+         *               otra— y tres órdenes de magnitud menos que un abuso.
+         *
+         *   por CÓDIGO  corta al que reparte la carga entre muchas IPs contra el
+         *               mismo formulario, que es lo que el límite por IP no ve. Y
+         *               también protege al tesorero: su bandeja no se puede llenar
+         *               desde un solo código.
+         *
+         * **Ninguno de los dos es la defensa principal**, y conviene no confundirse:
+         * el tope real es que una orden admite **tres colillas y una sola
+         * pendiente**, que es una regla de la FILA y no se reinicia con el reloj.
+         * Un limitador protege la base de datos; lo que protege el disco es la
+         * cuenta por orden.
+         *
+         * Y nada de esto para un DDoS de verdad: eso se para en el borde —Cloudflare
+         * delante del dominio— y es una decisión de hosting, no de código.
+         */
+        RateLimiter::for('colilla', function (Request $request) {
+            return [
+                Limit::perHour(10)->by('ip:'.$request->ip()),
+                Limit::perHour(10)->by('cod:'.strtoupper(trim((string) $request->route('codigo')))),
+            ];
+        });
+
         RateLimiter::for('login', function (Request $request) {
             $identidad = (string) ($request->input('username')
                 ?: $request->input('email')

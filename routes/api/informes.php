@@ -11,6 +11,7 @@ use App\Http\Controllers\Informes\BoletinesController;
 use App\Http\Controllers\Informes\BoletinPorCompetenciasController;
 use App\Http\Controllers\Informes\BolfinalesPreescolarController;
 use App\Http\Controllers\Informes\CertificadosPersonaController;
+use App\Http\Controllers\Informes\ColillasInscripcionController;
 use App\Http\Controllers\Informes\ExcelListadoDocentesController;
 use App\Http\Controllers\Informes\FormulariosInscripcionController;
 use App\Http\Controllers\Informes\InformesController;
@@ -75,6 +76,29 @@ Route::post('informes/formularios-inscripcion', [FormulariosInscripcionControlle
 Route::get('informes/formularios-inscripcion/campos', [FormulariosInscripcionController::class, 'getCampos'])->middleware('auth.personal');
 Route::put('informes/formularios-inscripcion/campos', [FormulariosInscripcionController::class, 'putCampos'])->middleware('auth.personal');
 Route::get('informes/formularios-inscripcion/{lote}', [FormulariosInscripcionController::class, 'getLote'])->middleware('auth.personal');
+
+// ColillasInscripcionController
+//
+// El comprobante del pago del formulario, y su aprobación. Cuatro rutas
+// autorizadas por Joseth el 19 sep 2026; decisiones en el documento 41.
+//
+// LA PRIMERA ES PÚBLICA, Y ES LA ÚNICA DE ESTA API QUE RECIBE UN FICHERO SIN
+// TOKEN. Quien sube es la familia de un aspirante que todavía no es alumno: no
+// tiene cuenta y no puede tenerla. Lo que la protege son el carácter de control
+// del código —que se comprueba antes de tocar la base—, el limitador `colilla`
+// por IP y por código, la lista blanca de tipos por extensión Y por contenido, y
+// sobre todo el tope de TRES comprobantes por orden y UNA sola pendiente, que es
+// lo único que no se reinicia con el reloj.
+//
+// Las otras tres exigen `auth.personal` en la ruta y **el tesorero dentro**:
+// `Autoriza::puedeResolverColillas`, que es el tesorero del año y, si no hay,
+// secretaría. El respaldo no es adorno — `years.tesorero_id` está en NULL en los
+// cuatro años del docker, así que sin él no podría aprobar nadie.
+Route::post('colillas-inscripcion/{codigo}', [ColillasInscripcionController::class, 'postSubir'])
+    ->withoutMiddleware('auth.token')->middleware('throttle:colilla');
+Route::get('colillas-inscripcion/pendientes', [ColillasInscripcionController::class, 'getPendientes'])->middleware('auth.personal');
+Route::put('colillas-inscripcion/{id}/aprobar', [ColillasInscripcionController::class, 'putAprobar'])->middleware('auth.personal');
+Route::put('colillas-inscripcion/{id}/rechazar', [ColillasInscripcionController::class, 'putRechazar'])->middleware('auth.personal');
 
 // CertificadosPersonaController
 //

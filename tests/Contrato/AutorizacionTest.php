@@ -647,6 +647,16 @@ class AutorizacionTest extends CasoDeContrato
 
         // La que espera la decisión que Joseth dejó abierta.
         'GET api/asignaturas/listasignaturas-alone' => 'le da a un alumno las asignaturas del profesor con su id; es la pregunta abierta de 05 §11.2, anotada en 09 §5',
+
+        // **La sube quien no puede tener cuenta**, que es la única razón que vale
+        // aquí: la familia de un aspirante que todavía no es alumno. No hay guard de
+        // propiedad que aplicarle porque no hay propietario con sesión. Lo que la
+        // acota no es un middleware sino el carácter de control del código, el
+        // limitador `colilla` por IP y por código, la lista blanca de tipos por
+        // extensión y por contenido, y el tope de tres comprobantes por orden con
+        // uno solo pendiente — que es el único que no se reinicia con el reloj.
+        // Sus tres hermanas SÍ llevan guard y además el tesorero dentro. Doc 41 §5.
+        'POST api/colillas-inscripcion/{codigo}' => 'la manda la familia de un aspirante, que no tiene cuenta; se acota por el código, el limitador y el tope por orden',
     ];
 
     public function test_ninguna_ruta_se_queda_sola_sin_el_guard_de_su_familia(): void

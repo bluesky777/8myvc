@@ -66,7 +66,7 @@ class RutasPreLoginTest extends CasoDeContrato
      * La auditoria commit a commit de los tres numeros viejos:
      * `docs/migracion/noche-2026-08-25/pub-1.md`.
      */
-    public const TOTAL_PUBLICAS = 12;
+    public const TOTAL_PUBLICAS = 13;
 
     /**
      * Verbo y URI tal y como las llama el frontend.
@@ -75,6 +75,10 @@ class RutasPreLoginTest extends CasoDeContrato
      * lista: es como la llama el front.
      */
     private const PRE_LOGIN = [
+        // La decimotercera (19 sep 2026) y **la única que recibe un fichero**. No va
+        // del login: la manda la familia de un aspirante, que no tiene cuenta. El
+        // porqué entero está en `AutenticacionTest::SIN_GUARD` y en el doc 41.
+        ['POST', 'colillas-inscripcion/{codigo}'],
         ['PUT',  'login/crear-prematricula'],
         ['PUT',  'publicaciones/ultimas'],
         // El GET no es scaffolding: fue el verbo REAL del front durante cinco años
