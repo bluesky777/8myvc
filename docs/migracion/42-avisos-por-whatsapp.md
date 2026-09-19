@@ -401,14 +401,35 @@ FROM (SELECT m.alumno_id,
 
 ---
 
-## 11. Lo que espera decisión
+## 11. Las decisiones: dos tomadas y cuatro abiertas
 
-**D1 · ¿De quién es la cuenta de Meta?** (a) una por colegio, con su medio de pago
-—recomendada, §9a—; (b) una central de MYVC que refactura; (c) una central y sin cobrar.
+**D1 · ¿De quién es la cuenta de Meta? — DECIDIDO por Joseth el 19 sep 2026: (a), una por
+colegio**, con su cartera y su medio de pago; MYVC cobra el módulo y **no revende**. Se
+descartaron la central que refactura y la incluida en la licencia. Lo que esta decisión
+compra: MYVC no adelanta dólares, no come la diferencia de cambio, y **si Meta recategoriza
+la plantilla a *marketing* el recibo del ×17,5 le llega al colegio**, no a MYVC.
 
-**D2 · ¿Cuál es la ventana del resumen académico?** (a) un resumen por alumno y día a hora
-fija —recomendada: 1 mensaje en el peor día, COP 99 por alumno y año—; (b) semanal, la mitad
-de barato y llega tarde para actuar; (c) sólo boletín, lo más barato y lo menos útil.
+> **Y lo que cuesta, que hay que tener delante antes de implementar nada**: el escalón de
+> cupo es **de la cartera**, así que con una cartera por colegio **no se hereda**. Cada uno
+> de los diecisiete arranca en **250 destinatarios únicos en 24 h** y hay que **verificar su
+> negocio uno a uno** para llegar a 2.000, que es lo mínimo para un abanico de boletín de un
+> colegio de 419 familias. O sea que **D4 deja de ser una preferencia de orden y pasa a ser
+> el camino obligado**: prematrícula primero, que cabe de sobra en 250, y el boletín después
+> de la verificación. Dieciséis verificaciones son dieciséis trámites con NIT y documentos
+> del colegio, y ése —no los mensajes— es el trabajo de esta decisión.
+
+**D2 · ¿Cuál es la ventana del resumen académico? — DECIDIDO por Joseth el 19 sep 2026:
+(a), un resumen por alumno y día** a hora fija, juntando todas las asignaturas del día en una
+frase. **12.208 mensajes al año, COP 99 por alumno y año, y 1 mensaje en el peor día de una
+familia.** Se descartaron el semanal —la mitad de barato pero llega tarde para actuar— y el
+sólo-boletín.
+
+> **Lo que esta decisión obliga a escribir, y es la única pieza que el subsistema de hoy no
+> tiene**: `notificaciones:enviar` corre **cada quince minutos** y su marca es por fuente.
+> Un resumen diario necesita **su propia marca y su propia ventana** —una fuente que no
+> publica hasta que llega su hora y entonces junta todo lo del día—, conviviendo con las
+> cuatro fuentes de push que siguen saliendo cada quince minutos. **El push no se toca**: es
+> gratis y es donde vive el detalle.
 
 **D3 · ¿A quién se escribe?** (a) a **un** número por alumno, el marcado como principal
 —866 números—; (b) a **todos** los acudientes con móvil —976 envíos, +13 % y dos familias

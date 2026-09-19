@@ -104,9 +104,16 @@
 > - **Y el alcance es 80 %, no 100 %**: 75 de los 377 matriculados de 2025 no tienen
 >   ningún móvil colombiano válido en la ficha. Eso se arregla en la matrícula, no aquí.
 >
-> **Seis decisiones esperan a Joseth** (§11 del 42): de quién es la cuenta de Meta, la
-> ventana del resumen, a cuántos acudientes se escribe, qué se enciende primero, qué
-> viaja a la pasarela y si alguien contesta.
+> **Joseth decidió dos el mismo día** (§11 del 42): **una cuenta de Meta por colegio**, con
+> su medio de pago —MYVC no revende, y el ×17,5 de una recategorización le llega al colegio—,
+> y **un resumen por alumno y día**. La primera tiene un precio que hay que ver antes de
+> implementar: **el cupo es de la cartera, así que no se hereda** — los diecisiete arrancan
+> en 250 destinatarios únicos en 24 h y hay que **verificar el negocio de cada colegio** para
+> llegar a 2.000, que es el mínimo para un abanico de boletín. Eso convierte el orden de
+> encendido en obligatorio: **prematrícula primero**.
+>
+> **Siguen abiertas cuatro**: a cuántos acudientes se escribe, qué se enciende primero
+> (ya casi forzada), qué viaja a la pasarela y si alguien contesta los mensajes.
 
 > ## ✅ ABRIR Y CERRAR LA CAMPAÑA DE PREMATRÍCULA — DOS RUTAS, ROUTER EN 602 (19 sep 2026)
 >
