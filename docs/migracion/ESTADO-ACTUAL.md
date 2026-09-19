@@ -73,6 +73,80 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## ✅ `materia_id` Y `grado_id` EN LAS ASIGNATURAS DE UN DOCENTE — DOS COLUMNAS, CERO RUTAS (19 sep 2026)
+>
+> **Autorizado por Joseth con el precio delante.** Empezó como una **propuesta de ruta nueva** de
+> `myvc_flutter` —`GET desempenos/mis-clases`— y **la retiró la propia sesión de la app** al ir a
+> justificarla: lo que le faltaba era un campo, no un endpoint. **Esto no añade ninguna ruta**
+> —el contador lo movió a **602** la prematrícula de más abajo, que entró en `main` mientras
+> esto se escribía; se dice así y no «sigue en 600» porque un número absoluto en una rama
+> describe un árbol que a las dos horas ya no existe—.
+>
+> | | |
+> |---|---|
+> | `a.materia_id` y `g.grado_id` en `Profesor::asignaturas` | ningún JOIN nuevo: los dos ya estaban |
+> | …y en su **gemelo copiado a mano**, `PiarsAsignaturasController` rama `Usuario` | mismo commit |
+> | 3 instantáneas regeneradas, `+2` claves cada una y nada más | |
+> | `Tests: 2117 passed (--testsuite=Contrato)` · larastan `[OK] No errors` | `.worktrees/e6` |
+>
+> ### Por qué dos ids y no un nombre: el esquema no impide la ambigüedad
+>
+> El plan de área se dirige por ids —`Autoriza::puedeEscribirDesempenos` filtra literalmente por
+> `a.materia_id` y `g.grado_id`— y ese SELECT sólo devolvía **nombres**. Así que `myvc_front` lo
+> reconstruía desde fuera (`app2/…/docente-competencias/alcance.ts`): el grado por `grupo_id`
+> —exacto— y **la materia emparejando `materia`+`alias` contra `GET materias`**, descartando la
+> asignatura en silencio cuando el par no era único. Funciona hoy: en la base de desarrollo hay
+> **35 materias vivas y cero pares repetidos**. Y **eso es una casualidad de los datos de UN
+> colegio**: `materias` **no tiene índice único sobre `(materia, alias)`** —comprobado en el
+> volcado— y hay dieciséis. Ése es el argumento que sostiene el cambio; el de *«la regla escrita
+> dos veces se separa»* es más débil y no lo habría pagado.
+>
+> ### LO QUE SE PAGA, Y NO ES LO QUE SE PUSO ROJO
+>
+> `Profesor::asignaturas` lo comparten **once llamantes en nueve controladores**, y **los once
+> devuelven esas filas al cliente**. De los once, **la suite de contrato mira dos**. O sea que las
+> otras nueve cambiaron de forma **sin que nada se pusiera rojo** — y una de ellas es
+> `asignaturas/listasignaturas`, que es **la única puerta de `myvc_flutter` a las asignaturas de un
+> docente**. Añadir es inocuo (los clientes ignoran lo que no conocen, y ninguno pinta estas filas
+> recorriendo sus claves: comprobado en los tres repositorios); **quitar o renombrar ahí no lo
+> caza nadie**.
+>
+> ### El gemelo quedó demostrado por lo que NO se movió
+>
+> `PiarsAsignaturasController` lleva ese mismo SELECT **copiado a mano** para su rama `Usuario`,
+> con otro `WHERE` —aquél pregunta por el docente, éste por el grupo—, así que no se pueden fundir.
+> En la medición previa, tocando **sólo** el método, `muestreo-piars-asignaturas` **no se movió**:
+> esa instantánea es de la rama `Usuario`, y la del `Profesor` no tiene ninguna. O sea que esa ruta
+> habría contestado **dos formas según quién pregunte y la suite habría seguido verde**. Por eso
+> los dos van en el mismo commit, y por eso cada lado lleva el aviso escrito apuntando al otro.
+> *(Siguen diferenciándose en `caritas`, que el gemelo nunca trajo: es anterior a esto y se deja.)*
+>
+> ### Lo que esto borra en el front, y lo que NO se ha hecho
+>
+> Con las dos columnas, `alcance.ts` (12 KB) sobra entero y con él el emparejamiento por nombre.
+> **Ese borrado no está hecho**: es del repositorio del front y no se toca desde aquí. La app de
+> Flutter escribe su pantalla contra lo que existe hoy, **detrás de un interruptor apagado**, y lo
+> encenderá cuando esto esté **desplegado** —no fundido—, verificado por el hash de la tanda.
+>
+> ### Y la lección que no era nuestra: un umbral no lleva un número dentro
+>
+> De aquí salió que `myvc_flutter` tenía en `Interruptores.dart` la condición de encendido escrita
+> como **«desplegado en los quince»**. Son **dieciséis** desde que entró `lal` el 30 ago
+> ([DESPLIEGUE.md](../DESPLIEGUE.md):966), así que **encendía con un colegio sin desplegar** — y el
+> fallo le salía justo a ése, en la pantalla que usa a diario. Ya está cambiado a *«todos los que
+> recorre el bucle de despliegue»*, **sin cifra**. La sesión de la app lo había propagado hasta el
+> punto de **«corregir» a Joseth** un documento que estaba bien.
+>
+> > **Queda una comprobación que es de Joseth y no se hace desde aquí**: el interruptor
+> > `disciplinaMisFichas` se encendió el 26 ago contra la tanda `eb95cbc`, **cuatro días antes de
+> > que `lal` existiera**. `lal` llegó **por traslado desde otro servidor**
+> > ([TRASLADO-LAL.md](../TRASLADO-LAL.md)), así que lo que tenga depende de **qué copia se llevó**
+> > y no de la fecha. **Se comprueba mirando su hash en el servidor, no razonando.**
+>
+> **Falta**: fundir a `main` y desplegar. Rama `feat/materia-id-y-grado-id-en-asignaturas`.
+> La medición previa, con el árbol sin el gemelo tocado, quedó aparte en
+> `medicion/dos-columnas-en-listasignaturas` (`7a2df03`, **NO FUSIONAR**).
+
 > ## ✅ ABRIR Y CERRAR LA CAMPAÑA DE PREMATRÍCULA — DOS RUTAS, ROUTER EN 602 (19 sep 2026)
 >
 > **Lo reportó Joseth con el error delante**: la pantalla de ajustes del año de `app2` ya pintaba

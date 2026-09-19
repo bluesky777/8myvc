@@ -20,7 +20,17 @@ class PiarsAsignaturasController extends Controller {
 
 		} else if (in_array($this->user->tipo, ['Usuario'])) {
 
+			// **Gemelo de `Profesor::asignaturas` copiado a mano**, con otro `WHERE`:
+			// aquél pregunta por el docente y éste por el grupo, así que no se pueden
+			// fundir. Lo que se añada a aquel SELECT se añade a éste **en el mismo
+			// commit**: si no, esta ruta contesta dos formas según quién pregunte —y
+			// no lo caza nada, porque `muestreo-piars-asignaturas` es la instantánea
+			// de ESTA rama y la del `Profesor` no tiene ninguna—. `materia_id` y
+			// `grado_id` entraron así. La diferencia que queda —`caritas`, que aquí
+			// no está— es anterior y no se toca aquí.
+
 			$consulta = 'SELECT a.id as asignatura_id, a.grupo_id, a.profesor_id, a.creditos, a.orden,
+					a.materia_id, g.grado_id,
 					m.materia, m.alias as alias_materia, g.nombre as nombre_grupo, g.abrev as abrev_grupo, g.titular_id,
 					gr.nivel_educativo_id
 				FROM asignaturas a

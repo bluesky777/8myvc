@@ -105,9 +105,40 @@ class Profesor extends Model {
 
 	
 
+	/**
+	 * Las asignaturas vivas de un docente en un año.
+	 *
+	 * **`materia_id` y `grado_id` están aquí porque el plan de área se dirige por
+	 * ids, y este SELECT sólo devolvía nombres.** No añaden ni un JOIN: los dos ya
+	 * estaban puestos para traer `m.materia` y `gr.nivel_educativo_id`. Sin ellos,
+	 * un cliente que quiera saber si el docente puede escribir un desempeño tiene
+	 * que reconstruir el par —`Autoriza::puedeEscribirDesempenos` filtra
+	 * exactamente por `a.materia_id` y `g.grado_id`—, y la única forma de hacerlo
+	 * desde fuera era **emparejar la materia por su nombre**: eso hacía
+	 * `alcance.ts` en `myvc_front`, descartando en silencio la asignatura cuando el
+	 * par `materia`+`alias` no era único. Funcionaba por casualidad de los datos
+	 * —35 materias y ningún par repetido en la base de desarrollo— y **el esquema
+	 * no lo impide**: `materias` no tiene índice único sobre `(materia, alias)`, y
+	 * hay dieciséis colegios.
+	 *
+	 * **Este método lo comparten once llamantes en nueve controladores y los once
+	 * devuelven estas filas al cliente; de los once, la suite de contrato mira
+	 * dos.** Así que una columna que se añada o se quite aquí cambia nueve
+	 * respuestas sin que nada se ponga rojo —`asignaturas/listasignaturas`, que es
+	 * la puerta de `myvc_flutter` a las asignaturas de un docente, es una de esas
+	 * nueve—. Medido: al añadir estas dos se movieron `muestreo-notas-perdidas-
+	 * show-profesor` y `muestreo-planillas-ausencias-show-profesor`, y ninguna más.
+	 *
+	 * **Y hay un gemelo**: la rama `Usuario` de `PiarsAsignaturasController` lleva
+	 * este mismo SELECT copiado a mano, con otro `WHERE`. Lo que se añada aquí se
+	 * añade allí **en el mismo commit**, o esa ruta contesta dos formas según quién
+	 * pregunte y la suite sigue verde. (Hoy ya se diferencian en `caritas`, que el
+	 * gemelo no trae; eso es anterior a esto y se deja como estaba.)
+	 */
 	public static function asignaturas($year_id, $profesor_id)
 	{
 		$consulta = 'SELECT a.id as asignatura_id, a.grupo_id, a.profesor_id, a.creditos, a.orden,
+							a.materia_id, g.grado_id,
 							m.materia, m.alias as alias_materia, g.nombre as nombre_grupo, g.abrev as abrev_grupo, g.titular_id, g.caritas,
 							gr.nivel_educativo_id
 						FROM asignaturas a
