@@ -73,6 +73,67 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## ✅ P6 · EL CANDADO DE LA PLANTILLA — CERO RUTAS, Y LE QUITA ALGO AL DOCENTE (19 sep 2026)
+>
+> **Autorizado por Joseth el 19 sep, y con el alcance recortado por él**: de las dos mitades de P6
+> entra **sólo el candado**. «Volver a aplicar» se queda fuera. **El router no se mueve: 602.**
+>
+> | | |
+> |---|---|
+> | `unidades/update`, `subunidades/update` y `unidades/update-orden` rechazan **nombre y porcentaje** de una fila con `por_defecto = 1` | 403, y la fila no se toca |
+> | …salvo quien tiene `can_edit_plantilla_notas` | el criterio va **dentro** del método, no en la ruta |
+> | Añadir subunidades **dentro** de una unidad del colegio sigue siendo del docente | **D14** |
+> | `years.reparto_subunidades` pasa a viajar en el contexto del login, en las cuatro ramas | 6 instantáneas |
+> | `Tests: 2122 passed (--testsuite=Contrato)` · larastan `[OK]` · `pint:test` PASS 421 | `.worktrees/e6` |
+>
+> ### El agujero era real y llevaba abierto desde siempre
+>
+> `PUT unidades/update/{id}` lleva sólo `auth.personal`, que cierra la puerta a alumnos y acudientes
+> **y a nadie más**. Así que cualquier docente podía renombrar y recambiar el porcentaje de una fila
+> sembrada desde `unidades_por_defecto`. Y el porcentaje de la unidad **es el factor de fuera de la
+> definitiva** —`(u.porcentaje/100) * …`—, con el recálculo diez líneas más abajo en el mismo
+> método: mover el 60 al 90 movía las notas del curso.
+>
+> ### Las tres decisiones de diseño, y las tres tienen su test
+>
+> **1. Se compara el VALOR, no la presencia del campo.** El front reenvía el formulario entero, así
+> que un candado que salte porque *«vino `porcentaje`»* contesta 403 a quien no cambió nada. Se
+> leería como una avería, y el arreglo evidente —quitar el candado— reabre el agujero.
+>
+> **2. `update-orden` se frena por el ORDEN, y eso es una interpretación.** P6 dice que las tres
+> rutas *«rechazan el cambio de nombre y de porcentaje»*, y esa ruta **no escribe ninguno de los
+> dos**: lo único que puede hacerle a una fila del colegio es moverla de sitio. Si se lee literal,
+> nombrarla no significa nada. Queda fijado en el test para que sea discutible en vez de invisible.
+>
+> **3. 403 y no 422.** El cuerpo es correcto: lo que falta es permiso. Un 422 haría que el front
+> dijera «revisa los campos», que es mentira — no hay nada que revisar.
+>
+> ### `reparto_subunidades` viaja porque si no el candado se nota en el sitio equivocado
+>
+> Lo pidió la app y **la asimetría la vio ella**: su hermana `modelo_evaluacion` salía en las cuatro
+> ramas del contexto y ésta en ninguna —`grep -c` daba 5 y 0—, siendo las dos columnas de `years`
+> que gobiernan lo que un docente ve. Sin ella, con `reparto_subunidades = 'promedio'` el cliente le
+> sigue pintando un campo de porcentaje **que ya no decide nada**: sin error y sin log.
+>
+> ### LO QUE JOSETH DECIDIÓ Y NO ESTÁ HECHO — se escribe para que no se re-litigue
+>
+> - **«Volver a aplicar» queda fuera de este lote.** Y antes de escribirlo hay que medir una cosa:
+>   **`PUT plantilla-notas/sembrar` ya acepta `reemplazar`**, ya salta los periodos cerrados
+>   (`saltadas_por_periodo_cerrado`), ya resiembra las que tienen unidades pero **cero notas**, y ya
+>   contesta con su recuento. Puede que la ruta nueva **no haga falta**.
+> - **Y cuando se haga: las asignaturas que YA tienen notas se actualizan igual**, nombre y
+>   porcentaje. Decisión de Joseth, 19 sep, **tomada con la consecuencia delante**: eso cambia
+>   definitivas ya calculadas, así que un boletín impreso y la pantalla pueden dejar de coincidir.
+>   Hoy `sembrar` las salta; ahí está toda la diferencia entre lo que hay y lo que pide P6.
+> - **Se despliega SIN avisar a los colegios.** P6 dice *«hay que decirlo colegio a colegio antes,
+>   no después»* y Joseth decidió lo contrario el 19 sep, a sabiendas. Queda escrito aquí para que
+>   dentro de un mes se sepa que se sabía: el síntoma en el colegio será un docente que guarda y
+>   recibe un error donde antes guardaba.
+>
+> **Falta**: fundir y desplegar. Rama `feat/candado-de-la-plantilla`, sobre `99060be`.
+> El front tiene que pintar el campo como bloqueado; hasta que lo haga, el docente ve el campo
+> editable y se lleva el 403 al guardar.
+
 > ## ✅ `materia_id` Y `grado_id` EN LAS ASIGNATURAS DE UN DOCENTE — DOS COLUMNAS, CERO RUTAS (19 sep 2026)
 >
 > **Autorizado por Joseth con el precio delante.** Empezó como una **propuesta de ruta nueva** de
@@ -147,7 +208,7 @@
 >
 > ### Qué falta, y en qué orden
 >
-> **Fundir y desplegar, y son dos pasos de Joseth, no uno.** La rama es
+> **FUNDIDA el 19 sep 2026 en `6b20cda`. Falta desplegar.** La rama era
 > `feat/materia-id-y-grado-id-en-asignaturas`, **rebasada sobre `99060be`** y con tres commits:
 > `0d9af81` el cambio, `bfd27c7` el Pint de los dos ficheros que toca y `d130bca` el `chore` que
 > los mete en la lista curada de `composer.json` (**419**, apuntado en `CLAUDE.md` en el mismo

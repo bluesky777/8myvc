@@ -565,7 +565,7 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
   > | `composer run pint` | **ESCRIBE**: formatea los ficheros de la lista |
   > | `pint --test` a secas | mide **todo el repo**, incluido lo que no se formatea a propósito |
   >
-  > Los dos primeros corren sobre **la lista curada de `composer.json`** —hoy **419**
+  > Los dos primeros corren sobre **la lista curada de `composer.json`** —hoy **423**
   > ficheros—; el tercero sobre **662**, y da `FAIL` con **189** avisos. **Las dos cifras
   > son correctas y cuentan poblaciones distintas**: con la tercera se archivó como ruido
   > un rojo real que llevaba desde el 7 sep en `CorsDelEscritorioTest`.
@@ -608,6 +608,19 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
   > > > **La decisión no cambia** —formatear el fichero el día que se toca— pero el coste que
   > > > se usó para tomarla era inventado, y eso se dice. Es la trampa nº 3 de
   > > > `ESTADO-ACTUAL.md`, la de `--no-merged`, cometida con otra orden.*
+  > >
+  > > *Y **423** un rato después, el mismo 19 sep, con el candado de la plantilla:
+  > > `CandadoDeLaPlantilla` y su test entran solos —`app/Support` y `tests` ya estaban en la
+  > > lista— y `UnidadesController` y `SubunidadesController` se apuntan a mano, formateados el
+  > > día que se tocaron.*
+  > >
+  > > > **Y este 423 es la prueba de que la regla de arriba sirve para algo.** Las dos ramas
+  > > > que lo movieron se escribieron a la vez y cada una contó desde su propio árbol: una dijo
+  > > > **419** y la otra **421**, **las dos ciertas y ninguna describiendo el `main` que iba a
+  > > > quedar**. Al fundir la segunda no se sumó —419 + 2 daría 421, que es lo que decía la
+  > > > otra rama y habría cuadrado de mentira—: se volvió a correr `composer run pint:test`
+  > > > sobre el árbol fundido y dio **423**. *Dos cifras ciertas se contradicen en cuanto
+  > > > salen de su árbol; la única que vale es la que se cuenta después de fundir.*
   > >
   > > **Y el 647 tiene una trampa que conviene dejar dicha: hoy es el número de LARASTAN,
   > > no el de Pint.** `composer run stan` analiza **647** ficheros —**651 el 19 sep 2026 sobre
