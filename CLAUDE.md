@@ -12,9 +12,16 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**610 rutas** (contadas con `route:list --json` el **19 sep 2026 en `.worktrees/92`, SIN FUNDIR:
-hay que recontarlas en el árbol principal el día que entren**. Las cuatro que suben sobre las 606
-son las de `colillas-inscripcion/`, el comprobante del pago del formulario y su aprobación.
+**610 rutas** (contadas con `route:list --json` el **19 sep 2026 a las 18:35 en el ÁRBOL
+PRINCIPAL, sobre `main` y después de fundir** (`d3e57c7`) — y **coincidió con las 610 contadas
+antes en `.worktrees/92`, que es la única forma de saber que coincidía**. Las cuatro que suben
+sobre las 606 son las de `colillas-inscripcion/`, el comprobante del pago del formulario y su
+aprobación.
+
+> **Esta línea la dejó escrita la sesión anterior como una instrucción, no como un dato** —«SIN
+> FUNDIR: hay que recontarlas en el árbol principal el día que entren»— y ése es el único motivo
+> de que no haya envejecido a mentira. Una cifra sin su condición de caducidad al lado se lee como
+> cierta para siempre; ésta llevaba dentro el día en que dejaba de serlo.
 
 > **Y aquí sube LA DECIMOTERCERA PÚBLICA, la primera que RECIBE algo en vez de darlo.** Las doce
 > anteriores entregan datos sin token; `POST colillas-inscripcion/{codigo}` **acepta un fichero de

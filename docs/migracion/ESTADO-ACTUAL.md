@@ -73,6 +73,65 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## ✅ EL FORMULARIO DE INSCRIPCIÓN IMPRESO Y SU COBRO — OCHO DE DIEZ RUTAS, ROUTER EN 610 (19 sep 2026)
+>
+> **Autorizado por Joseth con el precio delante**, que es como entra una familia nueva aquí. El
+> porqué entero está en [`41`](41-el-formulario-de-inscripcion.md); esto es dónde quedó.
+>
+> | | |
+> |---|---|
+> | `POST` / `GET informes/formularios-inscripcion[/{lote}]` | acuña el lote · relee sin acuñar |
+> | `GET` / `PUT informes/formularios-inscripcion/campos` | qué campos imprime cada colegio |
+> | `POST colillas-inscripcion/{codigo}` | **PÚBLICA** — la manda la familia |
+> | `GET` / `PUT colillas-inscripcion/pendientes · {id}/aprobar · {id}/rechazar` | el tesorero |
+> | **610** contado con `route:list --json` en el árbol principal tras fundir (`d3e57c7`), no sumado | |
+> | `php artisan test`: **2.319 passed, 1 skipped (50.525 assertions)**, `.worktrees/92` | |
+>
+> Más `App\Services\CodigoDeInscripcion`, tres tablas y dos migraciones
+> (`2026_09_19_100000` y `_200000`). La resta cuadra exacta —**2.304 + 15 de la colilla = 2.319**—,
+> así que **no se movió ninguna prueba existente**.
+>
+> ### Lo que falta, y está autorizado: LAS DOS DE LA PASARELA
+>
+> El checkout que abre la familia y el webhook que llama la pasarela. **Las dos públicas**
+> (13 → 15), o sea que mueven **cinco** sitios cada una y no tres. La regla dura, de
+> [`40 §4`](40-pagos-en-linea.md): **el webhook no se cree lo que le llega** — vuelve a
+> preguntarle a la pasarela el estado de esa transacción con la llave pública. Con eso, un secreto
+> de eventos filtrado **no sirve para forjar un pago**.
+>
+> ### Las cuatro trampas que costaron tiempo, para que no lo cuesten otra vez
+>
+> 1. **`UploadedFile::fake()` MIENTE sobre su tipo.** Lo declara por la extensión, no por el
+>    contenido: un `recibo.jpg` con PHP dentro dice `image/jpeg` y **pasa una lista blanca que en
+>    producción lo rechaza** (`text/x-php`). El test daba 200 sobre un controlador que estaba
+>    BIEN, y la reacción natural habría sido arreglar lo que no estaba roto. Para probar subidas,
+>    `new UploadedFile($ruta, $nombre, $mime, null, true)` con contenido real en disco.
+> 2. **`years.tesorero_id` es un `profesores.id`, NO un `users.id`.** Medido: el id 5 es la
+>    profesora MARYELINE y el usuario 5 es MARYOLY. Comparar contra `user_id` —el reflejo
+>    natural— **no da un 403 ruidoso: le da permiso de aprobar pagos a otra persona**. Vale igual
+>    para `rector_id` y `secretario_id`.
+> 3. **`…/campos` se registra ANTES que `…/{lote}`**, o el comodín se la traga y contesta 404 sin
+>    decir por qué. Lo fija un test, porque es un fallo que vive en una línea invisible.
+> 4. **El nombre del método entra en un candado.** `postIndex` caía en la cohorte de `@postIndex`
+>    —tres públicas por diseño— y `AutorizacionTest` lo delató. El arreglo no fue una excepción:
+>    fue **llamarlo `postAcunar`, que es lo que hace**.
+>
+> ### Lo que espera a Joseth (no se decide aquí)
+>
+> - **El aviso al tesorero.** Hoy la bandeja hay que abrirla; **nada avisa**. El canal es WhatsApp
+>   y no el correo —sólo el **9,2 %** de los acudientes tiene correo— y este caso cuesta **COP
+>   12.261 al año para los dieciséis** ([42](42-avisos-por-whatsapp.md)).
+> - ¿Secretaría tiene **lector de código de barras**? Es lo único que devolvería el QR a esta fase.
+> - La lista al día está en [`41 §8`](41-el-formulario-de-inscripcion.md).
+>
+> ### Y el orden de despliegue NO es libre
+>
+> `myvc_front` dejó sus pantallas terminadas y empujadas, y espera una sola cosa: **las rutas
+> desplegadas en los diecisiete ANTES que el bundle de `app2`**. Al revés, toda secretaría ve
+> «Formularios de inscripción» en el buscador de informes y **se come un 404**
+> (`myvc_front/INVESTIGACION-MATRICULAS.md` §11). Los dos interruptores de prematrícula son la
+> excepción: ya están en `main` y pueden ir cuando quieran.
+
 > ## 📊 AVISOS POR WHATSAPP — ANÁLISIS PEDIDO POR JOSETH, SIN CÓDIGO (19 sep 2026)
 >
 > **Encargo de Joseth por la sesión `8myvc-92`**: los mensajes de WhatsApp, la
