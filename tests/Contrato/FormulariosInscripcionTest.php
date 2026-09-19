@@ -6,10 +6,12 @@ use App\Services\CodigoDeInscripcion;
 use Illuminate\Support\Facades\DB;
 
 /**
- * **Las dos rutas del formulario de inscripción impreso.**
+ * **Las cuatro rutas del formulario de inscripción impreso.**
  *
  *     POST informes/formularios-inscripcion        acuña
  *     GET  informes/formularios-inscripcion/{lote} NO acuña
+ *     GET  informes/formularios-inscripcion/campos qué campos salen en el papel
+ *     PUT  informes/formularios-inscripcion/campos los guarda
  *
  * Lo que este fichero defiende no es que las rutas contesten 200: es que **acuñar
  * un código es irreversible** y que las tres propiedades que hacen útil al código
@@ -226,6 +228,135 @@ class FormulariosInscripcionTest extends CasoDeContrato
 
         $this->withToken($token)->postJson(self::RUTA, ['modo' => 'nuevos', 'cantidad' => 1])
             ->assertStatus(403);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // La configuración de campos
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * **`campos` no puede quedar atrapado por `{lote}`.**
+     *
+     * Laravel casa por orden de registro. Con `GET …/{lote}` declarado antes, una
+     * petición a `…/campos` entra por el lote llamado «campos» y contesta 404 — la
+     * pantalla de configuración no funciona y el error no dice por qué. Es un fallo
+     * de una línea invisible en el código, así que se fija aquí.
+     */
+    public function test_campos_no_lo_atrapa_la_ruta_del_lote(): void
+    {
+        $r = $this->withToken($this->tokenDelPersonalLlano())
+            ->getJson(self::RUTA.'/campos');
+
+        $r->assertStatus(200);
+        $this->assertArrayHasKey('campos', $r->json(),
+            'La ruta de campos contestó algo que no es la configuración: la está atendiendo `{lote}`.');
+    }
+
+    public function test_un_colegio_sin_configurar_devuelve_la_lista_vacia(): void
+    {
+        DB::statement('DELETE FROM config_formulario_inscripcion');
+
+        $cuerpo = $this->withToken($this->tokenDelPersonalLlano())
+            ->getJson(self::RUTA.'/campos')->assertStatus(200)->json();
+
+        $this->assertSame([], $cuerpo['campos'],
+            'Vacío significa «la selección por defecto», y quien la resuelve es el front.');
+    }
+
+    public function test_lo_que_se_guarda_es_lo_que_se_lee(): void
+    {
+        $token = $this->tokenDelPersonalLlano();
+        $elegidos = ['nombres', 'apellidos', 'documento', 'eps', 'ac_celular'];
+
+        $this->withToken($token)->putJson(self::RUTA.'/campos', ['campos' => $elegidos])
+            ->assertStatus(200);
+
+        $cuerpo = $this->withToken($token)->getJson(self::RUTA.'/campos')
+            ->assertStatus(200)->json();
+
+        $this->assertSame($elegidos, $cuerpo['campos'],
+            'El orden importa: es el que sale en el papel.');
+    }
+
+    /**
+     * Guardar dos veces no puede dejar dos configuraciones del mismo año.
+     */
+    public function test_guardar_otra_vez_reemplaza_y_no_duplica(): void
+    {
+        $token = $this->tokenDelPersonalLlano();
+
+        $this->withToken($token)->putJson(self::RUTA.'/campos', ['campos' => ['nombres']])
+            ->assertStatus(200);
+        $this->withToken($token)->putJson(self::RUTA.'/campos', ['campos' => ['apellidos', 'eps']])
+            ->assertStatus(200);
+
+        $filas = DB::select('SELECT campos FROM config_formulario_inscripcion WHERE year_id=?',
+            [$this->yearActual()]);
+
+        $this->assertCount(1, $filas, 'Quedaron dos configuraciones para el mismo año.');
+        $this->assertSame(['apellidos', 'eps'], json_decode($filas[0]->campos, true));
+    }
+
+    public function test_las_claves_repetidas_se_colapsan(): void
+    {
+        $token = $this->tokenDelPersonalLlano();
+
+        $this->withToken($token)->putJson(self::RUTA.'/campos',
+            ['campos' => ['nombres', 'eps', 'nombres']])->assertStatus(200);
+
+        $cuerpo = $this->withToken($token)->getJson(self::RUTA.'/campos')->json();
+
+        $this->assertSame(['nombres', 'eps'], $cuerpo['campos'],
+            'Un campo dos veces en el papel no significa nada.');
+    }
+
+    /**
+     * No hay lista blanca de claves —el catálogo vive en el front— pero sí de FORMA.
+     * Sin esto, la columna acabaría guardando lo que mande un cliente con un error y
+     * lo descubriríamos al imprimir.
+     */
+    public function test_lo_que_no_tiene_forma_de_clave_es_422_y_no_escribe(): void
+    {
+        $token = $this->tokenDelPersonalLlano();
+        DB::statement('DELETE FROM config_formulario_inscripcion');
+
+        $basura = [
+            ['campos' => 'nombres'],
+            ['campos' => [['nombres']]],
+            ['campos' => ['Nombres Del Alumno']],
+            ['campos' => ['<script>']],
+            ['campos' => ['nombres; DROP TABLE alumnos']],
+            ['campos' => [str_repeat('x', 41)]],
+            ['campos' => array_fill(0, 101, 'nombres')],
+            [],
+        ];
+
+        foreach ($basura as $cuerpo) {
+            $this->withToken($token)->putJson(self::RUTA.'/campos', $cuerpo)->assertStatus(422);
+        }
+
+        $this->assertSame(0, (int) DB::selectOne('SELECT COUNT(*) c FROM config_formulario_inscripcion')->c,
+            'Una lista rechazada dejó una configuración escrita.');
+    }
+
+    public function test_un_anio_que_no_existe_es_404(): void
+    {
+        $this->withToken($this->tokenDelPersonalLlano())
+            ->getJson(self::RUTA.'/campos?year_id=999999')
+            ->assertStatus(404);
+    }
+
+    public function test_un_alumno_no_configura_el_formulario(): void
+    {
+        $token = $this->tokenDe($this->usuarioDeTipo('Alumno')->username);
+
+        $this->withToken($token)->putJson(self::RUTA.'/campos', ['campos' => ['nombres']])
+            ->assertStatus(403);
+    }
+
+    private function yearActual(): int
+    {
+        return (int) DB::selectOne('SELECT id FROM years WHERE actual=1 AND deleted_at IS NULL')->id;
     }
 
     private function cuantasOrdenes(): int

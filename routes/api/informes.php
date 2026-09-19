@@ -68,6 +68,12 @@ Route::put('informes/datos', [InformesController::class, 'putDatos'])->middlewar
 // en MYVC. La que sí necesitará permiso propio es la de aprobar la colilla del
 // pago, que va aparte y todavía no está escrita.
 Route::post('informes/formularios-inscripcion', [FormulariosInscripcionController::class, 'postAcunar'])->middleware('auth.personal');
+// **`campos` VA ANTES QUE `{lote}` Y ESO NO ES ESTILO.** Laravel casa por orden de
+// registro, así que con `{lote}` delante una petición a `…/campos` entraría por el
+// lote llamado «campos» y contestaría 404 — la pantalla de configuración no
+// funcionaría y el error no diría por qué. Lo fija `FormulariosInscripcionTest`.
+Route::get('informes/formularios-inscripcion/campos', [FormulariosInscripcionController::class, 'getCampos'])->middleware('auth.personal');
+Route::put('informes/formularios-inscripcion/campos', [FormulariosInscripcionController::class, 'putCampos'])->middleware('auth.personal');
 Route::get('informes/formularios-inscripcion/{lote}', [FormulariosInscripcionController::class, 'getLote'])->middleware('auth.personal');
 
 // CertificadosPersonaController

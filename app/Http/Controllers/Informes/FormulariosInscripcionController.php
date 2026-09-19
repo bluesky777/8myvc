@@ -132,6 +132,75 @@ class FormulariosInscripcionController extends Controller
     }
 
     /**
+     * **Qué campos salen en el papel de este colegio.**
+     *
+     * Autorizado por Joseth el 19 sep 2026 cuando contestó que **cada colegio tiene
+     * su propio formulario en papel**: una lista fija no podía servirles a los
+     * dieciséis.
+     *
+     * ## Se guardan CLAVES, no etiquetas, y eso lo decidió el front con razón
+     *
+     * Lo que viaja son identificadores (`nombres`, `ac_celular`); qué significa cada
+     * uno —su rótulo, su bloque y cuánto mide— vive en el catálogo de `app2`. No es
+     * reparto de conveniencia: **un campo del papel tiene que corresponder a una
+     * columna que esta API sepa leer**, o la renovación lo imprimiría siempre en
+     * blanco. Si el colegio pudiera inventar campos desde una pantalla, tendría
+     * renglones que no rellena nadie nunca.
+     *
+     * ## Por eso aquí NO hay lista blanca de claves, y es a propósito
+     *
+     * Validar contra el catálogo obligaría a desplegar el backend cada vez que el
+     * front añade un campo, y el front ya resuelve el caso contrario: **una clave
+     * que no conoce la ignora**, así que un colegio con una selección hecha desde
+     * una versión más nueva imprime lo que entiende en vez de romperse.
+     *
+     * Lo que sí se valida es la **forma**: que sean claves y no basura, y que no
+     * quepa un fichero entero en una columna `text` que nadie mira.
+     *
+     * ## Vacío significa «el defecto», no «un papel sin campos»
+     *
+     * Un colegio que nunca ha configurado nada no es uno que quiera un formulario en
+     * blanco. Quien resuelve el defecto es el front —es el único que sabe cuánto mide
+     * cada campo, y el alto es lo que decide— así que aquí se devuelve la lista vacía
+     * sin adornarla.
+     */
+    public function getCampos()
+    {
+        $year_id = $this->anioDeLaPeticion(Request::input('year_id'));
+
+        $fila = DB::selectOne('SELECT campos FROM config_formulario_inscripcion WHERE year_id=?',
+            [$year_id]);
+
+        return [
+            'year_id' => $year_id,
+            'campos' => $this->decodificar($fila->campos ?? null),
+        ];
+    }
+
+    public function putCampos()
+    {
+        $user = $this->user;
+        $year_id = $this->anioDeLaPeticion(Request::input('year_id'));
+        $campos = $this->camposValidados();
+
+        // `INSERT ... ON DUPLICATE KEY UPDATE` y no comprueba-y-luego-inserta: el
+        // `UNIQUE (year_id)` es lo que impide dos configuraciones del mismo año, y
+        // dos pestañas guardando a la vez no pueden dejar dos filas.
+        //
+        // Es sintaxis de MySQL Y de MariaDB 10.5 —no un `upsert()` de Eloquent, que
+        // aquí casi no se usa—, así que se comporta igual en el docker y en los
+        // dieciséis.
+        DB::insert('INSERT INTO config_formulario_inscripcion
+                (year_id, campos, created_by, updated_by, created_at, updated_at)
+            VALUES (?,?,?,?,NOW(),NOW())
+            ON DUPLICATE KEY UPDATE campos=VALUES(campos), updated_by=VALUES(updated_by),
+                updated_at=NOW()',
+            [$year_id, json_encode($campos, JSON_UNESCAPED_UNICODE), $user->user_id, $user->user_id]);
+
+        return 'Guardado';
+    }
+
+    /**
      * Vuelve a leer un lote ya acuñado. **No escribe nada.**
      *
      * No filtra por el año de la sesión a propósito: un lote impreso en 2026 se
@@ -486,6 +555,105 @@ class FormulariosInscripcionController extends Controller
         }
 
         return $cierra;
+    }
+
+    /**
+     * Cuántas claves caben, y cuánto mide una.
+     *
+     * No es una restricción de negocio —el tope de verdad es el alto de la hoja, y
+     * ése lo mide el front— sino de **no dejar que alguien meta un fichero en una
+     * columna `text` que nadie vuelve a mirar**. El catálogo del front son 26.
+     */
+    private const MAXIMO_CAMPOS = 100;
+
+    private const LARGO_CLAVE = 40;
+
+    /**
+     * El año de la petición, comprobado.
+     *
+     * Por defecto el de la sesión: la pantalla que llama esto está mirando un año
+     * concreto y no tiene por qué repetirlo. Un año que no existe —o que está en la
+     * papelera— es **404** y no un 200 que no escribió nada.
+     */
+    private function anioDeLaPeticion(mixed $year_id): int
+    {
+        if ($year_id === null || $year_id === '') {
+            return (int) $this->user->year_id;
+        }
+
+        if (! is_numeric($year_id)) {
+            abort(422, 'El año no es válido.');
+        }
+
+        $anio = DB::selectOne('SELECT id FROM years WHERE id=? AND deleted_at IS NULL',
+            [(int) $year_id]);
+
+        if (! $anio) {
+            abort(404, 'Ese año lectivo no existe.');
+        }
+
+        return (int) $anio->id;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function camposValidados(): array
+    {
+        $campos = Request::input('campos');
+
+        if ($campos === null) {
+            abort(422, 'Falta la lista de campos.');
+        }
+
+        if (! is_array($campos)) {
+            abort(422, 'Los campos tienen que venir en una lista.');
+        }
+
+        if (count($campos) > self::MAXIMO_CAMPOS) {
+            abort(422, 'No caben más de '.self::MAXIMO_CAMPOS.' campos.');
+        }
+
+        $limpios = [];
+
+        foreach ($campos as $campo) {
+            if (! is_string($campo)) {
+                abort(422, 'Cada campo tiene que ser una clave de texto.');
+            }
+
+            $campo = trim($campo);
+
+            // Una clave y no una frase. Sin esto, la columna acabaría guardando lo
+            // que sea que mande un cliente con un error, y lo descubriríamos al
+            // imprimir.
+            if (preg_match('/^[a-z0-9_]{1,'.self::LARGO_CLAVE.'}$/', $campo) !== 1) {
+                abort(422, "«{$campo}» no tiene forma de clave de campo.");
+            }
+
+            if (! in_array($campo, $limpios, true)) {
+                $limpios[] = $campo;   // se conserva el orden, que es el del papel
+            }
+        }
+
+        return $limpios;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function decodificar(?string $json): array
+    {
+        if ($json === null || trim($json) === '') {
+            return [];
+        }
+
+        $campos = json_decode($json, true);
+
+        // Si lo de la columna no es una lista, se contesta vacío en vez de reventar:
+        // vacío ya significa «el defecto», así que la pantalla sigue funcionando y el
+        // colegio vuelve a elegir. Un 500 aquí dejaría la pantalla muerta por una
+        // fila mal escrita a mano.
+        return is_array($campos) ? array_values(array_filter($campos, 'is_string')) : [];
     }
 
     private function gradoValidado(): ?int

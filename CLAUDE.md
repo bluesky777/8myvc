@@ -12,11 +12,17 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**604 rutas** (contadas con `route:list --json` el **19 sep 2026 en `.worktrees/92`, o sea SIN
-FUNDIR: hay que recontarlas en el árbol principal el día que esta rama entre**. Las dos que suben
-sobre las 602 son las del **formulario de inscripción impreso** —`POST
-informes/formularios-inscripcion`, que acuña, y `GET …/{lote}`, que relee sin acuñar—, las dos con
-`auth.personal`. Las autorizó Joseth el 19 sep con el precio delante, y el alcance entero del
+**606 rutas** (contadas con `route:list --json` el **19 sep 2026 en `.worktrees/92`, o sea SIN
+FUNDIR: hay que recontarlas en el árbol principal el día que esta rama entre**. Las cuatro que suben
+sobre las 602 son las del **formulario de inscripción impreso**: `POST
+informes/formularios-inscripcion` que acuña, `GET …/{lote}` que relee sin acuñar, y `GET`/`PUT
+…/campos`, que son la lista de campos que cada colegio elige para su papel. Las cuatro con
+`auth.personal`.
+
+> **`campos` se registra ANTES que `{lote}` y eso no es estilo.** Laravel casa por orden, así que
+> con el comodín delante una petición a `…/campos` entraría por el lote llamado «campos» y
+> contestaría 404: la pantalla de configuración no funcionaría y el error no diría por qué. Lo fija
+> un test, porque es un fallo que vive en una línea invisible. Las autorizó Joseth el 19 sep con el precio delante, y el alcance entero del
 formulario son **diez**: éstas dos, dos de configuración de campos, cuatro de la colilla del pago y
 dos de la pasarela, con **tres públicas** entre ellas (12 → 15).
 
