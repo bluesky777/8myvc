@@ -587,10 +587,27 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
   > >
   > > *Y **419** el 19 sep 2026, con `app/Models/Profesor.php` y
   > > `app/Http/Controllers/Piars/PiarsAsignaturasController.php`, que los formateó el día que
-  > > los tocó `fe95da8`. **Esos dos entran sabiendo lo que cuestan**: `Profesor.php` lo tocan
-  > > cuatro ramas vivas y el reformateo les deja un conflicto a las cuatro. Se hizo igual,
-  > > por decisión de Joseth y con el precio delante — que es la única forma en que este
-  > > número debería moverse.*
+  > > los tocó el cambio de `materia_id`/`grado_id`. Lo decidió Joseth con el precio delante,
+  > > que es la única forma en que este número debería moverse.*
+  > >
+  > > > **Y el precio que se le puso delante ERA FALSO, así que aquí queda la orden que lo
+  > > > mide bien.** Esta nota dijo que `Profesor.php` *«lo tocan cuatro ramas vivas y el
+  > > > reformateo les deja conflicto a las cuatro»*. **No lo toca ninguna.** Salió de contar
+  > > > con `git diff --name-only main..<rama>`, que mezcla dos cosas distintas: *«la rama
+  > > > cambió este fichero»* y **«la rama va por detrás y fue `main` quien lo cambió»**. Con
+  > > > diecisiete worktrees vivos, lo segundo es casi siempre. Lo que contesta la pregunta
+  > > > que se quería hacer es el **merge-base**:
+  > > >
+  > > > ```bash
+  > > > for b in $(git for-each-ref --format='%(refname:short)' refs/heads/); do
+  > > >   base=$(git merge-base origin/main "$b") || continue
+  > > >   git diff --name-only "$base".."$b" -- <el fichero> | grep -q . && echo "$b"
+  > > > done
+  > > > ```
+  > > >
+  > > > **La decisión no cambia** —formatear el fichero el día que se toca— pero el coste que
+  > > > se usó para tomarla era inventado, y eso se dice. Es la trampa nº 3 de
+  > > > `ESTADO-ACTUAL.md`, la de `--no-merged`, cometida con otra orden.*
   > >
   > > **Y el 647 tiene una trampa que conviene dejar dicha: hoy es el número de LARASTAN,
   > > no el de Pint.** `composer run stan` analiza **647** ficheros —**651 el 19 sep 2026 sobre

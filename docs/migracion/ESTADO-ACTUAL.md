@@ -148,11 +148,20 @@
 > ### Qué falta, y en qué orden
 >
 > **Fundir y desplegar, y son dos pasos de Joseth, no uno.** La rama es
-> `feat/materia-id-y-grado-id-en-asignaturas` y lleva tres commits: `fe95da8` el cambio,
-> `2e588f1` el Pint de los dos ficheros que toca —`Profesor.php` lo tocan **cuatro ramas vivas**
-> y el reformateo les deja conflicto: se hizo igual, decidido con eso delante— y el `chore` que
-> mete los dos en la lista curada de `composer.json` (**419**, apuntado en `CLAUDE.md` en el
-> mismo commit). Es *fast-forward* sobre `ebbae74`: `git branch -f main <hash> && git push origin main`.
+> `feat/materia-id-y-grado-id-en-asignaturas`, **rebasada sobre `99060be`** y con tres commits:
+> `0d9af81` el cambio, `bfd27c7` el Pint de los dos ficheros que toca y `d130bca` el `chore` que
+> los mete en la lista curada de `composer.json` (**419**, apuntado en `CLAUDE.md` en el mismo
+> commit). Es *fast-forward*: `git branch -f main d130bca && git push origin main` — **y se
+> reverifica antes**, que `main` ya se movió una vez debajo de esta rama.
+>
+> > **Una cifra de esta casilla era falsa y se corrige aquí, no se borra.** Decía que
+> > `Profesor.php` *«lo tocan cuatro ramas vivas y el reformateo les deja conflicto»*: **no lo
+> > toca ninguna**. Se contó con `git diff main..<rama>`, que da positivo también cuando la rama
+> > va **por detrás** y fue `main` quien tocó el fichero. Medido contra el merge-base de cada
+> > rama —que es la pregunta que se quería hacer—, las únicas que lo tocan son las de este
+> > trabajo. **Es la trampa nº 3 de la cabecera de este documento, la de `--no-merged`, cometida
+> > con otra orden**: contar referencias en vez de trabajo. La decisión de Joseth no cambia; el
+> > coste con el que se la tomó era inventado, y por eso vale más la orden que el número.
 >
 > **Desplegar ya es posible** desde el 19 sep — ver la casilla del congelado—, pero **esto no
 > corre prisa**: mientras no esté en los dieciséis, el front sigue con su rodeo y la app con su
