@@ -7,7 +7,7 @@ use App\Support\ColumnaSegura;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Request;
-use Log;
+use Illuminate\Support\Facades\Log;
 
 class ImporterFixer
 {
