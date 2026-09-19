@@ -6,8 +6,8 @@ matricular»*, imprimible en tanda, **sin grupo cuando el alumno es nuevo y con 
 puestos cuando es antiguo**.
 
 La pantalla la construyó `myvc-front-bf` en `myvc_front` (commits `04e8f003`, `6c60431d`,
-`43fab911`). **Las dos rutas de este documento NO existen todavía**: esperan autorización.
-El análisis largo del embudo de admisiones vive en
+`43fab911`). **De las diez rutas autorizadas hay ocho escritas y probadas**; faltan las dos de la
+pasarela (§7). El análisis largo del embudo de admisiones vive en
 [`myvc_front/INVESTIGACION-MATRICULAS.md`](../../../myvc_front/INVESTIGACION-MATRICULAS.md);
 esto es sólo el contrato y sus porqués.
 
@@ -88,7 +88,8 @@ hermanas»*. **El arreglo no fue añadirlo a ninguna lista de excepciones: fue l
    que las rutas sean **dos y no una**.
 3. **`antiguos` es get-or-create, no acuñar.** El requisito es «un código por alumno y año»;
    si reimprimir 5°A acuña otros, el código deja de identificar al alumno en cuanto alguien
-   imprime dos veces. La llave es **(alumno_id, year de destino)**.
+   imprime dos veces. La llave es **(year_campana, alumno_id)** — ver §2, punto 2: no es el año
+   desde el que se imprime, sino el año al que la familia se inscribe.
 4. **En `antiguos` se elige el grupo del año ACTUAL, no del siguiente.** El front midió que el
    desplegable salía vacío y lo leyó como *«el colegio abre la campaña antes de crear los
    grupos»*. Es cierto, y la causa está un piso más abajo: la prematrícula de hoy
