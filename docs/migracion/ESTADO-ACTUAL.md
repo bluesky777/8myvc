@@ -73,6 +73,41 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## 📊 AVISOS POR WHATSAPP — ANÁLISIS PEDIDO POR JOSETH, SIN CÓDIGO (19 sep 2026)
+>
+> **Encargo de Joseth por la sesión `8myvc-92`**: los mensajes de WhatsApp, la
+> implementación, los costos, cuánto cobrarle al colegio, y **el límite para no mandar un
+> mensaje por cada nota que teclea un docente**. Sale del recorte de pagos en línea del
+> mismo día: MYVC no cobra pensiones, y el flujo de la colilla → tesorero → aprobación
+> termina en un aviso.
+>
+> Está entero en [`42-avisos-por-whatsapp.md`](42-avisos-por-whatsapp.md). **No hay una
+> línea de código y no se propone escribirla sin D1 y D2.** Lo que hay que saber sin
+> abrirlo:
+>
+> - **Agrupar no es para ahorrar dinero.** Un mensaje *utility* en Colombia cuesta **COP
+>   2,55**, y el peor escenario medido —uno por cada nota, un colegio, un año— son 117.381
+>   mensajes y **COP 398.142 al año**. Lo que lo descarta es que **una familia recibiría
+>   100 mensajes en un día** (medido), bloquearía el número, y los bloqueos bajan la
+>   calidad → baja el cupo → dejan de llegar el pago aprobado y el boletín.
+> - **Lo que multiplica la factura viene de fuera**: que Meta recategorice la plantilla a
+>   *marketing* (**×17,5**) o contratar un BSP (**×7,25**; el recargo de Twilio es 6,25
+>   veces la tarifa colombiana de Meta). Elegir la frecuencia mueve un ×1,5.
+> - **Recomendado**: un resumen por alumno y día (**COP 99 por alumno y año**), y encender
+>   **prematrícula primero** (COP 12.261/año para los dieciséis).
+> - **Ya existe el subsistema**: `notificaciones:enviar` agrupa cada 15 min desde el cron
+>   único. WhatsApp no reutiliza `Publicador` —no hay temas, hay teléfonos— pero sí su
+>   forma, y **no necesita ninguna dependencia nueva de composer**.
+> - **Hallazgo que cambia otro documento**: de 1.085 acudientes vivos, **sólo 100 (9,2 %)
+>   tienen correo**. El flujo de prematrícula termina en *«al aprobar sale un correo»*, y
+>   ese correo **hoy no llega casi a nadie**. Avisado a quien lleva el 41.
+> - **Y el alcance es 80 %, no 100 %**: 75 de los 377 matriculados de 2025 no tienen
+>   ningún móvil colombiano válido en la ficha. Eso se arregla en la matrícula, no aquí.
+>
+> **Seis decisiones esperan a Joseth** (§11 del 42): de quién es la cuenta de Meta, la
+> ventana del resumen, a cuántos acudientes se escribe, qué se enciende primero, qué
+> viaja a la pasarela y si alguien contesta.
+
 > ## ✅ ABRIR Y CERRAR LA CAMPAÑA DE PREMATRÍCULA — DOS RUTAS, ROUTER EN 602 (19 sep 2026)
 >
 > **Lo reportó Joseth con el error delante**: la pantalla de ajustes del año de `app2` ya pintaba
