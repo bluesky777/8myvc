@@ -44,7 +44,7 @@
         }
     },
     "scripts": {
-        "pint": "pint app/Console app/Http/Middleware app/Http/Controllers/Concerns app/Mail app/Services app/Support routes tests database/migrations app/Http/Controllers/Informes/InformesRecientesController.php app/Http/Controllers/Perfiles/AccesosFavoritosController.php",
+        "pint": "pint app/Console app/Http/Middleware app/Http/Controllers/Concerns app/Mail app/Services app/Support routes tests database/migrations app/Http/Controllers/Informes/InformesRecientesController.php app/Http/Controllers/Perfiles/AccesosFavoritosController.php app/Http/Controllers/Alumnos/ImportarController.php app/Http/Controllers/Alumnos/ImporterFixer.php",
         "pint:test": "@pint --test",
         "stan": "phpstan analyse --memory-limit=-1",
         "post-autoload-dump": [
