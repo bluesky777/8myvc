@@ -565,7 +565,7 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
   > | `composer run pint` | **ESCRIBE**: formatea los ficheros de la lista |
   > | `pint --test` a secas | mide **todo el repo**, incluido lo que no se formatea a propósito |
   >
-  > Los dos primeros corren sobre **la lista curada de `composer.json`** —hoy **417**
+  > Los dos primeros corren sobre **la lista curada de `composer.json`** —hoy **419**
   > ficheros—; el tercero sobre **662**, y da `FAIL` con **189** avisos. **Las dos cifras
   > son correctas y cuentan poblaciones distintas**: con la tercera se archivó como ruido
   > un rojo real que llevaba desde el 7 sep en `CorsDelEscritorioTest`.
@@ -584,6 +584,13 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
   > > no hubo nada que añadir: el número sube solo. **Que se mueva tres veces en una tarde no
   > > es que esté mal medido; es lo que hace esta cifra**, y por eso lleva al lado la orden que
   > > la rehace en vez de una fecha de caducidad.*
+  > >
+  > > *Y **419** el 19 sep 2026, con `app/Models/Profesor.php` y
+  > > `app/Http/Controllers/Piars/PiarsAsignaturasController.php`, que los formateó el día que
+  > > los tocó `fe95da8`. **Esos dos entran sabiendo lo que cuestan**: `Profesor.php` lo tocan
+  > > cuatro ramas vivas y el reformateo les deja un conflicto a las cuatro. Se hizo igual,
+  > > por decisión de Joseth y con el precio delante — que es la única forma en que este
+  > > número debería moverse.*
   > >
   > > **Y el 647 tiene una trampa que conviene dejar dicha: hoy es el número de LARASTAN,
   > > no el de Pint.** `composer run stan` analiza **647** ficheros —**651 el 19 sep 2026 sobre

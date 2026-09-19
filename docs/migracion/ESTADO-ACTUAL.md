@@ -137,15 +137,31 @@
 > recorre el bucle de despliegue»*, **sin cifra**. La sesión de la app lo había propagado hasta el
 > punto de **«corregir» a Joseth** un documento que estaba bien.
 >
-> > **Queda una comprobación que es de Joseth y no se hace desde aquí**: el interruptor
+> > **CONTESTADO por Joseth el 19 sep 2026: `lal` está bien.** La duda era que el interruptor
 > > `disciplinaMisFichas` se encendió el 26 ago contra la tanda `eb95cbc`, **cuatro días antes de
-> > que `lal` existiera**. `lal` llegó **por traslado desde otro servidor**
-> > ([TRASLADO-LAL.md](../TRASLADO-LAL.md)), así que lo que tenga depende de **qué copia se llevó**
-> > y no de la fecha. **Se comprueba mirando su hash en el servidor, no razonando.**
+> > que `lal` existiera**, y que `lal` llegó **por traslado desde otro servidor**
+> > ([TRASLADO-LAL.md](../TRASLADO-LAL.md)) — o sea que lo que tenga dependía de qué copia se
+> > llevó y no de la fecha. **Queda cerrado porque lo dice quien lo sabe, no porque se dedujera**:
+> > eso es exactamente lo que no se podía hacer desde aquí. Si alguien vuelve a abrirlo, lo que
+> > lo contesta es el hash desplegado de `lal`, no este párrafo.
 >
-> **Falta**: fundir a `main` y desplegar. Rama `feat/materia-id-y-grado-id-en-asignaturas`.
+> ### Qué falta, y en qué orden
+>
+> **Fundir y desplegar, y son dos pasos de Joseth, no uno.** La rama es
+> `feat/materia-id-y-grado-id-en-asignaturas` y lleva tres commits: `fe95da8` el cambio,
+> `2e588f1` el Pint de los dos ficheros que toca —`Profesor.php` lo tocan **cuatro ramas vivas**
+> y el reformateo les deja conflicto: se hizo igual, decidido con eso delante— y el `chore` que
+> mete los dos en la lista curada de `composer.json` (**419**, apuntado en `CLAUDE.md` en el
+> mismo commit). Es *fast-forward* sobre `ebbae74`: `git branch -f main <hash> && git push origin main`.
+>
+> **Desplegar ya es posible** desde el 19 sep — ver la casilla del congelado—, pero **esto no
+> corre prisa**: mientras no esté en los dieciséis, el front sigue con su rodeo y la app con su
+> interruptor apagado, y las dos cosas funcionan. Lo que **no** se puede hacer hasta entonces es
+> borrar `alcance.ts`.
+>
 > La medición previa, con el árbol sin el gemelo tocado, quedó aparte en
-> `medicion/dos-columnas-en-listasignaturas` (`7a2df03`, **NO FUSIONAR**).
+> `medicion/dos-columnas-en-listasignaturas` (`7a2df03`, **NO FUSIONAR**): es la prueba de las
+> dos formas de `piars/asignaturas`, y sólo sirve emparejada con ésta.
 
 > ## ✅ ABRIR Y CERRAR LA CAMPAÑA DE PREMATRÍCULA — DOS RUTAS, ROUTER EN 602 (19 sep 2026)
 >
@@ -4205,6 +4221,26 @@ esta casilla · **cero código** · la copia de ensayo se borró al terminar
 > `simonbolivar_testing_h` tiene **95 tablas** y está parada en `2026_08_31_100000` — el
 > estado que `construir-bd-test.sh` documenta como el peor: **la columna que esa migración
 > retira ya retirada y las demás sin llegar**. No la he tocado. Se arregla reconstruyéndola.
+
+**19 sep 2026 — EL CONGELADO SE LEVANTA: LA APP SALIÓ DE REVISIÓN** · dicho por Joseth ·
+sólo documentos · **cero código**
+
+> **Joseth, 19 sep 2026:** *«ya salió de revisión y subí versión a producción, bueno, a que lo
+> revisen a ver si sube a producción esta semana.»*
+>
+> O sea que **el suceso que desbloqueaba pasó**: el criterio de la casilla de abajo era *«la app
+> salió de revisión»*, no el 10 de septiembre, y se cumplió. **Ya se puede desplegar.**
+>
+> **Con un matiz que no cambia la decisión pero sí lo que hay que mirar**: hay una versión NUEVA
+> en revisión ahora mismo, con la esperanza de que suba esta semana. La que salió y la que está
+> dentro no son la misma, así que quien despliegue algo que la app lea debería preguntarse si esa
+> versión en revisión lo aguanta — que es la pregunta original del congelado, sobre otra versión.
+>
+> **Lo que queda pendiente de mirar, y no se ha mirado**: `main` lleva cosas fundidas y sin
+> desplegar acumuladas durante el congelado. La lista vive en la sección
+> **«Lo que está fusionado y NO desplegado»** de este mismo documento y **no se ha repasado
+> contra el estado de hoy**: alguien tiene que leerla entera antes de la próxima tanda, porque
+> se escribió cuando desplegar no era una opción.
 
 **4 sep 2026 — EL CONGELADO TIENE FECHA: EL 10 DE SEPTIEMBRE, Y LA PREGUNTA QUE LO
 DESBLOQUEA YA ESTÁ CONTESTADA** · decisión de Joseth · sólo documentos:
