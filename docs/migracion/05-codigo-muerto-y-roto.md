@@ -682,6 +682,36 @@ hay una razón añadida — `AsignarAcudienteAOtroModalCtrl.js` sigue mandando
 `todos_anios: true` en el cuerpo, así que el front cree que el interruptor
 existe. Quitarlo del backend sin avisar dejaría esa llamada mintiendo.
 
+> ## ✅ ARREGLADO EL 18 sep 2026 (`8715c6c`), Y LA DECISIÓN DEL 20 AGO SE CONSERVA
+>
+> **El parámetro se vuelve a leer**, con `true` por defecto:
+> `filter_var(Request::input('todos_anios', true), FILTER_VALIDATE_BOOLEAN)`. Medido contra
+> el docker antes de tocar: con el usuario en el `year_id` 9, `texto=GIRALDO` daba **49** con
+> `todos_anios=false` y sigue dando 49 con `true`, pero ahora con `false` da **4**.
+>
+> **No revierte lo que Joseth decidió**, y conviene verlo porque las dos frases se parecen:
+> «que un profesor vea a todos los estudiantes sin importar el año» sigue siendo **el
+> comportamiento por defecto**, porque los tres llamantes que no mandan el parámetro
+> —`sidebarMenu.ts`, `AlumnosNewCtrl.ts`— y el que manda `true` reciben exactamente lo de
+> antes. Lo que cambia es que **quien sí lo manda deja de ser ignorado**.
+>
+> Y cierra el párrafo de arriba por donde no se esperaba: decía que la rama `else` se
+> conservaba porque *«el front cree que el interruptor existe»*. **La salida no fue quitarlo
+> del backend, fue hacerlo verdad** — la casilla de `PersonaCtrl.ts:856` estaba muerta y
+> vuelve a servir, y la rama `else` pasa a ser alcanzable de verdad por primera vez.
+>
+> **Lo que sí cambia para alguien vivo**: el buscador nuevo de `app2` mandaba `false` y
+> recibía todos los años igual; a partir de ahora recibe sólo el año en curso. Es un cambio
+> de conducta real en una pantalla que se está escribiendo, y está dicho en el commit.
+>
+> > **Y costó el CI en rojo, que es la parte que hay que aprenderse.** El `if` dejó de ser
+> > siempre cierto y **la entrada de `phpstan.neon` que lo ignoraba siguió ahí**: phpstan no
+> > falla por un error nuevo, falla con `ignore.unmatched` —*«un patrón ignorado no se
+> > corresponde con nada»*—. **Arreglar un código anotado en `phpstan.neon` son DOS ficheros**,
+> > y el segundo no se ve si no se vuelve a correr `stan` **después** de que el commit entre en
+> > el árbol: quien lo escribió corrió sólo los tests de su cambio, y quien corrió `stan` ese
+> > día —otra sesión— lo hizo **antes** de que ese commit existiera.
+
 Lo que sí salió de esta decisión, y era la mitad importante de la pregunta, es
 el otro lado: **quién puede usar el buscador**. Iba sin guard y lo contestaba
 todo el mundo — está en §11.3.
@@ -829,9 +859,12 @@ dejaría una división por cero esperando a la primera actividad sin preguntas.
   **La expresión suelta es la única pista de por dónde iba el autor**: lo que
   debía ir ahí es `$alumnos[$i]->alumno_id`. Se arregla el día que se decida qué
   hace el endpoint, y entonces la línea se usa en vez de borrarse.
-- **`AlumnosController`, el `if ($todos_anios)`** que siempre es cierto. Decidido
-  el 20 ago 2026 y explicado en la §11.2: se queda, la rama `else` también, y el
-  front sigue mandando `todos_anios` como si el interruptor existiera.
+- ~~**`AlumnosController`, el `if ($todos_anios)`** que siempre es cierto.~~
+  **YA NO: arreglado el 18 sep 2026 (`8715c6c`)**, y por eso sale de esta lista. El
+  parámetro se vuelve a leer con `true` por defecto, así que la decisión del 20 ago
+  se conserva como conducta por defecto y la rama `else` pasa a ser alcanzable. El
+  relato, y el rojo de CI que costó no retirar su entrada de `phpstan.neon`, en la
+  §11.2.
 
 ### Y uno que no se quedó: el `== 'true'` que murió con PHP 8
 

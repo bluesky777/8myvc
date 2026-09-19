@@ -350,19 +350,20 @@ parameters:
             path: app/Http/Controllers/Alumnos/Definitivas.php
             count: 2
 
-        # PUT api/alumnos/personas-check
-        # `$todos_anios = true` fijado a mano, con el `Request::input` comentado
-        # justo encima y una rama `else` que no se ejecuta nunca.
-        # **Decidido por Joseth el 20 ago 2026: se queda.** Que un profesor vea a
-        # todos los estudiantes del plantel sin importar el año es lo que se
-        # quiere. La rama `else` no se borra porque dice qué hacía antes, y
-        # porque `AsignarAcudienteAOtroModalCtrl.js` sigue mandando
-        # `todos_anios: true`: el front cree que el interruptor existe.
-        # Está en 05-codigo-muerto-y-roto.md §11.2.
-        -
-            message: '#^If condition is always true\.$#'
-            path: app/Http/Controllers/AlumnosController.php
-            count: 1
+        # (Aquí vivía el `If condition is always true` de
+        # `AlumnosController::putPersonasCheck`, el `$todos_anios = true` fijado a
+        # mano. **Se retiró el 18 sep 2026 porque el `if` ya no es siempre cierto**:
+        # `8715c6c` vuelve a leer el parámetro del cliente, con `true` por defecto,
+        # así que la decisión de Joseth del 20 ago —que un profesor vea a todos los
+        # estudiantes sin importar el año— se conserva como el comportamiento por
+        # defecto y la rama `else` pasa a ser alcanzable de verdad.
+        #
+        # **Esta línea existe porque quitar el `if` sin quitar esta entrada dejó el
+        # CI en rojo**, y no con un error nuevo sino con `ignore.unmatched`: phpstan
+        # falla cuando un patrón ignorado deja de corresponderse con nada. O sea que
+        # **arreglar un código anotado aquí son DOS ficheros**, y el segundo no da la
+        # cara en local si no se vuelve a correr `stan` después de fundir.
+        # El relato está en 05-codigo-muerto-y-roto.md §11.2.)
 
         # PUT api/aplicacion-descargas/detailed
         # `return $user;` en la segunda línea, y debajo el cuerpo entero del
