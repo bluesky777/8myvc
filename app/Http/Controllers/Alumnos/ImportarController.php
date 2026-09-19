@@ -187,7 +187,41 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
                 $alumno['tipo_doc'], $alumno['nro_de_documento'], $alumno['numero_matricula'], $alumno['direccion_residencia'], $alumno['barrio'], $alumno['telefono'], $alumno['celular'], $alumno['estrato'],
                 $alumno['rh'], $alumno['eps'], $alumno['religion'], $alumno['sisben'], $now], $res['valores'], [$alumno['id']]));
 
-            DB::update('UPDATE matriculas m INNER JOIN grupos g ON g.id=m.grupo_id and g.year_id=? and g.deleted_at is null SET m.nuevo=?, m.estado=?, m.updated_at=? WHERE m.alumno_id=? and m.deleted_at is null', [$grupo->year_id, $alumno['es_nuevo'], $alumno['estado_matricula'], $now, $alumno['id']]);
+            // `matriculas.estado` es varchar(4), y lo que llega aqui es texto de
+            // una hoja de calculo. Un «Activo» se guardaba como «Acti», que NO
+            // esta entre los codigos que usa el colegio —hoy en esta base son
+            // MATR, RETI, PREM, FORM, ASIS, PREA y DESE—, asi que el alumno
+            // desaparecia de la consulta que alimenta el export, el SIMAT y
+            // todas las listas: existe, tiene matricula, y no sale en ninguna
+            // parte. En el docker pasa callado (`sql_mode` vacio) y en la
+            // MariaDB estricta de produccion aborta a media hoja. Las dos son
+            // malas y son distintas.
+            //
+            // No se traduce —«Activo» podria ser MATR o ASIS y eso lo decide el
+            // colegio, no este fichero—: lo que NO cabe simplemente no se
+            // escribe, y la matricula conserva el estado que ya tenia. No
+            // escribir es peor que escribir bien y mucho mejor que escribir
+            // mal, porque un estado corrupto no se nota hasta que alguien echa
+            // en falta a un alumno.
+            $estadoCabe = $alumno['estado_matricula'] === null
+                || mb_strlen(trim((string) $alumno['estado_matricula'])) <= 4;
+
+            if ($estadoCabe) {
+                DB::update('UPDATE matriculas m INNER JOIN grupos g ON g.id=m.grupo_id and g.year_id=? and g.deleted_at is null SET m.nuevo=?, m.estado=?, m.updated_at=? WHERE m.alumno_id=? and m.deleted_at is null', [$grupo->year_id, $alumno['es_nuevo'], $alumno['estado_matricula'], $now, $alumno['id']]);
+            } else {
+                // `nuevo` si se escribe: no tiene nada que ver con el estado y
+                // descartarlo tambien seria castigar dos columnas por una.
+                DB::update('UPDATE matriculas m INNER JOIN grupos g ON g.id=m.grupo_id and g.year_id=? and g.deleted_at is null SET m.nuevo=?, m.updated_at=? WHERE m.alumno_id=? and m.deleted_at is null', [$grupo->year_id, $alumno['es_nuevo'], $now, $alumno['id']]);
+
+                $this->fixer->avisos[] = [
+                    'fila' => $alumno['numero_matricula'] ?? null,
+                    'campo' => 'estado_matricula',
+                    'valor' => (string) $alumno['estado_matricula'],
+                    'motivo' => 'No cabe en matriculas.estado (4 caracteres) y se habria '
+                              .'guardado cortado, dejando al alumno fuera de las listas. '
+                              .'La matricula conserva el estado que ya tenia.',
+                ];
+            }
 
             // El «no eliminar» de esta línea era literal, y decía la verdad:
             // esto ERA el punto de control. Dejaba en `debugging` una fila por
@@ -288,12 +322,63 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
      * `ORDER BY id` para que dos filas repetidas den siempre la misma — una
      * importación que eligiera una u otra según el humor de MySQL sería peor
      * que la que duplicaba.
+     *
+     * ## Por qué el documento NO se convierte a cadena antes de atarlo
+     *
+     * Parece que habría que hacerlo y hay un `EXPLAIN` que lo pide, así que
+     * aquí queda por qué no, medido el 19 sep 2026 en `simonbolivar`:
+     *
+     * | parámetro | type | key |
+     * |---|---|---|
+     * | `'1035123456'` | `ref` | `alumnos_documento_index` |
+     * | `1035123456` | `index` | `PRIMARY` |
+     *
+     * O sea: **el índice que se creó el 20 ago se esquiva** cuando la celda del
+     * Excel es numérica. Y aun así no se toca, por dos medidas:
+     *
+     * 1. **No cuesta.** 200 búsquedas: 36 ms como texto, **26 ms como número**.
+     *    La tabla son 1.284 filas y recorrer el índice entero es más barato que
+     *    el `ORDER BY id` que la otra forma tiene que resolver aparte. La
+     *    hipótesis de «800 barridos contra los 300 s de cPanel» se midió y es
+     *    falsa a esta escala. Vuélvase a medir en una base grande antes de
+     *    darla por cierta allí.
+     * 2. **Y convertir ROMPERÍA gente.** `'01035123456' = 1035123456` es cierto
+     *    y `'01035123456' = '1035123456'` es falso. Hay **7 alumnos vivos con
+     *    cero a la izquierda**: la comparación numérica de hoy los encuentra y
+     *    la de cadena no. Pasarlo a texto crearía un duplicado de cada uno —
+     *    exactamente el fallo que la §1 de `09-pendientes.md` vino a cerrar.
+     *
+     * Lo que sí hacía falta era **descartar el 0**, que es el único valor con
+     * el que esa conversión implícita hace daño; está justo debajo.
+     *
+     * *El síntoma era real y la consecuencia que se le suponía, falsa. Antes de
+     * actuar sobre un `EXPLAIN`, medir el tiempo y mirar a quién deja fuera.*
      */
     private function idPorDocumento($documento)
     {
         $documento = is_string($documento) ? trim($documento) : $documento;
 
         if ($documento === null || $documento === '') {
+            return null;
+        }
+
+        // Un documento que vale CERO no busca: descarta.
+        //
+        // Cuando la celda del Excel es numérica, `$documento` llega como int y PDO
+        // lo ata como número, así que MySQL convierte la COLUMNA para comparar. Con
+        // un valor de verdad eso es inofensivo e incluso conveniente —ver el
+        // comentario del método—, pero con un 0 deja de serlo: cualquier documento
+        // que no sea un número se convierte también a 0, así que `documento = 0`
+        // casaría con TODOS ellos y devolvería el primero por `ORDER BY id`. El
+        // alumno de la fila se fundiría con un desconocido, en silencio y en 200.
+        //
+        // Medido el 19 sep 2026 en `simonbolivar`: `'AB1234' = 0` da 1, y dos
+        // documentos no numéricos cualesquiera colisionan entre sí en 0. En esta
+        // base hay 0 filas así, o sea que hoy no muerde AQUÍ — los otros quince
+        // colegios no están medidos, y es una columna que rellena una secretaría.
+        //
+        // El `''` de arriba no cubre este caso: un 0 entero no es cadena vacía.
+        if (is_int($documento) && $documento === 0) {
             return null;
         }
 

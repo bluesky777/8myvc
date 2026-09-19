@@ -7,6 +7,7 @@ use App\Support\ColumnaSegura;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Request;
+use Log;
 
 class ImporterFixer
 {
@@ -17,6 +18,58 @@ class ImporterFixer
     public $ciudades;
 
     public $cant_ciud;
+
+    /**
+     * Lo que esta clase NO supo traducir, para que alguien pueda decirlo.
+     *
+     * Hasta hoy un valor que no casaba con el catalogo no dejaba rastro: se
+     * caia al defecto y la importacion respondia 'Importados.' igual. Esto no
+     * cambia lo que se guarda —eso seria cambiarle el resultado a dieciseis
+     * colegios sin avisar—: solo lo anota, para que la pantalla pueda
+     * preguntar. Es el cimiento de la importacion que dice que va a pasar.
+     *
+     * @var array<int, array{fila: mixed, campo: string, valor: string, motivo: string}>
+     */
+    public $avisos = [];
+
+    /**
+     * Compara como compara una persona: sin tildes y sin mayusculas.
+     *
+     * `strtolower` solo baja bytes ASCII, asi que con el catalogo en mayusculas
+     * y con tilde `CEDULA DE CIUDADANIA` casaba y `Cedula de ciudadania` no
+     * —con sus tildes de verdad—. O sea que **el Excel mejor escrito era el que
+     * fallaba**, y el resultado no era un error: era tipo_doc = 3, Tarjeta de
+     * Identidad, en silencio.
+     *
+     * Es la tilde de `docs/migracion/33-la-tilde-que-sql-no-ve.md` otra vez,
+     * ahora en PHP. Se pliega el acento ademas de bajar la caja porque el
+     * catalogo de un colegio puede tener `CEDULA` sin tilde y el Excel de otro
+     * `Cedula` con ella, y las dos quieren decir lo mismo.
+     */
+    private function normalizar($valor)
+    {
+        if ($valor === null) {
+            return '';
+        }
+
+        $valor = mb_strtolower(trim((string) $valor), 'UTF-8');
+
+        return strtr($valor, [
+            'á' => 'a',
+            'é' => 'e',
+            'í' => 'i',
+            'ó' => 'o',
+            'ú' => 'u',
+            'à' => 'a',
+            'è' => 'e',
+            'ì' => 'i',
+            'ò' => 'o',
+            'ù' => 'u',
+            'ü' => 'u',
+            'ñ' => 'n',
+            'ç' => 'c',
+        ]);
+    }
 
     public function __construct()
     {
@@ -42,25 +95,52 @@ class ImporterFixer
         //	$valor = Carbon::parse($valor);
 
         // Tipo doc
+        //
+        // La comparacion normaliza las dos partes: sin tildes y sin mayusculas.
+        // Ver `normalizar()`, que lleva la medicion de lo que pasaba antes.
+        $altipo_low = $this->normalizar($alumno['tipo_de_documento'] ?? null);
+        $A1tipo_low = $this->normalizar($alumno['tipo_docu_acud1'] ?? null);
+        $A2tipo_low = $this->normalizar($alumno['tipo_docu_acud2'] ?? null);
+
         for ($i = 0; $i < $this->cant_td; $i++) {
 
-            $tipo_low = strtolower($this->tipos_doc[$i]->tipo);
-            $abrev_low = strtolower($this->tipos_doc[$i]->abrev);
-            $altipo_low = strtolower($alumno['tipo_de_documento']);
-            $A1tipo_low = strtolower($alumno['tipo_docu_acud1']);
-            $A2tipo_low = strtolower($alumno['tipo_docu_acud2']);
+            $tipo_low = $this->normalizar($this->tipos_doc[$i]->tipo);
+            $abrev_low = $this->normalizar($this->tipos_doc[$i]->abrev);
 
-            if ($tipo_low == $altipo_low || $abrev_low == $altipo_low) {
+            // La celda vacia NO compara. Si el catalogo del colegio tuviera una
+            // fila con `abrev` vacia —es varchar y nadie lo impide—, un ''=='' la
+            // daria por buena y le pondria ESE tipo al alumno. Un valor ausente
+            // no puede casar con nada.
+            if ($altipo_low !== '' && ($tipo_low === $altipo_low || $abrev_low === $altipo_low)) {
                 $alumno['tipo_doc'] = $this->tipos_doc[$i]->id;
             }
-            if ($tipo_low == $A1tipo_low || $abrev_low == $A1tipo_low) {
+            if ($A1tipo_low !== '' && ($tipo_low === $A1tipo_low || $abrev_low === $A1tipo_low)) {
                 $alumno['tipo_docu_acud1'] = $this->tipos_doc[$i]->id;
             }
-            if ($tipo_low == $A2tipo_low || $abrev_low == $A2tipo_low) {
+            if ($A2tipo_low !== '' && ($tipo_low === $A2tipo_low || $abrev_low === $A2tipo_low)) {
                 $alumno['tipo_docu_acud2'] = $this->tipos_doc[$i]->id;
             }
         }
         if (! array_key_exists('tipo_doc', $alumno)) {
+            // «No reconoci lo que puso» y «no puso nada» acaban los dos aqui, y
+            // hasta hoy eran indistinguibles: los dos salian Tarjeta de Identidad
+            // sin error ni log. Son cosas muy distintas — un colegio que escribio
+            // «Registro civil de nacimiento» no esta pidiendo el defecto, esta
+            // diciendo otra cosa que no supimos leer.
+            //
+            // Lo que se GUARDA no cambia: cambiarlo aqui le cambiaria el resultado
+            // a dieciseis colegios sin que nadie lo pida. Lo que cambia es que el
+            // caso malo deja rastro, para que la pantalla pueda preguntar.
+            if ($altipo_low !== '') {
+                $this->avisos[] = [
+                    'fila' => $alumno['numero_matricula'] ?? null,
+                    'campo' => 'tipo_de_documento',
+                    'valor' => (string) $alumno['tipo_de_documento'],
+                    'motivo' => 'No coincide con ningun tipo de documento del colegio; '
+                              .'se guardo Tarjeta de Identidad por defecto.',
+                ];
+            }
+
             $alumno['tipo_doc'] = 3; // 3 es Tarjeta de identidad
         }
 
@@ -79,35 +159,56 @@ class ImporterFixer
         // varchar(255) y SI lo escribe `CiudadesController::postGuardarCiudad`
         // desde el cuerpo. Si algun dia se concatena el nombre en vez del id,
         // esto es inyeccion.
+        // Las cinco columnas de ciudad se normalizan UNA vez y no dentro del
+        // bucle: son ~1.100 ciudades por cinco comparaciones y por alumno.
+        // Y va con `normalizar()` por lo de siempre, que aqui muerde mas que en
+        // ninguna parte: las ciudades colombianas llevan tilde —Medellin,
+        // Bogota, Ibague, Cucuta— asi que con `strtolower` el Excel que las
+        // escribe bien era el que no casaba.
+        $ciu = [];
+        foreach (['lugar_de_expedicion_ciudad', 'ciudad_nacimiento', 'ciudad_residencia',
+            'ciudad_docu_acud1', 'ciudad_docu_acud2'] as $campo) {
+            $ciu[$campo] = $this->normalizar($alumno[$campo] ?? null);
+        }
+
         for ($i = 0; $i < $this->cant_ciud; $i++) {
-            if (strtolower($this->ciudades[$i]->ciudad) == strtolower($alumno['lugar_de_expedicion_ciudad']) || $this->ciudades[$i]->id == $alumno['lugar_de_expedicion_ciudad']) {
+            $ciudad_low = $this->normalizar($this->ciudades[$i]->ciudad);
+
+            if (($ciu['lugar_de_expedicion_ciudad'] !== '' && $ciudad_low === $ciu['lugar_de_expedicion_ciudad']) || $this->ciudades[$i]->id == $alumno['lugar_de_expedicion_ciudad']) {
                 $cons .= ', ciudad_doc='.$this->ciudades[$i]->id;
             }
-            if (strtolower($this->ciudades[$i]->ciudad) == strtolower($alumno['ciudad_nacimiento']) || $this->ciudades[$i]->id == $alumno['ciudad_nacimiento']) {
+            if (($ciu['ciudad_nacimiento'] !== '' && $ciudad_low === $ciu['ciudad_nacimiento']) || $this->ciudades[$i]->id == $alumno['ciudad_nacimiento']) {
                 $cons .= ', ciudad_nac='.$this->ciudades[$i]->id;
             }
-            if (strtolower($this->ciudades[$i]->ciudad) == strtolower($alumno['ciudad_residencia']) || $this->ciudades[$i]->id == $alumno['ciudad_residencia']) {
+            if (($ciu['ciudad_residencia'] !== '' && $ciudad_low === $ciu['ciudad_residencia']) || $this->ciudades[$i]->id == $alumno['ciudad_residencia']) {
                 $cons .= ', ciudad_resid='.$this->ciudades[$i]->id;
             }
-            if (strtolower($this->ciudades[$i]->ciudad) == strtolower($alumno['ciudad_docu_acud1']) || $this->ciudades[$i]->id == $alumno['ciudad_docu_acud1']) {
+            if (($ciu['ciudad_docu_acud1'] !== '' && $ciudad_low === $ciu['ciudad_docu_acud1']) || $this->ciudades[$i]->id == $alumno['ciudad_docu_acud1']) {
                 $consA1 .= ', ciudad_doc='.$this->ciudades[$i]->id;
                 $ciudad_id_A1 = $this->ciudades[$i]->id;
             }
-            if (strtolower($this->ciudades[$i]->ciudad) == strtolower($alumno['ciudad_docu_acud2']) || $this->ciudades[$i]->id == $alumno['ciudad_docu_acud2']) {
+            if (($ciu['ciudad_docu_acud2'] !== '' && $ciudad_low === $ciu['ciudad_docu_acud2']) || $this->ciudades[$i]->id == $alumno['ciudad_docu_acud2']) {
                 $consA2 .= ', ciudad_doc='.$this->ciudades[$i]->id;
                 $ciudad_id_A2 = $this->ciudades[$i]->id;
             }
         }
 
         // is_urbana
-        if (strtolower($alumno['urbana']) == 'si') {
+        //
+        // Con `normalizar()` en vez de `strtolower`: «Si» es como se escribe bien
+        // en espanol y hasta hoy NO casaba con 'si', asi que no entraba en ninguna
+        // de las dos ramas y la columna se quedaba como estuviera. Lo mismo abajo
+        // con SISBEN, «nuevo» y los dos acudientes. Y normalizar recorta, que
+        // arregla de paso el «no aplica » con espacio detras: hoy ese cae en el
+        // `else` y se guarda como que SI tiene SISBEN.
+        if ($this->normalizar($alumno['urbana'] ?? null) == 'si') {
             $cons .= ', is_urbana=1';
-        } elseif (strtolower($alumno['urbana']) == 'no') {
+        } elseif ($this->normalizar($alumno['urbana'] ?? null) == 'no') {
             $cons .= ', is_urbana=0';
         }
 
         // SISBEN
-        if (strtolower($alumno['sisben']) == 'no aplica' || $alumno['sisben'] == '') {
+        if ($this->normalizar($alumno['sisben'] ?? null) == 'no aplica' || $this->normalizar($alumno['sisben'] ?? null) == '') {
             $cons .= ', has_sisben=0, nro_sisben=null';
         } else {
             $cons .= ', has_sisben=1, nro_sisben=?';
@@ -115,7 +216,7 @@ class ImporterFixer
         }
 
         // SISBEN 3
-        if (strtolower($alumno['sisben_3']) == 'no aplica' || $alumno['sisben_3'] == '') {
+        if ($this->normalizar($alumno['sisben_3'] ?? null) == 'no aplica' || $this->normalizar($alumno['sisben_3'] ?? null) == '') {
             $cons .= ', has_sisben_3=0, nro_sisben_3=null';
         } else {
             $cons .= ', has_sisben_3=1, nro_sisben_3=?';
@@ -123,25 +224,25 @@ class ImporterFixer
         }
 
         // Nuevo
-        if (strtolower($alumno['nuevo']) == 'no' || $alumno['nuevo'] == '') {
+        if ($this->normalizar($alumno['nuevo'] ?? null) == 'no' || $this->normalizar($alumno['nuevo'] ?? null) == '') {
             $alumno['es_nuevo'] = 0;
-        } elseif (strtolower($alumno['nuevo']) == 'si') {
+        } elseif ($this->normalizar($alumno['nuevo'] ?? null) == 'si') {
             $alumno['es_nuevo'] = 1;
         }
 
         // Es acudiente 1
-        if (strtolower($alumno['es_el_acudiente_acud1']) == 'no' || $alumno['es_el_acudiente_acud1'] == '') {
+        if ($this->normalizar($alumno['es_el_acudiente_acud1'] ?? null) == 'no' || $this->normalizar($alumno['es_el_acudiente_acud1'] ?? null) == '') {
             $alumno['is_acudiente1'] = 0;
             // Debugging::pin('$alumno["es_el_acudiente_acud1"]=="no" ', $alumno["es_el_acudiente_acud1"]);
-        } elseif (strtolower($alumno['es_el_acudiente_acud1']) == 'si') {
+        } elseif ($this->normalizar($alumno['es_el_acudiente_acud1'] ?? null) == 'si') {
             $alumno['is_acudiente1'] = 1;
             // Debugging::pin('$alumno->es_el_acudiente_acud1=="SI" ');
         }
 
         // Es acudiente 2
-        if (strtolower($alumno['es_el_acudiente_acud2']) == 'no' || $alumno['es_el_acudiente_acud2'] == '') {
+        if ($this->normalizar($alumno['es_el_acudiente_acud2'] ?? null) == 'no' || $this->normalizar($alumno['es_el_acudiente_acud2'] ?? null) == '') {
             $alumno['is_acudiente2'] = 0;
-        } elseif (strtolower($alumno['es_el_acudiente_acud2']) == 'si') {
+        } elseif ($this->normalizar($alumno['es_el_acudiente_acud2'] ?? null) == 'si') {
             $alumno['is_acudiente2'] = 1;
         }
 
