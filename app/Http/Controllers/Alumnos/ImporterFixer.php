@@ -6,8 +6,8 @@ use App\Models\Debugging;
 use App\Support\ColumnaSegura;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Request;
 
 class ImporterFixer
 {
