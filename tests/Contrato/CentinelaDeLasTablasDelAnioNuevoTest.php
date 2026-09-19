@@ -238,6 +238,33 @@ class CentinelaDeLasTablasDelAnioNuevoTest extends TestCase
         // se decide es **qué pasa el enero en que las tenga**, no lo que pasa hoy.
         'rubricas' => 'el trabajo que un docente montó para evaluar algo de ESE año; el que quiera reusar una la vuelve a montar (decidido por Joseth el 13 sep 2026, D27; 35 §2.bis)',
 
+        // **El otro par que hay que leer junto, y entró el 19 sep 2026** con el
+        // formulario de inscripción impreso (`docs/migracion/41`). Igual que
+        // `desempenos_por_defecto` y `rubricas`, son dos tablas nacidas el mismo día
+        // y decididas al revés, y sin verlas seguidas la de abajo parece un olvido:
+        //
+        //     config_formulario_   SE COPIA   Lo que el colegio eligió que pida su
+        //     inscripcion                     formulario. Está en `postStore`.
+        //
+        //     ordenes_inscripcion  NO         El papel impreso de ESA campaña.
+        //
+        // Cada fila de `ordenes_inscripcion` es un **formulario que existe en papel**:
+        // su código —el que la familia teclea para volver—, cuánto costó, quién lo
+        // vendió y cuándo. Copiarlas al año nuevo fabricaría **códigos de formularios
+        // que nadie imprimió y cobros que nadie hizo**, y esos códigos entrarían en la
+        // lista de «vendidos que no volvieron», que es precisamente la lista de
+        // llamadas que esta tabla viene a producir. No es que sobre: sería falsa, como
+        // `auditoria`.
+        //
+        // Y hay una segunda razón que la haría inútil aunque se copiara: el `UNIQUE
+        // (year_id, alumno_id)` que sostiene el get-or-create de la renovación daría al
+        // alumno un código del año nuevo **antes de que nadie le imprima nada**, o sea
+        // que la primera reimpresión de verdad reusaría un código que nunca se entregó.
+        //
+        // `colillas_inscripcion` no aparece en este censo y es correcto: no tiene
+        // `year_id`, cuelga de `orden_id`. Se va con su orden y no hay que decidirla.
+        'ordenes_inscripcion' => 'cada fila es un formulario IMPRESO de esa campaña, con su cobro y quién lo vendió; copiarlas fabricaría papeles y cobros que no existieron (19 sep 2026, doc 41)',
+
         // Con sus fechas, su `locked` y su `actual` dentro: una votación copiada
         // nacería abierta o cerrada según cómo acabó la del año pasado.
         'vt_votaciones' => 'la elección que se convocó ESE año, con sus fechas y su estado',

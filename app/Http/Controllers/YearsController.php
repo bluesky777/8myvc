@@ -402,6 +402,34 @@ class YearsController extends Controller {
 					[ $year->id, $requisito->orden, $requisito->requisito, $requisito->descripcion, $user->user_id, $ahora, $ahora ]);
 			}
 
+			// LA SELECCIÓN DE CAMPOS DEL FORMULARIO DE INSCRIPCIÓN SÍ SE COPIA, y su
+			// tabla hermana `ordenes_inscripcion` NO. Las dos nacieron el mismo día y
+			// están decididas al revés, así que el porqué va aquí y no en dos sitios:
+			//
+			//   config_formulario_   SE COPIA   Es lo que el colegio eligió que pida su
+			//   inscripcion                     formulario. No copiarla devuelve la
+			//                                   selección al defecto cada enero y obliga
+			//                                   a reconfigurarla — que es literalmente el
+			//                                   fallo que pagó `desempenos_por_defecto`
+			//                                   el 13 sep 2026.
+			//
+			//   ordenes_             NO SE      Cada fila es un PAPEL IMPRESO de la
+			//   inscripcion          COPIA      campaña de ese año, con su código, su
+			//                                   cobro y quién lo vendió. Copiarlas
+			//                                   fabricaría códigos de formularios que
+			//                                   nadie imprimió y cobros que nadie hizo.
+			//                                   Va declarada en `DATOS_DEL_ANIO`.
+			//
+			// Lo que las separa es lo mismo que separa la competencia de la rúbrica:
+			// una es *lo que el colegio escribió para decir cómo trabaja*, la otra es
+			// *lo que ocurrió porque ese año se vivió*.
+			$config_form_ant = DB::select('SELECT campos FROM config_formulario_inscripcion WHERE year_id=?;', [$pasado->id]);
+
+			if (count($config_form_ant) > 0) {
+				DB::insert('INSERT INTO config_formulario_inscripcion(year_id, campos, created_by, created_at, updated_at) VALUES(?,?,?,?,?)',
+					[ $year->id, $config_form_ant[0]->campos, $user->user_id, $ahora, $ahora ]);
+			}
+
 			/// COPIAREMOS LAS CONFIGURACIONES DE DISCIPLINA Y ORDINALES
 			$dis_configuraciones = DB::select('SELECT * FROM dis_configuraciones WHERE year_id=? AND deleted_at is null;', [$pasado->id]);
 			if (count($dis_configuraciones) > 0) {
