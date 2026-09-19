@@ -12,8 +12,9 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**606 rutas** (contadas con `route:list --json` el **19 sep 2026 en `.worktrees/92`, o sea SIN
-FUNDIR: hay que recontarlas en el árbol principal el día que esta rama entre**. Las cuatro que suben
+**606 rutas** (contadas con `route:list --json` el **19 sep 2026 a las 17:19 en el ÁRBOL PRINCIPAL,
+sobre `main` y después de fundir** (`45f6e4f`) — y **coincidió con las 606 contadas antes en
+`.worktrees/92`, que es la única forma de saber que coincidía**. Las cuatro que suben
 sobre las 602 son las del **formulario de inscripción impreso**: `POST
 informes/formularios-inscripcion` que acuña, `GET …/{lote}` que relee sin acuñar, y `GET`/`PUT
 …/campos`, que son la lista de campos que cada colegio elige para su papel. Las cuatro con
