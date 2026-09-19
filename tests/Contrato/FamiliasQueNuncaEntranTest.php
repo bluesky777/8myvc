@@ -174,11 +174,29 @@ class FamiliasQueNuncaEntranTest extends CasoDeContrato
 
         sort($escrituras);
 
-        // **22 desde el 2 sep 2026, y bajó por la razón buena**: Joseth mandó retirar
-        // `POST tardanzas/login/traer-datos`, así que hay una escritura menos donde el
-        // candado de familia no mira. No subió nadie: se fue una. La familia `tardanzas`
-        // pasa de «0 de 6» a «0 de 5» en el censo por lo mismo.
-        $this->assertCount(22, $escrituras,
+        // **24 desde el 19 sep 2026, y esta vez SUBIÓ**, que es la dirección que el
+        // mensaje de abajo llama sospechosa. Lo son las dos de `pagos-inscripcion`
+        // —el checkout y el webhook del pago en línea del formulario—, y se aceptan
+        // aquí con el motivo escrito en vez de callarlas metiendo la familia en
+        // `PRE_LOGIN`, que es el atajo que había a mano.
+        //
+        // Lo que este candado pregunta es *«¿algún mecanismo comprueba de quién es la
+        // fila que toca?»*, y en las dos la respuesta es **sí, pero no es un guard**:
+        // es que **la llave es el dato**. Al checkout hay que traerle un código de
+        // formulario que valida su propio carácter de control, y al webhook una
+        // referencia de 64 caracteres que acuñamos nosotros y que no está publicada en
+        // ninguna parte. Ninguno de los dos puede tocar la fila de otro sin saberse su
+        // secreto, que es exactamente lo que un guard de propiedad garantiza por otro
+        // camino — el mismo argumento que la colilla, y la colilla no cuenta aquí sólo
+        // porque sus tres hermanas llevan guard y esta familia no tiene ninguna.
+        //
+        // **La comparación que importa**: si un día estas dos aceptaran un `orden_id`
+        // suelto en el cuerpo en vez del código, seguirían contando 24 y ya serían un
+        // agujero. Por eso el número no es la garantía; el porqué de cada renglón sí.
+        //
+        // (Antes eran 22, desde el 2 sep 2026, y aquella vez bajó por la razón buena:
+        // Joseth mandó retirar `POST tardanzas/login/traer-datos`.)
+        $this->assertCount(24, $escrituras,
             "Cambió cuántas escrituras viven en familias que el candado de familia no mira nunca.\n".
             "Si SUBIÓ, hay una ruta nueva que ningún mecanismo va a preguntar de quién es la fila que toca.\n".
             "Si BAJÓ, alguien puso un guard o la familia llegó a dos hermanas guardadas y entró en el candado: bien, y hay que actualizar el número.\n".

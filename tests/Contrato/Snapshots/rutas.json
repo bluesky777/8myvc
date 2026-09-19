@@ -257,6 +257,8 @@
     "POST api/niveles_educativos/store": "App\\Http\\Controllers\\NivelesEducativosController@postStore",
     "POST api/nota_comportamiento/store": "App\\Http\\Controllers\\NotaComportamientoController@postStore",
     "POST api/ordinales/store": "App\\Http\\Controllers\\Disciplina\\OrdinalesController@postStore",
+    "POST api/pagos-inscripcion/webhook": "App\\Http\\Controllers\\Informes\\PagosInscripcionController@postWebhook",
+    "POST api/pagos-inscripcion/{codigo}/checkout": "App\\Http\\Controllers\\Informes\\PagosInscripcionController@postCheckout",
     "POST api/paises/store": "App\\Http\\Controllers\\PaisesController@postStore",
     "POST api/participantes/inscribir-profesores": "App\\Http\\Controllers\\VtParticipantesController@postInscribirProfesores",
     "POST api/perfiles/store": "App\\Http\\Controllers\\Perfiles\\PerfilesController@postStore",

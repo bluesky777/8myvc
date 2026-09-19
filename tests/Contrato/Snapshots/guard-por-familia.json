@@ -291,6 +291,10 @@
         "total": 6,
         "con_guard": 6
     },
+    "pagos-inscripcion": {
+        "total": 2,
+        "con_guard": 0
+    },
     "paises": {
         "total": 2,
         "con_guard": 1

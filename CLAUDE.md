@@ -12,11 +12,34 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**610 rutas** (contadas con `route:list --json` el **19 sep 2026 a las 18:35 en el ÁRBOL
-PRINCIPAL, sobre `main` y después de fundir** (`d3e57c7`) — y **coincidió con las 610 contadas
-antes en `.worktrees/92`, que es la única forma de saber que coincidía**. Las cuatro que suben
-sobre las 606 son las de `colillas-inscripcion/`, el comprobante del pago del formulario y su
-aprobación.
+**612 rutas** (contadas con `route:list --json` el **19 sep 2026 en `.worktrees/92`, SIN FUNDIR:
+hay que recontarlas en el árbol principal el día que entren**. Las dos que suben sobre las 610 son
+las de `pagos-inscripcion/` —el checkout y el webhook del pago en línea del formulario—, que
+**cierran las diez** que autorizó Joseth ese día. Las 610 anteriores se contaron a las 18:35 **en
+el ÁRBOL PRINCIPAL, sobre `main` y después de fundir** (`d3e57c7`), y coincidieron con las 610
+contadas antes en el worktree; las cuatro que subían sobre las 606 eran las de
+`colillas-inscripcion/`.
+
+> **Y estas dos suben las públicas de trece a QUINCE, que es donde está el trabajo de verdad.**
+> Una ruta pública mueve cinco sitios —las tres instantáneas más `AutenticacionTest::SIN_GUARD` y
+> `RutasPreLoginTest::TOTAL_PUBLICAS`— y **son SEIS cuando además ESCRIBE**, cosa que no decía
+> ninguna línea de este fichero y que costó un rojo el 19 sep:
+> `FamiliasQueNuncaEntranTest::test_cuantas_escrituras_viven_donde_el_candado_no_llega` lleva la
+> cuenta de las escrituras que viven en familias que el candado de familia **no mira nunca**, y
+> pasa de **22 a 24**.
+>
+> **La colilla no lo movió y éstas sí, y la diferencia no es de mérito**: `colillas-inscripcion`
+> tiene tres hermanas con guard, así que el candado ya la miraba; `pagos-inscripcion` **no tiene
+> ninguna**. O sea que *«una pública mueve cinco sitios»* es verdad sólo mientras la familia esté
+> guardada por otro lado — y **una familia nueva entera de rutas públicas mueve seis**.
+>
+> Ese renglón se acepta **con el motivo escrito y nunca metiendo la familia en la lista de
+> exclusiones**, que era el atajo que había a mano. Lo que ese candado pregunta es *«¿algún
+> mecanismo comprueba de quién es la fila que toca?»*, y aquí la respuesta es **sí, pero no es un
+> guard: la llave es el dato** —un código que valida su propio carácter de control, una referencia
+> de 64 caracteres que acuñamos nosotros—. El día que acepten un `orden_id` suelto en el cuerpo
+> **seguirán contando 24 y ya serán un agujero**: el número no es la garantía, el porqué de cada
+> renglón sí.
 
 > **Esta línea la dejó escrita la sesión anterior como una instrucción, no como un dato** —«SIN
 > FUNDIR: hay que recontarlas en el árbol principal el día que entren»— y ése es el único motivo
@@ -619,10 +642,16 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
   > | `composer run pint` | **ESCRIBE**: formatea los ficheros de la lista |
   > | `pint --test` a secas | mide **todo el repo**, incluido lo que no se formatea a propósito |
   >
-  > Los dos primeros corren sobre **la lista curada de `composer.json`** —hoy **423**
-  > ficheros—; el tercero sobre **662**, y da `FAIL` con **189** avisos. **Las dos cifras
+  > Los dos primeros corren sobre **la lista curada de `composer.json`** —hoy **430**
+  > ficheros—; el tercero sobre **679**, y da `FAIL` con **189** avisos. **Las dos cifras
   > son correctas y cuentan poblaciones distintas**: con la tercera se archivó como ruido
   > un rojo real que llevaba desde el 7 sep en `CorsDelEscritorioTest`.
+  >
+  > > *Remedidas las tres el 19 sep 2026 por la noche en `.worktrees/92`: **430** la lista
+  > > curada (`PASS`), **679** el repo entero y **189** avisos, que es el único de los tres
+  > > que no se movió. Decían 423, 662 y 189 esa misma mañana. **Que la primera suba es lo
+  > > normal** —a `composer.json` se le añade cada fichero el día que se formatea— y que la
+  > > segunda suba también: cualquiera que añada un fichero la mueve.*
   >
   > > **Remedidas el 18 sep 2026 en el árbol principal sobre `main` (`83cbcd9`), y las
   > > tres habían envejecido**: decían **398**, **647** y **190**. Ninguna es un error de
@@ -642,8 +671,8 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
   > > **Y el 647 tiene una trampa que conviene dejar dicha: hoy es el número de LARASTAN,
   > > no el de Pint.** `composer run stan` analiza **647** ficheros —**651 el 19 sep 2026 sobre
   > > `main` en el árbol principal**, o sea que se movió cuatro en un día: esta cifra la sube
-  > > cualquiera que añada un fichero, igual que la de Pint— y `pint --test` mide
-  > > **662**. Que la cifra vieja de Pint coincida exactamente con la de stan puede ser
+  > > cualquiera que añada un fichero, igual que la de Pint; y **664** esa misma noche en
+  > > `.worktrees/92`, con la pasarela dentro— y `pint --test` mide **662**, **679** hoy. Que la cifra vieja de Pint coincida exactamente con la de stan puede ser
   > > casualidad o puede ser que se copiara de la salida equivocada —**no se puede saber
   > > desde aquí**, y da igual: son dos poblaciones distintas y a partir de ahora van las
   > > dos escritas, que es lo que impide volver a confundirlas.

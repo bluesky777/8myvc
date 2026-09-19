@@ -6,8 +6,8 @@ matricular»*, imprimible en tanda, **sin grupo cuando el alumno es nuevo y con 
 puestos cuando es antiguo**.
 
 La pantalla la construyó `myvc-front-bf` en `myvc_front` (commits `04e8f003`, `6c60431d`,
-`43fab911`). **De las diez rutas autorizadas hay ocho escritas y probadas**; faltan las dos de la
-pasarela (§7). El análisis largo del embudo de admisiones vive en
+`43fab911`). **Las diez rutas autorizadas están escritas y probadas** (§7). El análisis largo del
+embudo de admisiones vive en
 [`myvc_front/INVESTIGACION-MATRICULAS.md`](../../../myvc_front/INVESTIGACION-MATRICULAS.md);
 esto es sólo el contrato y sus porqués.
 
@@ -196,6 +196,136 @@ no podría aprobar nadie. Y la comparación natural —contra `user_id`— **est
 es la profesora MARYELINE y el usuario 5 es MARYOLY, o sea que el error no daría un 403 ruidoso,
 **le daría permiso de aprobar pagos a otra persona**.
 
+## 5.bis El pago en línea  *(ENTREGADO el 19 sep 2026)*
+
+    POST pagos-inscripcion/{codigo}/checkout   PÚBLICA   la abre la familia
+    POST pagos-inscripcion/webhook             PÚBLICA   la llama la pasarela
+
+Las dos que faltaban, y las que suben la docena a **quince** públicas (13 → 15). Proveedor
+**Wompi**, que es la recomendación medida del doc 40 §2, guardado en una columna `proveedor`
+para que el colegio que negocie un convenio bancario no obligue a tocar código.
+
+**Son dos y no una, y tampoco aquí es simetría.** El checkout **no cobra**: prepara y firma lo
+que el navegador le va a enseñar a la pasarela. Quien se entera de que el dinero llegó es el
+webhook. Con sólo el primero, una familia paga de verdad y **en MYVC no consta nada** — que es
+peor que no tener pagos en línea, porque el colegio o cobra dos veces o no deja inscribirse a
+quien ya pagó.
+
+### La corrección que cambió el diseño antes de escribirlo
+
+El doc 40 §4 mandaba *«no te creas el webhook: vuelve a preguntarle a la pasarela **con la llave
+pública**»*. Al ir a implementarlo se comprobó contra la documentación de Wompi y **la llave era
+otra**: `GET /v1/transactions/{id}` va con la **privada** —con la pública Wompi contesta **404 Not
+Found**— y lo que recomienda para validar un evento es justo lo que aquel documento descartaba:
+**la firma del evento**. El detalle y el porqué del error están en el §4 del 40, corregido.
+
+**Ese 404 es lo que lo convierte de errata en avería**: implementado al pie de la letra, un pago
+bueno se habría leído como *«no puedo confirmarlo»*, habría contestado 503 y la pasarela habría
+reintentado para siempre. **Ni un pago registrado en los diecisiete**, y el registro señalando que
+la transacción no existe.
+
+Lo que cambia no es un nombre, es el precio: reconsultar **exige guardar la llave privada del
+colegio**, la única credencial de todo esto que toca dinero. De ahí salen dos cerraduras de
+tamaño distinto, y por eso no se les exige lo mismo:
+
+| | filtrado, qué permite | |
+|---|---|---|
+| `secreto_eventos` | forjar un «pagado» → **un formulario gratis** | **obligatorio** |
+| `llave_privada` | tocar **la cuenta de la pasarela del colegio** | **opcional** |
+
+Sin `secreto_eventos` el webhook no admite nada. Con `llave_privada` manda lo que conteste la
+pasarela; sin ella, decide la firma. **Y el modo débil no puede ser invisible**, que es como una
+seguridad opcional acaba apagada en los diecisiete sin que nadie lo sepa: cada pago guarda en
+`verificado_por` cuál de las dos lo admitió.
+
+### Lo que protege al webhook, en el orden en que ocurre
+
+No es un middleware, y **el orden es parte de la defensa**:
+
+1. **La referencia se busca primero.** Una consulta indexada descarta lo que no es nuestro
+   **sin calcular nada y sin salir a internet**. Sin este orden, cualquiera podría hacernos
+   consultar a la pasarela a su ritmo. Lo fija un test cuyo cliente HTTP revienta si alguien lo
+   llama.
+2. **La firma del evento**, obligatoria. Una que no cuadra es 401.
+3. **La reconsulta**, si hay llave privada, y su respuesta gana siempre sobre el cuerpo.
+4. **Sin llave privada, sólo se cree lo que la firma CUBRE.** Wompi deja elegir qué propiedades
+   entran en el checksum, y las que se queden fuera viajan sin proteger: un evento **genuino**
+   capturado y reenviado con el `status` cambiado seguiría validando, y el estado es justo lo que
+   decide si esto se paga. Así que si `transaction.status` no está firmado, el pago queda en
+   `ERROR` con el registro diciendo el arreglo —firmarla, o dar la llave privada—. **No es 401**,
+   porque el evento es auténtico, **ni 503**, porque reintentar no lo arregla.
+5. **El importe se compara.** *Aprobado no basta: tiene que estar aprobado por lo que pedimos.*
+   Sin esta línea, una transacción de mil pesos aprobada de verdad —y firmada de verdad— pagaría
+   un formulario de treinta mil. (El importe **no** necesita la cautela del punto 4, y conviene
+   ver por qué: no se cree el del evento, se compara contra **el nuestro**, que salió de nuestra
+   base al abrir el checkout. Manipularlo hace que falle, no que pase.)
+6. **La transacción tiene que ser de ESTA referencia.** Sin ella, un evento que apunte a una
+   transacción aprobada ajena aprobaría éste.
+
+Y el código de respuesta es **una instrucción, no un diagnóstico**, porque no lo lee ninguna
+persona: `200` es *«resuelto, o no es asunto nuestro y no lo será nunca»*, `401` es *«no vienes
+de donde dices, no reintentes»* y `503` es *«no lo sé **ahora**, vuelve»*. La diferencia entre el
+200 y el 503 es la que decide si un pago de verdad se pierde en silencio: **«no sé» no es «no»**,
+así que una pasarela que no contesta deja el pago como estaba en vez de darlo por rechazado.
+
+### EL HUECO QUE ESTO DESTAPÓ, Y QUE NO SE TAPA AQUÍ
+
+**`ordenes_inscripcion.valor` no lo escribe nadie.** La columna entró en la primera migración con
+el comentario *«el código queda atado a un cobro: cuánto, quién lo vendió y cuándo»*, y de las
+tres sólo se escriben las dos últimas: el `INSERT` de `postAcunar` no la nombra, y en todo `app/`
+no hay otra escritura de esa tabla. La bandeja del tesorero ya la **lee** (`o.valor`), así que hoy
+enseña `null` en los diecisiete.
+
+Es `profesores.tono` **otra vez**, y van tres en un mes. Lo que lo destapó no fue un barrido: fue
+que **el checkout necesita un importe y no había ninguno**.
+
+No se tapa desde aquí, y el porqué importa más que el hueco: las dos salidas fáciles son peores.
+Inventarse el importe en el servidor es cobrar una cifra que nadie decidió, y dejar que lo mande
+el cliente es **que la familia elija cuánto paga**. Así que el checkout **contesta 422 diciendo
+que falta el precio**, con un test encima — *un agujero con un test encima es una decisión; sin
+él es un olvido*. Quién pone ese precio y dónde vive es lo que espera en el §8.
+
+### Veintitrés pruebas, de las que cinco se vieron en rojo a propósito
+
+`PagosInscripcionTest`: **23 passed (142 assertions)** (`--filter=PagosInscripcionTest`,
+`php artisan test`). Lo que las hace valer algo no es el número:
+
+- **Las dos firmas se comprueban contra la fórmula de Wompi, no contra nuestro método.** Llamar a
+  `Wompi::firmaDeIntegridad()` compararía la función consigo misma y pasaría también el día que la
+  fórmula estuviera mal. Es el mismo error que el `UploadedFile::fake()` de la colilla, visto
+  desde el otro lado: allí el doble mentía sobre sí mismo, aquí sería el test mintiendo sobre el
+  código.
+- **Control visto, cinco veces**, una por propiedad que de verdad sostiene esto: quitando la
+  comparación de importes cae *«un importe distinto no paga el formulario»*; haciendo que gane el
+  cuerpo sobre la reconsulta cae *«manda lo que conteste la pasarela»*; saltándose la firma cae
+  *«un evento mal firmado no aprueba nada»*; leyendo el cuerpo por `Request::all()` cae *«la firma
+  se comprueba sobre el cuerpo crudo»*; y creyéndose un estado sin firmar cae *«en modo firma no
+  se cree un estado que la firma no cubre»*.
+
+### El cuerpo se lee CRUDO, y eso es una de las cinco
+
+`TrimStrings` y `ConvertEmptyStringsToNull` son globales a esta API, así que `Request::all()` no
+devuelve el cuerpo: devuelve **el cuerpo ya modificado**. Sobre una firma eso es fatal y
+silencioso — el hash se calcularía sobre un valor distinto del que firmó la pasarela y **fallarían
+todos los pagos**, con el motivo a dos middlewares de distancia del sitio donde se ve. Hoy ninguna
+propiedad que Wompi firma tiene espacios, así que las dos formas dan el mismo hash **y por eso
+hace falta un test sintético**: es el único sitio donde la diferencia se nota antes de que
+importe.
+
+### Y un candado que nadie había avisado: son SEIS sitios, no cinco
+
+El relevo decía que una ruta pública mueve **cinco** sitios. Son cinco **más uno** cuando además
+**escribe**: `FamiliasQueNuncaEntranTest` lleva la cuenta de las escrituras que viven en familias
+que el candado de familia **no mira nunca**, y pasa de **22 a 24**. La colilla no lo movió porque
+sus tres hermanas llevan guard; `pagos-inscripcion` **no tiene ninguna**, así que sus dos entran.
+
+Se acepta con el motivo escrito y **no** metiendo la familia en la lista de exclusiones, que era
+el atajo que había a mano: lo que ese candado pregunta es *«¿algún mecanismo comprueba de quién es
+la fila que toca?»*, y aquí la respuesta es **sí, pero no es un guard — es que la llave es el
+dato**: un código que valida su propio carácter de control, y una referencia de 64 caracteres que
+acuñamos nosotros. El día que acepten un `orden_id` suelto en el cuerpo seguirán contando 24 y ya
+serán un agujero, **así que el número no es la garantía: el porqué de cada renglón sí.**
+
 ## 6. Los interruptores de campaña: el hallazgo, y la decisión de Joseth
 
 `myvc-front-bf` pidió dos rutas nuevas midiendo que **nada escribía `years.prematr_*`**. **La
@@ -225,13 +355,31 @@ descuido.
 | Quién aprueba | tesorero, y si no hay, secretaría · **entregado** |
 | Si no cabe en carta | se avisa de que hay que imprimir en **oficio** |
 | Los interruptores de campaña | por el genérico, sin dueño |
+| Las dos rutas de la pasarela | autorizadas · **entregadas** (§5.bis) |
+
+**Las diez están dentro.** Router **612**, contado con `route:list --json` en el árbol principal
+sobre `main` después de fundir.
 
 **Abierto:**
 
-- **Las dos rutas de la pasarela**, autorizadas y sin escribir: el checkout y el webhook, las dos
-  públicas (13 → 15). El webhook **nunca se cree lo que le llega**: vuelve a preguntarle a la
-  pasarela con la llave pública, y con eso un secreto de eventos filtrado no sirve para forjar un
-  pago (doc 40 §4).
+- **QUIÉN PONE EL PRECIO DEL FORMULARIO, Y DÓNDE VIVE.** Es lo único que separa al pago en línea
+  de funcionar, y no es una pregunta de código: `ordenes_inscripcion.valor` **no lo escribe nadie**
+  (§5.bis), así que hoy el checkout contesta 422 en los diecisiete. Las tres formas, con lo que
+  cuesta cada una:
+  1. **Un precio por campaña**, que el colegio pone una vez y se estampa en cada formulario al
+     acuñarlo. Es el que encaja con lo que ya hay —`config_formulario_inscripcion` es por año y ya
+     tiene ruta de escritura, así que **no gasta ruta nueva**— y deja que subir el precio en marzo
+     no reescriba lo que se vendió en enero. *Recomendado.*
+  2. **Que secretaría teclee el importe al imprimir el lote.** Un campo más en `postAcunar`, sin
+     tabla ni pantalla nueva; a cambio, el precio se puede teclear distinto dos veces el mismo día
+     y nadie se entera.
+  3. **Gratis**: que el formulario no se cobre. Entonces sobran la colilla, la bandeja del tesorero
+     y la pasarela entera, que ya están construidas. No parece, porque Joseth ya contestó que **se
+     cobra**, pero se deja escrito para que la lista sea honesta.
+- **Si el colegio da o no su llave privada de la pasarela.** Con ella, un webhook se confirma
+  preguntándole a Wompi; sin ella, decide la firma del evento. Las dos funcionan y **la diferencia
+  es de cuánto se pierde si se filtra un secreto**, no de si cobra (§5.bis). Es una pregunta para
+  cada colegio, no una decisión de producto.
 - **El aviso al tesorero.** Hoy la bandeja hay que abrirla; nada avisa. `8myvc-95` midió que **sólo
   el 9,2% de los acudientes tiene correo** y el 94% tiene celular, así que el canal es WhatsApp y
   no el correo — y que este caso concreto cuesta **COP 12.261 al año para los dieciséis colegios**
@@ -246,4 +394,6 @@ descuido.
 1. ¿Existe el formulario en papel del colegio? Si aparece, **manda sobre la lista de campos**.
 2. ¿Se cobra el formulario? (precios de mercado medidos en `INVESTIGACION-MATRICULAS.md`)
 3. ¿Secretaría tiene lector de código de barras? Es lo único que devuelve el QR a la fase 1.
-4. **Las dos rutas.**
+4. ~~Las dos rutas.~~ **Contestado el 19 sep 2026: autorizadas y entregadas.**
+5. **El precio del formulario: quién lo pone y dónde vive.** Es la única que bloquea algo ya
+   construido — ver la lista de §7, con las tres formas y lo que cuesta cada una.

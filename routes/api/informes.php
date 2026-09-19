@@ -19,6 +19,7 @@ use App\Http\Controllers\Informes\InformesRecientesController;
 use App\Http\Controllers\Informes\NotasPerdidasController;
 use App\Http\Controllers\Informes\ObservadorController;
 use App\Http\Controllers\Informes\ObservadorHorizontalController;
+use App\Http\Controllers\Informes\PagosInscripcionController;
 use App\Http\Controllers\Informes\PuestosController;
 use App\Http\Controllers\Informes\SimatController;
 use Illuminate\Support\Facades\Route;
@@ -99,6 +100,36 @@ Route::post('colillas-inscripcion/{codigo}', [ColillasInscripcionController::cla
 Route::get('colillas-inscripcion/pendientes', [ColillasInscripcionController::class, 'getPendientes'])->middleware('auth.personal');
 Route::put('colillas-inscripcion/{id}/aprobar', [ColillasInscripcionController::class, 'putAprobar'])->middleware('auth.personal');
 Route::put('colillas-inscripcion/{id}/rechazar', [ColillasInscripcionController::class, 'putRechazar'])->middleware('auth.personal');
+
+// PagosInscripcionController
+//
+// El pago EN LÍNEA del formulario, que es el camino alternativo a la colilla. Las
+// dos rutas que faltaban de las diez que autorizó Joseth el 19 sep 2026;
+// decisiones en el documento 41 §7 y en el 40.
+//
+// LAS DOS SON PÚBLICAS, Y SUBEN LA DOCENA A QUINCE. La primera por el mismo
+// motivo que la colilla —quien paga es la familia de un aspirante, que no tiene
+// cuenta y no puede tenerla—; la segunda **no la llama una persona**: la llama la
+// pasarela desde su propio servidor, así que no hay ninguna sesión que exigir.
+//
+// SON DOS Y NO UNA, y no es simetría: el checkout **no cobra**, sólo firma lo que
+// el navegador le va a enseñar a la pasarela, y quien se entera de que el dinero
+// llegó es el webhook. Con sólo la primera, una familia paga de verdad y en MYVC
+// no consta nada — que es peor que no tener pagos en línea.
+//
+// LO QUE PROTEGE AL WEBHOOK NO ES UN MIDDLEWARE, y el orden importa: primero se
+// busca la referencia en `pagos_inscripcion` —una consulta indexada que descarta
+// lo que no es nuestro sin salir a internet—, después se comprueba la firma del
+// evento (obligatoria) y sólo entonces se reconsulta la transacción con la llave
+// privada, si el colegio la dio. La corrección del doc 40 §4 —que decía «llave
+// pública» y va con la privada— está medida en la cabecera del controlador.
+//
+// Y las dos contestan 404 en el colegio que no tiene credenciales, porque **el
+// back no publica lo que está apagado** (doc 40 §5, regla 1).
+Route::post('pagos-inscripcion/{codigo}/checkout', [PagosInscripcionController::class, 'postCheckout'])
+    ->withoutMiddleware('auth.token')->middleware('throttle:checkout-inscripcion');
+Route::post('pagos-inscripcion/webhook', [PagosInscripcionController::class, 'postWebhook'])
+    ->withoutMiddleware('auth.token')->middleware('throttle:webhook-inscripcion');
 
 // CertificadosPersonaController
 //

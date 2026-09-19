@@ -4,8 +4,14 @@ Pedido por Joseth el **19 sep 2026**: *«Que me diga la opción más barata para
 línea y qué toca hacer de mi lado, y si algún colegio lo desea usar qué tiene que hacer,
 pero si un colegio no quiere pagos por aquí entonces qué pasaría.»*
 
-**Los apartados 1 y 2 son medición; del 3 en adelante es propuesta y va marcado.** Nada de
-esto está autorizado todavía: no hay ni tabla ni ruta ni decisión tomada.
+**Los apartados 1 y 2 son medición; del 3 en adelante es propuesta y va marcado.**
+
+> **Y esa frase ya no vale entera, 19 sep 2026.** Este documento decía *«nada de esto está
+> autorizado todavía: no hay ni tabla ni ruta ni decisión tomada»*, y ese mismo día Joseth
+> autorizó el **nivel 1 para el formulario de inscripción** —no para las pensiones—: dos rutas,
+> dos tablas y el proveedor de la recomendación. Lo entregado y sus decisiones están en
+> [`41`](41-el-formulario-de-inscripcion.md) §7; lo de **pensiones** sigue exactamente como lo
+> deja el §6 de aquí, empezando por que **no hay importes que cobrar**.
 
 ---
 
@@ -94,12 +100,63 @@ El mismo día se decidió, para IA, una pasarela central fuera de los colegios p
 - El único secreto con consecuencia es el **secreto de eventos**: con él se forja un webhook de
   «pagado» y se le regala el paz y salvo a quien no pagó.
 - Y eso **se resuelve por mecanismo, no por custodia**: al recibir un webhook no creerse lo que
-  dice, sino **volver a preguntarle a la pasarela el estado de esa transacción**, que en Wompi
-  se hace con `GET /v1/transactions/{id}` autenticado **con la llave pública**. Con esa regla,
-  el secreto filtrado no sirve para nada.
+  dice, sino **volver a preguntarle a la pasarela el estado de esa transacción**.
 
 **Conclusión: credenciales por colegio, en la base y no en el `.env`** —para cambiarlas sin
 desplegar— y verificación contra la pasarela siempre.
+
+### ⚠️ CORRECCIÓN DEL 19 SEP 2026: LA LLAVE ERA OTRA, Y ESO CAMBIA EL PRECIO
+
+Este apartado decía que la reconsulta se hace *«autenticado **con la llave pública**»*, y de ahí
+concluía que el secreto de eventos filtrado no sirve para nada. **La regla es buena y la llave
+estaba mal.** Medido contra la documentación de Wompi el día que se fue a implementar:
+
+| | |
+|---|---|
+| `GET /v1/transactions/{id}` | *«only available via **Private Key (`prv_*`)** from your server/backend. Requests without authentication or using a Public Key (`pub_*`) are **NO LONGER SUPPORTED** and will return 404 Not Found»* |
+| Lo que Wompi **sí** recomienda para validar un evento | **la firma del evento**: `SHA256(valores + timestamp + secreto_de_eventos)`, contra `X-Event-Checksum` |
+
+**Y el «404 Not Found» convierte esto de error de documentación en avería de producción.** Una
+reconsulta con la llave pública no falla diciendo *«no tienes permiso»*: contesta **que esa
+transacción no existe**. Implementado al pie de la letra, un webhook de un pago bueno se habría
+leído como *«no puedo confirmarlo»*, habría contestado 503, y la pasarela habría reintentado para
+siempre. **Ni un solo pago habría quedado registrado en los diecisiete, y el registro diría que
+la transacción no existe** — que es el diagnóstico que manda a buscar al sitio equivocado.
+
+### De dónde salió el error, que importa más que el error
+
+**No salió de una fuente mala: salió de una fuente VIEJA.** La frase se escribió desde un resumen
+de búsqueda web y no desde la documentación del proveedor, y ese *«no longer supported»* dice que
+el resumen **probablemente fue cierto y envejeció**. Encima de eso se apoyó un argumento de
+arquitectura que se le dio a Joseth.
+
+*Para una afirmación que sostiene un diseño, una fuente secundaria no vale: hay que ir al
+primario.* Es la regla de esta casa sobre las cifras —una medición se anota con la orden que la
+produjo— aplicada a un hecho técnico, que es donde no se estaba aplicando. Y la comprobación
+cuesta una consulta: el error sobrevivió un día entero porque **nadie la hizo**, no porque fuera
+difícil.
+
+Las dos mitades del error van juntas y conviene verlas juntas: **este documento descartó
+exactamente el mecanismo que el proveedor recomienda**, y lo sustituyó por otro que creía
+gratuito. No lo es — la reconsulta exige guardar **la llave privada del colegio**, que es la
+única credencial de todo esto que toca dinero. Con eso se cae también la frase de dos renglones
+más arriba: *«robarla no mueve un peso»* es cierto de la pública y **falso de la privada**.
+
+**Y el fallo no fue creerse un dato: fue razonar sobre una arquitectura sin abrir la
+documentación del proveedor.** Los precios de la tabla del §2 se midieron uno a uno contra las
+páginas de tarifas; esta frase se escribió de memoria en el mismo documento. *La medición no es
+un tipo de párrafo: es lo que hace falta en el párrafo del que cuelga una decisión.*
+
+**Lo que se construyó con la corrección delante** (doc 41 §7), y que es una decisión distinta de
+la que este apartado había tomado:
+
+- **La firma del evento es obligatoria.** Sin `secreto_eventos` no se admite ningún webhook. Es
+  la recomendación de Wompi y es el secreto barato: filtrado, deja forjar un *«pagado»* —un
+  formulario de inscripción gratis—, no tocar la cuenta del colegio.
+- **La reconsulta es opcional**, y manda cuando hay llave privada. Un colegio que no quiera
+  dárnosla sigue cobrando con una cerradura menos.
+- **Cada pago guarda en `verificado_por` cuál de las dos lo admitió**, porque una comprobación
+  opcional sin rastro es una que nadie sabe si está encendida en los diecisiete.
 
 ## 5. PROPUESTA — qué pasa si un colegio NO lo quiere
 
@@ -119,7 +176,9 @@ No pasa nada, y eso es **una exigencia de diseño, no una esperanza**. Tres regl
 
 ## 6. Lo que espera una decisión de Joseth
 
-1. ¿Nivel 0 o nivel 1?
+1. ¿Nivel 0 o nivel 1? — **contestado en parte el 19 sep 2026**: nivel 1 **para el formulario
+   de inscripción**, ya construido (doc 41 §7). Para **pensiones** sigue abierta, y el punto 3
+   de esta lista es anterior a ella.
 2. ¿Quién recibe el dinero? (recomendado: el colegio — si pasa por una cuenta de MYVC, eso
    convierte a MYVC en recaudador de terceros)
 3. Llenar `deuda`: sin importe no hay cobro, y hoy son 140 marcados y cero importes.
@@ -129,7 +188,11 @@ No pasa nada, y eso es **una exigencia de diseño, no una esperanza**. Tres regl
 
 - Wompi — planes y tarifas: `https://wompi.com/es/co/planes-tarifas/`
 - Wompi Docs — ambientes y llaves: `https://docs.wompi.co/en/docs/colombia/ambientes-y-llaves/`
-- Wompi Docs — seguimiento de transacciones y eventos
+- Wompi Docs — seguimiento de transacciones: `https://docs.wompi.co/en/docs/colombia/seguimiento-de-transacciones/`
+  (**la que corrige el §4**: la consulta por id va con la llave privada)
+- Wompi Docs — eventos: `https://docs.wompi.co/en/docs/colombia/eventos/` (la firma del evento)
+- Wompi Docs — checkout web: `https://docs.wompi.co/docs/colombia/widget-checkout-web/`
+  (la firma de integridad, y el aviso de que **tiene que calcularse en el servidor**)
 - ePayco — tarifas: `https://epayco.com/tarifas/`
 - PayU/Rapyd — tarifas LatAm: `https://corporate.payu.com/tarifas-de-payu-en-latinoamerica/`
 - Mercado Pago — checkout: `https://www.mercadopago.com.co/herramientas-para-vender/check-out`

@@ -73,7 +73,7 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
-> ## ✅ EL FORMULARIO DE INSCRIPCIÓN IMPRESO Y SU COBRO — OCHO DE DIEZ RUTAS, ROUTER EN 610 (19 sep 2026)
+> ## ✅ EL FORMULARIO DE INSCRIPCIÓN IMPRESO Y SU COBRO — LAS DIEZ RUTAS, ROUTER EN 612 (19 sep 2026)
 >
 > **Autorizado por Joseth con el precio delante**, que es como entra una familia nueva aquí. El
 > porqué entero está en [`41`](41-el-formulario-de-inscripcion.md); esto es dónde quedó.
@@ -84,20 +84,45 @@
 > | `GET` / `PUT informes/formularios-inscripcion/campos` | qué campos imprime cada colegio |
 > | `POST colillas-inscripcion/{codigo}` | **PÚBLICA** — la manda la familia |
 > | `GET` / `PUT colillas-inscripcion/pendientes · {id}/aprobar · {id}/rechazar` | el tesorero |
-> | **610** contado con `route:list --json` en el árbol principal tras fundir (`d3e57c7`), no sumado | |
-> | `php artisan test`: **2.319 passed, 1 skipped (50.525 assertions)**, `.worktrees/92` | |
+> | `POST pagos-inscripcion/{codigo}/checkout` | **PÚBLICA** — el pago en línea |
+> | `POST pagos-inscripcion/webhook` | **PÚBLICA** — la llama la pasarela, no una persona |
+> | **612** contado con `route:list --json`, y **15 públicas** (eran 12 por la mañana) | |
 >
-> Más `App\Services\CodigoDeInscripcion`, tres tablas y dos migraciones
-> (`2026_09_19_100000` y `_200000`). La resta cuadra exacta —**2.304 + 15 de la colilla = 2.319**—,
-> así que **no se movió ninguna prueba existente**.
+> Más `App\Services\CodigoDeInscripcion`, `App\Services\Pasarela\Wompi`, **cinco tablas** y tres
+> migraciones (`2026_09_19_100000`, `_200000` y `_300000`).
 >
-> ### Lo que falta, y está autorizado: LAS DOS DE LA PASARELA
+> ### LO ÚNICO QUE BLOQUEA EL PAGO EN LÍNEA NO ES CÓDIGO: ES EL PRECIO
 >
-> El checkout que abre la familia y el webhook que llama la pasarela. **Las dos públicas**
-> (13 → 15), o sea que mueven **cinco** sitios cada una y no tres. La regla dura, de
-> [`40 §4`](40-pagos-en-linea.md): **el webhook no se cree lo que le llega** — vuelve a
-> preguntarle a la pasarela el estado de esa transacción con la llave pública. Con eso, un secreto
-> de eventos filtrado **no sirve para forjar un pago**.
+> **`ordenes_inscripcion.valor` no lo escribe nadie.** La columna entró con el comentario *«el
+> código queda atado a un cobro: cuánto, quién lo vendió y cuándo»* y de las tres sólo se escriben
+> las dos últimas. La bandeja del tesorero ya la **lee**, así que hoy enseña `null` en los
+> diecisiete, y el checkout contesta **422 diciendo que falta el precio**.
+>
+> Es `profesores.tono` **otra vez** —van tres en un mes—, y no lo destapó ningún barrido: lo
+> destapó que el checkout necesitaba un importe y no había ninguno. **No se tapó desde el código**
+> porque las dos salidas fáciles son peores: inventarse el importe en el servidor es cobrar una
+> cifra que nadie decidió, y dejar que lo mande el cliente es que **la familia elija cuánto paga**.
+> Las tres formas de resolverlo, con su precio, están en [`41 §7`](41-el-formulario-de-inscripcion.md).
+>
+> ### ⚠️ Y UNA CORRECCIÓN AL DOC 40 §4, QUE CAMBIÓ EL DISEÑO ANTES DE ESCRIBIRLO
+>
+> Aquel documento mandaba *«no te creas el webhook: vuelve a preguntarle a la pasarela **con la
+> llave pública**»*. Comprobado contra la documentación de Wompi al ir a implementarlo, **la llave
+> era otra** —`GET /v1/transactions/{id}` va con la **privada**, y con la pública Wompi contesta
+> **404**— y lo que recomienda para validar un evento es justo lo que aquel documento descartaba:
+> **la firma del evento**. Ese 404 es lo que lo convierte de errata en avería: al pie de la letra,
+> un pago bueno se habría leído como *«no puedo confirmarlo»*, 503, y la pasarela reintentando
+> para siempre — **ni un pago registrado en los diecisiete**.
+>
+> No es un nombre: es el precio. Reconsultar **exige guardar la llave privada del colegio**, la
+> única credencial de todo esto que toca dinero. Así que hay dos cerraduras de tamaño distinto y no
+> se les exige lo mismo — **la firma del evento es obligatoria** (su secreto, filtrado, sólo regala
+> un formulario) y **la reconsulta es opcional** (la privada toca la cuenta del colegio). Cada pago
+> guarda en `verificado_por` cuál de las dos lo admitió, porque una comprobación opcional sin rastro
+> es una que nadie sabe si está encendida.
+>
+> **El fallo no fue creerse un dato: fue razonar sobre una arquitectura sin abrir la documentación
+> del proveedor**, en el mismo documento cuyas tarifas se midieron una a una.
 >
 > ### Las cuatro trampas que costaron tiempo, para que no lo cuesten otra vez
 >
@@ -115,6 +140,14 @@
 > 4. **El nombre del método entra en un candado.** `postIndex` caía en la cohorte de `@postIndex`
 >    —tres públicas por diseño— y `AutorizacionTest` lo delató. El arreglo no fue una excepción:
 >    fue **llamarlo `postAcunar`, que es lo que hace**.
+> 5. **Una ruta pública mueve cinco sitios… y SEIS cuando además escribe.**
+>    `FamiliasQueNuncaEntranTest` cuenta las escrituras que viven en familias que el candado de
+>    familia no mira nunca, y pasó de **22 a 24**. La colilla no lo movió porque sus tres hermanas
+>    llevan guard; `pagos-inscripcion` **no tiene ninguna**. O sea que el «cinco» vale mientras la
+>    familia esté guardada por otro lado: **una familia nueva entera de públicas mueve seis**.
+> 6. **`UploadedFile::fake()` tiene gemelo en el otro sentido**: un test que llama a nuestro propio
+>    método para comprobar una firma **pasa también cuando la fórmula está mal**. Las dos firmas de
+>    la pasarela se comprueban contra la fórmula publicada por Wompi, no contra `Wompi::`.
 >
 > ### Lo que espera a Joseth (no se decide aquí)
 >

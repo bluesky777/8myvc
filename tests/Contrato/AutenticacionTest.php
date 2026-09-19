@@ -83,6 +83,24 @@ class AutenticacionTest extends CasoDeContrato
         // comprobantes por orden y uno solo pendiente, que es lo único que no se
         // reinicia con el reloj. Doc 41 §5; autorizada por Joseth el 19 sep 2026.
         ['POST',   'colillas-inscripcion/{codigo}'],
+
+        // **La decimocuarta y la decimoquinta: el pago en línea del mismo
+        // formulario.** La primera la abre la familia —el mismo aspirante sin
+        // cuenta de la de arriba— y la segunda **no la llama una persona**: la
+        // llama el servidor de la pasarela, así que no hay ninguna sesión que
+        // exigir y ningún token que pudiera existir.
+        //
+        // Lo que defiende al webhook no es un guard y el orden importa: primero
+        // la referencia se busca en `pagos_inscripcion` —una consulta indexada
+        // que descarta lo ajeno **sin salir a internet**—, después la firma del
+        // evento, que es obligatoria, y sólo entonces la reconsulta a la pasarela
+        // con la llave privada, si el colegio la dio. Al checkout lo acota el
+        // carácter de control del código, el limitador por IP y por código, y el
+        // tope de diez intentos por orden, que es de la fila y no del reloj.
+        //
+        // Doc 41 §7; autorizadas por Joseth el 19 sep 2026.
+        ['POST',   'pagos-inscripcion/{codigo}/checkout'],
+        ['POST',   'pagos-inscripcion/webhook'],
     ];
 
     /**

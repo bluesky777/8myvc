@@ -1,6 +1,8 @@
 [
     "DELETE api/enfermeria/destroy/{id}",
     "POST api/enfermeria/crear-suceso",
+    "POST api/pagos-inscripcion/webhook",
+    "POST api/pagos-inscripcion/{codigo}/checkout",
     "POST api/tardanzas/login",
     "POST api/tardanzas/login/traer-datos-ausencias",
     "POST api/tardanzas/subir",

@@ -133,6 +133,46 @@ class RouteServiceProvider extends ServiceProvider
             ];
         });
 
+        /*
+         * El checkout del pago en línea del formulario. Mismo reparto que
+         * `colilla` —por IP y por código a la vez— y por los mismos dos agujeros:
+         * el de IP corta al que abre checkouts en bucle desde un sitio, y el de
+         * código al que reparte la carga entre muchas IPs contra el mismo
+         * formulario.
+         *
+         * **Y tampoco aquí es la defensa principal.** El tope de verdad es que una
+         * orden admite DIEZ intentos de pago, que es una regla de la fila y no se
+         * reinicia con el reloj. Veinte por hora es más de lo que hace una familia
+         * —lo intenta, se le cae el banco, lo vuelve a intentar— y sigue cortando
+         * el abuso por órdenes de magnitud.
+         */
+        RateLimiter::for('checkout-inscripcion', function (Request $request) {
+            return [
+                Limit::perHour(20)->by('ip:'.$request->ip()),
+                Limit::perHour(20)->by('cod:'.strtoupper(trim((string) $request->route('codigo')))),
+            ];
+        });
+
+        /*
+         * El webhook de la pasarela. **Este limitador es distinto de todos los
+         * demás de este fichero, y conviene ver por qué antes de tocarle el
+         * número.**
+         *
+         * Aquí quien llama no es una persona: es el servidor de la pasarela, desde
+         * unas pocas IPs, y **cortarle una llamada cuesta un pago que no se
+         * registra**. Un 429 le dice que reintente —lo hace—, pero un límite
+         * apretado durante una tanda de matrículas convertiría eso en la norma.
+         *
+         * Por eso va **alto y sólo por IP**: no está aquí para acotar a la
+         * pasarela, sino para que un desconocido no pueda usar esta ruta como
+         * altavoz. Y ni siquiera es lo que lo impide — lo impide que un evento con
+         * una referencia que no es nuestra se descarta con una consulta indexada,
+         * **sin salir a internet**. Esto es el cinturón del tirante.
+         */
+        RateLimiter::for('webhook-inscripcion', function (Request $request) {
+            return Limit::perHour(300)->by($request->ip());
+        });
+
         RateLimiter::for('login', function (Request $request) {
             $identidad = (string) ($request->input('username')
                 ?: $request->input('email')
