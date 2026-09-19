@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\DB;
  * **El caso de abajo es el que de verdad hay que blindar**, y no por simetría:
  * copiar una orden no sólo fabricaría un papel que nadie imprimió — le daría al
  * alumno un código del año nuevo **antes de que nadie se lo entregue**, y entonces
- * la primera reimpresión de verdad reusaría —por el `UNIQUE (year_id, alumno_id)`
+ * la primera reimpresión de verdad reusaría —por el `UNIQUE (year_campana, alumno_id)`
  * que sostiene el get-or-create— un código que jamás salió de la impresora.
  */
 class FormularioDeInscripcionAlCrearElAnioTest extends CasoDeContrato
@@ -63,12 +63,14 @@ class FormularioDeInscripcionAlCrearElAnioTest extends CasoDeContrato
         $ultimo = DB::selectOne('SELECT * FROM years WHERE deleted_at IS NULL ORDER BY year DESC LIMIT 1');
         $alumno = DB::selectOne('SELECT id FROM alumnos WHERE deleted_at IS NULL LIMIT 1');
 
-        // Una de cada modo: la del alumno es la que el `UNIQUE (year_id, alumno_id)`
+        // Una de cada modo: la del alumno es la que el `UNIQUE (year_campana, alumno_id)`
         // vigila, y la suelta es el formulario en blanco que se vendió en ventanilla.
-        DB::insert('INSERT INTO ordenes_inscripcion(codigo, year_id, lote_id, modo, alumno_id, valor, created_at, updated_at)
-            VALUES(?,?,?,?,?,?,NOW(),NOW())', ['TST-AAAAA', $ultimo->id, 'lote-de-prueba', 'antiguos', $alumno->id, 100000]);
-        DB::insert('INSERT INTO ordenes_inscripcion(codigo, year_id, lote_id, modo, alumno_id, valor, created_at, updated_at)
-            VALUES(?,?,?,?,?,?,NOW(),NOW())', ['TST-BBBBB', $ultimo->id, 'lote-de-prueba', 'nuevos', null, 100000]);
+        $campana = ((int) $ultimo->year) + 1;
+
+        DB::insert('INSERT INTO ordenes_inscripcion(codigo, year_id, year_campana, lote_id, modo, alumno_id, valor, created_at, updated_at)
+            VALUES(?,?,?,?,?,?,?,NOW(),NOW())', ['TST-AAAAA', $ultimo->id, $campana, 'lote-de-prueba', 'antiguos', $alumno->id, 100000]);
+        DB::insert('INSERT INTO ordenes_inscripcion(codigo, year_id, year_campana, lote_id, modo, alumno_id, valor, created_at, updated_at)
+            VALUES(?,?,?,?,?,?,?,NOW(),NOW())', ['TST-BBBBB', $ultimo->id, $campana, 'lote-de-prueba', 'nuevos', null, 100000]);
 
         $nuevo = $this->crearElAnioSiguiente($token, $ultimo);
 

@@ -257,7 +257,7 @@ class CentinelaDeLasTablasDelAnioNuevoTest extends TestCase
         // `auditoria`.
         //
         // Y hay una segunda razón que la haría inútil aunque se copiara: el `UNIQUE
-        // (year_id, alumno_id)` que sostiene el get-or-create de la renovación daría al
+        // (year_campana, alumno_id)` que sostiene el get-or-create de la renovación daría al
         // alumno un código del año nuevo **antes de que nadie le imprima nada**, o sea
         // que la primera reimpresión de verdad reusaría un código que nunca se entregó.
         //

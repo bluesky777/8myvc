@@ -34,7 +34,7 @@ use Illuminate\Support\Facades\Schema;
  * - `config_formulario_inscripcion` es aparte porque es **del año, no del
  *   formulario**: la eligió el colegio una vez y la heredan todos los impresos.
  *
- * ## El `UNIQUE (year_id, alumno_id)` ES el get-or-create
+ * ## El `UNIQUE (year_campana, alumno_id)` ES el get-or-create
  *
  * El requisito de Joseth es «un código por alumno y año». Escrito como
  * comprueba-y-luego-inserta, dos secretarías reimprimiendo 5°A a la vez dejan dos
@@ -51,17 +51,21 @@ use Illuminate\Support\Facades\Schema;
  * único**. O sea que el índice obliga a un código por alumno en la renovación y
  * **no estorba** a los formularios en blanco, que son muchos y sin dueño.
  *
- * ## `year_id` es el año de DESTINO, no el del grupo
+ * ## Aquí hay TRES años y conviene no confundirlos
  *
- * Es la distinción que costó una vuelta con el front. En la renovación se elige
- * **el grupo del año actual** —el alumno está en 5°A de 2026— pero el código es
- * **de la campaña de 2027**, que es a lo que la familia se inscribe. Por eso se
- * guardan los dos: `year_id` el de destino y `grupo_id` el de origen, que es lo
- * que permite reimprimir «los de 5°A» el año que viene sin adivinar nada.
+ * Es la distinción que costó una vuelta con el front y otra escribiendo el
+ * controlador:
  *
- * El grupo de destino **no existe todavía y no tiene por qué**: el colegio abre la
- * campaña antes de crear los grupos, medido por el front (13 grupos en el año
- * actual, 0 en el siguiente).
+ *     year_id        la fila de `years` DESDE la que se imprimió. Existe siempre,
+ *                    y por eso es la que lleva la clave ajena.
+ *     year_campana   el año al que la familia se inscribe. Es lo que va impreso y
+ *                    lo que lleva dentro el código. NO es una fila.
+ *     grupo_id       el grupo del año ACTUAL en el que el alumno está hoy, que es
+ *                    desde donde se eligió para reimprimir.
+ *
+ * El grupo de destino **no existe todavía y no tiene por qué**, y la fila del año
+ * de destino tampoco: el colegio abre la campaña antes de crear ni el año ni los
+ * grupos. Medido por el front — 13 grupos en el año actual, 0 en el siguiente.
  *
  * ## `campos` es `text` y no `json`
  *
@@ -97,8 +101,30 @@ return new class extends Migration
             // que importa cuando quien teclea tiene cincuenta papeles delante.
             $tabla->string('codigo', 20);
 
-            // El año de DESTINO (ver cabecera).
+            // El año lectivo DESDE EL QUE se imprimió, o sea la fila de `years` en
+            // la que estaba la sesión. Es la que siempre existe, y por eso es la
+            // que lleva la clave ajena.
             $tabla->unsignedInteger('year_id');
+
+            // El año de la CAMPAÑA: el que va impreso en el papel y dentro del
+            // propio código (`2027-4K7M2X`).
+            //
+            // **Es una columna y no `year_id + 1`, y eso lo descubrió el
+            // controlador, no el diseño.** Dos motivos, y el segundo es el que
+            // manda:
+            //
+            // 1. La fila de `years` del año que viene **puede no existir todavía**.
+            //    El colegio abre la campaña en septiembre y crea el año nuevo
+            //    después, así que una clave ajena al año de destino haría
+            //    imposible justo el caso normal.
+            // 2. **La campaña no siempre es la del año siguiente.** Un aspirante
+            //    que entra a mitad de curso —el estado `ASIS`, que existe y se usa—
+            //    se inscribe al año EN CURSO. Derivarlo con un `+1` imprimiría 2027
+            //    en el formulario de alguien que entra en 2026.
+            //
+            // No lleva clave ajena a propósito: es el año de un papel, no de una
+            // fila.
+            $tabla->unsignedSmallInteger('year_campana');
 
             // El lote impreso. Sin esto, recargar la pantalla vuelve a acuñar y
             // una impresora atascada cuesta diez códigos.
@@ -139,7 +165,13 @@ return new class extends Migration
 
             // El get-or-create de la renovación (ver cabecera). NULL repetido está
             // permitido, así que no estorba al modo `nuevos`.
-            $tabla->unique(['year_id', 'alumno_id'], 'ordenes_inscripcion_alumno_anio');
+            //
+            // Va sobre `year_campana` y NO sobre `year_id`: «un código por alumno y
+            // año» es del año al que se inscribe, no del año desde el que se
+            // imprimió el papel. Con `year_id`, imprimir en diciembre de 2026 y
+            // luego en enero de 2027 la misma campaña daría dos códigos al mismo
+            // alumno — que es exactamente lo que este índice viene a impedir.
+            $tabla->unique(['year_campana', 'alumno_id'], 'ordenes_inscripcion_alumno_campana');
 
             // Reimprimir un lote, que es la única lectura por lote.
             $tabla->index('lote_id', 'ordenes_inscripcion_lote');
