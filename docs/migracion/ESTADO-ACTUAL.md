@@ -38,12 +38,46 @@
 >    por fuera y entrar después **no sirve, y no avisa**: la primera medida salió con las diez
 >    casillas grises y **se leía como un fallo del semáforo**.
 >
->    > **El mecanismo NO está confirmado, y las dos fuentes discrepan.** Buscado desde este lado:
->    > el único escritor de `users.periodo_id` por ese camino es `ContextoDeUsuario:42`, y **sólo
->    > actúa cuando `periodo_id` viene vacío** —no reescribe uno puesto—. O sea que el efecto está
->    > medido y la explicación no, y uno de los dos está mirando mal. *Se anota como hallazgo en
->    > vez de resolverse por decreto.* Lo que vale igual sin saber el mecanismo: **preparar el año
->    > DESPUÉS de entrar, y comprobar qué año te tocó antes de creerte el papel.**
+>    > **RESUELTO, y el mecanismo es explícito y está documentado en su propio sitio.** Es
+>    > `App\Services\Login::ponerEnElPeriodoActual()` (`app/Services/Login.php:194`, el `UPDATE`
+>    > en el **216**), que llama `entrar()` en cada login como `'cambia_anio' => …`:
+>    >
+>    > ```php
+>    > if ($anio->id != $fila->year_id || $periodo->id != $fila->periodo_id) {
+>    >     DB::update('UPDATE users SET periodo_id=? WHERE id=?', [$periodo->id, $fila->id]);
+>    >     return (int) $periodo->id;
+>    > }
+>    > ```
+>    >
+>    > Su docblock lo dice con todas las letras: *«Si el usuario se quedó en el periodo de otro
+>    > año, se le pasa al actual»*. Así que **no es que `useractive` no mande sobre `actual`: es
+>    > que el login te devuelve al actual a propósito, y además te lo dice** en la respuesta. Lo
+>    > encontró `myvc-front-a7`, y hay dos pruebas independientes —su medición leyendo
+>    > `users.periodo_id` por SQL antes y después de un login, y este código—.
+>
+>    > ### ⚠️ Y POR QUÉ NO LO ENCONTRÉ YO: UN `| head -8`, Y LA REGLA SE ESCRIBIÓ ESTA MAÑANA
+>    >
+>    > Al buscar el escritor desde este lado concluí que *«el único es `ContextoDeUsuario:42`»* y
+>    > que **no había otro**. La explicación que me ofrecieron —que el nombre del campo vive dentro
+>    > de una cadena SQL y el `grep` no lo alcanza— **es falsa y conviene no quedarse con ella**:
+>    > `periodo_id=?` casa perfectamente con el patrón que usé.
+>    >
+>    > Lo que pasó es que la orden acababa en **`| head -8`** y devolvía **14 líneas**.
+>    > `Services/Login.php` era **la línea 14**. Recontado sin truncar:
+>    >
+>    > ```bash
+>    > grep -rn "periodo_id\s*=" app/Http/Controllers/*.php app/Services/*.php \
+>    >   | grep -iE "user|->save|UPDATE users" | wc -l      # 14, no 8
+>    > ```
+>    >
+>    > Es **la cuarta forma en que un detector miente**, que está en `CLAUDE.md` desde `47553e8`
+>    > —el commit que era `HEAD` cuando empezó esta sesión— y que dice literalmente *«un número se
+>    > cuenta con `wc -l`, y la lista se enseña aparte; nunca de una orden que acabe en `| head`»*.
+>    > Y es la forma más cara de las cuatro por lo que aquel texto ya avisaba: **la salida sale
+>    > plausible y del tamaño que esperabas**, así que nada te invita a mirar.
+>    >
+>    > *Un aviso escrito no protege solo; sólo protege el día que alguien hace lo que dice* — y
+>    > aquí no lo hizo quien lo tenía delante desde el primer minuto de la sesión.
 >
 > 2. **El `periodo_a_calcular` de la URL no elige el periodo**: sale de la fila de `users`. Pedir
 >    el 2 y recibir el 1 devuelve **el papel de otro periodo y con pinta de correcto**.
