@@ -182,10 +182,23 @@
 >
 > | | |
 > |---|---|
-> | `SUITE_PENDIENTE` | `php artisan test --testsuite=Contrato` en `.worktrees/pla` con `DB_TEST_DATABASE=simonbolivar_testing_pla` |
+> | `Tests: 1 skipped, 2352 passed (22966 assertions)` · 1.136 s | `php artisan test --testsuite=Contrato` en `.worktrees/pla` con `DB_TEST_DATABASE=simonbolivar_testing_pla`, **después** de regenerar las dos instantáneas |
 > | `LaParcialEnLaPlanillaTest`: **10 passed (51 assertions)** · `LaParcialYLaCoberturaTest`: **10 passed** | `--filter="LaParcialEnLaPlanillaTest|LaParcialYLaCoberturaTest" --testsuite=Contrato` |
 > | `PASS 477 files` | `composer run pint:test` |
 > | `[OK] No errors` · 699 ficheros | `composer run stan` (nivel 7), con `COMPOSER_PROCESS_TIMEOUT=0` |
+>
+> > **Se contó DOS veces y la primera se perdió entera.** La pasada de antes de regenerar dio
+> > `2 failed, 1 skipped, 2350 passed` en 1.349 s —los dos rojos eran las dos instantáneas— y la
+> > de después **2352 passed en 1.136 s**. Cuadra con 2350 + 2, pero **no se escribió sumando**:
+> > se volvió a correr, que es la regla de la casa.
+> >
+> > Y antes de esas dos hubo una que **no dejó ninguna cifra**: el `docker exec` murió con
+> > `context canceled` (exit 144) **y el `php` de dentro del contenedor siguió vivo**, con el
+> > fichero de salida en **0 bytes**. Es la trampa de *«matar el `docker exec` no mata el `php`»*
+> > vista desde el otro lado: no es que la suite siguiera corriendo de más, es que **midió
+> > veintidós minutos y no se lo dijo a nadie**. Las dos buenas se lanzaron con
+> > `docker exec -d … > /tmp/pla-suite.log`, detached y escribiendo dentro del contenedor, para
+> > que una desconexión del host no se lleve la medición.
 >
 > ### Lo que queda abierto
 >
