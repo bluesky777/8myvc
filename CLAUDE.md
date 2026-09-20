@@ -961,6 +961,36 @@ leyendo el código. Cada una lleva su uso en la cabecera.
 > exacto contra el que corrió y su hora, no con el nombre de una rama.** *«Sobre
 > `main`»* no es reproducible con cuatro sesiones moviendo `main`.
 
+> Y una **cuarta**, que es la peor de las cuatro porque el número **no sale raro**:
+> **el detector no se equivoca — lo trunca la orden que lo produce, y no dice que lo
+> truncó.** Visto el 20 sep 2026 entre dos sesiones: un censo de los llamantes de
+> `Grupo::detailed_materias_notafinal` dio **tres**, y son **cinco**. No falló el
+> `grep`: falló el `| head` del final.
+>
+> Las otras tres se cazan porque algo chirría —el número es absurdo, el detector no
+> mide lo que dice su nombre, la pregunta no era la que hacía falta—. Ésta **sale
+> plausible y del tamaño que esperabas**, así que no hay nada que te haga ir a mirar.
+> Y `| head` está en los dedos de cualquiera que explore un repo grande: **el mismo
+> reflejo que hace legible una exploración hace falso un censo.**
+>
+> La regla operativa, que es lo único que hay que recordar: **un número se cuenta con
+> `wc -l`, y la lista se enseña aparte.** Nunca al revés, y nunca de una orden que
+> acabe en `| head`:
+>
+> ```bash
+> grep -rn "<lo que sea>" app/ | wc -l     # el número: esto es lo que se publica
+> grep -rn "<lo que sea>" app/             # la lista: esto es para leerla
+> ```
+>
+> **Y la segunda mitad, que es la que la hace creíble: quien la escribe repasa los
+> suyos.** Esta sesión había usado `| head` ese mismo día para concluir que
+> `editable_por_profe_id` **no la escribe nadie**, y de ahí salió una decisión de
+> diseño —`mi_estacion` devuelve `null` en vez de deducirse de esa columna—. Recontado
+> sin truncar: **7 apariciones, ninguna es escritura**, así que la decisión se
+> sostiene. *Pero eso se supo comprobándolo, no recordando que parecía bien* — y el
+> `head` de aquel día mostraba cinco de cinco, o sea que **la salida era idéntica a la
+> de un censo truncado**.
+
 > **Antes de pasarle Pint a un fichero de `tools/`: correr `stan` detrás.** `tools/`
 > **no está en el script `pint` de `composer.json`** —nunca se ha formateado— y
 > **ninguna suite lo ejecuta**, así que aquí Pint puede romper en tiempo de ejecución
