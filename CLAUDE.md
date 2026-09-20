@@ -607,6 +607,7 @@ leyendo el código. Cada una lleva su uso en la cabecera.
 | `deriva-del-horario.php` | si las siete columnas de día siguen cuadrando con la versión oficial — **sin versión publicada sale `2`, NO MEDIDO**, porque ahí un `0` diría lo mismo que un año perfecto |
 | `ensayo-de-la-tanda.sh` | si la tanda de migraciones corre entera sobre una copia de un colegio de verdad y cuánto tarda — y **audita la comprobación de `DESPLIEGUE.md`**, que la saca del documento con `grep` en vez de copiarla |
 | `comprobar-el-horario.php` | si el módulo de horario **llegó** a un colegio: `200` con `total: 0` no es lo mismo que `404` ni que `500`, y desde la pantalla los tres son una rejilla vacía |
+| `imports-de-facades.php` | qué `use` resuelven por el array `aliases` en vez de por el nombre completo — **`--dry-run` NO es opcional: sin él ESCRIBE** |
 | `requisitos-de-matricula.php` | cómo usa un colegio **de verdad** los requisitos: cuántos pasos, en qué orden, con qué dueño y cuántos se cierran — **imprime el nombre de la base en cada bloque**, porque en desarrollo sale 1 paso y 0 cerrados y eso contesta bien a otra pregunta |
 | `lo-que-reparte-una-columna.py` | qué instantáneas se mueven el día que una tabla gane una columna — **cobertura, no exposición**: son los ficheros que hay que regenerar, no las respuestas que ganan la columna |
 | `ensayo-del-alter-en-maria.sh` | si el `ALTER` de la casilla vacía bloquea el guardado de notas en **MariaDB**, que es lo que corre producción — **la señal no es que la escritura falle, es la LATENCIA**, así que trae su propio control que sí bloquea (`COPY, LOCK=SHARED`) |
@@ -890,6 +891,51 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
   > es un adorno del número: aquí es lo único que distingue «deuda conocida» de «algo se
   > rompió».*
   >
+  > ### ⚠️ PINT DEJA `use Log;` EN LOS CONTROLADORES VIEJOS, Y ESO PONE LA SUITE EN ROJO
+  >
+  > **Visto TRES veces, en tres ficheros y por tres sesiones distintas**, así que ya no es el
+  > descuido de nadie: es lo que hace Pint con estos ficheros.
+  >
+  > ```
+  > 19 sep 2026   UnidadesController   el Pint de la P6            3ce3056
+  > 19 sep 2026   ImporterFixer        el mismo día, otro fichero  e4686ba
+  > 20 sep 2026   AlumnosController    el Pint de los perfiles     2503b27
+  > ```
+  >
+  > Lo que pasa es esto: el fichero viejo usa `Log::info(...)` sin importar nada —resolvía por el
+  > array `aliases` de `config/app.php`—, Pint ordena los `use` y **añade `use Log;`**, que sigue
+  > resolviendo por el alias en vez de por el nombre completo. **No rompe en ejecución**, así que
+  > el fichero funciona; lo que se pone rojo es `AliasDeFacadesTest`, y **en la testsuite `Unit`**,
+  > que es justo la que no corre quien publica con `--testsuite=Contrato`.
+  >
+  > **Después de pintar un controlador viejo, una orden:**
+  >
+  > ```bash
+  > php tools/imports-de-facades.php --dry-run      # dice qué resolvería por el alias
+  > php tools/imports-de-facades.php                # ⚠️ SIN EL FLAG, ESCRIBE
+  > ```
+  >
+  > **`--dry-run` no es opcional y el nombre de la herramienta no lo sugiere**: sin él no es un
+  > informe, es una reparación, y en un árbol compartido eso le deja a otro un fichero cambiado que
+  > no tocó. Lo descubrió `8myvc-9a` el 20 sep corriéndola para *ver el alcance* y encontrándose el
+  > fichero ya arreglado.
+
+  > ### Y LA FAMILIA ENTERA: UN TEST QUE LEE UN FICHERO COMO FUENTE SE ROMPE AL FORMATEARLO
+  >
+  > El caso de arriba es uno de dos vistos el mismo día. El otro:
+  > **`PoblacionDePerfilesTest` buscaba `/\n\tpublic function/` — con un TABULADOR**, así que
+  > pintar `PerfilesController` lo puso rojo diciendo que habían cambiado los métodos que nombran
+  > grupos. **No cambió ninguno**: cambió la indentación.
+  >
+  > *Un test que mira el código como texto mide el formato aunque crea que mide el código.*
+  >
+  > **La orden, que es lo único que hay que recordar de esto** — antes de pintar un fichero,
+  > mirar quién lo lee como fuente:
+  >
+  > ```bash
+  > grep -rl "<NombreDelFichero>" tests/
+  > ```
+
   > **La confusión cara es la segunda**, no la tercera: quien corre `composer run pint`
   > *para comprobar* **reformatea ficheros sin pedirlo**. En un árbol que comparten
   > varias sesiones eso no rompe nada por sí solo —formatear no estaña— pero **le deja a
