@@ -91,7 +91,7 @@
 > |---|---|
 > | Ficheros | `app/Models/Asignatura.php`, `app/Models/Nota.php`, `PlanillasController`, `DetallesController`, `EditnotaController`, `Informes/NotasPerdidasController`, `Informes/PlanillasAusenciasController`, `tests/Contrato/LaParcialEnLaPlanillaTest.php`, `tests/Contrato/Concerns/LaPlanillaDelLienzo.php`, `tests/Contrato/LaParcialYLaCoberturaTest.php`, docs 43 y éste |
 > | Rutas · columnas · migraciones · clientes | **0 · 0 · 0 · 0** |
-> | Instantáneas movidas | **2 de 129** — `muestreo-notas-perdidas-show-profesor` y `muestreo-planillas-ausencias-show-profesor`, que son las dos únicas de los seis lectores; ganan `nota_parcial` y `cobertura` dentro de `alumnos[].periodos[]` |
+> | Instantáneas movidas | **2 de 129**, CONTADO con la suite entera y no previsto — `muestreo-notas-perdidas-show-profesor` y `muestreo-planillas-ausencias-show-profesor`, las dos únicas de los seis lectores. **El diff de cada una es +2 líneas y nada más**: `nota_asignatura` queda intacta, que es la prueba de que la acumulada no se movió |
 > | `composer.json` | **no se tocó** (ver «lo que queda abierto», punto 3) |
 >
 > ### Los seis lectores, censados — y cuál NO los gana
@@ -143,6 +143,15 @@
 > calificada con 0: las dos que valen 0 son `null`, así que las dos escrituras daban idénticos los
 > tres números. Se añadió `test_un_cero_tecleado_si_cuenta_en_el_divisor` —son **3.940** ceros
 > tecleados en la copia— y con él las cuatro mutaciones probadas ponen en rojo **1, 5, 1 y 3** casos.
+>
+> ### La cobertura llega al cliente como `int` en los extremos, y yo había escrito lo contrario
+>
+> El código castea a `(float)`, y **eso no fija el tipo en el JSON**: sin
+> `JSON_PRESERVE_ZERO_FRACTION`, `json_encode(0.0)` sale `0` y `json_encode(1.0)` sale `1`. La
+> instantánea regenerada lo dice: `cobertura` es **`int|null`** —en el seed sólo salen 0 y 1— y
+> `nota_parcial` es `float|int|null`. **Es lo que le pasa a `nota_asignatura` desde siempre**
+> (`float|int`), así que no es nuevo; pero el comentario del método decía que el cast servía para
+> eso y **era falso**. Corregido. *Una instantánea contestó una pregunta que yo no le había hecho.*
 >
 > ### Coste: cero, y medido con los contadores porque el reloj no puede
 >

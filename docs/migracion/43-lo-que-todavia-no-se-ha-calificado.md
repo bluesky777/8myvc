@@ -642,6 +642,31 @@ cincuenta veces `0,7*0,3` en coma flotante mete un error que reaparece en el coc
 y `0.35` con `===`— desde PHP, que es la única forma de que un caso de contrato pueda afirmar
 un decimal en vez de un margen.
 
+#### Las instantáneas: **2 de 129**, y el diff es la prueba de que la acumulada no se movió
+
+Las dos son las únicas de los seis lectores que comparan instantánea:
+`muestreo-notas-perdidas-show-profesor` y `muestreo-planillas-ausencias-show-profesor`. El
+diff de cada una es **+2 líneas y nada más** —ni una quitada, ni una cambiada—:
+
+```
+                              'nota_asignatura' => 'float|int',      ← INTACTA
+  +                           'cobertura' => 'int|null',
+  +                           'nota_parcial' => 'float|int|null',
+```
+
+Las otras dos rutas que ganan los campos —`detalles/grupos-periodos` y
+`editnota/detailed-notas`— **no tienen instantánea**, y las de boletines y
+`editnota-alum-asignatura` van por caminos que esta fase no toca.
+
+> **Y ese `int|null` de la cobertura desmiente un comentario que yo había escrito.** El código
+> castea a `(float)`, pero **eso no fija el tipo en el JSON**: sin `JSON_PRESERVE_ZERO_FRACTION`,
+> `json_encode(0.0)` sale `0` y `json_encode(1.0)` sale `1`, así que en los extremos al cliente
+> le llegan **enteros**. En el seed la cobertura sólo sale 0 y 1, de ahí `int|null`. **Es
+> exactamente lo que le pasa a `nota_asignatura` desde siempre** (`float|int`), así que no es
+> nuevo ni es un fallo — pero quien lo lea en el front **compara valores, no tipos**. El
+> comentario está corregido en el método. *Una instantánea contestó una pregunta que yo no le
+> había hecho.*
+
 #### Lo que cuesta, medido — **cero, y con los contadores, no con el reloj**
 
 *Sobre `simonbolivar`, en la asignatura más cargada de la copia (432, periodo 10 — 986 notas,

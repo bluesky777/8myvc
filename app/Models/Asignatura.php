@@ -392,9 +392,17 @@ class Asignatura extends Model {
 			: (float) (($nota_asignatura * 10000) / $peso_evaluado);
 
 		// Aquí los dos 10.000 se cancelan solos, así que la cobertura es el cociente
-		// exacto de dos enteros. El `(float)` es para que el tipo no baile en el JSON:
-		// PHP devuelve `int` cuando la división es exacta —`0/100` y `100/100`—, y una
-		// cobertura que a veces es `0` y a veces `0.35` le cambia el tipo al cliente.
+		// exacto de dos enteros. El `(float)` está porque PHP devuelve `int` cuando la
+		// división es exacta —`0/100` y `100/100`—, y dentro de PHP conviene que las dos
+		// ramas del mismo campo tengan el mismo tipo.
+		//
+		// **Lo que NO hace es fijar el tipo en el JSON, y conviene no creérselo**: sin
+		// `JSON_PRESERVE_ZERO_FRACTION`, `json_encode(0.0)` sale `0` y `json_encode(1.0)`
+		// sale `1`, así que al cliente le llegan enteros en los extremos. Medido el 20 sep
+		// 2026: la instantánea de `notas-perdidas/show-profesor` registra `cobertura` como
+		// **`int|null`** —en el seed sólo salen 0 y 1— y `nota_parcial` como
+		// `float|int|null`. Es exactamente lo que ya le pasa a `nota_asignatura`, que lleva
+		// años siendo `float|int`. Quien lea esto en el front **compara valores, no tipos**.
 		$asignatura->cobertura = $peso_total === 0
 			? null
 			: (float) ($peso_evaluado / $peso_total);

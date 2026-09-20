@@ -30,6 +30,7 @@
                     "periodos": [
                         {
                             "actual": "int",
+                            "cobertura": "int|null",
                             "created_at": "null|string",
                             "created_by": "null",
                             "deleted_at": "null",
@@ -39,6 +40,7 @@
                             "fecha_plazo": "null",
                             "id": "int",
                             "nota_asignatura": "float|int",
+                            "nota_parcial": "float|int|null",
                             "numero": "int",
                             "profes_pueden_editar_notas": "int",
                             "profes_pueden_nivelar": "int",
