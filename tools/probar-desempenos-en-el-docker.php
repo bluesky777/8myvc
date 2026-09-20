@@ -40,7 +40,7 @@ $kernel->bootstrap();
 const USUARIO_DE_PRUEBA = 'docente-de-prueba-desempenos';
 const CLAVE_DE_PRUEBA = 'prueba-desempenos-1234';
 
-function pedir(string $metodo, string $uri, array $cuerpo = [], ?string $token = null): array
+function pedirDesempenos(string $metodo, string $uri, array $cuerpo = [], ?string $token = null): array
 {
     global $kernel;
 
@@ -63,7 +63,7 @@ function pedir(string $metodo, string $uri, array $cuerpo = [], ?string $token =
     ];
 }
 
-function contar(string $rotulo, array $r, $extra = null): void
+function contarDesempenos(string $rotulo, array $r, $extra = null): void
 {
     echo sprintf('  %-56s %d', $rotulo, $r['estado']).($extra === null ? '' : '   '.$extra).PHP_EOL;
 }
@@ -74,14 +74,14 @@ function contar(string $rotulo, array $r, $extra = null): void
  * se come un 429 y lo que se ve es «FALLÓ», que no dice nada. Con el reintento y
  * el código impreso, un 429 se distingue de una contraseña mala.
  */
-function token(string $usuario, string $clave): ?string
+function tokenDesempenos(string $usuario, string $clave): ?string
 {
     foreach ([0, 5, 15, 40] as $espera) {
         if ($espera > 0) {
             sleep($espera);
         }
 
-        $r = pedir('POST', '/api/login/credentials', ['username' => $usuario, 'password' => $clave]);
+        $r = pedirDesempenos('POST', '/api/login/credentials', ['username' => $usuario, 'password' => $clave]);
 
         if (isset($r['cuerpo']['el_token'])) {
             return $r['cuerpo']['el_token'];
@@ -106,7 +106,7 @@ echo 'base:  '.config('database.connections.'.config('database.default').'.datab
 // ── Limpieza de entrada, por si una ejecución anterior murió a medias ─────────
 DB::table('users')->where('username', USUARIO_DE_PRUEBA)->delete();
 
-$tokenJefe = token('administrador', 'patreongreat');
+$tokenJefe = tokenDesempenos('administrador', 'patreongreat');
 
 if ($tokenJefe === null) {
     echo 'Sin token de administrador no se puede seguir.'.PHP_EOL;
@@ -131,7 +131,7 @@ $usuarioId = DB::table('users')->insertGetId([
     'updated_at' => now(),
 ]);
 
-$tokenDocente = token(USUARIO_DE_PRUEBA, CLAVE_DE_PRUEBA);
+$tokenDocente = tokenDesempenos(USUARIO_DE_PRUEBA, CLAVE_DE_PRUEBA);
 echo '  token del docente llano: '.($tokenDocente === null ? 'FALLÓ' : 'ok').PHP_EOL;
 
 if ($tokenDocente === null) {
@@ -164,11 +164,11 @@ $filasAntes = array_column(DB::select('SELECT id FROM desempenos'), 'id');
 
 echo PHP_EOL.'── El plan de área del colegio (siete rutas) ──'.PHP_EOL;
 
-$r = pedir('GET', '/api/desempenos/plantilla', [], $tokenJefe);
-contar('GET  desempenos/plantilla', $r, 'year_id='.($r['cuerpo']['year_id'] ?? '?')
+$r = pedirDesempenos('GET', '/api/desempenos/plantilla', [], $tokenJefe);
+contarDesempenos('GET  desempenos/plantilla', $r, 'year_id='.($r['cuerpo']['year_id'] ?? '?')
     .' · filas='.count($r['cuerpo']['desempenos'] ?? []));
 
-$r = pedir('POST', '/api/desempenos/plantilla', [
+$r = pedirDesempenos('POST', '/api/desempenos/plantilla', [
     'materia_id' => $materia->id,
     'grado_id' => $molde->grado_id,
     'periodo_id' => $periodo->id,
@@ -176,40 +176,40 @@ $r = pedir('POST', '/api/desempenos/plantilla', [
     'tipo' => 'Saber hacer',
     'definicion' => 'Identifica los tipos de triángulo y los clasifica.',
 ], $tokenJefe);
-contar('POST desempenos/plantilla', $r, 'id='.($r['cuerpo']['id'] ?? '?').' · tipo='.($r['cuerpo']['tipo'] ?? '?'));
+contarDesempenos('POST desempenos/plantilla', $r, 'id='.($r['cuerpo']['id'] ?? '?').' · tipo='.($r['cuerpo']['tipo'] ?? '?'));
 $delPlan = $r['cuerpo']['id'] ?? null;
 
-$r = pedir('POST', '/api/desempenos/plantilla', [
+$r = pedirDesempenos('POST', '/api/desempenos/plantilla', [
     'materia_id' => $materia->id,
     'grado_id' => null,
     'periodo_id' => $periodo->id,
     'definicion' => 'Para todos los grados: participa con respeto.',
 ], $tokenJefe);
-contar('POST desempenos/plantilla (grado NULL)', $r, 'id='.($r['cuerpo']['id'] ?? '?'));
+contarDesempenos('POST desempenos/plantilla (grado NULL)', $r, 'id='.($r['cuerpo']['id'] ?? '?'));
 
-$r = pedir('PUT', '/api/desempenos/plantilla/'.$delPlan, ['definicion' => 'Corregido el texto.'], $tokenJefe);
-contar('PUT  desempenos/plantilla/{id}', $r, '«'.($r['cuerpo']['definicion'] ?? '?').'»');
+$r = pedirDesempenos('PUT', '/api/desempenos/plantilla/'.$delPlan, ['definicion' => 'Corregido el texto.'], $tokenJefe);
+contarDesempenos('PUT  desempenos/plantilla/{id}', $r, '«'.($r['cuerpo']['definicion'] ?? '?').'»');
 
-$r = pedir('PUT', '/api/desempenos/plantilla/orden', [
+$r = pedirDesempenos('PUT', '/api/desempenos/plantilla/orden', [
     'materia_id' => $materia->id, 'grado_id' => $molde->grado_id, 'periodo_id' => $periodo->id,
     'orden' => [$delPlan],
 ], $tokenJefe);
-contar('PUT  desempenos/plantilla/orden', $r, 'reordenados='.($r['cuerpo']['reordenados'] ?? '?'));
+contarDesempenos('PUT  desempenos/plantilla/orden', $r, 'reordenados='.($r['cuerpo']['reordenados'] ?? '?'));
 
-$r = pedir('PUT', '/api/desempenos/plantilla/copiar', [
+$r = pedirDesempenos('PUT', '/api/desempenos/plantilla/copiar', [
     'destino' => ['materia_id' => $materia->id, 'periodo_id' => $periodo->id],
     'origen' => ['tipo' => 'men'],
 ], $tokenJefe);
-contar('PUT  plantilla/copiar origen "men" (tiene que ser 422)', $r);
+contarDesempenos('PUT  plantilla/copiar origen "men" (tiene que ser 422)', $r);
 echo '        motivo: '.mb_substr((string) ($r['cuerpo']['message'] ?? ''), 0, 110).PHP_EOL;
 
-$r = pedir('PUT', '/api/desempenos/sembrar', [], $tokenJefe);
-contar('PUT  desempenos/sembrar', $r, json_encode($r['cuerpo']));
+$r = pedirDesempenos('PUT', '/api/desempenos/sembrar', [], $tokenJefe);
+contarDesempenos('PUT  desempenos/sembrar', $r, json_encode($r['cuerpo']));
 
 echo PHP_EOL.'── La planilla del docente (cinco rutas) ──'.PHP_EOL;
 
-$r = pedir('GET', "/api/desempenos?asignatura_id={$asignaturaId}&periodo_id={$periodo->id}", [], $tokenDocente);
-contar('GET  desempenos (docente llano)', $r, 'trae='.count($r['cuerpo']['desempenos'] ?? []));
+$r = pedirDesempenos('GET', "/api/desempenos?asignatura_id={$asignaturaId}&periodo_id={$periodo->id}", [], $tokenDocente);
+contarDesempenos('GET  desempenos (docente llano)', $r, 'trae='.count($r['cuerpo']['desempenos'] ?? []));
 
 $sembrados = array_values(array_filter(
     $r['cuerpo']['desempenos'] ?? [],
@@ -219,25 +219,25 @@ $delColegio = $sembrados[0]['id'] ?? null;
 
 echo '        por_defecto=1 sembrados: '.count($sembrados).PHP_EOL;
 
-$r = pedir('POST', '/api/desempenos', [
+$r = pedirDesempenos('POST', '/api/desempenos', [
     'asignatura_id' => $asignaturaId,
     'periodo_id' => $periodo->id,
     'definicion' => 'El que añade el docente porque al área se le olvidó.',
 ], $tokenDocente);
-contar('POST desempenos (el suyo)', $r, 'id='.($r['cuerpo']['id'] ?? '?')
+contarDesempenos('POST desempenos (el suyo)', $r, 'id='.($r['cuerpo']['id'] ?? '?')
     .' · por_defecto='.($r['cuerpo']['por_defecto'] ?? '?'));
 $suyo = $r['cuerpo']['id'] ?? null;
 
-$r = pedir('PUT', '/api/desempenos/'.$suyo, ['definicion' => 'Con otro texto.'], $tokenDocente);
-contar('PUT  desempenos/{id} (el suyo)', $r);
+$r = pedirDesempenos('PUT', '/api/desempenos/'.$suyo, ['definicion' => 'Con otro texto.'], $tokenDocente);
+contarDesempenos('PUT  desempenos/{id} (el suyo)', $r);
 
 echo PHP_EOL.'── El candado de la D14: los TRES caminos, con el docente llano ──'.PHP_EOL;
 
-$r = pedir('PUT', '/api/desempenos/'.$delColegio, ['definicion' => 'Se lo cambio yo.'], $tokenDocente);
-contar('PUT    el del colegio  (tiene que ser 403)', $r);
+$r = pedirDesempenos('PUT', '/api/desempenos/'.$delColegio, ['definicion' => 'Se lo cambio yo.'], $tokenDocente);
+contarDesempenos('PUT    el del colegio  (tiene que ser 403)', $r);
 
-$r = pedir('DELETE', '/api/desempenos/'.$delColegio, [], $tokenDocente);
-contar('DELETE el del colegio  (tiene que ser 403)', $r);
+$r = pedirDesempenos('DELETE', '/api/desempenos/'.$delColegio, [], $tokenDocente);
+contarDesempenos('DELETE el del colegio  (tiene que ser 403)', $r);
 
 /*
  * **La lista de `orden` tiene que traer TODOS los vivos del grupo**, así que se
@@ -245,40 +245,40 @@ contar('DELETE el del colegio  (tiene que ser 403)', $r);
  * parcial lo que contesta es 422 —que también está bien— y no se vería el candado,
  * que es lo que esta prueba viene a mirar.
  */
-$planilla = pedir('GET', "/api/desempenos?asignatura_id={$asignaturaId}&periodo_id={$periodo->id}", [], $tokenDocente);
+$planilla = pedirDesempenos('GET', "/api/desempenos?asignatura_id={$asignaturaId}&periodo_id={$periodo->id}", [], $tokenDocente);
 $enOrden = array_column($planilla['cuerpo']['desempenos'] ?? [], 'id');
 $movidos = $enOrden;
 [$movidos[0], $movidos[count($movidos) - 1]] = [$movidos[count($movidos) - 1], $movidos[0]];
 
-$r = pedir('PUT', '/api/desempenos/orden', [
+$r = pedirDesempenos('PUT', '/api/desempenos/orden', [
     'asignatura_id' => $asignaturaId, 'periodo_id' => $periodo->id,
     'orden' => $movidos,
 ], $tokenDocente);
-contar('PUT    orden moviéndolo (tiene que ser 403)', $r);
+contarDesempenos('PUT    orden moviéndolo (tiene que ser 403)', $r);
 
 $vivo = DB::selectOne('SELECT por_defecto, deleted_at, definicion FROM desempenos WHERE id = ?', [$delColegio]);
 echo '        y la fila del colegio sigue: por_defecto='.$vivo->por_defecto
     .' · borrada='.($vivo->deleted_at === null ? 'no' : 'SÍ').PHP_EOL;
 
-$r = pedir('PUT', '/api/desempenos/orden', [
+$r = pedirDesempenos('PUT', '/api/desempenos/orden', [
     'asignatura_id' => $asignaturaId, 'periodo_id' => $periodo->id,
     'orden' => $enOrden,
 ], $tokenDocente);
-contar('PUT    orden SIN moverlo (tiene que ser 200)', $r, 'reordenados='.($r['cuerpo']['reordenados'] ?? '?'));
+contarDesempenos('PUT    orden SIN moverlo (tiene que ser 200)', $r, 'reordenados='.($r['cuerpo']['reordenados'] ?? '?'));
 
-$r = pedir('PUT', '/api/desempenos/'.$delColegio, [
+$r = pedirDesempenos('PUT', '/api/desempenos/'.$delColegio, [
     'definicion' => $vivo->definicion,
 ], $tokenDocente);
-contar('PUT    guardar sin cambiar nada (tiene que ser 200)', $r);
+contarDesempenos('PUT    guardar sin cambiar nada (tiene que ser 200)', $r);
 
 echo PHP_EOL.'── El periodo cerrado, que lo está para todos ──'.PHP_EOL;
 DB::table('periodos')->where('id', $periodo->id)->update(['profes_pueden_editar_notas' => 0]);
 
-$r = pedir('PUT', '/api/desempenos/'.$suyo, ['definicion' => 'No.'], $tokenDocente);
-contar('PUT    el suyo, periodo cerrado (403)', $r);
+$r = pedirDesempenos('PUT', '/api/desempenos/'.$suyo, ['definicion' => 'No.'], $tokenDocente);
+contarDesempenos('PUT    el suyo, periodo cerrado (403)', $r);
 
-$r = pedir('PUT', '/api/desempenos/'.$suyo, ['definicion' => 'Tampoco.'], $tokenJefe);
-contar('PUT    el suyo, periodo cerrado, CON permiso (403)', $r);
+$r = pedirDesempenos('PUT', '/api/desempenos/'.$suyo, ['definicion' => 'Tampoco.'], $tokenJefe);
+contarDesempenos('PUT    el suyo, periodo cerrado, CON permiso (403)', $r);
 
 // ── Deshacer todo lo que esta prueba escribió ────────────────────────────────
 DB::table('periodos')->where('id', $periodo->id)->update(['profes_pueden_editar_notas' => $abierto]);

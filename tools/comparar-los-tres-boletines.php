@@ -54,7 +54,7 @@ $kernel->bootstrap();
  *
  * @return array{estado: int, cuerpo: mixed, ms: float, consultas: int}
  */
-function pedirMidiendo(string $metodo, string $uri, array $cuerpo = [], ?string $token = null): array
+function pedirMidiendoTresBoletines(string $metodo, string $uri, array $cuerpo = [], ?string $token = null): array
 {
     global $kernel;
 
@@ -85,14 +85,14 @@ function pedirMidiendo(string $metodo, string $uri, array $cuerpo = [], ?string 
     ];
 }
 
-function token(string $usuario, string $clave): ?string
+function tokenTresBoletines(string $usuario, string $clave): ?string
 {
     foreach ([0, 5, 15, 40] as $espera) {
         if ($espera > 0) {
             sleep($espera);
         }
 
-        $r = pedirMidiendo('POST', '/api/login/credentials', ['username' => $usuario, 'password' => $clave]);
+        $r = pedirMidiendoTresBoletines('POST', '/api/login/credentials', ['username' => $usuario, 'password' => $clave]);
 
         if (isset($r['cuerpo']['el_token'])) {
             return $r['cuerpo']['el_token'];
@@ -134,7 +134,7 @@ function caminos($valor, string $pre = '', array &$salida = [], int $prof = 0): 
 echo 'árbol: '.realpath(__DIR__.'/..').PHP_EOL;
 echo 'base:  '.config('database.connections.'.config('database.default').'.database').PHP_EOL.PHP_EOL;
 
-$jefe = token('administrador', 'patreongreat');
+$jefe = tokenTresBoletines('administrador', 'patreongreat');
 
 if ($jefe === null) {
     echo 'Sin token no se puede seguir.'.PHP_EOL;
@@ -178,7 +178,7 @@ $cuerpo = ['requested_alumnos' => [['alumno_id' => $alumno->alumno_id]], 'period
 
 $r = [];
 foreach (['boletines', 'boletines2', 'boletines3'] as $fam) {
-    $r[$fam] = pedirMidiendo('PUT', '/api/'.$fam.'/detailed-notas/'.$grupo->grupo_id, $cuerpo, $jefe);
+    $r[$fam] = pedirMidiendoTresBoletines('PUT', '/api/'.$fam.'/detailed-notas/'.$grupo->grupo_id, $cuerpo, $jefe);
     printf("  %-12s %d   %6.0f ms   %4d consultas   %8d bytes\n",
         $fam, $r[$fam]['estado'], $r[$fam]['ms'], $r[$fam]['consultas'],
         strlen(json_encode($r[$fam]['cuerpo']) ?: ''));

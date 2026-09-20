@@ -46,7 +46,7 @@ $app = require_once __DIR__.'/../bootstrap/app.php';
 $kernel = $app->make(Kernel::class);
 $kernel->bootstrap();
 
-function pedir(string $metodo, string $uri, array $cuerpo = [], ?string $token = null): array
+function pedirBoletinAparte(string $metodo, string $uri, array $cuerpo = [], ?string $token = null): array
 {
     global $kernel;
 
@@ -69,14 +69,14 @@ function pedir(string $metodo, string $uri, array $cuerpo = [], ?string $token =
     ];
 }
 
-function token(string $usuario, string $clave): ?string
+function tokenBoletinAparte(string $usuario, string $clave): ?string
 {
     foreach ([0, 5, 15, 40] as $espera) {
         if ($espera > 0) {
             sleep($espera);
         }
 
-        $r = pedir('POST', '/api/login/credentials', ['username' => $usuario, 'password' => $clave]);
+        $r = pedirBoletinAparte('POST', '/api/login/credentials', ['username' => $usuario, 'password' => $clave]);
 
         if (isset($r['cuerpo']['el_token'])) {
             return $r['cuerpo']['el_token'];
@@ -121,7 +121,7 @@ if ($hay === null) {
     exit(1);
 }
 
-$jefe = token('administrador', 'patreongreat');
+$jefe = tokenBoletinAparte('administrador', 'patreongreat');
 
 if ($jefe === null) {
     echo 'Sin token no se puede seguir.'.PHP_EOL;
@@ -211,10 +211,10 @@ try {
     linea('1 · el tercer origen `plantilla` en POST boletin-independiente/copiar');
 
     // Primero hay que marcarlo: `copiarleA()` devuelve `no_marcado` para quien no lo está.
-    pedir('PUT', '/api/boletin-independiente/periodo',
+    pedirBoletinAparte('PUT', '/api/boletin-independiente/periodo',
         ['alumno_id' => $alumnoId, 'periodo_id' => $periodoDelToken, 'aplica' => true], $jefe);
 
-    mostrar('origen {"tipo":"plantilla","periodo_id":'.$periodoDelToken.'}', pedir(
+    mostrar('origen {"tipo":"plantilla","periodo_id":'.$periodoDelToken.'}', pedirBoletinAparte(
         'POST', '/api/boletin-independiente/copiar',
         [
             'asignatura_id' => $asignaturaId,
@@ -224,7 +224,7 @@ try {
         ], $jefe
     ));
 
-    mostrar('origen {"tipo":"plantilla"} — sin plantilla sembrada en la base', pedir(
+    mostrar('origen {"tipo":"plantilla"} — sin plantilla sembrada en la base', pedirBoletinAparte(
         'POST', '/api/boletin-independiente/copiar',
         [
             'asignatura_id' => $asignaturaId,
@@ -268,7 +268,7 @@ try {
     echo '  (sembradas 3 unidades de plantilla: 2 generales y 1 de la materia '
         .$asignatura->materia_id.')'.PHP_EOL;
 
-    mostrar('origen {"tipo":"plantilla"} — CON plantilla', pedir(
+    mostrar('origen {"tipo":"plantilla"} — CON plantilla', pedirBoletinAparte(
         'POST', '/api/boletin-independiente/copiar',
         [
             'asignatura_id' => $asignaturaId,
@@ -279,7 +279,7 @@ try {
         ], $jefe
     ));
 
-    mostrar('origen {"tipo":"plantilla"} + con_notas', pedir(
+    mostrar('origen {"tipo":"plantilla"} + con_notas', pedirBoletinAparte(
         'POST', '/api/boletin-independiente/copiar',
         [
             'asignatura_id' => $asignaturaId,
@@ -341,21 +341,21 @@ try {
 
     echo '  alumno '.$otroId.' ANTES de marcar: '.json_encode($cuenta($otroId)).PHP_EOL;
 
-    mostrar('PUT periodo {aplica:true}', pedir(
+    mostrar('PUT periodo {aplica:true}', pedirBoletinAparte(
         'PUT', '/api/boletin-independiente/periodo',
         ['alumno_id' => $otroId, 'periodo_id' => $periodoDelToken, 'aplica' => true], $jefe
     ));
 
     echo '  alumno '.$otroId.' DESPUÉS de marcar: '.json_encode($cuenta($otroId)).PHP_EOL;
 
-    mostrar('PUT periodo {aplica:true} otra vez — no puede duplicar', pedir(
+    mostrar('PUT periodo {aplica:true} otra vez — no puede duplicar', pedirBoletinAparte(
         'PUT', '/api/boletin-independiente/periodo',
         ['alumno_id' => $otroId, 'periodo_id' => $periodoDelToken, 'aplica' => true], $jefe
     ));
 
     echo '  alumno '.$otroId.' tras marcar DOS veces: '.json_encode($cuenta($otroId)).PHP_EOL;
 
-    mostrar('PUT periodo {aplica:false} — el camino viejo, que sí sembraba', pedir(
+    mostrar('PUT periodo {aplica:false} — el camino viejo, que sí sembraba', pedirBoletinAparte(
         'PUT', '/api/boletin-independiente/periodo',
         ['alumno_id' => $otroId, 'periodo_id' => $periodoDelToken, 'aplica' => false], $jefe
     ));
@@ -363,7 +363,7 @@ try {
     // ─────────────────────────────────────────────────────────────────────────
     linea('3 · PUT boletin-independiente/planilla — ¿qué manda de la plantilla?');
 
-    $planilla = pedir('PUT', '/api/boletin-independiente/planilla', ['asignatura_id' => $asignaturaId], $jefe);
+    $planilla = pedirBoletinAparte('PUT', '/api/boletin-independiente/planilla', ['asignatura_id' => $asignaturaId], $jefe);
     echo '  estado: '.$planilla['estado'].PHP_EOL;
     echo '  claves de la respuesta: '.json_encode(array_keys($planilla['cuerpo'] ?? [])).PHP_EOL;
     echo '  claves de `asignatura`: '.json_encode(array_keys($planilla['cuerpo']['asignatura'] ?? [])).PHP_EOL;
@@ -378,7 +378,7 @@ try {
     // ─────────────────────────────────────────────────────────────────────────
     linea('4 · PUT boletin-independiente/marcados — la lista del menú');
 
-    $marcados = pedir('PUT', '/api/boletin-independiente/marcados', ['periodo_id' => $periodoDelToken], $jefe);
+    $marcados = pedirBoletinAparte('PUT', '/api/boletin-independiente/marcados', ['periodo_id' => $periodoDelToken], $jefe);
     echo '  estado: '.$marcados['estado'].PHP_EOL;
     echo '  claves: '.json_encode(array_keys($marcados['cuerpo'] ?? [])).PHP_EOL;
 } finally {

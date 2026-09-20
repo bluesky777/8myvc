@@ -41,7 +41,7 @@ $kernel = $app->make(Kernel::class);
 $kernel->bootstrap();
 
 /** @return array{estado: int, cuerpo: mixed} */
-function pedir(string $metodo, string $uri, array $cuerpo = [], ?string $token = null): array
+function pedirCompetenciaCongelada(string $metodo, string $uri, array $cuerpo = [], ?string $token = null): array
 {
     global $kernel;
 
@@ -100,7 +100,7 @@ if (DB::selectOne('SELECT id FROM users WHERE username = ? AND deleted_at IS NUL
     fallar('esta base no tiene `administrador`. Esto va contra la base de DESARROLLO, no contra una de tests.');
 }
 
-$login = pedir('POST', '/api/login/credentials', ['username' => 'administrador', 'password' => 'patreongreat']);
+$login = pedirCompetenciaCongelada('POST', '/api/login/credentials', ['username' => 'administrador', 'password' => 'patreongreat']);
 
 if (! isset($login['cuerpo']['el_token'])) {
     fallar('login '.$login['estado'].': '.mb_substr(json_encode($login['cuerpo']) ?: '', 0, 200));
@@ -208,7 +208,7 @@ if ($nivel === null) {
 /*
  * ── 4. La ESCRITURA ───────────────────────────────────────────────────────────
  */
-$r = pedir('PUT', '/api/desempenos/rejilla', [
+$r = pedirCompetenciaCongelada('PUT', '/api/desempenos/rejilla', [
     'asignatura_id' => (int) $asignatura->id,
     'periodo_id' => (int) $periodo->id,
     'celdas' => [
@@ -265,7 +265,7 @@ DB::table('competencias')->where('id', $competencia)->update(['definicion' => TE
 
 echo '4. el colegio renombra la competencia → '.TEXTO_DE_DESPUES.PHP_EOL;
 
-$r = pedir('PUT', '/api/boletines-competencias/detailed-notas/'.$asignatura->grupo_id, [
+$r = pedirCompetenciaCongelada('PUT', '/api/boletines-competencias/detailed-notas/'.$asignatura->grupo_id, [
     'periodo_a_calcular' => (int) $periodo->numero,
     'requested_alumnos' => [['alumno_id' => (int) $alumno->alumno_id, 'grupo_id' => (int) $asignatura->grupo_id]],
 ], $token);
