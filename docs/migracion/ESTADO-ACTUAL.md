@@ -392,7 +392,32 @@
 > Lo cierra `RutasTest::test_ninguna_ruta_literal_la_atiende_un_comodin`, que no lee lo declarado:
 > recorre el router y **le pregunta a `getRoutes()->match()` quién atiende cada ruta literal**, que
 > es lo que hará el servidor. Cubre las **620** de hoy y las de mañana sin que nadie se acuerde.
+> *(**623** al recontarlas el 20 sep en el árbol principal sobre `main`; la cifra se movió, no
+> envejeció mal — el candado las cubre sin tocarlo, que es el motivo de que sea genérico.)*
 > Control visto en rojo con los dos casos históricos; hoy el router está limpio.
+>
+> > **REPRODUCIDO POR UNA SEGUNDA SESIÓN, Y EL CONTROL LLEVA SU CUENTA DE ASERCIONES AL LADO**
+> > (`8myvc-97`, 20 sep 2026, en un árbol propio para no tocar el principal con tres suites
+> > corriendo). Movido `GET colillas-inscripcion/{codigo}` por delante de `pendientes` —el fallo
+> > del tesorero, literal— y corrido `RutasTest`:
+> >
+> > ```
+> > en verde     3 passed             (5 assertions)
+> > roto         1 failed, 2 passed   (5 assertions)
+> > ```
+> >
+> > **Las aserciones no se movieron**, y ése es el dato: es lo único que distingue haber roto la
+> > propiedad de haber roto el fichero. Un rojo que se lleva por delante la cuenta de aserciones
+> > no ha medido nada, y se lee igual que éste.
+> >
+> > Y las otras dos patas salieron en la misma corrida, sin buscarlas:
+> > **`test_cada_uri_la_atiende_la_misma_accion` se quedó VERDE** —el candado viejo mintiendo en
+> > vivo, no en el relato— y `route:list` listó `pendientes -> getPendientes` **el primero, por
+> > orden alfabético**, que es justo al revés de lo que hacía el servidor, con el total intacto.
+> >
+> > **Esto no hacía falta para dar por bueno el trabajo de `8myvc-dd`.** Hacía falta porque esta
+> > misma casilla dice *«no leas su docblock»*, y creerse la frase «control visto en rojo» de un
+> > relevo es leer un docblock más largo.
 >
 > **La lección no es del router, es del candado**: *un detector puede contar bien un síntoma sin
 > estar contando la causa* — y éste llevaba **el nombre de la causa escrito en el docblock**, que
@@ -402,6 +427,88 @@
 >
 > Salió de una revisión de pasada de `8myvc-b2`, que lo vio, no lo escribió por estar cerrándose y
 > lo dejó dicho. **Un hallazgo que se escribe en vez de llevárselo no se pierde.**
+
+> ## ✅ LA PARCIAL Y LA COBERTURA — FASE 1 DEL 43, **FUNDIDA** (20 sep 2026)
+>
+> **Rama `feat/la-parcial-y-la-cobertura`, en `.worktrees/f1`, base `simonbolivar_testing_f1`.
+> NO está en `main`: mientras esta línea diga «sin fundir», el árbol principal no tiene nada de
+> esto y `calcular()` sigue devolviendo dos números.** El día que entre, se sustituye esta
+> casilla — no se deja envejecer.
+>
+> `App\Services\DefinitivasDeAsignatura::calcular()` devuelve además, por alumno, **`parcial`**
+> (Σ aporte ÷ Σ peso **de lo calificado**) y **`cobertura`** (Σ peso calificado ÷ Σ peso total), y
+> `recalcular()` las pasa **como claves hermanas de `definitiva`** cuando se le pidió un alumno.
+> El porqué entero está en la [§Fase 1 del 43](43-lo-que-todavia-no-se-ha-calificado.md).
+>
+> | | |
+> |---|---|
+> | Ficheros | `app/Services/DefinitivasDeAsignatura.php`, `app/Support/RepartoDeLaNota.php` (+`pesoDeLaNota`), `tests/Contrato/LaParcialYLaCoberturaTest.php`, doc 43 |
+> | Rutas · columnas · migraciones · clientes | **0 · 0 · 0 · 0** |
+> | Instantáneas movidas | **ninguna de las 129**, y eso es la prueba de que la definitiva no cambió |
+> | `composer.json` | **no se tocó**: `app/Services`, `app/Support` y `tests` ya van como directorios enteros |
+>
+> ### Las cuatro cosas que el doc 43 decía mal, medidas antes de creérselas
+>
+> 1. **La cobertura NO puede dar 120 %.** La §3.bis c consecuencia 2 lo prometía; con la fórmula
+>    del propio doc el mismo `Σ peso` está arriba y abajo, así que vive en `[0, 1]`. **0 de 9.422
+>    pares por encima del 100 %, con 328 asignaturas mal repartidas dentro de la muestra** (hasta
+>    `Σ peso` = 2,54). **El delator del reparto malo ya existía**: `porcentaje_unidades`. Tachado
+>    en el doc y atado con test, para que nadie lo «arregle» metiendo un 1 en el divisor.
+> 2. **Falta un segundo cero de división y es grande.** El doc cubre `Σ peso calificado = 0 →
+>    parcial NULL`; no cubre **`Σ peso TOTAL = 0`**, donde la que se queda sin respuesta es la
+>    **cobertura**: **3.158 de 9.422 pares, el 33,5 %** —3.059 sin una sola fila en `notas` y 99
+>    con todas sus casillas a peso 0—. Ahí es **`NULL`, no 0**. Con test propio.
+> 3. **No mueve las instantáneas de boletines y planilla — porque ésas no pasan por aquí.** Las
+>    calcula **`App\Models\Asignatura::calculoAlumnoNotas`** (219–270), **un segundo calculador de
+>    la definitiva entero y paralelo, en PHP, sin denominador**, con **seis lectores**
+>    (`PlanillasController`, `DetallesController`, `EditnotaController`, `NotasPerdidasController`,
+>    `PlanillasAusenciasController`, `Nota::alumnoAsignaturas`). **Así que la parcial NO llega hoy a
+>    la planilla**, y eso es una decisión de Joseth, no un olvido de esta rama.
+> 4. **El coste sólo existe en un modo.** En `porcentaje` —ocho de los nueve años de la copia y el
+>    defecto de los dieciséis— las filas leídas son **idénticas**. En `promedio` —**un año de la
+>    copia ya lo usa**— `Handler_read_next` **5.707 → 13.791** (×2,42) y el reloj **8,6 → 17,7 ms**,
+>    porque el peso arrastra la subconsulta correlacionada de `cuantasSubunidades`, que pasa de una
+>    evaluación por fila a tres. Bajarlo cambia el texto de `aportacionALaDefinitiva`, que es
+>    contrato: **medido y no resuelto**.
+>
+> > **Y `tools/coste-del-recalculo.php` no vale para medir esto**, que es un hallazgo aparte: su
+> > reloj oscila más que el efecto —el `sello`, que nadie tocó, dio entre **2,0 y 4,8 ms** entre
+> > pasadas, y `calcular` entre 2,94 y 7,75 **sobre el código sin tocar**—. Lo que separa la señal
+> > del ruido aquí son los contadores `Handler_read_*`, que son deterministas.
+>
+> > **Un caso pasó en verde sin probar nada y lo delató mutar el código, no correrlo.** El del
+> > modo `promedio` daba el número bueno **con el reparto cableado a `porcentaje`**: con los cuatro
+> > indicadores del lienzo el divisor sale 0,35 en los dos modos (0,30+0,20 en uno, 2×0,25 en el
+> > otro), o sea que coincidía por casualidad. Se arregló añadiendo un quinto indicador de peso 0 —
+> > inerte en `porcentaje`, repartiendo en `promedio`—. Las tres mutaciones que se probaron ahora
+> > ponen en rojo 1, 2 y 6 casos.
+>
+> ### Estado — las cifras con la orden que las produjo
+>
+> | | |
+> |---|---|
+> | `Tests: 1 skipped, 2288 passed (22441 assertions)` · 1.170 s | `php artisan test --testsuite=Contrato` en `.worktrees/f1` con `DB_TEST_DATABASE=simonbolivar_testing_f1` |
+> | `LaParcialYLaCoberturaTest`: **10 passed (43 assertions)** | `--filter=LaParcialYLaCoberturaTest --testsuite=Contrato` |
+> | `PASS 463 files` | `composer run pint:test` |
+> | `[OK] No errors` | `composer run stan` (nivel 7) |
+>
+> **Y la primera cifra hubo que medirla DOS veces.** La primera pasada se lanzó en paralelo con
+> una corrida filtrada **contra la misma base**, que es el caso de deadlock que avisa
+> `03-tests.md`; al matarla, su fichero de salida se quedó con la traza del `kill` y **un
+> `grep '⨯'` sobre él daba 0 rojos con la misma cara que una suite verde**. La que vale es la
+> segunda, corrida sola. *Un contador de rojos sobre una salida truncada dice «verde».*
+>
+> ### Lo que queda abierto
+>
+> 1. **Decisión de Joseth: por dónde salen los dos números a los clientes.** Hoy no los sirve
+>    ningún endpoint. La fase 2 (`app2`) y la fase 3 (`myvc_flutter`) los necesitan, y el sitio
+>    natural —la planilla— **lo calcula el otro calculador**. Es la pregunta 3 de arriba.
+> 2. **Para la fase 2: D2 no dice de qué lado cae el 15,00 % exacto.** Hay **152 pares clavados
+>    en 15,00 %** —ocho asignaturas enteras: el docente que calificó un solo indicador que vale el
+>    15 %—, y eso es **más que los 42 pares que separan el 15 % del 10 %**. `<` da **2.113** grises
+>    y `<=` da **2.265**. Y la cobertura es un **factor de 0 a 1**: quien compare contra `15` en vez
+>    de contra `0.15` pinta de color absolutamente todo.
+> 3. Fases 2, 3 y 4 del [43](43-lo-que-todavia-no-se-ha-calificado.md), sin empezar.
 
 > ## ❗ LA RECUPERACIÓN DE CONTRASEÑA ALCANZA A **CERO** ACUDIENTES (20 sep 2026)
 

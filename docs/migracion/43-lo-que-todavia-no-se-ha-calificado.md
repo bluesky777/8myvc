@@ -277,7 +277,9 @@ cobertura = 0,70 × 0,50                                        = 35 %
 contestando *«¿cuánto del periodo entero lleva ganado?»*, que a mitad de periodo no es la pregunta
 de nadie.
 
-Cuatro consecuencias que hay que tener escritas antes de implementarlo:
+Cuatro consecuencias que hay que tener escritas antes de implementarlo —**cinco desde el 20 sep
+2026, y una de las cuatro resultó ser falsa**: las dos correcciones salieron de implementarlo, no
+de releerlo—:
 
 1. **`Σ peso` es la cifra que hoy está implícita y nunca se escribió.** La definitiva de hoy es
    `Σ aporte` **dando por hecho que el divisor es 1**. Por eso una asignatura mal repartida da una
@@ -285,15 +287,44 @@ Cuatro consecuencias que hay que tener escritas antes de implementarlo:
 2. **Y eso convierte un fallo conocido en un número.** `DefinitivasDeAsignatura` (regla 2) decide a
    propósito **no normalizar**, porque *«que una asignatura mal configurada dé una definitiva rara
    es la intención — es lo que la delata en la planilla»*. Eso **no cambia**: la que normaliza es
-   la parcial, no la definitiva. Lo que se gana es que una asignatura cuyas unidades suman 120
+   la parcial, no la definitiva. ~~Lo que se gana es que una asignatura cuyas unidades suman 120
    termine de calificarse y salga con **cobertura 120 %**, que delata muchísimo mejor que una nota
-   alta — un número que sólo puede significar una cosa.
+   alta — un número que sólo puede significar una cosa.~~
+
+   > **FALSO, y se tacha en vez de borrarse — visto el 20 sep 2026 construyendo la fase 1.** Con la
+   > fórmula de tres líneas más arriba, **el mismo `Σ peso` está en el numerador y en el
+   > denominador**, así que la cobertura vive en `[0, 1]` y **no puede pasar del 100 % jamás**.
+   > Medido contra `simonbolivar` en periodos abiertos: **0 de 9.422 pares por encima del 100 %,
+   > con 328 asignaturas mal repartidas dentro de la muestra** —106 con `Σ peso > 1`, hasta
+   > **2,54**, y 222 por debajo, hasta 0,04—. O sea que la muestra tenía de sobra con qué
+   > delatarlas y la cobertura no delató ninguna, porque no es lo que hace.
+   >
+   > **Y no se rescata metiendo un 1 en el divisor**, que es lo que haría falta para que esta
+   > frase fuera cierta: con eso la cobertura mezclaría dos señales —cuánto se ha evaluado y si el
+   > reparto está mal— y una asignatura **bien calificada** cuyas unidades sumen 80 diría «80 %
+   > evaluado» para siempre, con el docente buscando notas que no faltan. **El delator del reparto
+   > malo ya existe y ya viaja en la misma respuesta**: `porcentaje_unidades`, que `recalcular()`
+   > devuelve desde siempre. Esta consecuencia pedía un delator que ya estaba puesto.
+   >
+   > Queda atado por `LaParcialYLaCoberturaTest::test_una_asignatura_mal_repartida_no_pasa_del_cien_por_cien`,
+   > que lo fija por los dos extremos —a medias y calificada entera— precisamente para que nadie
+   > venga a «arreglar» este renglón.
 3. **Peso cero no mueve nada, y hoy tampoco.** **2.242 de 36.705** subunidades (6,1 %) tienen
    `porcentaje = 0`; ninguna unidad lo tiene. Calificarlas no cambia la parcial ni la cobertura, y
    la pantalla **tiene que decirlo**: una casilla de peso 0 calificada no puede pintarse como
    «evaluado», o el docente creerá que avanzó.
 4. **`Σ peso` calificado = 0 → la parcial es `NULL`, nunca 0.** Ése es exactamente el gris del
    semáforo, y es la diferencia entre *«va en cero»* y *«no hay con qué decirlo»*.
+
+5. **Y hay un SEGUNDO cero de división que esta lista no vio: `Σ peso` TOTAL = 0**, donde el que
+   se queda sin respuesta es **la cobertura**. *(Añadido el 20 sep 2026 construyendo la fase 1.)*
+   No es un rincón: son **3.158 de los 9.422 pares que `calcular()` devuelve de verdad en periodos
+   abiertos — el 33,5 %**, de los que **3.059 no tienen ni una fila en `notas`** —porque
+   `calcular()` parte de `matriculas` y no de `notas`, que es su regla 1— y **99** tienen todas sus
+   casillas a peso 0. Ahí la cobertura es **`NULL`** por el mismo motivo que la parcial: un 0
+   afirmaría que se conoce el plan y que no se ha tocado, y lo cierto es que **no hay plan del que
+   hablar**. Los dos ceros existen, los dos dan `NULL` y **no son el mismo hecho** — el punto 4 es
+   «el plan está y no se ha evaluado nada», éste es «no hay plan».
 
 > **Ni la parcial ni la cobertura se guardan.** Se calculan y se sirven sin recortar, como manda la
 > regla de Joseth del 14 sep: *se redondea en un solo sitio, el que escribe la definitiva*.
@@ -332,7 +363,7 @@ informe de corte; lo único que le falta es decirlo y calcular como tal.
 | **D6** | Cómo se escribe «sin calificar» | ✅ **`notas.nota` anulable, `NULL` = sin calificar.** Propuesta de Joseth contra la columna `calificada_at` que traía yo. Cambia la fase 0 entera. |
 | **D7** | Si «quitar la nota» es `update` con `null` o `destroy` | ✅ **`update` con `nota: null`.** Conserva la fila, su `id`, su bitácora y su historial. `destroy` se queda para lo que de verdad es borrar la fila. |
 | **D5** | Si se capturan las fechas de los indicadores | ✅ **No, fuera de alcance.** Las fases 0–4 arreglan los dos síntomas sin pedirle un dato nuevo a nadie. |
-| **D2** | El cuarto color gris y desde qué % se apaga | ✅ **Gris por debajo del 15 % evaluado.** No es el mínimo posible —el mínimo sería «sólo con 0 %»— y la razón es el papel: esto **se firma y se archiva**, así que una o dos notas sueltas no bastan para ponerle color a una asignatura delante de una familia. |
+| **D2** | El cuarto color gris y desde qué % se apaga | ✅ **Gris con el 15 % evaluado o menos** — `cobertura <= 0.15`. No es el mínimo posible —el mínimo sería «sólo con 0 %»— y la razón es el papel: esto **se firma y se archiva**, así que una o dos notas sueltas no bastan para ponerle color a una asignatura delante de una familia. **El borde lo decidió Joseth el 20 sep 2026 con los 152 pares delante** (abajo). |
 | **D4** | Estado **NE** por celda (el alumno que no pudo ser evaluado) | ✅ **No por ahora.** Con D3 en «queda fuera», una casilla vacía ya hace lo que haría NE; sólo haría falta si el colegio eligiera «pasa a 0» y quisiera excepciones. **Vuelve a la mesa el día que un colegio elija eso.** |
 
 > ### El valor de fábrica de D3 es «pasa a cero», y eso no es lo mismo que la decisión
@@ -457,16 +488,62 @@ Mueve: 1 migración (esquema + relleno), **`putUpdate` y `putLote` en el mismo c
 0 clientes. **Y la migración hay que medirla contra MariaDB 10.5**, no contra el docker: los 8 s
 son de MySQL 8.
 
-### Fase 1 — tres números donde hoy hay uno
+### Fase 1 — tres números donde hoy hay uno · **ESCRITA el 20 sep 2026** (`feat/la-parcial-y-la-cobertura`)
 
-`DefinitivasDeAsignatura::recalcular` devuelve además **nota parcial** (aportes evaluados ÷ peso
-evaluado) y **cobertura** (peso evaluado ÷ peso total). Aditivo: **0 rutas nuevas**, campos nuevos
-en la respuesta. Mueve las instantáneas de contrato de boletines y planilla, y ningún cliente se
-entera hasta que quiera.
+`DefinitivasDeAsignatura::calcular` devuelve además **nota parcial** (aportes evaluados ÷ peso
+evaluado) y **cobertura** (peso evaluado ÷ peso total), y `recalcular` las pasa cuando se le pidió
+un alumno. Aditivo: **0 rutas nuevas**, campos nuevos en la respuesta del servicio.
 
 > **La cobertura se calcula sobre el peso, no sobre el número de casillas.** Un indicador del 40 %
 > sin calificar y uno del 5 % no dejan el mismo hueco, y contarlos por unidades daría un porcentaje
 > que no tiene que ver con lo que puede moverse la nota.
+
+> **Este párrafo decía «mueve las instantáneas de contrato de boletines y planilla» y las dos
+> mitades son falsas, cada una por su lado.** *(Medido el 20 sep 2026.)*
+>
+> **No mueve ninguna.** De las 129 instantáneas se movió **cero**, y ésa es justamente la prueba de
+> que la definitiva no cambió ni un decimal. Los dos números viven en el servicio y **ningún
+> controlador los sirve todavía**: `notas/update` toma sólo `definitiva`. La que se moverá el día
+> que alguien los saque por ahí es **`notas-update.json`**, una.
+>
+> **Y la planilla y los boletines no pasan por `DefinitivasDeAsignatura`.** Pasan por
+> **`App\Models\Asignatura::calculoAlumnoNotas`** (líneas 219–270), que es **un segundo calculador
+> de la definitiva entero y paralelo, en PHP, sin denominador**, con **seis lectores**:
+> `PlanillasController`, `DetallesController`, `EditnotaController`,
+> `Informes\NotasPerdidasController`, `Informes\PlanillasAusenciasController` y
+> `Nota::alumnoAsignaturas`. Es el que produce `nota_asignatura`.
+>
+> O sea que **la parcial y la cobertura no llegan a la planilla con la fase 1**, y eso no se
+> arregla dentro de esta fase: o se cablea ese segundo calculador al servicio —que es mover el
+> número que imprimen los dieciséis, o sea otra decisión— o la fase 2 se sirve de otro sitio.
+> **Queda abierto y es de Joseth.**
+
+#### Lo que cuesta, medido — y sólo cuesta en un modo
+
+La §7 lo dejó como *«un argumento, no una medición»*. Medido el 20 sep 2026 sobre `simonbolivar`,
+en la asignatura más cargada de la copia (986 notas, 45 alumnos), con los contadores `Handler_read`
+en vez del reloj, que ahí es puro ruido —el `sello`, que no se toca, oscilaba entre 2,0 y 4,8 ms
+entre pasadas—:
+
+| | `Handler_read_key` | `Handler_read_next` | reloj |
+|---|---:|---:|---:|
+| modo `porcentaje`, antes y después | 1.024 · **1.024** | 1.665 · **1.665** | — |
+| modo `promedio`, antes → después | 2.010 → **3.982** (×1,98) | 5.707 → **13.791** (×2,42) | 8,6 → **17,7 ms** |
+
+**En `porcentaje` el coste es cero**, byte por byte: los dos `SUM` nuevos son aritmética sobre filas
+que ya se recorrían. Son ocho de los nueve años de la copia y el defecto de los dieciséis.
+
+**En `promedio` la consulta se dobla**, y la causa es concreta: el fragmento del peso arrastra la
+subconsulta correlacionada de `RepartoDeLaNota::cuantasSubunidades`, que pasa de evaluarse **una vez
+por fila a tres**. **Un año de la copia ya está en `promedio`**, así que no es hipotético. Bajar de
+ahí exige sustituir la correlacionada por un agregado unido en el `FROM`, y eso **cambia el texto de
+`aportacionALaDefinitiva`, que es contrato** —lo leen dos tests que cuentan agregados casando por
+cadena—: se deja medido y no resuelto.
+
+> **De los ms, fiarse de la razón y no del valor**: se midieron con **tres suites de otras
+> sesiones corriendo en el mismo contenedor**, así que los absolutos están inflados. Los dos
+> bloques se alternaron seis veces para que la carga les cayera igual a los dos, y la razón (×2)
+> coincide con la de los contadores, que no dependen de la carga. **Ésa es la cifra.**
 
 ### Fase 2 — el semáforo deja de acusar al alumno
 
@@ -478,6 +555,30 @@ fase 1 ya está.
 > docente que no calificó produce treinta rojos y la culpa se lee como del alumno. Con la cobertura
 > impresa, esa casilla dice de quién es el silencio. Ése es el aviso que el colegio necesita a
 > mitad de periodo, y no estaba en el encargo.
+
+> **DECIDIDO el 20 sep 2026: el 15,00 % clavado va en GRIS** — `cobertura <= 0.15`, **2.265 grises**.
+>
+> Lo eligió Joseth con la medición delante, y **es el lado que encaja con el motivo que él mismo
+> había dado para D2**: si esto se firma y se archiva, un docente que calificó **un solo indicador**
+> no debería ponerle color a una asignatura delante de una familia. Los 152 pares de la frontera son
+> exactamente ese caso, así que dejarlos con color habría contradicho la razón de ser del umbral.
+> *Una decisión que no dice dónde está su borde la acaba tomando quien escribe el `if`.*
+>
+> **Lo que había escrito aquí, que es de dónde salió la pregunta.**
+> *(Medido el 20 sep 2026 sobre `simonbolivar`, periodos abiertos.)* D2 dice *«gris por debajo del
+> 15 % evaluado»* y no dice si el 15 clavado es gris o ya tiene color. Hay **152 pares clavados en
+> 15,00 %** —**ocho asignaturas**, o sea grupos enteros: el docente que calificó **un solo
+> indicador que vale el 15 %**— y eso es **más que los 42 pares que separan el 15 % del 10 %**. Con
+> `<` salen **2.113** grises y con `<=`, **2.265**. La frontera no está en un sitio vacío: está
+> justo encima del caso más común que hay.
+>
+> Y hay que leerlo con lo de arriba: **la cobertura es un factor de 0 a 1**, no un porcentaje; quien
+> compare contra `15` en vez de contra `0.15` pintará de color absolutamente todo.
+
+> **Y dos cosas de la fase 1 que cambian lo que la fase 2 puede hacer**, las dos medidas el 20 sep:
+> la cobertura **nunca pasa del 100 %** —no sirve para delatar el reparto malo; eso es
+> `porcentaje_unidades`— y **la parcial y la cobertura no llegan hoy a la planilla**, porque ésa la
+> calcula `Asignatura::calculoAlumnoNotas` y no el servicio. Está en la §Fase 1.
 
 ### Fase 3 — lo que ve la familia
 
@@ -519,8 +620,15 @@ lleva años vacía.
 - **Los dieciséis colegios.** Todo lo de arriba es un colegio, el del docker. El reparto de
   `nota_default > 0` (4.417 de 36.705 subunidades, el 12 %) puede ser muy distinto en otro, y es
   justo el dato que decide cuánto baja una definitiva al dejar de contar los regalos.
-- **El coste de la consulta.** La parcial y la cobertura son dos `SUM` más sobre las mismas filas
-  que ya se recorren, pero eso es un argumento, no una medición: se mide con
-  `tools/coste-del-recalculo.php` antes de la fase 1.
+- ~~**El coste de la consulta.**~~ **MEDIDO el 20 sep 2026**, y el argumento *«dos `SUM` más sobre
+  las mismas filas»* era cierto **sólo en un modo**: cero en `porcentaje` y **×2 en `promedio`**,
+  donde el peso arrastra una subconsulta correlacionada. Está en la §Fase 1 con los contadores.
+  De paso: **`tools/coste-del-recalculo.php` no sirve para medir esto** — su reloj oscila más que
+  el efecto (el `sello`, que nadie tocó, dio entre 2,0 y 4,8 ms entre pasadas). Se midió con
+  `Handler_read_key`/`Handler_read_next`, que son deterministas.
 - **Quién lee `nota_asignatura` hoy en los cuatro clientes.** La fase 1 no lo cambia, pero la fase
   3 sí decide qué número se pinta, y el radio lo mide el front, no nosotros.
+- **El segundo calculador de la definitiva.** `Asignatura::calculoAlumnoNotas` —PHP, sin
+  denominador, seis lectores— produce el número de la planilla y de los boletines, y **este
+  documento lo ignoró entero**: por eso la §Fase 1 prometía instantáneas que no existen. Cuánto
+  cuesta unificarlo, y si unificarlo mueve algún número impreso, **no está medido**.
