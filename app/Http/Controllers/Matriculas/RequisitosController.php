@@ -281,12 +281,37 @@ class RequisitosController extends Controller {
 		// Sólo se escribe cuando el estado deja de ser «falta» **y no estaba cerrado
 		// ya**: reabrir y volver a cerrar deja la firma de quien lo cerró de verdad,
 		// y tocar la observación de algo ya cerrado no reescribe su hora.
-		if (Request::has('estado')
-			&& mb_strtolower(trim((string) Request::input('estado'))) !== 'falta') {
-			$sets[]    = 'cerrado_por=COALESCE(cerrado_por,?)';
-			$valores[] = $this->user->user_id;
-			$sets[]    = 'cerrado_at=COALESCE(cerrado_at,?)';
-			$valores[] = $now;
+		if (Request::has('estado')) {
+			$pedido = mb_strtolower(trim((string) Request::input('estado')));
+
+			// **REABRIR UN PASO TIENE QUE LIMPIAR LA FIRMA, y hasta el 20 sep 2026 no
+			// lo hacía.** `cerrado_at` se escribe con `COALESCE`, o sea **una sola
+			// vez**: devolver un paso a «falta» dejaba la fecha puesta para siempre.
+			//
+			// Con el recorrido de la fase 1 eso no se notaba —`getRecorrido` mira
+			// `estado`, no `cerrado_at`—, pero **la cola de las estaciones se apoya
+			// entera en `cerrado_at`**, precisamente porque `estado` es un `varchar`
+			// sin vocabulario cerrado que escriben tres pantallas viejas (46 §2).
+			//
+			// Sin esta rama, desmarcar a alguien lo dejaba **invisible en su estación
+			// y visible en la siguiente**: la cola de la 3 lo sigue teniendo por
+			// cerrado y la 2 ya no lo ve. La familia espera de pie en una fila en la
+			// que el sistema dice que no está. Lo dejó escrito el 46 §5 como «una
+			// línea en `postAlumno`», y es ésta.
+			//
+			// **`devuelto` cuenta como reabrir**, y por el mismo motivo: un paso
+			// devuelto es un paso que se sigue debiendo.
+			$reabre = $pedido === 'falta' || $pedido === 'devuelto';
+
+			if ($reabre) {
+				$sets[] = 'cerrado_por=NULL';
+				$sets[] = 'cerrado_at=NULL';
+			} else {
+				$sets[]    = 'cerrado_por=COALESCE(cerrado_por,?)';
+				$valores[] = $this->user->user_id;
+				$sets[]    = 'cerrado_at=COALESCE(cerrado_at,?)';
+				$valores[] = $now;
+			}
 		}
 
 		$sets[]    = 'updated_by=?';

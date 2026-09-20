@@ -1,5 +1,144 @@
 # Las estaciones de matrícula, atendidas desde la app
 
+> ## ✅ CONSTRUIDO EL 20 SEP 2026 — Y SON **NUEVE** RUTAS, NO OCHO
+>
+> Rama `feat/las-estaciones-en-la-app`, árbol `.worktrees/est`, base
+> `simonbolivar_testing_est`. **Router en 634 contado con `route:list --json` en
+> `.worktrees/est`. SIN FUNDIR: hay que recontarlas en el ÁRBOL PRINCIPAL el día que
+> entren** — que es la frase que lleva salvando este número las últimas cinco veces, y la
+> única razón de que no envejezca a mentira.
+>
+> **Lo que este documento pedía y lo que salió, renglón por renglón:**
+>
+> | | |
+> |---|---|
+> | Las ocho rutas de la §3 | **las ocho, más una novena**: ver abajo |
+> | `requisitos_alumno + aspirante_id` | **NO entra, y por medición nueva**: ver abajo |
+> | `requisitos_alumno + motivo_devolucion` | entra |
+> | `notas_estacion` | entra |
+> | `envios_estacion` | **tabla que este documento no previó**: sin ella la §3.4 promete algo que no pasa |
+> | Mueve tres instantáneas y **no** la cuarta | **confirmado midiendo**: `estaciones: 9 de 9`, y `familias-que-nunca-entran-en-el-candado.json` no se toca |
+> | `EXCEPCIONES_DE_FAMILIA` para `POST …/nota` | **NO hace falta**: ver abajo |
+> | `FamiliasQueNuncaEntranTest` sigue en 26 | confirmado, el test pasa sin tocarlo |
+>
+> ### 1 · La NOVENA ruta, y por qué el contrato de ocho creaba dos columnas muertas
+>
+> `PUT estaciones/nota/{id}/resuelta`.
+>
+> La §3.3 de aquí abajo tiene una tabla de permisos cuya última fila es *«dar por resuelta
+> una pendiente»*, y `estaciones.md` §2.10 describe **el botón que lo hace**, con el texto
+> que enseña cuando está apagado. **Ninguna de las ocho rutas escribía `resuelta_por` ni
+> `resuelta_at`.**
+>
+> O sea que el contrato, tal cual, creaba **dos columnas que no escribe nadie nunca y un
+> permiso que no gobierna nada**. Es `profesores.tono` por sexta vez en un mes — y esta
+> vez **dentro del documento que lo cita como error**, dos secciones más abajo.
+>
+> *Es la §1.4 otra vez: un hueco que el documento no vio, encontrado al construirlo y no
+> al revisarlo.* Se cuenta y se dice: **el plan pasa de ocho rutas a nueve.**
+>
+> ### 2 · `aspirante_id` NO entra, y el motivo no es el alcance: es que no hay nombre
+>
+> El contrato escribe `alumno_id|aspirante_id` en las ocho. Un aspirante sería una fila de
+> `ordenes_inscripcion` en modo `nuevos`, y **esa fila no tiene nombre**: sus columnas son
+> `codigo, year_id, year_campana, lote_id, modo, alumno_id, grupo_id, grado_id, cierra,
+> valor, vendida_por, vendida_at, estado, matricula_id, codigo_anterior` — ni nombres, ni
+> apellidos, ni documento.
+>
+> **Una cola de aspirantes serían renglones en blanco.** Quien captura esos datos es el
+> portal de la familia, que es la fase 2, y el [44](44-el-dia-de-matriculas.md) §6 ya lo
+> dice: *«nada de portal público, aspirantes, pagos ni firma»*.
+>
+> Y hay un segundo motivo, del esquema: `requisitos_alumno.alumno_id` es **NOT NULL con
+> clave ajena**. Anularla en MariaDB 10.5 **no es una columna nueva**: es un `ALTER` que
+> reescribe la tabla. *El camino queda abierto y es barato — una columna y una rama— el
+> día que exista quien llene el hueco.*
+>
+> Lo que sí hace `GET estaciones/codigo/{codigo}` con un papel sin dueño es contestar
+> **409 con lo que hay que hacer**, y no 404: «ese código no existe» sería falso y mandaría
+> a quien atiende a buscar un problema que no tiene.
+>
+> ### 3 · `envios_estacion`: la tabla que la §4 no previó
+>
+> La §3.4 promete dos cosas a la vez —el salteado **no deja marca en el paso** y el intento
+> **sí queda registrado**— y la §4 sólo dio sitio para una. Meter el intento en
+> `notas_estacion` lo contaría en el globo, que es justo lo que la §3.4 dice que no hay que
+> hacer; no meterlo en ningún sitio deja a `enviar-a` sin escribir nada.
+>
+> **La tanda crece en una tabla respecto a lo autorizado, y se dice.** Son seis columnas
+> sobre una tabla que nace vacía.
+>
+> ### 4 · La huella tiene TRES cifras y este documento pedía dos — lo encontró un test
+>
+> La §3.1 hereda del [34](34-la-huella-de-sincronizacion.md) que hacen falta `(n,
+> ultimo_cambio)`. **Hace falta una tercera, `notas`, y el motivo es el reloj:**
+> `timestamp` tiene precisión de **segundo**.
+>
+> Una nota escrita en el mismo segundo en que se cerró el paso anterior **no mueve el
+> `MAX`** —los dos sellos son la misma cadena— y tampoco mueve `n`, porque una nota no
+> cambia quién espera. Con dos cifras esa nota es **invisible hasta el siguiente cambio de
+> la cola, y si no hay ninguno, invisible para siempre**.
+>
+> No es un artefacto del test que lo destapó: en un patio, cerrar un paso y que el de al
+> lado escriba una nota en el mismo segundo es media mañana de un sábado. *Es la misma
+> medicina que el 34 recetó para los borrados: cuando el reloj no puede, cuenta.*
+>
+> ### 5 · El candado que este documento anunciaba NO habla, y eso es la decisión funcionando
+>
+> La §4 avisaba de que `AutorizacionTest` delataría `POST estaciones/{nro}/nota` como «una
+> ruta sola entre sus hermanas», porque las otras siete tendrían el rol de la estación
+> dentro y ella no. **Con la respuesta de Joseth —cierra cualquiera del personal— las nueve
+> llevan `auth.personal` y nada dentro salvo la de resolver**, así que la cohorte es
+> uniforme y no hay excepción que declarar. Comprobado corriendo el candado, no supuesto.
+>
+> ### 6 · Quién lee el texto de una nota reservada — DECISIÓN DEL CÓDIGO, no de aquí
+>
+> La §3.3 dice «cualquiera del personal, **salvo las reservadas**» y **no dice quién sí**.
+> Al pie de la letra no la leería ni quien la escribió, que no puede ser lo que se quería.
+> Lo que entra es el conjunto más pequeño que hace la regla coherente: **quien la escribió
+> y quien puede darla por resuelta**. Queda aquí como decisión abierta, no resuelta en
+> silencio.
+>
+> ### 7 · EL HUECO DEL PERMISO, MEDIDO: dos superusuarios se quedan fuera
+>
+> La §3.3 dice «`Admin` (1), `Secretario` (12) o `Rector` (10)» y **se implementa tal
+> cual**. Pero midiendo para escribirlo salieron dos cosas que este documento no podía
+> saber:
+>
+> ```
+> simonbolivar (desarrollo)   12 roles, `Secretario` es el 12
+> la base de tests del repo   11 roles, `Secretario` NO EXISTE
+>
+> superusuarios vivos                12
+> con el rol `Admin`                 10
+> superusuario SIN el rol `Admin`     2      <- HOY NO PUEDEN RESOLVER
+> con el rol `Admin` sin superusuario 0
+> ```
+>
+> Lo primero se resuelve solo: se pregunta **por nombre de rol** (`Role::hasRole`) y no por
+> id, así que un colegio donde el 12 sea otra cosa no da permiso a quien no debe.
+>
+> **Lo segundo es una decisión de Joseth y está abierta.** `Admin` es un rol; el
+> administrador de verdad de este sistema es `users.is_superuser`, y no son el mismo
+> conjunto. Se implementó **lo que él dijo** —los tres roles— y no se ensanchó por cuenta
+> propia, que sería *«crear un rol regala permisos que nadie pidió»* al revés. Pero en este
+> colegio son **dos personas que verán el botón apagado**, y la respuesta es una línea.
+>
+> ### 8 · Lo que el §2 SÍ cerró y lo que sigue abierto
+>
+> La cola **no se apoya en `estado`** —se apoya en `cerrado_at`, que es inmune al
+> desacuerdo de mayúsculas que ya existe hoy— y se cerró la trampa que la §5 dejó dicha:
+> `postAlumno` escribía `cerrado_at` con `COALESCE`, así que **reabrir un paso no la
+> limpiaba** y la cola lo veía cerrado. Esa línea entra, con su test y con su control en
+> rojo.
+>
+> **Lo que NO se hizo, y se dice:** migrar el vocabulario de `estado` en los dieciséis
+> colegios. Sigue pendiente y sigue siendo un trabajo. Lo que sí se paga hoy es que **la
+> ruta nueva rechaza con 422** lo que no esté en `cumple|observado|devuelto` —no tiene
+> ningún llamante desplegado, así que puede—, mientras `postAlumno` sigue aceptando lo que
+> le manden las tres pantallas vivas.
+
+
 **Todo este documento es propuesta.** Escrito el **20 sep 2026** a partir del plan que ya
 existe en el front —`myvc_front/INVESTIGACION-MATRICULAS.md` (el embudo, las plataformas y el
 modelo de datos) y `myvc_front/PANTALLAS-MATRICULA.md` (las quince pantallas)— y de una

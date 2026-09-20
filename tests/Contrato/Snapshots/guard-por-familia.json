@@ -179,6 +179,10 @@
         "total": 4,
         "con_guard": 3
     },
+    "estaciones": {
+        "total": 9,
+        "con_guard": 9
+    },
     "eventos": {
         "total": 1,
         "con_guard": 1

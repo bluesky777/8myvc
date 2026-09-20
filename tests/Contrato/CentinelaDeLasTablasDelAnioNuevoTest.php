@@ -179,6 +179,26 @@ class CentinelaDeLasTablasDelAnioNuevoTest extends TestCase
         // centinela no la mira.)
         'informes_recientes' => 'lo que cada persona abrió ESE año; copiarlo fabricaría historia y, peor, heredaría botones que prometen este año con parámetros del anterior',
 
+        // Los intentos del salteado: «se presentó en la 4 sin pasar por la 3», del día
+        // de matrículas de ESE año (migración `2026_09_20_700000`, doc 46 §3.4). Es un
+        // registro de hechos, como la bitácora, y copiarlo diría que hubo doce
+        // salteados en un año cuyo día de matrículas todavía no ha ocurrido.
+        //
+        // **Y aquí este centinela hizo exactamente su trabajo el día que la tabla
+        // nació**: la tanda de las estaciones la creó con `year_id` dentro y el rojo
+        // salió en la misma corrida, antes de fundir. Sin él, la falsedad se habría
+        // visto en enero —cuando ya nadie relaciona un tablero con números raros con
+        // haber creado un año hace dos semanas—, que es la forma cara de este fallo y
+        // está descrita en la cabecera de este fichero.
+        //
+        // (Su hermana `notas_estacion` **no aparece aquí y no es un olvido**: no tiene
+        // `year_id`. Cuelga de `requisito_id`, o sea de `requisitos_matricula`, que es
+        // quien lleva el año — así que este centinela no la mira, y la que sí la
+        // miraría es el tercer censo de tablas hijas que la cabecera dice que no
+        // existe todavía. **Y su respuesta sería la misma**: una nota es de la familia
+        // que vino ese día.)
+        'envios_estacion' => 'los intentos del salteado en el día de matrículas de ESE año; copiarlos fabricaría historia, como la bitácora (46 §3.4)',
+
         // El puntero `years.horario_version_id` ya está excusado por lo mismo en
         // `CentinelaDeLasColumnasDelAnioNuevoTest::NACEN_VACIAS`, y las dos
         // excepciones tienen que decir lo mismo o una de las dos miente: cada año

@@ -804,6 +804,81 @@ class Autoriza
     }
 
     /**
+     * Quién puede dar por resuelta una nota pendiente de una estación.
+     *
+     * **Decidido por Joseth el 20 sep 2026: quien la escribió, o `Admin`,
+     * `Secretario` o `Rector`** (46 §3.3, `myvc_flutter/docs/estaciones.md` §2.10).
+     * Sustituye a lo que el documento pedía —«el dueño de esa estación»—, que dejó
+     * de existir el mismo día: desde que **cerrar un paso lo puede hacer cualquiera
+     * del personal**, la estación no tiene dueño.
+     *
+     * ## Es el ÚNICO permiso de este módulo, y eso es la decisión
+     *
+     * Las otras ocho rutas van con `auth.personal` y nada dentro. Aquí sí hay
+     * candado porque **una nota pendiente es un aviso que le estorba a quien tiene
+     * prisa**: el tesorero escribe el lunes «esta familia debe matrícula» y el
+     * sábado, en la cola, el que atiende la estación 5 necesita cerrar su paso. Si
+     * pudiera apagar la nota él mismo, el aviso no protegería nada. Por eso la
+     * puerta de escape es **nominal** —Secretaría o Rectoría— y no anónima.
+     *
+     * ## Se pregunta por NOMBRE de rol y no por id, y eso NO es descuido
+     *
+     * El 46 dice «`Admin` (1), `Secretario` (12) o `Rector` (10)», y los ids son
+     * correctos **en la copia de desarrollo**. Pero `roles` es una tabla **por
+     * colegio** —cada uno es una copia de la base— y no está garantizado que las
+     * dieciséis tengan las mismas filas. Medido el 20 sep 2026:
+     *
+     *     simonbolivar (desarrollo)      12 roles, `Secretario` es el 12
+     *     la base de tests del repo      11 roles, `Secretario` NO EXISTE
+     *
+     * O sea que **un `role_id IN (1,10,12)` escrito de memoria habría dado permiso
+     * a quien tuviera el rol 12 en un colegio donde el 12 es otra cosa**. `hasRole`
+     * compara el nombre literal y devuelve `false` limpiamente si el rol no existe,
+     * que es el comportamiento que hace falta aquí.
+     *
+     * Los tres nombres **no llevan tilde**, así que no les aplica la trampa de
+     * `docs/migracion/33-la-tilde-que-sql-no-ve.md` — que sí mordería a
+     * `Coord académico`. Va dicho porque la próxima vez puede no ser así.
+     *
+     * ## EL HUECO QUE ESTO DEJA, MEDIDO Y NO TAPADO: dos superusuarios fuera
+     *
+     * `Admin` es **un rol**, y el administrador de verdad de este sistema es la
+     * columna `users.is_superuser`. **No son el mismo conjunto.** Medido sobre
+     * `simonbolivar` el 20 sep 2026:
+     *
+     *     superusuarios vivos                12
+     *     con el rol `Admin`                 10
+     *     superusuario SIN el rol `Admin`     2      <- no pueden resolver
+     *     con el rol `Admin` sin superusuario 0
+     *
+     * Se implementa **lo que Joseth dijo**, que fueron los tres roles, y no se
+     * ensancha a `is_superuser` por cuenta propia: eso sería exactamente *«crear un
+     * rol regala permisos que nadie pidió»* al revés. Pero el hueco es real y en
+     * este colegio son dos personas, así que **queda escrito aquí y en el 46 como
+     * decisión abierta** en vez de resolverse en silencio en cualquiera de las dos
+     * direcciones.
+     *
+     * @param  object  $user  el `stdClass` de `User::fromToken()`
+     * @param  int|null  $escritaPor  `users.id` de quien escribió la nota
+     */
+    public static function puedeResolverNotaDeEstacion($user, ?int $escritaPor): bool
+    {
+        $quien = (int) ($user->user_id ?? 0);
+
+        if ($quien > 0 && $escritaPor !== null && $quien === $escritaPor) {
+            return true;
+        }
+
+        if ($quien <= 0) {
+            return false;
+        }
+
+        return Role::hasRole($quien, 'Admin')
+            || Role::hasRole($quien, 'Secretario')
+            || Role::hasRole($quien, 'Rector');
+    }
+
+    /**
      * Corta con 403 si no se cumple.
      */
     public static function exigir(bool $condicion, string $mensaje): void

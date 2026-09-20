@@ -8,6 +8,140 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+> ## 🚧 LAS ESTACIONES EN LA APP — NUEVE RUTAS, **SIN FUNDIR** (20 sep 2026)
+>
+> **Rama `feat/las-estaciones-en-la-app`, árbol `.worktrees/est`, base
+> `simonbolivar_testing_est`.** Que alguien del personal atienda una estación del día de
+> matrículas **desde el teléfono, sin web**: que al cerrar su paso la persona aparezca en la
+> estación siguiente, y que se pueda buscar a cualquiera para ver en qué va. Es la fase 2 del
+> proceso de admisión, encima de la fase 1 que entró esta mañana
+> ([44](44-el-dia-de-matriculas.md)). El contrato y lo que la construcción destapó están en
+> [46](46-las-estaciones-en-la-app.md).
+>
+> **Router en 634, contado con `route:list --json` en `.worktrees/est`. SIN FUNDIR: hay que
+> recontarlas en el ÁRBOL PRINCIPAL el día que entren.** Son **nueve** sobre las 625 de `main`,
+> todas `auth.personal` y familia nueva `estaciones/`.
+>
+> ```
+> GET  estaciones                        el recorrido del colegio y cuántos esperan
+> GET  estaciones/huella                 ~300 bytes: ¿cambió algo?
+> GET  estaciones/alumno/{id}            la ficha; con ?estacion= dice si puede atenderlo
+> GET  estaciones/codigo/{codigo}        lo mismo, por el QR del formulario
+> GET  estaciones/{nro}/cola             los que me llegan
+> PUT  estaciones/{nro}/marcar           cumple | observado | devuelto(motivo)
+> PUT  estaciones/{nro}/enviar-a/{dest}  el salteado: registra el intento, NO escribe el paso
+> POST estaciones/{nro}/nota             una nota en CUALQUIER estación, la tuya o no
+> PUT  estaciones/nota/{id}/resuelta     LA NOVENA, que el contrato de ocho no tenía
+> ```
+>
+> ### El contrato decía OCHO y son NUEVE, y sin la novena dos columnas nacen muertas
+>
+> El 46 §3.3 describe **quién puede dar por resuelta una nota pendiente** y `estaciones.md`
+> §2.10 describe **el botón que lo hace**, con el texto que enseña apagado. Ninguna de las
+> ocho escribía `resuelta_por` ni `resuelta_at`. *Es `profesores.tono` por sexta vez en un
+> mes, y esta vez dentro del documento que lo cita como error.* Se cuenta y se dice.
+>
+> ### Lo que la construcción destapó, y ninguna lectura del código habría visto
+>
+> 1. **La huella necesita TRES cifras y el 34 pedía dos.** `timestamp` tiene precisión de
+>    **segundo**: una nota escrita en el mismo segundo que el cierre del paso anterior **no
+>    mueve el `MAX`** y tampoco mueve `n`, porque una nota no cambia quién espera. Sería
+>    invisible hasta el siguiente cambio de la cola — y si no hay ninguno, para siempre. La
+>    tercera es `notas`. *Cuando el reloj no puede, cuenta.*
+> 2. **La primera estación hacía desaparecer a quien reabren.** La cola de la primera se
+>    definió como «los que ya entraron al recorrido», y «entró» se escribió como *«tiene algo
+>    cerrado»*. Al reabrirle un paso a alguien, **desaparecía de todas las colas**: justo la
+>    desaparición silenciosa que este módulo existe para impedir. El marcador correcto es
+>    `updated_by`, que sobrevive a reabrir y que la fila creada por `AlumnosController` deja
+>    en NULL.
+> 3. **`matriculas` no tiene `year_id`.** El año viaja por `grupos.year_id`. Aquí costó un
+>    `Unknown column`, que es la forma barata de descubrirlo; la cara habría sido que la
+>    columna existiera y filtrara por otra cosa.
+> 4. **El rol `Secretario` no existe en la base de tests** (11 roles, no 12) aunque sí en
+>    desarrollo. Por eso el permiso pregunta **por nombre** y no por `role_id`: `roles` es una
+>    tabla por colegio y no está garantizado que las dieciséis tengan las mismas filas.
+>
+> ### Los dos hallazgos anteriores los encontraron los TESTS, no una revisión
+>
+> Los dos primeros se escribieron en verde, fallaron al correr y **el código estaba mal, no el
+> test**. Y los cinco controles se vieron en rojo, cada uno cazado por el test que lo nombra:
+>
+> | lo que se rompió | qué cayó |
+> |---|---|
+> | la huella cuenta sólo las notas de su estación | el de la nota en la 5 |
+> | la cola mira `estado` en vez de `cerrado_at` | el de la pantalla vieja |
+> | `devuelto` cierra el paso | el de devolver |
+> | la estación se cierra con uno de dos requisitos | el de uno de dos |
+> | reabrir no limpia la firma | el de reabrir |
+>
+> ### Lo que mueve
+>
+> **Tres instantáneas y NO la cuarta**, comprobado y no supuesto: `rutas.json`,
+> `guards-por-ruta.json` y `guard-por-familia.json` (`estaciones: 9 de 9`).
+> `familias-que-nunca-entran-en-el-candado.json` **no se toca** —la familia entra con nueve
+> guardadas— y `FamiliasQueNuncaEntranTest` sigue en **26**. Tampoco se mueve
+> `RutasPreLoginTest::TOTAL_PUBLICAS`: ninguna es pública ni puede serlo.
+>
+> **Y el candado que el 46 anunciaba NO habla**: avisaba de que `AutorizacionTest` delataría
+> `POST …/nota` como «sola entre sus hermanas», pero con la decisión de Joseth las nueve
+> llevan el mismo guard, así que no hay excepción que declarar. *Es la decisión funcionando,
+> no el candado fallando.*
+>
+> ### UN CANDADO QUE YA EXISTÍA CAZÓ LA TABLA NUEVA EL DÍA QUE NACIÓ
+>
+> La suite entera salió con **dos rojos**, y los dos eran
+> `CentinelaDeLasTablasDelAnioNuevoTest`: **`envios_estacion` lleva `year_id` y nadie la
+> copia al crear un año**. Es exactamente para lo que se escribió ese fichero el 13 sep, y
+> la forma cara de ese fallo es la que describe su propia cabecera — *«no rompe nada el día
+> que pasa, no deja una línea en ningún log, y se nota en enero»*.
+>
+> Se declara **con el motivo escrito** en `DATOS_DEL_ANIO`, que es la única forma
+> aceptable: copiar esos intentos diría que hubo doce salteados en un año cuyo día de
+> matrículas todavía no ha ocurrido. *La salida barata —añadir el nombre y pasar— es
+> justo lo que ese test existe para impedir.*
+>
+> Y su hermana `notas_estacion` **no entra, y no es un olvido**: no tiene `year_id` —cuelga
+> de `requisitos_matricula`, que es quien lleva el año—, así que el centinela no la mira.
+> La que sí la miraría es **el tercer censo de tablas hijas que ese fichero dice que no
+> existe todavía**, y su respuesta sería la misma.
+>
+> ### Estado — las cifras con la orden que las produjo
+>
+> | | |
+> |---|---|
+> | `Tests: 2 failed, 1 skipped, 2592 passed (54.146 aserciones)` · 972,71 s | `php artisan test` (las tres testsuites) en `.worktrees/est`, sobre `766da42`, con `COBERTURA_RUTAS` puesta. **Los dos rojos son el centinela de arriba**, y con él declarado las cuatro clases implicadas dan **92 passed** |
+> | `LasEstacionesEnLaAppTest`: **33 passed (325 aserciones)** | `--filter=LasEstacionesEnLaAppTest --testsuite=Contrato` |
+> | `PASS 486 files` | `composer run pint:test` |
+> | `[OK] No errors`, 708 ficheros | `composer run stan` (nivel 7) |
+> | `0 imports en 0 ficheros, de 715` | `php tools/imports-de-facades.php --dry-run`, y detrás `pint:test` |
+>
+> > **La suite se lanzó desprendida** (`docker exec -d … > /tmp/est-suite.txt`) y con el
+> > contenedor comprobado vacío de otras suites **antes** de lanzarla, preguntando **contra
+> > qué base** corría cada una y no cuántas había. Y se leyó de la línea `Tests:`, no del
+> > código de salida: *una suite sin esa línea no ha terminado, diga lo que diga el exit.*
+> >
+> > **Y una cosa que se dice en vez de taparse:** entre que la suite arrancó y terminó se
+> > tocó el `INSERT` de `escribirElPaso` —dejar que la base ponga el defecto de `estado` en
+> > vez de nombrarlo—, así que **esas 2.592 describen el árbol de `766da42` y no el final**.
+> > No toca `routes/` ni `database/migrations/`, así que le aplica el subconjunto y no la
+> > entera; queda cubierto por las 92 de arriba. *Una medición vale por el árbol contra el
+> > que corrió, y el que la publica es quien sabe si el árbol se movió.*
+>
+> ### Lo que queda abierto — y lo primero es de Joseth
+>
+> 1. **¿Un superusuario sin el rol `Admin` puede dar por resuelta una nota?** Hoy **no**, y en
+>    la copia de desarrollo son **dos personas** (12 superusuarios, 10 con el rol). Se
+>    implementó la regla literal —`Admin`, `Secretario`, `Rector`, o quien la escribió— y no se
+>    ensanchó por cuenta propia. La respuesta es una línea.
+> 2. **El vocabulario de `estado` sigue sin migrar en los dieciséis colegios.** La cola no
+>    depende de él —se apoya en `cerrado_at`— y la ruta nueva rechaza con 422 lo que no esté en
+>    la lista, pero `postAlumno` sigue aceptando lo que le manden las tres pantallas vivas.
+> 3. **`aspirante_id` no entra**, con el motivo medido en el 46: un aspirante **no tiene nombre
+>    en la base**, así que su cola serían renglones en blanco. Es de la fase 2 del portal.
+> 4. **`tools/requisitos-de-matricula.php` sigue sin correrse en `lal`**, que es el colegio que
+>    de verdad usa esto. No bloquea el código; dice qué se encuentra un colegio al desplegar.
+> 5. **Las doce pantallas de `myvc_flutter`**, que es lo que hace que esto lo use alguien.
+
 > ## ✅ QUE EL IMPORTADOR OBEDEZCA — LA FASE 2, CERRADA Y CONDUCIDA (21 sep 2026)
 >
 > **En `main`.** Router sigue en **623** —esta entrega no añade rutas: todo viaja por el cuerpo de
