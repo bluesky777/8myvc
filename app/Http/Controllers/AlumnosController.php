@@ -1116,6 +1116,47 @@ class AlumnosController extends Controller {
 	}
 	
 	
+	/*
+	 * «AGUDELO GONZALEZ MATIAS» NO ES NI UN NOMBRE NI UN APELLIDO, Y ES LO QUE TECLEA TODO EL MUNDO.
+	 *
+	 * La condición era `nombres like %texto% or apellidos like %texto%`: lo tecleado se comparaba
+	 * ENTERO contra cada mitad por separado, así que en cuanto alguien juntaba el nombre con los
+	 * apellidos --en el orden que fuera-- no casaba ninguna de las dos y el buscador contestaba que
+	 * esa persona no existe. Medido contra el docker el 19 sep 2026: el alumno 1 es «MATIAS /
+	 * AGUDELO GONZALEZ» y buscar «AGUDELO GONZALEZ MATIAS» devolvía 0 filas.
+	 *
+	 * Ahora lo tecleado se parte en palabras y **se piden todas, en cualquier orden**, contra el
+	 * nombre completo. Es la misma regla que ya usa el buscador de pantallas de `app2` (`buscarEn`,
+	 * en `cascara/buscador/indice.ts`), así que las tres listas del mismo cuadro se comportan igual.
+	 *
+	 * CON UNA SOLA PALABRA DEVUELVE LO MISMO QUE ANTES, que es lo que importa para los otros cuatro
+	 * que llaman aquí --el front viejo, `sidebarMenu` y la app de Flutter--: `CONCAT(nombres, ' ',
+	 * apellidos)` contiene las dos mitades, así que lo que casaba con una sigue casando.
+	 *
+	 * Sin nada escrito la condición queda en `LIKE '%%'` y devuelve a todo el mundo, que es también
+	 * lo que hacía antes: quien mande el texto vacío recibe lo de siempre.
+	 */
+	private function porTodasLasPalabras($texto)
+	{
+		$palabras = preg_split('/\s+/', trim((string) $texto), -1, PREG_SPLIT_NO_EMPTY);
+		if (!$palabras) { $palabras = ['']; }
+
+		$condiciones = [];
+		$valores     = [];
+
+		foreach ($palabras as $i => $palabra) {
+			$condiciones[] = "CONCAT(a.nombres, ' ', a.apellidos) like :palabra{$i}";
+			$valores[':palabra'.$i] = '%'.$palabra.'%';
+		}
+
+		/* Los paréntesis no son adorno: sin ellos el `and a.deleted_at is null` de quien llama se
+		 * pega sólo a la primera condición --`AND` ata más fuerte que `OR`-- y era justo el fallo
+		 * que tenía la consulta de aquí abajo: buscando por apellidos SÍ salían los de la papelera
+		 * (35 en el docker local) y buscando por nombres no. */
+		return [ '('.implode(' and ', $condiciones).')', $valores ];
+	}
+
+
 	public function putPersonasCheck()
 	{
 		$texto = Request::input('texto');
@@ -1140,18 +1181,20 @@ class AlumnosController extends Controller {
 		 * convierte en el mismo fallo con otra cara.
 		 */
 		$todos_anios = filter_var(Request::input('todos_anios', true), FILTER_VALIDATE_BOOLEAN);
-		
+
+		[ $condicion, $valores ] = $this->porTodasLasPalabras($texto);
+
 		if ($todos_anios) {
 				$consulta = 'SELECT a.id as alumno_id, a.nombres, a.apellidos, "alumno" as tipo, a.deleted_at, 
 						a.foto_id, IFNULL(i2.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as foto_nombre
 					FROM alumnos a
 					INNER JOIN matriculas m on a.id=m.alumno_id and m.deleted_at is null
 					LEFT JOIN images i2 on i2.id=a.foto_id and i2.deleted_at is null
-					WHERE a.deleted_at is null and nombres like :texto or apellidos like :texto2
+					WHERE a.deleted_at is null and '.$condicion.'
 					GROUP BY a.id order by a.nombres, a.apellidos';
 					// INNER JOIN matriculas para evitar que se repita. Sólo traerá los que tengan alguna matricula en el sistema.
 			
-			$res = DB::select($consulta, [':texto' => '%'.$texto.'%', ':texto2' => '%'.$texto.'%']);
+			$res = DB::select($consulta, $valores);
 			return [ 'personas' => $res ];
 		}else{
 			$consulta = 'SELECT m.alumno_id, a.nombres, a.apellidos, m.id as matricula_id, "alumno" as tipo, g.abrev, 
@@ -1160,10 +1203,10 @@ class AlumnosController extends Controller {
 				INNER JOIN matriculas m on a.id=m.alumno_id and (m.estado="ASIS" or m.estado="MATR")
 				INNER JOIN grupos g on g.year_id=:anio and g.id=m.grupo_id and g.deleted_at is null
 				LEFT JOIN images i2 on i2.id=a.foto_id and i2.deleted_at is null
-				WHERE nombres like :texto or apellidos like :texto2
+				WHERE '.$condicion.'
 				GROUP BY m.alumno_id, m.id order by g.orden';
 			
-			$res = DB::select($consulta, [':anio' => $this->user->year_id, ':texto' => '%'.$texto.'%', ':texto2' => '%'.$texto.'%']);
+			$res = DB::select($consulta, [':anio' => $this->user->year_id] + $valores);
 			return [ 'personas' => $res ];
 			
 		}
