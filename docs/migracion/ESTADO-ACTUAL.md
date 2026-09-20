@@ -73,6 +73,49 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## ✅ EL SEGUNDO CORREO FABRICADO: `'@gmail.com'`, CUARENTA VECES MÁS GRANDE (20 sep 2026)
+
+> **Quitar el `else` no cerró el grifo entero**, y lo levantó `myvc-front-2e`. Hay un segundo
+> invento y **pasa por la rama que dejamos en pie**: el alta de la aplicación **vieja** manda
+> `email: '@gmail.com'` —el literal, sin nada delante— cuando no se teclea correo, y como es
+> una cadena no vacía pasaba el `if (Request::input('email'))`.
+>
+> | | |
+> |---|---|
+> | Cuentas vivas con el literal | **678**, todas activas |
+> | Alumnos que la recuperación alcanza | 853 |
+> | …de ésos, con el literal | **655** |
+> | …de ésos, con un correo de verdad | **196** |
+>
+> **655 frente a 16**: el mismo daño que `@myvc.com` y cuarenta veces mayor. Y corrige el dato
+> que llegó esa mañana —*«los alumnos están sanos, 851 de 853»*—, que sólo filtraba
+> `@myvc.com`. Tercera vez en el día que una cifra es cierta y la frase de al lado no.
+>
+> ### Lo decidido, y son dos cosas distintas
+>
+> **El grifo se cierra desde el backend** (`b130194`): `app/Support/CorreoDeLaCuenta` dice qué
+> puede vivir en `users.email`, y una cadena que empieza por `@` no. **`app/` no se toca por
+> decisión de Joseth**, así que esa pantalla va a seguir mandándolo — por eso la regla vive
+> **donde el dato entra** y no en quien lo manda.
+>
+> **Las 678 ya escritas se quedan**, como las 30 de `@myvc.com`, decidido con los dos órdenes
+> de magnitud delante. *Sabido y decidido, no pendiente.*
+>
+> **Y la ficha lo conserva.** Sólo tiene regla la columna que es la llave del reseteo;
+> `alumnos.email` es un dato de contacto que el colegio mira en pantalla.
+>
+> ### Lo que este arreglo enseña y no estaba escrito en ningún sitio
+>
+> **`AlumnosController::postStore` escribe `users.email` desde `email` y NO desde `email2`**,
+> o sea que se salta entera la red de `sanarInputUser`. Un guardián puesto sólo en la
+> derivación —que es donde lo habría puesto cualquiera, porque es donde estaba el `else`— **no
+> habría tocado el alta de alumnos, que es justo donde nacen los 655.** Por eso la regla va en
+> los diez sitios que escriben esa columna desde entrada del cliente y no en uno.
+>
+> **El test se comprobó desarmando la regla**, no leyéndolo: con el `str_starts_with` fuera se
+> pone rojo ése y sólo ése. Es la tercera vez hoy que un test se valida rompiendo el código a
+> propósito, y las tres veces hizo falta.
+
 > ## ✅ A NADIE SE LE INVENTA UN CORREO (20 sep 2026) — Y EL PINT SE LO LLEVÓ OTRA SESIÓN
 
 > **Decisión de Joseth, confirmada directamente a esta sesión**: al crear a cualquiera
