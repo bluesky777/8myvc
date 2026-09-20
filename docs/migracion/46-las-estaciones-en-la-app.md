@@ -99,11 +99,10 @@
 > y quien puede darla por resuelta**. Queda aquí como decisión abierta, no resuelta en
 > silencio.
 >
-> ### 7 · EL HUECO DEL PERMISO, MEDIDO: dos superusuarios se quedan fuera
+> ### 7 · EL PERMISO SE ENSANCHA AL SUPERUSUARIO — CONTESTADO POR JOSETH EL 20 SEP 2026
 >
-> La §3.3 dice «`Admin` (1), `Secretario` (12) o `Rector` (10)» y **se implementa tal
-> cual**. Pero midiendo para escribirlo salieron dos cosas que este documento no podía
-> saber:
+> La §3.3 decía «`Admin` (1), `Secretario` (12) o `Rector` (10)» y se implementó tal cual.
+> Pero midiendo para escribirlo salieron dos cosas que este documento no podía saber:
 >
 > ```
 > simonbolivar (desarrollo)   12 roles, `Secretario` es el 12
@@ -118,11 +117,32 @@
 > Lo primero se resuelve solo: se pregunta **por nombre de rol** (`Role::hasRole`) y no por
 > id, así que un colegio donde el 12 sea otra cosa no da permiso a quien no debe.
 >
-> **Lo segundo es una decisión de Joseth y está abierta.** `Admin` es un rol; el
-> administrador de verdad de este sistema es `users.is_superuser`, y no son el mismo
-> conjunto. Se implementó **lo que él dijo** —los tres roles— y no se ensanchó por cuenta
-> propia, que sería *«crear un rol regala permisos que nadie pidió»* al revés. Pero en este
-> colegio son **dos personas que verán el botón apagado**, y la respuesta es una línea.
+> **Lo segundo se le puso delante con las dos personas dentro, y contestó que SÍ.** `Admin`
+> es un rol; el administrador de verdad de este sistema es `users.is_superuser`, y no son el
+> mismo conjunto. La regla queda en **quien la escribió, o superusuario, `Admin`,
+> `Secretario` o `Rector`**.
+>
+> Lo que importa del procedimiento, y no del resultado: **no se ensanchó por cuenta propia**
+> —eso habría sido *«crear un rol regala permisos que nadie pidió»* al revés— sino con la
+> medición delante. *Una puerta se abre con el número de quién entra por ella encima de la
+> mesa.*
+>
+> Y se usa `esSuperusuario()` y **no** `esAdministrativo()`, aunque el segundo cubra dos
+> tercios de lo que hace falta: ese método lo comparten quince llamadas de dominios que no
+> se parecen a éste, y el día que alguien lo ensanche **esta puerta se ensancharía con él
+> sin que nadie lo decidiera**. Es la regla que ya está escrita en `puedeAtarFormularios`.
+>
+> #### Y el control destapó que el test escrito para protegerlo NO lo protegía
+>
+> En la base de tests **los diez superusuarios tienen los diez el rol `Admin`**, así que la
+> rama nueva queda **tapada** por la vieja: un test que cogiera un superusuario del seed
+> pasaría igual sin ella. El test construye el caso —un usuario llano al que le enciende
+> `is_superuser`—, pero **la primera versión seguía verde con la línea quitada**: la nota la
+> escribía el mismo usuario, así que entraba por la rama del autor.
+>
+> Lo delató apagar la línea y ver que **sólo caía uno de los dos tests nuevos**. Con el autor
+> separado del resolvente caen los dos. *Un control no vale por existir: vale por haberse
+> visto en rojo, y por que el rojo sea el que se esperaba.*
 >
 > ### 8 · Lo que el §2 SÍ cerró y lo que sigue abierto
 >
