@@ -200,7 +200,11 @@ class RequisitosDeMatriculaTest extends CasoDeContrato
         $this->withToken($quien->token)
             ->postJson('api/requisitos/alumno', [
                 'requisito_alumno_id' => $inexistente,
-                'estado' => 'Entregado',
+                // `'ya'` y no `'Entregado'`: desde el 20 sep 2026 `EstadosDelPaso` rechaza
+                // con 422 lo que no está en la lista, y esa comprobación va ANTES que la
+                // del id — que es lo correcto, pero convierte este 200 en un 422 si el
+                // valor es inventado. `'ya'` es lo que manda de verdad la ficha del alumno.
+                'estado' => 'ya',
                 'descripcion' => 'Lo trajo el lunes',
             ])
             ->assertOk()

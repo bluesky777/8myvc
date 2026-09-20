@@ -210,8 +210,8 @@ class ElPortalDeLaFamiliaTest extends CasoDeContrato
             'La observación del personal viajó al portal de la familia.');
     }
 
-    /** Un acudiente no puede mirar el recorrido de un alumno que no es suyo. */
-    public function test_un_acudiente_no_ve_el_recorrido_de_otro(): void
+    /** Un alumno no puede mirar el recorrido de un compañero. */
+    public function test_un_alumno_no_ve_el_recorrido_de_otro(): void
     {
         $alumno = $this->unAlumnoConAcudiente();
 
@@ -221,6 +221,49 @@ class ElPortalDeLaFamiliaTest extends CasoDeContrato
         $this->assertNotNull($ajeno, 'El seed necesita dos alumnos.');
 
         $this->withToken($this->tokenDe($alumno['username']))
+            ->getJson('/api/requisitos/mi-recorrido/'.$ajeno->id)
+            ->assertStatus(403);
+    }
+
+    /**
+     * **Y LA RAMA DEL ACUDIENTE, que es la que de verdad hace falta probar.**
+     *
+     * Este test se llamaba «un acudiente no ve el de otro» y usaba **un token de
+     * alumno**: el nombre prometía la rama de `parentescos` y ejercitaba la de
+     * `persona_id`. *Un test que dice cubrir algo y no lo cubre es peor que no
+     * tenerlo, porque nadie va a ir a mirar.*
+     *
+     * Y es la que importa: el aviso del día de matrículas **le llega al acudiente**,
+     * no al alumno, así que es su token el que va a abrir esta ruta. Se comprueba por
+     * las dos direcciones — el suyo pasa, el ajeno no— porque un 403 a todo también
+     * dejaría este test en verde.
+     */
+    public function test_un_acudiente_ve_lo_de_su_acudido_y_no_lo_de_otro(): void
+    {
+        $usuario = $this->usuarioDeTipo('Acudiente');
+
+        $suyo = DB::selectOne('SELECT pa.alumno_id FROM parentescos pa
+            INNER JOIN acudientes ac ON ac.id=pa.acudiente_id AND ac.deleted_at IS NULL
+            INNER JOIN alumnos a ON a.id=pa.alumno_id AND a.deleted_at IS NULL
+            WHERE ac.user_id=? AND pa.deleted_at IS NULL LIMIT 1', [$usuario->id]);
+
+        $this->assertNotNull($suyo, 'El seed necesita un acudiente con al menos un acudido.');
+
+        $ajeno = DB::selectOne('SELECT a.id FROM alumnos a
+            WHERE a.deleted_at IS NULL AND a.id NOT IN (
+                SELECT pa.alumno_id FROM parentescos pa
+                INNER JOIN acudientes ac ON ac.id=pa.acudiente_id AND ac.deleted_at IS NULL
+                WHERE ac.user_id=? AND pa.deleted_at IS NULL) LIMIT 1', [$usuario->id]);
+
+        $this->assertNotNull($ajeno, 'El seed necesita un alumno que NO sea de ese acudiente.');
+
+        $token = $this->tokenDe($usuario->username);
+
+        $this->withToken($token)
+            ->getJson('/api/requisitos/mi-recorrido/'.$suyo->alumno_id)
+            ->assertStatus(200);
+
+        $this->withToken($token)
             ->getJson('/api/requisitos/mi-recorrido/'.$ajeno->id)
             ->assertStatus(403);
     }

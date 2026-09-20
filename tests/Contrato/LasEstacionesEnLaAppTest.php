@@ -192,7 +192,7 @@ class LasEstacionesEnLaAppTest extends CasoDeContrato
         [$ana] = $this->dosAlumnos();
         $this->unRecorridoDeTres();
 
-        $this->cerrarPorLaRutaVieja($ana, 1, 'cumplió con todo');
+        $this->unEstadoHeredado($ana, 1, 'cumplió con todo');
 
         $this->assertSame([$ana], $this->colaDe(2),
             'La cola se rompió con un `estado` que no está en ningún vocabulario: '
@@ -942,8 +942,47 @@ class LasEstacionesEnLaAppTest extends CasoDeContrato
     }
 
     /**
+     * **Un paso cerrado con un `estado` que no está en ningún vocabulario**, escrito
+     * directamente en la fila.
+     *
+     * **Hasta el 20 sep 2026 esto pasaba por `requisitos/alumno`, y ya no puede**:
+     * desde `App\Support\EstadosDelPaso` esa ruta rechaza con 422 lo que no esté en
+     * la lista de seis. *Y eso no invalida lo que este test protege: lo refuerza.*
+     *
+     * El invariante es sobre **el dato en reposo, no sobre lo que la ruta acepta**.
+     * `requisitos_alumno` lleva cinco años recibiendo lo que mandara cada pantalla, así
+     * que en los dieciséis colegios **hay filas con estados que nadie reconoce** — y la
+     * cola tiene que seguir siendo inmune a ellas aunque desde hoy no puedan entrar más.
+     *
+     * Escribirlo con un `UPDATE` es lo honesto: es exactamente como llegó ahí.
+     */
+    private function unEstadoHeredado(int $alumnoId, int $nro, string $estado): void
+    {
+        $requisito = DB::selectOne('SELECT id FROM requisitos_matricula
+            WHERE year_id=? AND orden=? AND deleted_at IS NULL ORDER BY id LIMIT 1',
+            [$this->yearActual(), $nro]);
+
+        $this->assertNotNull($requisito, "No existe la estación {$nro}.");
+
+        DB::insert('INSERT INTO requisitos_alumno
+            (alumno_id, requisito_id, estado, updated_by, cerrado_por, cerrado_at, created_at, updated_at)
+            VALUES (?,?,?,?,?,NOW(),NOW(),NOW())',
+            [$alumnoId, $requisito->id, $estado, $this->unUsuarioCualquiera(), $this->unUsuarioCualquiera()]);
+    }
+
+    /** Cualquier cuenta viva, para que la fila tenga firma como la tendría de verdad. */
+    private function unUsuarioCualquiera(): int
+    {
+        $fila = DB::selectOne('SELECT id FROM users WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+
+        $this->assertNotNull($fila, 'El seed no tiene usuarios.');
+
+        return (int) $fila->id;
+    }
+
+    /**
      * Cierra un paso **como lo cierra una pantalla vieja**: por `requisitos/alumno`,
-     * con el `estado` que le dé la gana. Es el llamante que la cola no puede romper.
+     * con uno de los estados que esas pantallas mandan de verdad.
      */
     private function cerrarPorLaRutaVieja(int $alumnoId, int $nro, string $estado): void
     {
