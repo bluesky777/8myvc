@@ -79,7 +79,7 @@
 > con `route:list --json` en `.worktrees/imp`, rama `feat/avisos-de-la-importacion`.
 >
 > El plan vivía fuera del repo *«mientras fuera un plan»*; la Fase 1 entró el 19 sep, así que se
-> mudó con número: **[`44-la-importacion-dinamica.md`](44-la-importacion-dinamica.md)**. En
+> mudó con número: **[`45-la-importacion-dinamica.md`](45-la-importacion-dinamica.md)**. En
 > `myvc-ia-prototipo` queda un puntero y ninguna copia — dos copias de un plan divergen y las dos
 > se leen como ciertas.
 >

@@ -1,4 +1,11 @@
-# 44 — La importación dinámica de alumnos
+# 45 — La importación dinámica de alumnos
+
+> **Nació como el 44 y pasó al 45 el mismo día.** Otra sesión estrenó
+> `44-el-dia-de-matriculas.md` mientras esto se escribía, y las dos llevaban razón: **ninguna podía
+> saber el número de la otra sin mirar `main` después**. Es el mismo caso que el contador de rutas,
+> en otro sitio — *un número que se elige mirando el árbol propio describe un árbol que mañana no
+> existe*. Y por lo mismo, la migración pasó de `2026_09_20_300000` a `…_400000`: las dos sesiones
+> habían elegido el mismo minuto.
 
 > **Movido aquí el 20 sep 2026 desde `myvc-ia-prototipo/docs/plan-importacion.md`**, que es lo que
 > ese mismo documento mandaba hacer: *«mientras sea un plan no ensucia el repo; el día que la

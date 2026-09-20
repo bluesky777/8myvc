@@ -79,7 +79,7 @@ Route::get('importar/modificar/{year}', [ImportarController::class, 'getModifica
 // Si hay una importación de alumnos a medias en este año. Es lo primero que
 // pregunta la pantalla AL ENTRAR, antes de que nadie elija fichero: con una a
 // medias, lo que toca no es subir otra sino decidir entre seguir donde se quedó
-// o empezar de cero (Fase 2 de docs/migracion/44-la-importacion-dinamica.md).
+// o empezar de cero (Fase 2 de docs/migracion/45-la-importacion-dinamica.md).
 //
 // `pendiente` es un segmento LITERAL y no hay ningún comodín hermano que se lo
 // pueda tragar —las otras tres de `importar/` son dos POST y un GET con
