@@ -45,11 +45,14 @@ namespace App\Support;
  *
  * ### PERO NINGÚN COLEGIO ESTÁ EN `promedio`, así que esto NO es un bloqueante
  *
- * Ese 2026 lo puso **una sesión de desarrollo, a mano y hoy a las 00:18** —no hay auditoría del
- * cambio y la última `years/guardar-cambios` del año es del 18 sep—, junto con
+ * Ese 2026 lo puso **una sesión de desarrollo, hoy a las 00:18**, junto con
  * `modelo_evaluacion = competencias`. La columna es `NOT NULL DEFAULT 'porcentaje'` y crear un
  * año la copia del anterior, así que `promedio` no aparece solo. Lo confirmó Joseth: **ningún
- * colegio ha usado nunca otra cosa que `porcentaje`**.
+ * colegio ha usado nunca otra cosa que `porcentaje`**. *(Por qué camino entró no se sabe: no hay
+ * auditoría del cambio, pero `years.updated_at` no lleva `ON UPDATE CURRENT_TIMESTAMP` y está
+ * movido, así que un `UPDATE` a pelo queda descartado y lo escribió algo que mantiene
+ * timestamps. Esta cabecera llegó a decir «a mano en la base» y eso era una deducción, no un
+ * dato.)*
  *
  * O sea que **cada pieza hace lo correcto por separado y juntas vacían el papel, pero hoy no le
  * pasa a nadie**. El arreglo hace falta el día que un colegio elija `promedio` —la pantalla lo

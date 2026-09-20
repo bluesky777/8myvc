@@ -26,10 +26,18 @@
 >
 > La columna es `enum('porcentaje','promedio') NOT NULL DEFAULT 'porcentaje'` y crear un año
 > **lo copia del anterior** (`YearsController:248`), así que `promedio` no sale solo: lo puso
-> alguien. Y no por la API —la última `years/guardar-cambios` de ese año es del **18 sep** y **no
-> hay ninguna auditoría** del cambio—, o sea **a mano en la base, hoy a las 00:18**, junto con
-> `modelo_evaluacion = competencias`. *Es una sesión de desarrollo probando las dos cosas nuevas
-> del mes sobre la copia compartida.*
+> alguien, **hoy a las 00:18** y junto con `modelo_evaluacion = competencias`. *Es una sesión de
+> desarrollo probando las dos cosas nuevas del mes sobre la copia compartida.*
+>
+> > **Por qué camino entró, NO se sabe — y esta casilla llegó a decir que sí.** Decía *«no por la
+> > API, o sea a mano en la base»*, deducido de que no hay ninguna auditoría del cambio y de que
+> > la última `years/guardar-cambios` de ese año es del 18 sep. **La segunda mitad es cierta y la
+> > primera era inventada**: medido después, `years.updated_at` **no lleva `ON UPDATE
+> > CURRENT_TIMESTAMP`** (`EXTRA` vacío en `information_schema`), así que un `UPDATE` a pelo
+> > **no lo habría movido** — y está movido. O sea que lo escribió algo que sí mantiene
+> > timestamps: Eloquent o una ruta que no audita. *«No hay auditoría» prueba que esa ruta no
+> > audita, no que no hubiera ruta.* La conclusión no cambia —no es la configuración de ningún
+> > colegio— pero el camino no se sabe y no se finge saberlo.
 >
 > **Lo que esto cambia y lo que no.** El fallo sigue existiendo y el arreglo sigue haciendo falta
 > el día que un colegio elija `promedio` —que es una opción que la pantalla ofrece—. Lo que se cae
