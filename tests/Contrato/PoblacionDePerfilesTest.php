@@ -98,7 +98,13 @@ class PoblacionDePerfilesTest extends CasoDeContrato
     {
         $codigo = $this->codigoSinComentarios();
 
-        preg_match_all('/\n\tpublic function (\w+)\s*\(/', $codigo, $m, PREG_OFFSET_CAPTURE);
+        // **`[ \t]+` y no `\t`.** Hasta el 20 sep 2026 esto exigía un TABULADOR, así
+        // que el día que Pint formateó `PerfilesController` —tabuladores a espacios—
+        // el regex dejó de casar con nada y el test salió rojo diciendo que habían
+        // cambiado los métodos que nombran grupos. No había cambiado ninguno: había
+        // cambiado la indentación. *Un test que lee el código fuente mide también su
+        // formato, y eso no es lo que este test dice medir.*
+        preg_match_all('/\n[ \t]+public function (\w+)\s*\(/', $codigo, $m, PREG_OFFSET_CAPTURE);
 
         $encontrados = [];
 
