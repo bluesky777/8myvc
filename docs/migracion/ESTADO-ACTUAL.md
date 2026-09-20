@@ -73,6 +73,51 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## 🚧 LA IMPORTACIÓN DINÁMICA DE ALUMNOS — FASE 2 EN CURSO, Y EL PLAN YA TIENE NÚMERO (20 sep 2026)
+>
+> El plan vivía en `myvc-ia-prototipo/docs/plan-importacion.md` *«mientras fuera un plan»*, con la
+> orden de mudarse el día que la Fase 1 arrancara. Arrancó el 19 sep y está en `main` (`f0d0313`),
+> así que se movió: **[`44-la-importacion-dinamica.md`](44-la-importacion-dinamica.md)**. El
+> análisis que lo sustenta —967 líneas medidas contra la base real— **se queda en el prototipo**:
+> aquí viven las decisiones, allí la medición.
+>
+> | Fase | Estado |
+> |---|---|
+> | **1 — los arreglos, sin IA** | ✅ fundida el 19 sep: la tilde, el estado truncado y el defecto que ya distingue «no reconocí» de «no venía nada» |
+> | **2 — las pantallas, primero SIN IA** | 🚧 la lleva `myvc-front-41` desde hoy |
+> | **3 — el traductor con IA, en la pasarela** | ⬜ después de la 2 |
+>
+> **Dos decisiones nuevas, D5 y D6.** Los mocks son **HTML estático suelto** en
+> `myvc-ia-prototipo/mocks/importacion/`, fuera de `myvc_front` y de `myvc_front_2` —dibujar dentro
+> de un front obliga a elegir repo antes de saber qué se dibuja—, y **D2 se dibuja en sus dos
+> variantes** (el `.xlsx` corregido contra la pantalla que aprueba el mapa) porque **la segunda no
+> existía cuando se formuló la pregunta: la trajo la propia Fase 2**.
+>
+> ### Lo medido hoy, que es lo que decide el contrato
+>
+> `ImporterFixer::$avisos` se llena desde la Fase 1 **y muere en memoria**: `postAlgo` termina con
+> `return 'Importados.';` pase lo que pase, así que la pantalla de la Fase 2 no tiene de dónde leer.
+> Antes de tocar el cuerpo de una ruta viva, quién lo lee:
+>
+> ```bash
+> grep -rn "importar/algo" myvc_front myvc_front_2 myvc_flutter --include="*.ts" --include="*.dart"
+> ```
+>
+> **Cuatro llamadores en dos repos —`myvc_flutter` no la llama— y NINGUNO lee el cuerpo cuando la
+> importación va bien.** Los dos de AngularJS lo guardan en `file.result` y ninguna plantilla lo
+> pinta; los dos de `app2` lo ignoran. Sí lo pintan **en la rama de fallo**, que no se toca. Las dos
+> formas de entregar los avisos —ampliar la respuesta, o persistirlos y añadir una ruta— están con
+> su precio en la §5.2 del 44.
+>
+> ### Lo que espera, y una instrucción con su caducidad
+>
+> - **D2 la decide Joseth mirando los mocks**, no antes.
+> - **El contrato de avisos NO se escribe hasta que llegue
+>   `mocks/importacion/lo-que-necesita-cada-pantalla.md`**, la lista campo a campo que está
+>   haciendo la sesión del front. *Caduca en cuanto ese fichero exista* — diseñarlo antes es
+>   diseñarlo dos veces. Si la forma elegida resulta ser la de persistir, **es una ruta nueva
+>   (620 → 621) y la autoriza Joseth con el precio delante**.
+
 > ## ❗ LA RECUPERACIÓN DE CONTRASEÑA ALCANZA A **CERO** ACUDIENTES (20 sep 2026)
 
 > **Lo levantó `myvc-front-2e` corrigiendo una cifra mía, y está reproducido aquí antes de
