@@ -8,10 +8,33 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-> ## 🔶 LA PARCIAL EN EL BOLETÍN — FASE 2 DEL 43, **SIN FUNDIR** (20 sep 2026)
+> ## ✅ LA PARCIAL EN EL BOLETÍN — FASE 2 DEL 43, **FUNDIDA** (20 sep 2026, `e14e675`)
 >
-> **Mientras esta línea diga «SIN FUNDIR», el árbol principal no tiene nada de esto.** Rama
-> `feat/la-parcial-en-el-boletin`, en `.worktrees/bol`, base `simonbolivar_testing_bol`.
+> **Fundida en el ÁRBOL PRINCIPAL sobre `main`**, viniendo de `feat/la-parcial-en-el-boletin`
+> (`057f89b`), que la escribió y la midió `8myvc-d7`. El ensayo de la fusión se hizo antes con
+> `git merge-tree --write-tree` **para no tocar el índice compartido del árbol principal**, que es
+> donde un merge ajeno abierto haría fallar el tuyo sin dejar rastro.
+>
+> **Router recontado en el ÁRBOL PRINCIPAL tras fundir: 634**, igual que antes — esta rama no
+> añade ninguna ruta. Se cuenta igualmente porque el contador de `CLAUDE.md` **se cuenta y no se
+> hereda**, y hoy han entrado varias tandas: *«no añade rutas» es una afirmación sobre esta rama,
+> no sobre el árbol en que cae.*
+>
+> ### La suite NO se volvió a correr, y el motivo es más fuerte que correrla
+>
+> `main` sólo se había movido en **documentación** desde la base de la rama (`CLAUDE.md` y tres
+> ficheros de `docs/`), así que `git diff 057f89b..HEAD -- app/ tests/` sale **vacío**: el código
+> que hay hoy en `main` es **byte a byte** el que dio las 399 passed. Volver a correrla habría
+> medido el mismo árbol y costado seis minutos de una máquina que comparten ocho sesiones. *Una
+> corrida repetida sobre un árbol idéntico no es una segunda medición: es la misma.*
+>
+> ### Y lo que sí se comprobó aquí, porque la prueba que traía no lo cubría del todo
+>
+> La rama ofrecía *«cero cambio de comportamiento en `Asignatura.php`»* con la prueba de que **no
+> se movió ninguna instantánea de la planilla**. Eso por sí solo no distingue *«no cambió»* de
+> *«no lo mira nadie»*, así que se leyó el diff: las dos expresiones que se van al helper son
+> **idénticas carácter a carácter** a las que había, y el bucle, los `(int)` del peso y el
+> `!== null` no se movieron. Se sostiene por las dos vías.
 >
 > **El front ya la fundió esta mañana en `myvc_front`; lo que faltaba era la API**, y la §Fase 2
 > del [43](43-lo-que-todavia-no-se-ha-calificado.md) decía justo lo contrario —*«no necesita
@@ -55,15 +78,54 @@
 >
 > ### Lo que queda por hacer
 >
-> 1. **Fundir**, y **recontar el router en el ÁRBOL PRINCIPAL** — aunque esta rama no añade
->    ninguna ruta, el contador de `CLAUDE.md` se cuenta y no se hereda.
-> 2. **Avisar a `myvc-front-a7` con la instantánea regenerada delante**, que es lo acordado: va a
->    volver a correr `conducir-semaforo-con-corte.mjs` **sin la interceptación** contra el docker.
->    Si los doce veredictos salen igual con los datos de verdad que con los inyectados, la fase 2
->    está encendida y medida.
-> 3. **Hablar con Joseth del orden del despliegue**: el front aguanta sin los campos —`hayCorte()`
->    pregunta por `undefined`, así que un colegio sin desplegar imprime el papel del 19 de
->    septiembre byte por byte—, pero la API tiene que llegar antes que nada que los espere.
+> 1. ~~**Fundir**~~ y ~~**recontar el router**~~ — hechas: `e14e675`, router **634** en el árbol
+>    principal.
+> 2. ~~**Avisar a `myvc-front-a7`**~~ — avisado con los tipos de la instantánea delante. Va a
+>    volver a correr `conducir-semaforo-con-corte.mjs` **sin la interceptación** contra el docker;
+>    si los doce veredictos salen igual con los datos de verdad que con los inyectados, la fase 2
+>    está encendida y medida. **Pendiente el resultado, que es de él.**
+> 3. **PENDIENTE — hablar con Joseth del orden del despliegue**: el front aguanta sin los campos
+>    —`hayCorte()` pregunta por `undefined`, así que un colegio sin desplegar imprime el papel del
+>    19 de septiembre byte por byte—, pero la API tiene que llegar antes que nada que los espere.
+>
+> ### Los tipos que se le pasaron al front, y el matiz que importa
+>
+> Lo que registraron las tres instantáneas, tal cual:
+>
+> ```
+> boletines-detailed-notas-group.json   cobertura "int|null"   nota_parcial "float|int|null"
+> boletines-detailed-notas.json         cobertura "int|null"   nota_parcial "int|null"
+> muestreo-notas-actuales-alumnos.json  cobertura "int"        nota_parcial "float|int"
+> ```
+>
+> **Que `cobertura` salga `int` no es que sea entera: es que en el seed sólo salen 0 y 1**, y sin
+> `JSON_PRESERVE_ZERO_FRACTION` `json_encode` manda `0.0` como `0` y `1.0` como `1`. Con un
+> colegio a medio calificar llegará `0.35`. Es lo mismo que le pasa a `nota_asignatura`, que lleva
+> años siendo `float|int`. **Quien lo lea compara valores, no tipos** — una guarda estricta de
+> tipo en el front se rompería justo en los extremos, que son los casos más frecuentes.
+>
+> **Y los dos `null` no son ceros**, que es el bug entero del 43. Los cuatro casos de borde,
+> **medidos llamando al helper e imprimiendo el JSON** —no deducidos leyéndolo—:
+>
+> | caso | `nota_parcial` | `cobertura` |
+> |---|---|---|
+> | sin plan (ninguna fila en `notas`) | `null` | `null` |
+> | plan con peso, **nada** calificado | `null` | **`0`** |
+> | una de dos calificada con 40 | **`40`** | `0.5` |
+> | todo calificado | `35` | `1` |
+>
+> **El caso mixto existe y es legítimo**: `cobertura: 0` con `nota_parcial: null` es *«hay plan y
+> no se ha evaluado nada»*, distinto de *«no hay plan»*. Un `0` en la parcial afirmaría que le fue
+> mal, que es justo la mentira que esta fase viene a quitar.
+>
+> **La tercera fila es para qué existe todo esto.** Ese alumno lleva `nota_asignatura` = **20** —la
+> mitad del periodo sin evaluar cuenta como cero— y el semáforo lo pinta BAJO. Su parcial es
+> **40**, con cobertura 0,5: *no va mal, va a la mitad*. Y la cuarta fila enseña el invariante que
+> lo cierra: **con todo calificado, parcial y acumulada son el mismo número** (35 y 35), o sea que
+> la parcial sólo existe como cifra distinta mientras falte algo.
+>
+> **Y ahí se ve el matiz de los tipos sin tener que creérselo**: `40` y `1` salen **enteros** en el
+> JSON y `0.5` sale **float**, en el mismo campo y en la misma respuesta.
 >
 > ### Lo que queda abierto, y es de Joseth
 >
