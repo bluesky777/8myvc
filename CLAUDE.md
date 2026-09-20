@@ -557,8 +557,24 @@ docker exec 8myvc-app-1 php artisan test --filter=NotasTest    # una clase
 > | orden | cuánto tarda, sana | en qué condiciones se midió |
 > |---|---|---|
 > | `php artisan test --testsuite=Contrato` | **840–1.360 s** (841, 930, 1.000, 1.044, **1.356** — cinco, 20 y 21 sep) | base propia, **contenedor compartido con otras sesiones trabajando** |
-> | `php artisan test` (las tres testsuites) | *sin medir* | — |
+> | `php artisan test` (las tres testsuites) | **1.359 s** (una sola medida, 20 sep) | base propia, contenedor con **otras cinco suites** trabajando |
 > | `--filter=<una clase de contrato>` | **10–40 s** | lo mismo |
+>
+> > **La fila de las tres testsuites la rellenó `8myvc-97` el 20 sep 2026** sobre `main` en
+> > `57bf6b9`, con base propia y el contenedor ocupado por `obe`, `pla`, `cie`, `f1` y una
+> > desnuda. Decía *sin medir*, y la medida es **1.359 s / 2.520 pruebas / 53.416 aserciones**.
+> > *Casi empata con el techo de Contrato (1.356 s), así que quien vea ~1.360 s no puede saber
+> > por la duración cuál de las dos órdenes corrió* — que es exactamente lo que este bloque
+> > avisa dos párrafos más arriba, y aquí las dos cifras se tocan.
+> >
+> > **Y una fecha que no cuadra, dicha con la prueba y sin reescribir lo ajeno:** las entradas
+> > vecinas se fechan **21 sep 2026** y los commits que las traen están sellados el **20**
+> > (`git log --date=iso`: `5383eb8` a las 14:15 −05, `416c3a4` a las 13:58). El host va en
+> > `-05` y **el contenedor en UTC**, cinco horas por delante: a las 19:00 locales el
+> > contenedor ya dice mañana. No sé cuál de las dos fuentes usó quien las escribió —a las
+> > 13:37 locales eran las 18:37 UTC y aún era día 20—, así que **esto señala la
+> > discrepancia, no la resuelve**. Es `importaciones` otra vez: *dos relojes en el mismo
+> > sitio y el que se lee no lleva escrito cuál es.*
 >
 > **Y la duración se publica CON SU ORDEN Y CON SU CONDICIÓN, por lo mismo que el
 > conteo.** «La suite» son dos órdenes distintas —`--testsuite=Contrato` y
