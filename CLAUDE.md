@@ -12,8 +12,9 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**620 rutas** (contadas con `route:list --json` el **20 sep 2026 en `.worktrees/es`** —
-**SIN FUNDIR: hay que recontarlas en el ÁRBOL PRINCIPAL el día que entre**. La que sube sobre las
+**620 rutas** (contadas con `route:list --json` el **20 sep 2026 en el ÁRBOL PRINCIPAL, sobre
+`main` y después de fundir** (`b8b3853`) — y coincidieron con las 620 contadas antes en
+`.worktrees/es`, que es la única forma de saber que coincidía. La que sube sobre las
 619 es **`GET colillas-inscripcion/{codigo}`**, la **decimosexta pública y la primera de LECTURA**
 de todo el módulo del formulario: hasta ella las tres públicas eran las tres de escritura, así que
 la familia mandaba su comprobante y no podía saber si se lo aprobaron ni por qué.

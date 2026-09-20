@@ -639,7 +639,9 @@ docblock— esta puerta se ensancharía con él **sin que nadie lo decidiera**.
 
     GET colillas-inscripcion/{codigo}    PÚBLICA    la llama la familia, sin cuenta
 
-**Router 620.** Autorizada por Joseth el 20 sep 2026.
+**Router 620**, contado con `route:list --json` en el árbol principal sobre `main` y después de
+fundir (`b8b3853`) — y coincidió con las 620 contadas antes en `.worktrees/es`. Autorizada por
+Joseth el 20 sep 2026.
 
 ### El hueco estaba medido, y era de forma, no de olvido
 
