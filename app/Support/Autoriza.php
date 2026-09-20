@@ -421,6 +421,34 @@ class Autoriza
     }
 
     /**
+     * Quién ata el papel de inscripción a un alumno, y quién corrige su código.
+     *
+     * Decidido por Joseth el 20 sep 2026 con las dos poblaciones delante:
+     * **`auth.personal` en la ruta y el criterio aquí dentro**, igual que la
+     * bandeja del tesorero y que `can_edit_plantilla_notas`.
+     *
+     * El porqué no es simetría con las otras cuatro rutas del formulario —que van
+     * con `auth.personal` a secas— sino qué decide cada escritura. Imprimir un
+     * formulario en blanco no dice de quién es nada; **atarlo a un alumno decide de
+     * quién es un cobro**, y corregir su código cambia lo que lleva impreso un papel
+     * que está en casa de una familia. `auth.personal` deja pasar a las 74 cuentas
+     * de personal, de las que **53 son docentes** que no tienen nada que ver con la
+     * ventanilla.
+     *
+     * **No se reusó `esAdministrativo()` directamente**, aunque hoy devuelva
+     * exactamente lo mismo. Ese método lo comparten quince llamadas de dominios que
+     * no se parecen a éste, y el día que alguien lo ensanche —crear un rol no puede
+     * regalar permisos que nadie pidió, que es la regla que ya está escrita en su
+     * propio docblock— esta puerta se ensancharía con él **sin que nadie lo
+     * decidiera**. Un método con nombre propio es lo que hace que ese día haya que
+     * venir aquí a decirlo.
+     */
+    public static function puedeAtarFormularios($user): bool
+    {
+        return self::esAdministrativo($user);
+    }
+
+    /**
      * Quién aprueba o rechaza la colilla del pago de un formulario.
      *
      * Decidido por Joseth el 19 sep 2026: **el tesorero, y si no hay, secretaría.**

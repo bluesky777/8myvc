@@ -405,11 +405,22 @@ descuido.
 | Las dos rutas de la pasarela | autorizadas · **entregadas** (§5.bis) |
 | El precio del formulario | **un precio por campaña** · **entregado** (§5.ter) |
 
-**Las diez están dentro.** Router **612**, contado con `route:list --json` en el árbol principal
-sobre `main` después de fundir. El precio **no gastó ruta**: va en la fila y la ruta que ya tenían
-los campos.
+**Decidido por Joseth el 20 sep 2026** — el alcance y el permiso, con las poblaciones delante:
 
-**Abierto:**
+| | |
+|---|---|
+| Atar el papel a un alumno sin reacuñar el código | autorizado · **entregado** (§9) |
+| El informe de la campaña, con «compró y no volvió» | autorizado · **entregado** (§9) |
+| Cerrar a `MATRICULADA` con su `matricula_id` | autorizado · **entregado**, sin gastar ruta |
+| El código lo acuña **siempre** la API | sí — y secretaría puede **corregirlo** después (§9) |
+| Quién ata y quién corrige | secretaría o superusuario, **dentro del método** |
+
+**Las diez del 19 sep están dentro, y las cuatro del 20 también.** Router **619**, contado con
+`route:list --json` en `.worktrees/fi` — **sin fundir**. Antes de ellas eran **612**, contadas en
+el árbol principal sobre `main` después de fundir; el precio **no gastó ruta** —va en la fila y la
+ruta que ya tenían los campos— y las 615 intermedias las trajeron otras ramas.
+
+**Abierto** *(y el 20 sep se cerró lo que faltaba del código: §9)*:
 
 - **Si el colegio da o no su llave privada de la pasarela.** Con ella, un webhook se confirma
   preguntándole a Wompi; sin ella, decide la firma del evento. Las dos funcionan y **la diferencia
@@ -444,3 +455,178 @@ los campos.
 5. ~~El precio del formulario: quién lo pone y dónde vive.~~ **Contestado el 19 sep 2026 entre
    tres formas y con el coste de cada una delante: un precio por campaña, en la misma fila y la
    misma ruta que los campos, estampado en cada formulario al acuñarlo (§5.ter).**
+6. ~~Qué pasa cuando el papel vuelve lleno: quién lo ata al alumno y qué ocurre si ese alumno ya
+   tiene formulario.~~ **Contestado el 20 sep 2026: el código no cambia al atarlo, el alumno que
+   ya tiene el suyo no gasta otro y el papel del segundo acudiente queda libre (§9).**
+7. ~~Si secretaría puede corregir un código.~~ **Contestado el 20 sep 2026: sí, tecleando el
+   sufijo —el carácter de control lo pone la API— y con el código viejo guardado para que el papel
+   que circula no quede huérfano (§9).**
+
+---
+
+## 9. DEL PAPEL AL ALUMNO — las cuatro que cierran el ciclo  *(20 sep 2026)*
+
+**Autorizado por Joseth el 20 sep 2026** con el alcance y el permiso delante, en respuesta a
+*«terminemos lo del formulario de inscripción… lo del código único que no cambia cuando se le
+asigna a un alumno ni se repite cuando ya le dimos el formulario a un nuevo acudiente que vino
+por él»*.
+
+    GET  informes/formularios-inscripcion/campana                 auth.personal
+    GET  informes/formularios-inscripcion/codigo/{codigo}         auth.personal
+    PUT  informes/formularios-inscripcion/codigo/{codigo}         auth.personal + puedeAtarFormularios
+    PUT  informes/formularios-inscripcion/codigo/{codigo}/alumno  auth.personal + puedeAtarFormularios
+
+**Router 619**, contado con `route:list --json` en `.worktrees/fi` — **sin fundir: hay que
+recontarlo en el árbol principal el día que entre**.
+
+### EL HUECO, MEDIDO ANTES DE ESCRIBIR NADA — Y ES EL CASO PRINCIPAL
+
+Las diez rutas del 19 sep **acuñan, imprimen y cobran**, y ahí se acababa. Medido con un `grep`
+de los `UPDATE` de esa tabla en todo `app/`:
+
+```
+UPDATE ordenes_inscripcion  ->  ColillasInscripcionController:227   SET estado="PAGADA"
+                                PagosInscripcionController:325      SET estado="PAGADA"
+```
+
+Dos, y las dos escriben lo mismo. O sea:
+
+- **`alumno_id` sólo se escribe al acuñar una renovación.** Un formulario del modo `nuevos`
+  —**el del aspirante, que es el caso principal**— nace con `alumno_id` NULL y **no se ata a
+  nadie jamás**. El requisito literal de Joseth del 19 sep, *«el código se queda con ese alumno
+  al que inscriban para matricular»*, **no ocurría** en el flujo que lo motivó.
+- **`matricula_id` no lo escribía nadie**, aunque su comentario en la migración prometiera lo
+  contrario.
+- **`estado = 'MATRICULADA'` tampoco**, y `PagosInscripcionController` ya lo nombra en
+  `YA_NO_SE_COBRA`.
+
+Es `profesores.tono` **por cuarta vez en un mes**, y otra vez **no lo destapó un barrido**:
+`interruptores-que-nadie-lee.py` mira `tinyint(1)` y esto es un `int` y dos `varchar`. Lo
+destapó que la función siguiente necesitaba el dato. *Construir encima encuentra huecos que un
+detector no busca, porque el detector sólo enumera las formas que alguien ya imaginó.*
+
+### Las tres frases de Joseth, y dónde vive cada una
+
+**1 · «El código no cambia cuando se le asigna a un alumno.»** `putAlumno` hace un `UPDATE` de
+`alumno_id`, nunca de `codigo`. Lo fija `test_el_codigo_no_cambia_al_atarlo_a_un_alumno`, que
+**compara contra la base y no contra la respuesta**: una respuesta que devuelva el código bueno
+mientras la fila guarda otro pasaría igual, y el papel que la familia tiene en la mano dejaría
+de encontrar nada.
+
+**2 · «Ni se repite cuando ya le dimos el formulario a un nuevo acudiente que vino por él.»** Si
+el alumno ya tiene orden de esa campaña, **no se acuña nada y no se mueve nada**: 409 con el
+código que ya tiene dentro del cuerpo, y **el papel en blanco del segundo acudiente queda
+libre** para otra familia. El cuerpo importa tanto como el código HTTP — sin él la pantalla sólo
+podría decir «ya tiene uno» y la secretaría tendría que ir a buscarlo, que es el trabajo que
+este módulo existe para quitar.
+
+> **Y aquí el control visto en rojo enseñó algo que no se sabía: esa propiedad la sostienen DOS
+> mecanismos independientes.** Quitando **sólo** la lectura previa de «¿ya tiene el suyo?», los
+> 23 tests siguen verdes —el `UNIQUE (year_campana, alumno_id)` la atrapa igual: el `UPDATE`
+> choca, el `catch` relee y contesta lo mismo—. Quitando **sólo** el `catch`, también verdes.
+> Quitando **los dos**, cae exactamente el test que la nombra y ningún otro.
+>
+> Eso no es un test flojo: es **un test que comprueba la propiedad y no el camino**. Uno atado a
+> la implementación se habría puesto rojo al quitar cualquiera de las dos y habría hecho creer
+> que el código estaba roto mientras la base seguía defendiéndolo.
+
+**3 · «Los códigos no los debe inventar la secretaría, eso debe ser automático, aunque no
+estaría mal que lo pueda modificar después, asegurando de darle herramientas para que no repita
+código.»** `PUT …/codigo/{codigo}` corrige, y **la forma ES la herramienta**:
+
+| | |
+|---|---|
+| se teclea el **sufijo**, cinco caracteres, no el código | el carácter de control **lo pone la API**, así que por este camino no puede salir uno que no valide: la persona no escribe la parte que podría estar mal |
+| sin `sufijo`, se acuña **uno automático** | es el botón de *«deme otro»* cuando el papel se estropeó |
+| el alfabeto se valida contra el mismo que el generador | la `O`, el `0`, la `I`, el `1`, la `L`, la `S` y el `5` están fuera **porque una persona los confunde leyendo un papel**; colar una `O` aquí metería en circulación justo el código que este módulo se cuida de no acuñar |
+| que no se repita lo garantiza el **`UNIQUE`** | este método lo traduce a **409 diciendo qué pasó**, no a un 500 |
+
+### `codigo_anterior`: la columna que hace que corregir sea seguro
+
+Es lo único nuevo del esquema, y no es comodidad. **El código viejo está impreso en un papel que
+está en casa de una familia.** Sin guardarlo, corregir convierte ese papel en basura silenciosa:
+quien lo teclee recibe *«no existe»* y **nadie puede saber que existió**. Con ella,
+`getPorCodigo` busca por las dos columnas y la respuesta dice **`encontrado_por`**, para que la
+pantalla pueda avisar de que ese papel ya no lleva el código bueno.
+
+Guarda **uno solo**, el inmediatamente anterior. Corregir dos veces deja huérfano el primero, y
+es una limitación consciente: el caso de uso es *una* corrección, y un historial sería una tabla
+que nadie ha pedido. Va dicho porque una limitación que no se escribe se descubre el día que
+duele.
+
+**Lo único que no se puede corregir es lo que ya cerró**: `MATRICULADA` es 409. Con pagos **sí**
+se deja, y no por descuido — las colillas y los pagos apuntan a `orden_id`, no al código, así
+que dentro de la casa no se rompe nada. La respuesta lleva `tenia_pagos` para que la pantalla
+pueda avisar antes.
+
+### El informe de campaña, y su única decisión de fondo
+
+`GET …/campana?year_campana=2027` da el resumen, las cinco cuentas por estado y **la lista de
+quién compró y no volvió**, con los teléfonos del alumno y de su primer acudiente. Esa lista es
+la que el docblock de la migración prometía —*«hoy no existe en ninguna parte y es dinero que el
+colegio ya recibió»*— y hasta hoy no salía de ningún sitio: `ordenes_inscripcion` **sólo se podía
+leer por lote**.
+
+> **Los matriculados NO se cuentan por `estado`: se cuentan con un `JOIN` vivo contra
+> `matriculas`.** El motivo es que `matriculas` tiene **ocho escritores** en todo `app/`
+> —`MatriculasController` (6), `LoginController` (3), `PromovidosController`,
+> `ImportarController` (4) y `GuardarAlumno`— y **ninguno es de este módulo**. La columna
+> `estado` la escribe sólo `putAlumno`, así que va por detrás siempre que alguien matricule por
+> cualquiera de los otros siete caminos: contarla daría **una cifra que baja sola** y metería en
+> la lista de llamadas a gente que ya está en clase.
+>
+> **Y por eso no se engancha una escritura nuestra en los ocho**, que era la salida «completa»:
+> tocar el camino caliente de los dieciséis colegios para una columna que sólo lee este informe.
+> *Una caché con ocho escritores ajenos es `notas_finales` otra vez, que es medio
+> [doc 10](10-definitivas.md).* La columna se queda como comodidad; la verdad la dice el `JOIN`.
+> Lo fija `test_el_informe_cuenta_los_matriculados_contra_matriculas_y_no_contra_el_estado`,
+> **visto en rojo** con la versión que cuenta la columna.
+
+### Y el mismo pecado, cometido por mí dos métodos más abajo
+
+La lista de «compró y no volvió» llevaba una columna llamada **`pagado_at`** que era
+`o.updated_at`. **No es la fecha del pago**: es la última modificación de la fila, así que
+corregir el código de un formulario ya pagado la mueve y la lista de llamadas diría que pagó hoy.
+
+Es exactamente lo que el apartado siguiente denuncia de `vendida_at`, escrito **el mismo día y en
+el mismo fichero**, y no lo cazó ningún test —el nombre de una clave no lo comprueba nadie— sino
+releer la consulta. Se llama **`actualizado_at`**, que es lo que es, y la fecha del pago de verdad
+sale de `colillas.resuelta_at` y `pagos.verificado_at`, que el `GET` por código ya devuelve.
+
+*Un nombre que miente no falla: pasa la suite, pasa larastan y llega a la pantalla.* Por eso el
+test fija ahora las dos cosas —que `actualizado_at` está y que `pagado_at` **no**—, que es lo
+único que convierte esta nota en un candado.
+
+### Un hallazgo de nombre en la dirección contraria: `vendida_at` NO es la fecha de venta
+
+`vendida_por` y `vendida_at` se escriben **al acuñar**, o sea al imprimir. **Cincuenta
+formularios en blanco no son cincuenta ventas**, así que un informe que sumara sobre esa fecha
+contaría como recaudado todo lo que salió de la impresora. Lo que dice que alguien pagó es el
+**estado**, y por eso `recaudado` suma sobre `IMPRESA|PAGADA|APROBADA` y no sobre la fecha. Las
+columnas no se renombran —están desplegadas— pero el nombre queda desmentido por escrito.
+
+### El permiso va al revés que el de las otras cuatro de esta familia, a propósito
+
+Las cuatro del 19 sep llevan `auth.personal` y **nada dentro**. Éstas se parten en dos, decidido
+por Joseth el 20 sep con las poblaciones delante:
+
+- **Las dos lecturas, `auth.personal` a secas.** Mirar el papel que a uno le ponen delante es lo
+  que hay que poder hacer en la estación de documentos el día de matrículas, y ahí quien atiende
+  es un docente.
+- **Las dos escrituras, `Autoriza::puedeAtarFormularios` dentro del método.** `auth.personal`
+  deja pasar a las **74** cuentas de personal, de las que **53 son docentes**; atar decide **de
+  quién es un cobro** y corregir cambia lo que lleva impreso un papel que está en casa de una
+  familia.
+
+**No se reusó `esAdministrativo()` directamente**, aunque hoy devuelva exactamente lo mismo: lo
+comparten quince llamadas de dominios que no se parecen a éste, y el día que alguien lo ensanche
+—*crear un rol no puede regalar permisos que nadie pidió*, que es la regla escrita en su propio
+docblock— esta puerta se ensancharía con él **sin que nadie lo decidiera**.
+
+### Lo que esto NO hace, dicho para que nadie lo suponga
+
+- **No crea el alumno.** `putAlumno` ata a un alumno **que ya existe**; darlo de alta es la
+  pantalla de siempre. El día que haya tabla `aspirantes` (§7 de `INVESTIGACION-MATRICULAS.md`)
+  esto es donde encaja.
+- **No engancha en el flujo de matrícula**, por lo dicho arriba.
+- **No manda ningún aviso.** Sigue abierto, y sigue dependiendo del correo (§7).

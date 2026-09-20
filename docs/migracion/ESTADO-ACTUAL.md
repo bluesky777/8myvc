@@ -73,6 +73,137 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## ✅ DEL PAPEL AL ALUMNO — LAS CUATRO QUE CIERRAN EL FORMULARIO, ROUTER EN 619 (20 sep 2026)
+>
+> **Encargo de Joseth**: *«terminemos lo del formulario de inscripción… lo del código único que no
+> cambia cuando se le asigna a un alumno ni se repite cuando ya le dimos el formulario a un nuevo
+> acudiente que vino por él»*. Alcance y permiso autorizados por él con las poblaciones delante.
+> El porqué entero está en [`41 §9`](41-el-formulario-de-inscripcion.md); esto es dónde quedó.
+>
+> **Está en `.worktrees/fi`, rama `feat/del-papel-al-alumno`, SIN FUNDIR**: el 619 se contó en ese
+> árbol y **hay que recontarlo en el árbol principal el día que entre**.
+>
+> | | |
+> |---|---|
+> | `GET informes/formularios-inscripcion/campana` | el informe: vendidos, recaudado y **quién compró y no volvió** |
+> | `GET …/codigo/{codigo}` | lo que hay detrás de un código, **y encuentra también por el viejo** |
+> | `PUT …/codigo/{codigo}` | corrige el código · `puedeAtarFormularios` dentro |
+> | `PUT …/codigo/{codigo}/alumno` | lo ata · `puedeAtarFormularios` dentro |
+>
+> Más `Autoriza::puedeAtarFormularios`, `CodigoDeInscripcion::componer()` y **una migración**
+> (`2026_09_20_100000`): `codigo_anterior` y dos índices.
+>
+> ### LAS CIFRAS, CON LA ORDEN QUE LAS PRODUJO Y EL ÁRBOL DESDE EL QUE SE CONTARON
+>
+> | | |
+> |---|---|
+> | `php artisan test --filter=DelPapelAlAlumnoTest` | **23 passed** |
+> | `php artisan test` (las tres testsuites) | **2.437 passed, 1 skipped (52.721 aserciones)**, sobre `9bf336d` a las 07:24 en `.worktrees/fi` |
+> | `composer run stan` | `[OK] No errors`, **680** ficheros |
+> | `composer run pint:test` | **PASS**, **454** ficheros |
+> | `pint --test` (el repo entero, otra población) | `FAIL`, **695** ficheros y **182** avisos |
+> | `route:list --json` | **619**, en `.worktrees/fi` · **recontar en el principal al fundir** |
+>
+> **Y son DOS índices y no tres, comprobado con `EXPLAIN` y no supuesto**: el informe filtra por
+> `year_campana`, y el `UNIQUE (year_campana, alumno_id)` que ya existía **lo lleva de primera
+> columna**, así que lo usa como prefijo. Un índice de más se mantiene en cada `INSERT` de una
+> tabla que se escribe de cincuenta en cincuenta al imprimir una tanda.
+>
+> ### Las tres instantáneas que se movieron, revisadas una a una
+>
+> No se regeneraron y se pasó: se guardó la versión anterior y **se diferenció**.
+>
+>     rutas.json                615 -> 619
+>     guard-por-familia.json    la familia del formulario, 6/6 -> 10/10 con guard
+>     guards-por-ruta.json      las cuatro, dos en el grupo del GET y dos en el del PUT
+>
+> **La cuarta NO se movió, y por eso no se tocó**:
+> `familias-que-nunca-entran-en-el-candado.json` lista las familias con menos de dos hermanas con
+> guard, e `informes/` tiene de sobra más de dos. `RutasPreLoginTest` y `AutenticacionTest`
+> tampoco: **ninguna de las cuatro es pública**.
+>
+> ### EL HUECO QUE TAPA, Y ERA EL CASO PRINCIPAL
+>
+> Las diez rutas del 19 sep acuñan, imprimen y cobran, y ahí se acababa. Medido con un `grep` de
+> los `UPDATE` de esa tabla en todo `app/`: **hay dos y las dos escriben `estado="PAGADA"`**. O
+> sea que **`alumno_id` sólo se escribía al acuñar una renovación**, y un formulario del modo
+> `nuevos` —el del aspirante, que es el flujo que motivó el encargo— **no se ataba a nadie
+> jamás**. `matricula_id` y `estado='MATRICULADA'` **no los escribía nadie**, aunque
+> `PagosInscripcionController` ya nombre el segundo en `YA_NO_SE_COBRA`.
+>
+> Es **`profesores.tono` por cuarta vez en un mes** y otra vez **no lo destapó un barrido**
+> —`interruptores-que-nadie-lee.py` mira `tinyint(1)` y esto es un `int` y dos `varchar`—: lo
+> destapó que la función siguiente necesitaba el dato.
+>
+> ### EL CONTROL VISTO EN ROJO ENSEÑÓ ALGO QUE NO SE SABÍA
+>
+> | lo que se rompió | qué cayó |
+> |---|---|
+> | el informe cuenta `estado` en vez del `JOIN` | el test que lo nombra, y sólo ése |
+> | corregir sin guardar `codigo_anterior` | dos |
+> | atar reacuña el código | seis, el primero el que lo nombra |
+> | la lectura previa de «¿ya tiene el suyo?» | **NADA** |
+>
+> **Ese último renglón no es un test flojo: la propiedad la sostienen DOS mecanismos
+> independientes.** Quitando sólo la lectura previa, el `UNIQUE (year_campana, alumno_id)` la
+> atrapa igual; quitando sólo el `catch`, la atrapa la lectura; quitando **los dos**, cae
+> exactamente `test_un_segundo_acudiente_no_gasta_otro_codigo` y ningún otro. Es lo que hay que
+> querer de un test así: **comprueba la propiedad, no el camino**.
+>
+> > **Y el primer intento de ese control NO MIDIÓ NADA y decía que sí.** Neutralizar el `catch`
+> > con una sustitución de texto dejó el método mal formado, y los **23** tests cayeron con
+> > **61 aserciones** en vez de 198. Leído deprisa, «23 en rojo» parece un control potentísimo;
+> > lo que era es un fichero roto. **El delator fue la cuenta de aserciones, no la de tests** — y
+> > es la trampa ya escrita en `CLAUDE.md`: *el detector corre, contesta lo que le preguntaron y
+> > contesta bien; quien pregunta mal es uno.*
+>
+> ### Las tres decisiones que no eran obvias
+>
+> 1. **Los matriculados no se cuentan por `estado`: `JOIN` vivo contra `matriculas`.** Esa tabla
+>    tiene **ocho escritores** en `app/` y ninguno es de este módulo, así que la columna va por
+>    detrás siempre que alguien matricule por los otros siete caminos: contarla daría una cifra
+>    que **baja sola** y metería en la lista de llamadas a gente que ya está en clase. Enganchar
+>    una escritura nuestra en los ocho era tocar el camino caliente de los dieciséis colegios por
+>    una columna que sólo lee este informe. *Una caché con ocho escritores ajenos es
+>    `notas_finales` otra vez.*
+> 2. **`codigo_anterior`, y es lo que hace seguro corregir.** El código viejo está impreso en un
+>    papel que está en casa de una familia: sin guardarlo, corregir lo convierte en basura
+>    silenciosa —«no existe», y nadie puede saber que existió—. La respuesta dice
+>    `encontrado_por` para que la pantalla lo avise. Guarda **uno solo**; corregir dos veces deja
+>    huérfano el primero, y va dicho.
+> 3. **El permiso se parte en dos, al revés que las otras cuatro de la familia.** Las lecturas
+>    con `auth.personal` a secas —mirar el papel que a uno le ponen delante es lo que hace un
+>    docente en la estación de documentos—; las dos escrituras con criterio dentro, porque atar
+>    decide de quién es un cobro. **No se reusó `esAdministrativo()`** aunque hoy devuelva lo
+>    mismo: lo comparten quince llamadas y ensancharlo ensancharía esta puerta sin que nadie lo
+>    decidiera.
+>
+> ### DOS hallazgos de nombre, y el segundo lo cometí yo el mismo día
+>
+> **`pagado_at`, en la lista de «compró y no volvió», era `updated_at`** — o sea la última
+> modificación de la fila, no la fecha del pago: corregir el código de un formulario ya pagado la
+> movería y la lista diría que pagó hoy. **Es el mismo pecado que `vendida_at`, escrito en el
+> mismo fichero y el mismo día que lo denuncié**, y no lo cazó ningún test —el nombre de una
+> clave no lo comprueba nadie— sino releer la consulta antes de darla por buena. Se llama
+> `actualizado_at`, y el test fija ahora que `pagado_at` **no** está.
+>
+> *Un nombre que miente no falla: pasa la suite, pasa larastan y llega a la pantalla.*
+>
+> ### Y el primero, que es el de la tanda anterior: `vendida_at` NO es la fecha de venta
+>
+> Se escribe **al acuñar**, o sea al imprimir. Cincuenta formularios en blanco no son cincuenta
+> ventas, así que un informe que sumara sobre esa fecha contaría como recaudado todo lo que salió
+> de la impresora. `recaudado` suma sobre el **estado**. Las columnas no se renombran —están
+> desplegadas— pero el nombre queda desmentido por escrito.
+>
+> ### Lo que NO hace, para que nadie lo suponga
+>
+> - **No crea el alumno**: ata a uno que ya existe. Es donde encajará `aspirantes` (§7 de
+>   `myvc_front/INVESTIGACION-MATRICULAS.md`).
+> - **No engancha en el flujo de matrícula**, por el punto 1.
+> - **No manda ningún aviso**: sigue abierto y sigue dependiendo del correo, que está en rojo
+>   desde el 2 sep.
+
 > ## ✅ LA COLA DE RAMAS, VACIADA: OCHO FUSIONES, ROUTER EN 615 Y `origin/main` AL DÍA (19 sep 2026, noche)
 >
 > **Encargo de Joseth: reunir lo que estaban haciendo las otras sesiones, arreglar `main` —que

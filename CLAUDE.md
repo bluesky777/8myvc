@@ -12,9 +12,27 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**615 rutas** (contadas con `route:list --json` el **19 sep 2026 por la noche en el ÁRBOL
-PRINCIPAL, sobre `main` y después de fundir** (`b5f5345`), en la integración que vació la cola de
-ramas. Las dos que suben sobre las 613 son las del **calendario con destinatarios** —`PUT
+**619 rutas** (contadas con `route:list --json` el **20 sep 2026 en `.worktrees/fi`** —
+**SIN FUNDIR: hay que recontarlas en el ÁRBOL PRINCIPAL el día que entren**, que es la condición
+de caducidad que este párrafo lleva meses pidiendo que se escriba y la única razón de que la
+cifra anterior no envejeciera a mentira. Las cuatro que suben sobre las 615 son las de **del
+papel al alumno** —`GET …/campana`, `GET`/`PUT …/codigo/{codigo}` y `PUT
+…/codigo/{codigo}/alumno`—, que cierran el formulario de inscripción: hasta ellas, un formulario
+del modo `nuevos` **no se ataba a ningún alumno jamás** y `matricula_id` no lo escribía nadie.
+**Mueven TRES instantáneas y no cuatro**: `informes/` tiene de sobra más de dos hermanas con
+guard, así que `familias-que-nunca-entran-en-el-candado.json` no se toca.
+
+> **Y son las primeras de esta familia con el permiso PARTIDO EN DOS, que es lo que hay que leer
+> antes de copiarlas.** Las cuatro del 19 sep llevan `auth.personal` y nada dentro; de éstas, las
+> **dos lecturas** van igual —mirar el papel que a uno le ponen delante es lo que hace un docente
+> en la estación de documentos— y las **dos escrituras** llevan `Autoriza::puedeAtarFormularios`
+> **dentro del método**, porque atar decide de quién es un cobro y `auth.personal` deja pasar a
+> las 74 cuentas de personal, de las que 53 son docentes. *Quien lea las dos mitades seguidas
+> tiene que poder distinguir una decisión de un olvido.*
+
+El número anterior era **615**, contado con `route:list --json` el **19 sep 2026 por la noche en
+el ÁRBOL PRINCIPAL, sobre `main` y después de fundir** (`b5f5345`), en la integración que vació
+la cola de ramas. Las dos que suben sobre las 613 son las del **calendario con destinatarios** —`PUT
 calendario/mes` y `PUT calendario/proximos`—, que llevaban **dieciocho días** escritas y probadas
 en `feat/calendario` sin fundir.
 
@@ -702,8 +720,17 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
   > | `composer run pint` | **ESCRIBE**: formatea los ficheros de la lista |
   > | `pint --test` a secas | mide **todo el repo**, incluido lo que no se formatea a propósito |
   >
-  > Los dos primeros corren sobre **la lista curada de `composer.json`** —hoy **437**
-  > ficheros—; el tercero sobre **682**, y da `FAIL` con **185** avisos. **Las dos cifras
+  > Los dos primeros corren sobre **la lista curada de `composer.json`** —hoy **454**
+  > ficheros—; el tercero sobre **695**, y da `FAIL` con **182** avisos.
+  >
+  > > *Remedidas las tres el **20 sep 2026 en `.worktrees/fi`**, sobre `main` en `fd0bc44` más
+  > > las cuatro rutas de «del papel al alumno»: **454** (`PASS`), **695** y **182**. Decían
+  > > 437, 682 y 185 la noche del 19. **No hubo que tocar `composer.json`**: los dos ficheros
+  > > que entraron —la migración y el test— caen bajo `database/migrations` y `tests`, que ya
+  > > van como directorios enteros, así que **el número subió solo**. Y la tercera **volvió a
+  > > bajar** —185 a 182—, que es otra vez la dirección que nadie supondría sumando: un fichero
+  > > que entra en la lista curada **sale** de la cuenta de avisos al formatearse. Larastan
+  > > analiza **680** en este árbol.* **Las dos cifras
   > son correctas y cuentan poblaciones distintas**: con la tercera se archivó como ruido
   > un rojo real que llevaba desde el 7 sep en `CorsDelEscritorioTest`.
   >
