@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Perfiles;
 
 use App\Http\Controllers\Controller;
+use App\Support\EventosDelAnio;
 use App\Support\HtmlDelEditor;
 use App\User;
 use Carbon\Carbon;
@@ -106,14 +107,23 @@ class CalendarioController extends Controller
         // `putEliminarEvento` y `putSincronizarCumples` treinta líneas más abajo.
         $puedeVerLosInternos = ($user->tipo == 'Profesor') || $user->is_superuser;
 
-        // Las columnas nombradas, no `SELECT *`. El porqué está en `COLUMNAS`.
-        if ($puedeVerLosInternos) {
-            $eventos = DB::select('SELECT '.self::COLUMNAS.' FROM calendario WHERE deleted_at is null');
-        } else {
-            $eventos = DB::select('SELECT '.self::COLUMNAS.' FROM calendario WHERE solo_profes=0 and deleted_at is null');
-        }
-
-        return $eventos;
+        /*
+         * **Y desde el 20 sep 2026 el nombre de este método por fin dice la
+         * verdad: filtra por año.** Traía el calendario entero desde 2019 —593
+         * filas medidas, ninguna de 2026— y se llamaba `putThisYear`. Las
+         * columnas ya las había arreglado la tanda de `feat/calendario`; lo que
+         * faltaba eran las filas.
+         *
+         * **Las diecisiete columnas se quedan como están**: son las que esa
+         * tanda eligió para no mover la forma de esta respuesta, y `EventosDelAnio`
+         * sólo comparte el filtro. Lo que esto apaga el día del despliegue está
+         * escrito allí.
+         */
+        return EventosDelAnio::delAnio(
+            (int) $user->year,
+            conLosInternos: $puedeVerLosInternos,
+            columnas: self::COLUMNAS
+        );
     }
 
     /**

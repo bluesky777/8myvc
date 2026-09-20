@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 
 use App\Support\Autoriza;
+use App\Support\EventosDelAnio;
 use App\Support\PedidoPropio;
 use App\User;
 use App\Models\ChangeAsked;
@@ -119,7 +120,7 @@ class ChangeAskedController extends Controller {
 			//
 			// `calendario/this-year` tiene esta misma consulta y **no se toca aquí**: es la
 			// pantalla del calendario, y el front tiene su rediseño en marcha.
-			$eventos = DB::select('SELECT id, title, start, end, allDay, solo_profes, cumple_alumno_id, cumple_profe_id, url, created_by_nombres FROM calendario WHERE deleted_at is null');
+			$eventos = EventosDelAnio::delAnio((int) $user->year, conLosInternos: true);
 
 			
 			
@@ -220,7 +221,7 @@ class ChangeAskedController extends Controller {
 			
 			# Calendario
 			// Las nueve columnas que se pintan; el porqué, en la rama de arriba.
-			$eventos = DB::select('SELECT id, title, start, end, allDay, solo_profes, cumple_alumno_id, cumple_profe_id, url, created_by_nombres FROM calendario WHERE deleted_at is null');
+			$eventos = EventosDelAnio::delAnio((int) $user->year, conLosInternos: true);
 
 			
 							
@@ -282,7 +283,7 @@ class ChangeAskedController extends Controller {
 			
 			# Calendario
 			// Las nueve columnas que se pintan; el porqué, en la rama del superusuario.
-			$eventos = DB::select('SELECT id, title, start, end, allDay, solo_profes, cumple_alumno_id, cumple_profe_id, url, created_by_nombres FROM calendario WHERE solo_profes=0 and deleted_at is null');
+			$eventos = EventosDelAnio::delAnio((int) $user->year, conLosInternos: false);
 
 
 			# PREMATRICULAS SIGUIENTE AÑO
@@ -491,7 +492,7 @@ class ChangeAskedController extends Controller {
 			
 			# Calendario
 			// Las nueve columnas que se pintan; el porqué, en la rama del superusuario.
-			$eventos = DB::select('SELECT id, title, start, end, allDay, solo_profes, cumple_alumno_id, cumple_profe_id, url, created_by_nombres FROM calendario WHERE solo_profes=0 and deleted_at is null');
+			$eventos = EventosDelAnio::delAnio((int) $user->year, conLosInternos: false);
 
 			
 			
@@ -506,7 +507,7 @@ class ChangeAskedController extends Controller {
 
 			# Calendario
 			// Las nueve columnas que se pintan; el porqué, en la rama del superusuario.
-			$eventos = DB::select('SELECT id, title, start, end, allDay, solo_profes, cumple_alumno_id, cumple_profe_id, url, created_by_nombres FROM calendario WHERE solo_profes=0 and deleted_at is null');
+			$eventos = EventosDelAnio::delAnio((int) $user->year, conLosInternos: false);
 
 			
 			return [ 'publicaciones' => $publicaciones, 'eventos' => $eventos ];

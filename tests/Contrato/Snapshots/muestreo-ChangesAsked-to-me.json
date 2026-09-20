@@ -6,7 +6,7 @@
             "created_by_nombres": "string",
             "cumple_alumno_id": "int|null",
             "cumple_profe_id": "int|null",
-            "end": "null|string",
+            "end": "null",
             "id": "int",
             "solo_profes": "int",
             "start": "string",
