@@ -90,6 +90,32 @@ class FormulariosInscripcionController extends Controller
     private const LARGO_CIERRA = 120;
 
     /**
+     * Tope del precio del formulario, en pesos.
+     *
+     * **No está para cazar erratas y conviene no creer que lo hace**: un cero de más
+     * en 30.000 da 300.000, que pasa por debajo de esto sin despeinarse. Lo que
+     * impide es el absurdo y el desbordamiento de la columna —`unsignedInteger` se
+     * acaba en 4.294.967.295— y se valida **aquí y no en la base** porque el docker
+     * trunca en silencio y MariaDB 10.5 aborta: el mismo dato daría dos resultados
+     * distintos en desarrollo y en producción.
+     *
+     * Contra la errata de tecleo lo único que sirve es que la pantalla enseñe el
+     * precio guardado, que es cosa del front.
+     */
+    private const MAXIMO_VALOR = 10000000;
+
+    /**
+     * El precio de la campaña, leído **una vez por petición**.
+     *
+     * Se memoriza porque acuñar un grupo de renovaciones inserta treinta filas y
+     * todas cuestan lo mismo: sin esto serían treinta consultas idénticas para
+     * contestar una pregunta que no cambia dentro de la misma llamada.
+     */
+    private ?int $precio = null;
+
+    private bool $precioLeido = false;
+
+    /**
      * Cuántas veces se reintenta si el código aleatorio choca.
      *
      * Con 29^5 combinaciones un choque es raro, pero *raro* no es *imposible* y el
@@ -168,12 +194,16 @@ class FormulariosInscripcionController extends Controller
     {
         $year_id = $this->anioDeLaPeticion(Request::input('year_id'));
 
-        $fila = DB::selectOne('SELECT campos FROM config_formulario_inscripcion WHERE year_id=?',
+        $fila = DB::selectOne('SELECT campos, valor FROM config_formulario_inscripcion WHERE year_id=?',
             [$year_id]);
 
         return [
             'year_id' => $year_id,
             'campos' => $this->decodificar($fila->campos ?? null),
+            // **`null` no es cero y la pantalla tiene que poder distinguirlos**: sin
+            // precio, el pago en línea contesta 422 y el colegio necesita ver que lo
+            // que falta es decidirlo, no que valga cero.
+            'valor' => isset($fila->valor) ? (int) $fila->valor : null,
         ];
     }
 
@@ -182,6 +212,7 @@ class FormulariosInscripcionController extends Controller
         $user = $this->user;
         $year_id = $this->anioDeLaPeticion(Request::input('year_id'));
         $campos = $this->camposValidados();
+        $valor = $this->precioValidado();
 
         // `INSERT ... ON DUPLICATE KEY UPDATE` y no comprueba-y-luego-inserta: el
         // `UNIQUE (year_id)` es lo que impide dos configuraciones del mismo año, y
@@ -191,11 +222,12 @@ class FormulariosInscripcionController extends Controller
         // aquí casi no se usa—, así que se comporta igual en el docker y en los
         // dieciséis.
         DB::insert('INSERT INTO config_formulario_inscripcion
-                (year_id, campos, created_by, updated_by, created_at, updated_at)
-            VALUES (?,?,?,?,NOW(),NOW())
-            ON DUPLICATE KEY UPDATE campos=VALUES(campos), updated_by=VALUES(updated_by),
-                updated_at=NOW()',
-            [$year_id, json_encode($campos, JSON_UNESCAPED_UNICODE), $user->user_id, $user->user_id]);
+                (year_id, campos, valor, created_by, updated_by, created_at, updated_at)
+            VALUES (?,?,?,?,?,NOW(),NOW())
+            ON DUPLICATE KEY UPDATE campos=VALUES(campos), valor=VALUES(valor),
+                updated_by=VALUES(updated_by), updated_at=NOW()',
+            [$year_id, json_encode($campos, JSON_UNESCAPED_UNICODE), $valor,
+                $user->user_id, $user->user_id]);
 
         return 'Guardado';
     }
@@ -327,14 +359,20 @@ class FormulariosInscripcionController extends Controller
     {
         for ($intento = 0; $intento < self::INTENTOS_DE_CODIGO; $intento++) {
             try {
+                // **El precio se ESTAMPA, no se referencia.** Lo que vale este
+                // formulario es lo que valía el día que se acuñó: subir el precio en
+                // marzo no puede reescribir lo que se vendió en enero. Con una clave
+                // ajena a la configuración, la bandeja del tesorero enseñaría meses
+                // después un importe distinto del que la familia pagó.
                 DB::insert('INSERT INTO ordenes_inscripcion
                     (codigo, year_id, year_campana, lote_id, modo, alumno_id, grupo_id, grado_id,
-                     cierra, vendida_por, vendida_at, created_by, created_at, updated_at)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,NOW(),?,NOW(),NOW())', [
+                     cierra, valor, vendida_por, vendida_at, created_by, created_at, updated_at)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,NOW(),?,NOW(),NOW())', [
                     CodigoDeInscripcion::generar($campana),
                     $anio->id, $campana, $lote_id, $extra['modo'],
                     $extra['alumno_id'], $extra['grupo_id'], $extra['grado_id'],
-                    $cierra, $user->user_id, $user->user_id,
+                    $cierra, $this->precioDelFormulario((int) $anio->id),
+                    $user->user_id, $user->user_id,
                 ]);
 
                 return (int) DB::getPdo()->lastInsertId();
@@ -598,6 +636,55 @@ class FormulariosInscripcionController extends Controller
     /**
      * @return list<string>
      */
+    /**
+     * El precio que manda el cliente, o `null`.
+     *
+     * **Ausente y cero no son lo mismo que se guarda igual**: el colegio que todavía
+     * no ha decidido el precio y el que puso cero acaban los dos en `NULL`, porque en
+     * los dos casos no hay nada que cobrar y el checkout los trata igual. Lo que no se
+     * acepta es basura: un precio que no es un número entero positivo es un error del
+     * cliente y no un cero.
+     */
+    private function precioValidado(): ?int
+    {
+        $valor = Request::input('valor');
+
+        if ($valor === null || $valor === '') {
+            return null;
+        }
+
+        if (! is_numeric($valor) || (float) $valor != (int) $valor || (int) $valor < 0) {
+            abort(422, 'El precio del formulario tiene que ser un número entero de pesos.');
+        }
+
+        $valor = (int) $valor;
+
+        if ($valor > self::MAXIMO_VALOR) {
+            abort(422, 'Ese precio pasa de '.number_format(self::MAXIMO_VALOR, 0, ',', '.').' pesos. Revíselo.');
+        }
+
+        return $valor > 0 ? $valor : null;
+    }
+
+    /**
+     * Ver la propiedad `$precio`: una consulta por petición, no una por formulario.
+     */
+    private function precioDelFormulario(int $yearId): ?int
+    {
+        if (! $this->precioLeido) {
+            $fila = DB::selectOne('SELECT valor FROM config_formulario_inscripcion WHERE year_id=?',
+                [$yearId]);
+
+            $this->precio = ($fila !== null && $fila->valor !== null && (int) $fila->valor > 0)
+                ? (int) $fila->valor
+                : null;
+
+            $this->precioLeido = true;
+        }
+
+        return $this->precio;
+    }
+
     private function camposValidados(): array
     {
         $campos = Request::input('campos');

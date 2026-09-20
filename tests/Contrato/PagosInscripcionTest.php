@@ -90,11 +90,16 @@ class PagosInscripcionTest extends CasoDeContrato
     /**
      * **Lo que no tiene precio no se cobra, y se dice cuál es el problema.**
      *
-     * Hoy esto salta SIEMPRE, porque `ordenes_inscripcion.valor` no lo escribe
-     * nadie en toda la API. El test no está aquí para tapar ese hueco: está para
-     * que el día que alguien escriba el precio, este test se caiga y le recuerde
-     * que hay un contrato que actualizar. **Un agujero con un test encima es una
-     * decisión; sin él es un olvido.**
+     * El colegio que todavía no ha decidido cuánto cuesta su formulario **no puede
+     * cobrarlo**, y lo que recibe es un 422 que nombra lo que falta en vez de un 500
+     * o de un cobro de cero pesos. El mensaje es parte del contrato: las dos
+     * alternativas eran inventarse el importe en el servidor —cobrar una cifra que
+     * nadie decidió— o aceptarlo del cliente, que es **que la familia elija cuánto
+     * paga**.
+     *
+     * Este test nació cuando `valor` no lo escribía nadie y saltaba siempre; ahora
+     * que hay por dónde poner el precio, sigue valiendo para el caso que de verdad
+     * ocurre — el colegio que no lo ha configurado.
      */
     public function test_un_formulario_sin_precio_no_se_puede_pagar(): void
     {
@@ -124,8 +129,8 @@ class PagosInscripcionTest extends CasoDeContrato
     {
         $this->configurar();
 
+        $this->ponerPrecio(30000);
         $codigo = $this->unCodigoAcunado();
-        $this->ponerPrecio($codigo, 30000);
 
         $r = $this->postJson(self::CHECKOUT.$codigo.'/checkout');
 
@@ -164,8 +169,8 @@ class PagosInscripcionTest extends CasoDeContrato
     {
         $this->configurar();
 
+        $this->ponerPrecio(30000);
         $codigo = $this->unCodigoAcunado();
-        $this->ponerPrecio($codigo, 30000);
 
         $campos = $this->postJson(self::CHECKOUT.$codigo.'/checkout')->json('campos');
 
@@ -187,8 +192,8 @@ class PagosInscripcionTest extends CasoDeContrato
     {
         $this->configurar();
 
+        $this->ponerPrecio(30000);
         $codigo = $this->unCodigoAcunado();
-        $this->ponerPrecio($codigo, 30000);
 
         $crudo = $this->postJson(self::CHECKOUT.$codigo.'/checkout')->getContent();
 
@@ -216,8 +221,8 @@ class PagosInscripcionTest extends CasoDeContrato
     {
         $this->configurar();
 
+        $this->ponerPrecio(30000);
         $codigo = $this->unCodigoAcunado();
-        $this->ponerPrecio($codigo, 30000);
 
         DB::update('UPDATE ordenes_inscripcion SET estado="PAGADA" WHERE codigo=?', [$codigo]);
 
@@ -233,8 +238,8 @@ class PagosInscripcionTest extends CasoDeContrato
     {
         $this->configurar();
 
+        $this->ponerPrecio(30000);
         $codigo = $this->unCodigoAcunado();
-        $this->ponerPrecio($codigo, 30000);
 
         for ($i = 0; $i < 10; $i++) {
             $this->postJson(self::CHECKOUT.$codigo.'/checkout')->assertStatus(200);
@@ -610,16 +615,23 @@ class PagosInscripcionTest extends CasoDeContrato
     }
 
     /**
-     * **Esto lo hace el test porque no lo hace nadie más.**
+     * El precio de la campaña, **por la ruta de verdad**.
      *
-     * `ordenes_inscripcion.valor` no lo escribe ningún método de la API (comprobado
-     * el 19 sep 2026). El día que exista una pantalla que ponga el precio, esta
-     * ayudante sobra — y que haya que escribirla a mano aquí es justamente el
-     * síntoma que el doc 41 §8 pone delante de Joseth.
+     * Hasta que Joseth eligió de dónde salía el precio (19 sep 2026), esta ayudante
+     * escribía `ordenes_inscripcion.valor` con un `UPDATE` a mano porque **no lo
+     * escribía nadie en toda la API**. Ahora lo escribe `putCampos`, así que el test
+     * va por ahí: un atajo aquí comprobaría un camino que en producción no existe.
+     *
+     * **Se llama ANTES de acuñar, y eso no es orden de conveniencia**: el precio se
+     * estampa en la orden al acuñarla, así que ponerlo después no cambia un
+     * formulario ya impreso — que es justo la propiedad que hace correcto todo esto.
      */
-    private function ponerPrecio(string $codigo, int $pesos): void
+    private function ponerPrecio(int $pesos): void
     {
-        DB::update('UPDATE ordenes_inscripcion SET valor=? WHERE codigo=?', [$pesos, $codigo]);
+        $this->withToken($this->tokenDelPersonalLlano())
+            ->putJson('/api/informes/formularios-inscripcion/campos',
+                ['campos' => ['nombres'], 'valor' => $pesos])
+            ->assertStatus(200);
     }
 
     /**
@@ -629,8 +641,8 @@ class PagosInscripcionTest extends CasoDeContrato
      */
     private function unPagoAbierto(): array
     {
+        $this->ponerPrecio(30000);
         $codigo = $this->unCodigoAcunado();
-        $this->ponerPrecio($codigo, 30000);
 
         $campos = $this->postJson(self::CHECKOUT.$codigo.'/checkout')->json('campos');
 

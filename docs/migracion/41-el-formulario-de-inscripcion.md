@@ -268,7 +268,7 @@ de donde dices, no reintentes»* y `503` es *«no lo sé **ahora**, vuelve»*. L
 200 y el 503 es la que decide si un pago de verdad se pierde en silencio: **«no sé» no es «no»**,
 así que una pasarela que no contesta deja el pago como estaba en vez de darlo por rechazado.
 
-### EL HUECO QUE ESTO DESTAPÓ, Y QUE NO SE TAPA AQUÍ
+### EL HUECO QUE ESTO DESTAPÓ — Y QUE JOSETH CERRÓ EL MISMO DÍA
 
 **`ordenes_inscripcion.valor` no lo escribe nadie.** La columna entró en la primera migración con
 el comentario *«el código queda atado a un cobro: cuánto, quién lo vendió y cuándo»*, y de las
@@ -279,11 +279,58 @@ enseña `null` en los diecisiete.
 Es `profesores.tono` **otra vez**, y van tres en un mes. Lo que lo destapó no fue un barrido: fue
 que **el checkout necesita un importe y no había ninguno**.
 
-No se tapa desde aquí, y el porqué importa más que el hueco: las dos salidas fáciles son peores.
-Inventarse el importe en el servidor es cobrar una cifra que nadie decidió, y dejar que lo mande
-el cliente es **que la familia elija cuánto paga**. Así que el checkout **contesta 422 diciendo
-que falta el precio**, con un test encima — *un agujero con un test encima es una decisión; sin
-él es un olvido*. Quién pone ese precio y dónde vive es lo que espera en el §8.
+No se tapó desde el código, y el porqué importa más que el hueco: las dos salidas fáciles son
+peores. Inventarse el importe en el servidor es cobrar una cifra que nadie decidió, y dejar que lo
+mande el cliente es **que la familia elija cuánto paga**. Las dos habrían sido decidir por Joseth
+el precio de un producto. Así que se le puso delante con las tres formas y su coste, y **eligió un
+precio por campaña**.
+
+## 5.ter El precio del formulario  *(ENTREGADO el 19 sep 2026)*
+
+**Sin ruta nueva.** Va en `config_formulario_inscripcion` —la misma fila, la misma clave y la
+misma ruta que los campos—, así que el router se queda en **612**:
+
+```
+GET  informes/formularios-inscripcion/campos  ->  { year_id, campos:[…], valor: 30000|null }
+PUT  informes/formularios-inscripcion/campos  <-  { campos:[…], valor: 30000 }
+```
+
+> ⚠️ **ESTO ES UN CAMBIO DE CONTRATO Y EL FRONT NO LO SABE.** `myvc-front-bf` construyó la
+> pantalla de configuración antes de que existiera este campo y su sesión ya no está. `valor` es
+> **opcional** —un `PUT` sin él borra el precio, que es el comportamiento que hace falta para
+> dejar de cobrar sin borrar la configuración— así que **la pantalla vieja no revienta: apaga el
+> cobro sin querer**. Es exactamente la clase de cambio que hay que avisar, y por eso va aquí
+> arriba y no en una nota.
+
+**La clave es `year_id` y no `year_campana`**, igual que los campos, aunque el precio sea «de la
+campaña»: la fila de `years` del año de la campaña **puede no existir todavía**, así que no se le
+puede colgar una clave ajena. Se configura desde el año en el que se trabaja, que es el que
+siempre existe.
+
+### Y SE ESTAMPA, NO SE REFERENCIA — que es la mitad que lo hace correcto
+
+Al acuñar, el precio se **copia** a `ordenes_inscripcion.valor` y allí se queda. La forma «obvia»
+de no duplicar el dato —que la orden mire la configuración— haría que **subir el precio en marzo
+cambiara el importe de lo que se vendió en enero**, y el síntoma sería que la bandeja del tesorero
+enseña meses después una cifra distinta de la que la familia pagó, sin nada que lo explique.
+
+Dicho al revés: *la columna de la configuración es lo que el colegio cobra a partir de ahora; la
+de `ordenes_inscripcion` es lo que cobró.* Son dos cosas, y por eso son dos columnas.
+
+Lo fija `test_subir_el_precio_no_cambia_lo_que_ya_se_acuno`, **visto en rojo** implementando la
+versión por referencia: acuñar, subir el precio y comprobar que el formulario viejo conserva el
+suyo y el siguiente sale con el nuevo. `FormulariosInscripcionTest`: **25 passed (155
+assertions)**.
+
+### El tope, y lo que el tope NO hace
+
+`MAXIMO_VALOR` son diez millones de pesos, validado **en el método y no en la base** porque el
+docker trunca en silencio y MariaDB 10.5 aborta: el mismo dato daría dos resultados distintos en
+desarrollo y en producción.
+
+Y lo que no hace, dicho para que nadie lo suponga: **no caza una errata de tecleo**. Un cero de
+más en 30.000 da 300.000 y pasa por debajo del tope sin despeinarse. Contra eso lo único que sirve
+es que la pantalla enseñe el precio guardado, y eso es del front.
 
 ### Veintitrés pruebas, de las que cinco se vieron en rojo a propósito
 
@@ -356,26 +403,14 @@ descuido.
 | Si no cabe en carta | se avisa de que hay que imprimir en **oficio** |
 | Los interruptores de campaña | por el genérico, sin dueño |
 | Las dos rutas de la pasarela | autorizadas · **entregadas** (§5.bis) |
+| El precio del formulario | **un precio por campaña** · **entregado** (§5.ter) |
 
 **Las diez están dentro.** Router **612**, contado con `route:list --json` en el árbol principal
-sobre `main` después de fundir.
+sobre `main` después de fundir. El precio **no gastó ruta**: va en la fila y la ruta que ya tenían
+los campos.
 
 **Abierto:**
 
-- **QUIÉN PONE EL PRECIO DEL FORMULARIO, Y DÓNDE VIVE.** Es lo único que separa al pago en línea
-  de funcionar, y no es una pregunta de código: `ordenes_inscripcion.valor` **no lo escribe nadie**
-  (§5.bis), así que hoy el checkout contesta 422 en los diecisiete. Las tres formas, con lo que
-  cuesta cada una:
-  1. **Un precio por campaña**, que el colegio pone una vez y se estampa en cada formulario al
-     acuñarlo. Es el que encaja con lo que ya hay —`config_formulario_inscripcion` es por año y ya
-     tiene ruta de escritura, así que **no gasta ruta nueva**— y deja que subir el precio en marzo
-     no reescriba lo que se vendió en enero. *Recomendado.*
-  2. **Que secretaría teclee el importe al imprimir el lote.** Un campo más en `postAcunar`, sin
-     tabla ni pantalla nueva; a cambio, el precio se puede teclear distinto dos veces el mismo día
-     y nadie se entera.
-  3. **Gratis**: que el formulario no se cobre. Entonces sobran la colilla, la bandeja del tesorero
-     y la pasarela entera, que ya están construidas. No parece, porque Joseth ya contestó que **se
-     cobra**, pero se deja escrito para que la lista sea honesta.
 - **Si el colegio da o no su llave privada de la pasarela.** Con ella, un webhook se confirma
   preguntándole a Wompi; sin ella, decide la firma del evento. Las dos funcionan y **la diferencia
   es de cuánto se pierde si se filtra un secreto**, no de si cobra (§5.bis). Es una pregunta para
@@ -395,5 +430,6 @@ sobre `main` después de fundir.
 2. ¿Se cobra el formulario? (precios de mercado medidos en `INVESTIGACION-MATRICULAS.md`)
 3. ¿Secretaría tiene lector de código de barras? Es lo único que devuelve el QR a la fase 1.
 4. ~~Las dos rutas.~~ **Contestado el 19 sep 2026: autorizadas y entregadas.**
-5. **El precio del formulario: quién lo pone y dónde vive.** Es la única que bloquea algo ya
-   construido — ver la lista de §7, con las tres formas y lo que cuesta cada una.
+5. ~~El precio del formulario: quién lo pone y dónde vive.~~ **Contestado el 19 sep 2026 entre
+   tres formas y con el coste de cada una delante: un precio por campaña, en la misma fila y la
+   misma ruta que los campos, estampado en cada formulario al acuñarlo (§5.ter).**

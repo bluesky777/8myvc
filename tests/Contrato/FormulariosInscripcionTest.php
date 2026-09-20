@@ -354,6 +354,141 @@ class FormulariosInscripcionTest extends CasoDeContrato
             ->assertStatus(403);
     }
 
+    // ──────────────────────── el precio del formulario ────────────────────────
+
+    /**
+     * **Lo que se guarda es lo que se lee**, también para el precio.
+     *
+     * Va en la misma fila y por la misma ruta que los campos, así que no gasta ruta
+     * nueva. Decidido por Joseth el 19 sep 2026 entre tres formas (doc 41 §7).
+     */
+    public function test_el_precio_se_guarda_y_se_lee_con_los_campos(): void
+    {
+        $token = $this->tokenDelPersonalLlano();
+
+        $this->withToken($token)->putJson(self::RUTA.'/campos',
+            ['campos' => ['nombres', 'documento'], 'valor' => 30000])->assertStatus(200);
+
+        $cuerpo = $this->withToken($token)->getJson(self::RUTA.'/campos')
+            ->assertStatus(200)->json();
+
+        $this->assertSame(30000, $cuerpo['valor']);
+        $this->assertSame(['nombres', 'documento'], $cuerpo['campos'],
+            'Guardar el precio se llevó por delante los campos, que van en la misma fila.');
+    }
+
+    /**
+     * **Sin configurar, `valor` es `null` y no cero.**
+     *
+     * No es una distinción de estilo: el colegio que no ha decidido el precio y el
+     * que puso cero se parecen desde la base pero no desde la pantalla, y lo que el
+     * front tiene que enseñar en el primer caso es *«falta decidirlo»*.
+     */
+    public function test_un_colegio_sin_configurar_no_tiene_precio(): void
+    {
+        DB::statement('DELETE FROM config_formulario_inscripcion');
+
+        $cuerpo = $this->withToken($this->tokenDelPersonalLlano())
+            ->getJson(self::RUTA.'/campos')->assertStatus(200)->json();
+
+        $this->assertNull($cuerpo['valor']);
+    }
+
+    /**
+     * **EL PRECIO SE ESTAMPA AL ACUÑAR, Y CAMBIARLO DESPUÉS NO REESCRIBE LO VENDIDO.**
+     *
+     * Ésta es la propiedad que hace correcto todo esto y la única que no se ve
+     * mirando una respuesta. Con una clave ajena a la configuración —que era la
+     * forma «obvia» de no duplicar el dato— subir el precio en marzo cambiaría el
+     * importe de lo que se vendió en enero, y el síntoma sería que la bandeja del
+     * tesorero enseña meses después una cifra distinta de la que la familia pagó,
+     * sin nada que lo explique.
+     */
+    public function test_subir_el_precio_no_cambia_lo_que_ya_se_acuno(): void
+    {
+        $token = $this->tokenDelPersonalLlano();
+
+        $this->withToken($token)->putJson(self::RUTA.'/campos',
+            ['campos' => ['nombres'], 'valor' => 30000])->assertStatus(200);
+
+        $codigo = $this->withToken($token)->postJson(self::RUTA,
+            ['modo' => 'nuevos', 'cantidad' => 1])->assertStatus(200)->json('formularios.0.codigo');
+
+        // El colegio sube el precio para el resto de la campaña.
+        $this->withToken($token)->putJson(self::RUTA.'/campos',
+            ['campos' => ['nombres'], 'valor' => 45000])->assertStatus(200);
+
+        $viejo = DB::selectOne('SELECT valor FROM ordenes_inscripcion WHERE codigo=?', [$codigo]);
+
+        $this->assertSame(30000, (int) $viejo->valor,
+            'El formulario ya impreso cambió de precio al cambiar la configuración.');
+
+        $nuevo = $this->withToken($token)->postJson(self::RUTA,
+            ['modo' => 'nuevos', 'cantidad' => 1])->assertStatus(200)->json('formularios.0.codigo');
+
+        $este = DB::selectOne('SELECT valor FROM ordenes_inscripcion WHERE codigo=?', [$nuevo]);
+
+        $this->assertSame(45000, (int) $este->valor,
+            'El formulario nuevo salió con el precio viejo: no se está leyendo la configuración.');
+    }
+
+    /**
+     * Sin precio configurado, la orden nace sin él — y es lo que hace que el pago en
+     * línea conteste 422 en vez de cobrar cero pesos.
+     */
+    public function test_sin_precio_configurado_la_orden_nace_sin_valor(): void
+    {
+        DB::statement('DELETE FROM config_formulario_inscripcion');
+
+        $codigo = $this->withToken($this->tokenDelPersonalLlano())->postJson(self::RUTA,
+            ['modo' => 'nuevos', 'cantidad' => 1])->assertStatus(200)->json('formularios.0.codigo');
+
+        $fila = DB::selectOne('SELECT valor FROM ordenes_inscripcion WHERE codigo=?', [$codigo]);
+
+        $this->assertNull($fila->valor);
+    }
+
+    /**
+     * **El tope se valida aquí y no se le deja a la base**: el docker trunca en
+     * silencio y MariaDB 10.5 aborta, así que el mismo dato daría dos resultados
+     * distintos en desarrollo y en producción.
+     *
+     * Y lo que NO hace, dicho para que nadie lo suponga: **no caza una errata de
+     * tecleo**. Un cero de más en 30.000 da 300.000 y pasa por debajo del tope sin
+     * despeinarse. Contra eso lo único que sirve es que la pantalla enseñe el precio
+     * guardado.
+     */
+    public function test_un_precio_absurdo_o_que_no_es_un_numero_se_rechaza(): void
+    {
+        $token = $this->tokenDelPersonalLlano();
+
+        foreach ([['valor' => 'gratis'], ['valor' => 30000.5], ['valor' => -1],
+            ['valor' => 999999999]] as $cuerpo) {
+            $this->withToken($token)
+                ->putJson(self::RUTA.'/campos', array_merge(['campos' => ['nombres']], $cuerpo))
+                ->assertStatus(422);
+        }
+    }
+
+    /**
+     * Mandar cero o nada **borra** el precio, que es como un colegio deja de cobrar
+     * sin tener que borrar su configuración entera.
+     */
+    public function test_cero_y_ausente_dejan_el_precio_en_null(): void
+    {
+        $token = $this->tokenDelPersonalLlano();
+
+        foreach ([0, null] as $vacio) {
+            $this->withToken($token)->putJson(self::RUTA.'/campos',
+                ['campos' => ['nombres'], 'valor' => 45000])->assertStatus(200);
+
+            $this->withToken($token)->putJson(self::RUTA.'/campos',
+                ['campos' => ['nombres'], 'valor' => $vacio])->assertStatus(200);
+
+            $this->assertNull($this->withToken($token)->getJson(self::RUTA.'/campos')->json('valor'));
+        }
+    }
+
     private function yearActual(): int
     {
         return (int) DB::selectOne('SELECT id FROM years WHERE actual=1 AND deleted_at IS NULL')->id;

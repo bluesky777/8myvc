@@ -87,23 +87,38 @@
 > | `POST pagos-inscripcion/{codigo}/checkout` | **PÚBLICA** — el pago en línea |
 > | `POST pagos-inscripcion/webhook` | **PÚBLICA** — la llama la pasarela, no una persona |
 > | **612** contado en el árbol principal tras fundir (`982a8cb`), no sumado; **15 públicas** | |
-> | `php artisan test`: **2.342 passed, 1 skipped (50.663 assertions)**, `.worktrees/92` | |
+> | `php artisan test`: **2.348 passed, 1 skipped (50.757 assertions)**, `.worktrees/92` | |
 >
 > Más `App\Services\CodigoDeInscripcion`, `App\Services\Pasarela\Wompi`, **cinco tablas** y tres
 > migraciones (`2026_09_19_100000`, `_200000` y `_300000`).
 >
-> ### LO ÚNICO QUE BLOQUEA EL PAGO EN LÍNEA NO ES CÓDIGO: ES EL PRECIO
+> ### EL HUECO QUE DESTAPÓ EL PAGO EN LÍNEA, Y QUE JOSETH CERRÓ EL MISMO DÍA
 >
-> **`ordenes_inscripcion.valor` no lo escribe nadie.** La columna entró con el comentario *«el
-> código queda atado a un cobro: cuánto, quién lo vendió y cuándo»* y de las tres sólo se escriben
-> las dos últimas. La bandeja del tesorero ya la **lee**, así que hoy enseña `null` en los
-> diecisiete, y el checkout contesta **422 diciendo que falta el precio**.
+> **`ordenes_inscripcion.valor` no lo escribía nadie.** La columna entró con el comentario *«el
+> código queda atado a un cobro: cuánto, quién lo vendió y cuándo»* y de las tres sólo se escribían
+> las dos últimas. La bandeja del tesorero ya la **leía**, así que enseñaba `null` en los
+> diecisiete, y el checkout no tenía importe que cobrar.
 >
-> Es `profesores.tono` **otra vez** —van tres en un mes—, y no lo destapó ningún barrido: lo
-> destapó que el checkout necesitaba un importe y no había ninguno. **No se tapó desde el código**
-> porque las dos salidas fáciles son peores: inventarse el importe en el servidor es cobrar una
-> cifra que nadie decidió, y dejar que lo mande el cliente es que **la familia elija cuánto paga**.
-> Las tres formas de resolverlo, con su precio, están en [`41 §7`](41-el-formulario-de-inscripcion.md).
+> Es `profesores.tono` **otra vez** —van tres en un mes—, y **no lo destapó ningún barrido**:
+> `interruptores-que-nadie-lee.py` mira `tinyint(1)` y esto es un `int`, así que no podía verlo ni
+> corriéndolo. Lo destapó **que la función siguiente necesitó el dato y no estaba**. Merece quedar
+> escrito: *construir encima encuentra huecos que un detector no busca, porque el detector sólo
+> enumera las formas que alguien ya imaginó.*
+>
+> **No se tapó desde el código** —inventarse el importe es cobrar una cifra que nadie decidió, y
+> aceptarlo del cliente es que la familia elija cuánto paga; las dos habrían sido decidir por
+> Joseth el precio de un producto—, sino poniéndole las tres formas con su coste delante. Eligió
+> **un precio por campaña**, y está entregado ([`41 §5.ter`](41-el-formulario-de-inscripcion.md)):
+>
+> - **Sin ruta nueva**: va en `config_formulario_inscripcion`, la misma fila y la misma ruta que
+>   los campos. El router se queda en 612.
+> - **Se ESTAMPA al acuñar, no se referencia.** Subir el precio en marzo no reescribe lo que se
+>   vendió en enero — con una clave ajena, la bandeja del tesorero enseñaría meses después una
+>   cifra distinta de la que la familia pagó. Visto en rojo implementando la versión por
+>   referencia.
+> - ⚠️ **Es un cambio de contrato y el front no lo sabe**: `GET`/`PUT …/campos` ganan `valor`.
+>   `myvc-front-bf` construyó esa pantalla antes de que existiera y su sesión ya no está. Como
+>   `valor` es opcional, **la pantalla vieja no revienta: apaga el cobro sin querer.**
 >
 > ### ⚠️ Y UNA CORRECCIÓN AL DOC 40 §4, QUE CAMBIÓ EL DISEÑO ANTES DE ESCRIBIRLO
 >
