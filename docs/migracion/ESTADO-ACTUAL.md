@@ -263,13 +263,22 @@
 > `public static` —no usa `$this`, comprobado antes de moverla— para que las clases de hoy se
 > lean **de un solo sitio**. Cuatro llamadas actualizadas, ninguna respuesta movida.
 
-> ## ✅ LA CASILLA VACÍA — FASE 0 (19 sep 2026, noche — **FUNDIDA esa misma noche**; lo que sigue fuera es sólo su Pint, que su sesión tenía a medias)
+> ## ✅ LA CASILLA VACÍA — FASE 0, ENTERA Y DENTRO (19 sep 2026, noche)
 >
 > **Rama `feat/la-casilla-vacia`, FUNDIDA el 19 sep 2026 por la noche.** El párrafo que había
 > aquí era una instrucción con su condición de caducidad puesta —*«mientras la rama no esté
 > fundida, el árbol principal NO tiene nada de esto y `notas.nota` sigue siendo `NOT NULL`»*— y
 > hoy se cumplió esa condición, así que se sustituye en vez de dejarla envejecer a mentira.
 > `notas.nota` ya es anulable en el árbol principal.
+>
+> **Y el Pint también entró, que era lo único que quedaba fuera.** La línea de arriba decía *«lo
+> que sigue fuera es sólo su Pint, que su sesión tenía a medias»*, y ya no: `NotasController` y
+> `Models/Nota` están formateados y en la lista curada de `composer.json` —23 rutas—, en un commit
+> aparte del cambio de comportamiento porque son 4.378 líneas de diff y meterlas juntas lo dejaba
+> sin poder revisarse. **Nada de esta entrada sigue pendiente de fundir.**
+>
+> Suite sobre el árbol fusionado: `Tests: 1 skipped, 2414 passed` (`php artisan test`);
+> `PASS 452` (`composer run pint:test`); `OK` (`composer run stan`).
 >
 > El porqué entero, medido, en [`43`](43-lo-que-todavia-no-se-ha-calificado.md). En una línea: una
 > casilla de `notas` nace con el indicador y vale 0 desde ese instante, así que **a mitad de periodo
