@@ -217,9 +217,110 @@ class Asignatura extends Model {
 	}
 
 
+	/**
+	 * **El segundo calculador de la definitiva**, en PHP y paralelo al servicio — y
+	 * desde el 20 sep 2026 también el de la **parcial** y la **cobertura**, que es la
+	 * fase 1.bis del
+	 * [43](../../../docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md).
+	 *
+	 * Produce `nota_asignatura`, que es el número de la planilla, y lo leen **seis
+	 * sitios** (abajo). `DefinitivasDeAsignatura::calcular` produce el que se GUARDA en
+	 * `notas_finales`. Son dos caminos distintos para el mismo número y este documento
+	 * no los unifica: lo que hace es que los tres números viajen juntos por los dos.
+	 *
+	 *     peso(n)       = (porcentaje_unidad/100) x (porcentaje_subunidad/100)
+	 *     nota_asignatura = SUM(peso x nota)  sobre TODAS        <- la de siempre, NO se mueve
+	 *     nota_parcial    = SUM(peso x nota) / SUM(peso)         <- solo CALIFICADAS
+	 *     cobertura       = SUM(peso) calificadas / SUM(peso) todas
+	 *
+	 * **El numerador de la parcial es `nota_asignatura` tal cual, y eso no es un
+	 * atajo.** Desde la fase 0 una casilla sin calificar vale `null`, y en PHP
+	 * `null * porcentaje / 100` es 0: el término desaparece de la suma igual que
+	 * `SUM(peso * NULL)` lo salta en SQL. Lo único que hay que contar aparte es el
+	 * divisor.
+	 *
+	 * ## Los dos `null`, que son dos hechos distintos y ninguno es un 0
+	 *
+	 * - **`SUM(peso)` de lo calificado = 0 -> `nota_parcial` es `null`.** Es la
+	 *   diferencia entre *«va en cero»* y *«no hay con qué decirlo»*: un 0 ahí es una
+	 *   nota perdida que nadie sacó. Es el gris del semáforo (D2).
+	 * - **`SUM(peso)` TOTAL = 0 -> `cobertura` es `null`.** Un 0 afirmaría que se
+	 *   conoce el plan y que no se ha tocado, y aquí no hay plan del que hablar: el
+	 *   alumno no tiene ni una fila en `notas`, o todas sus casillas pesan 0. Medido
+	 *   por el servicio en periodos abiertos, **3.158 de 9.422 pares, el 33,5 %** — no
+	 *   es un rincón.
+	 *
+	 * **`cobertura` es un factor de 0 a 1, no un porcentaje.** Quien pinte «35 %»
+	 * multiplica. Y ninguna de las dos se redondea: la regla de Joseth del 14 sep 2026
+	 * es que se redondea en un solo sitio, el que escribe la definitiva, y aquí no se
+	 * escribe nada.
+	 *
+	 * ## El divisor se acumula en ENTEROS, y no es manía
+	 *
+	 * `peso` se guarda como `porcentaje_unidad * porcentaje_subunidad` —producto de dos
+	 * enteros— y no como `(pu/100)*(ps/100)`. Los dos 100 se van al final: en la
+	 * cobertura **se cancelan solos** —es una razón entre dos sumas de la misma
+	 * unidad— y en la parcial se reponen con un `* 10000`. Sumar cincuenta veces
+	 * `0,7*0,3` en coma flotante mete un error que luego aparece en el cociente; sumar
+	 * `2100` no mete ninguno. Los números son pequeños: 100x100 por casilla, unas
+	 * decenas de casillas.
+	 *
+	 * ## Por qué el peso NO sale de `RepartoDeLaNota` aquí, aunque allí viva
+	 *
+	 * Porque **este método no reparte por `RepartoDeLaNota` y nunca lo ha hecho**: la
+	 * acumulada de arriba multiplica por `$subunidad->porcentaje_subunidad`, que es
+	 * `s.porcentaje` crudo tal como lo traen `Subunidad::deUnidad` y
+	 * `Unidad::deAsignatura` — **los seis lectores usan esas dos**. En modo `promedio`
+	 * el servicio pesa `1/n` y esto sigue pesando `s.porcentaje`, así que los dos
+	 * calculadores **ya discrepaban antes de esta fase**: medido el 20 sep 2026 sobre
+	 * `simonbolivar`, en el único año de la copia que está en `promedio` (2026),
+	 * **14 de 99** pares alumno-asignatura-periodo dan distinto, y el peor **42,3
+	 * puntos** sobre una escala de 0 a 50.
+	 *
+	 * Sacar el peso de `RepartoDeLaNota` arreglaría el divisor **y dejaría la parcial
+	 * midiendo un reparto que la acumulada de al lado no usa**: en `promedio` el
+	 * cociente `nota_asignatura / SUM(peso)` dejaría de ser una nota de nada. Así que
+	 * el peso sale **de los mismos dos números que la acumulada**, y con eso
+	 * `nota_parcial * SUM(peso) == nota_asignatura` se cumple siempre, en los dos
+	 * modos. *La discrepancia de `promedio` es anterior, es de la acumulada, y cerrarla
+	 * mueve el número que imprimen los dieciséis: es otra decisión y está apuntada en
+	 * el 43 §7.*
+	 *
+	 * ## Los seis lectores, y cuáles publican los dos números
+	 *
+	 * | lector | ruta | ¿los publica? |
+	 * |---|---|---|
+	 * | `PlanillasController::getShowProfesor` | `GET planillas/show-profesor/{id}` | **sí**, por periodo |
+	 * | `Informes\NotasPerdidasController::getShowProfesor` | `GET notas-perdidas/show-profesor/{id}` | **sí**, por periodo |
+	 * | `Informes\PlanillasAusenciasController::getShowProfesor` | `GET planillas-ausencias/show-profesor/{id}` | **sí**, por periodo |
+	 * | `DetallesController::putGruposPeriodos` | `PUT detalles/grupos-periodos` | **sí**, sin código: devuelve la asignatura entera |
+	 * | `EditnotaController::allNotasAlumno` | `PUT editnota/detailed-notas/{grupo}` | **sí**, sin código: ídem |
+	 * | `Nota::alumnoAsignaturasPeriodosDetailed` | `GET boletines{,2,3}/detailed-notas-year/…` | **no** |
+	 *
+	 * El sexto no los publica y **no es un olvido**: ese método no saca ninguna
+	 * definitiva por periodo — promedia las cuatro y publica `nota_asignatura_year`—,
+	 * así que el único sitio donde cabrían sería una «parcial del año», que **no está
+	 * definida en ninguna parte**. Promediar cuatro parciales con denominadores
+	 * distintos no es la parcial de nada. Queda abierto en el 43.
+	 *
+	 * > **Y hay una SÉPTIMA copia de esta misma cuenta que no llama aquí**:
+	 * > `EditnotaController::notasDeLaAsignatura` la lleva escrita en línea
+	 * > (`:111` y `:118`). Sirve `PUT editnota/alum-asignatura` y **no gana los dos
+	 * > números**, porque unificarla es tocar lo que imprime `editnota-alum-asignatura`
+	 * > y eso es un lote propio. Se deja dicho para que el siguiente censo dé siete y
+	 * > no seis.
+	 */
 	public static function calculoAlumnoNotas(&$asignatura, $alumno_id)
 	{
 		$nota_asignatura = 0;
+
+		// Los dos divisores, en «puntos de porcentaje al cuadrado» y enteros — ver la
+		// cabecera. Se acumulan **dentro del `if` que comprueba que la casilla existe**,
+		// que es lo que hace a esta cuenta la misma que la del servicio: allí el
+		// `INNER JOIN notas` deja fuera la subunidad sin fila para ese alumno, y aquí la
+		// deja fuera ese `if`. Una subunidad sin fila no está en el plan de nadie.
+		$peso_evaluado = 0;
+		$peso_total = 0;
 
 		foreach ($asignatura->unidades as $unidad) {
 			
@@ -243,6 +344,22 @@ class Asignatura extends Model {
 
 					$subunidad->nota->valor = ($nota->nota * $subunidad->porcentaje_subunidad) / 100;
 					$nota_unidad += $subunidad->nota->valor;
+
+					// Los dos `(int)` no son cosmética: `porcentaje` es `int DEFAULT 0`
+					// **anulable** en las dos tablas, y un `null` tiene que pesar 0 —que es
+					// exactamente lo que ya hace la línea de arriba, donde `nota * null / 100`
+					// da 0—. En SQL daría `NULL` y `SUM` saltaría la fila; aquí el divisor
+					// tiene que seguir a la acumulada, no al otro camino.
+					$peso = (int) $unidad->porcentaje_unidad * (int) $subunidad->porcentaje_subunidad;
+
+					$peso_total += $peso;
+
+					// **`!== null` y no `> 0`**: desde la fase 0 el `null` es «sin calificar» y
+					// el 0 es una nota que alguien puso. Eran indistinguibles y ése es el bug
+					// entero del 43; confundirlos aquí lo reintroduce en el divisor.
+					if ($nota->nota !== null) {
+						$peso_evaluado += $peso;
+					}
 				}
 				
 			}
@@ -265,6 +382,22 @@ class Asignatura extends Model {
 		// que lo hacía la columna. Y es lo que hacía que la planilla y el boletín
 		// dijeran números distintos del mismo alumno.
 		$asignatura->nota_asignatura = $nota_asignatura; // Definitiva de la materia
+
+		// El `* 10000` repone los dos `/100` que el acumulador entero se ahorró: el
+		// divisor real es `$peso_evaluado / 10000`, así que dividir por él es
+		// multiplicar por 10.000 y dividir por el entero. Una operación de coma
+		// flotante en vez de cincuenta.
+		$asignatura->nota_parcial = $peso_evaluado === 0
+			? null
+			: (float) (($nota_asignatura * 10000) / $peso_evaluado);
+
+		// Aquí los dos 10.000 se cancelan solos, así que la cobertura es el cociente
+		// exacto de dos enteros. El `(float)` es para que el tipo no baile en el JSON:
+		// PHP devuelve `int` cuando la división es exacta —`0/100` y `100/100`—, y una
+		// cobertura que a veces es `0` y a veces `0.35` le cambia el tipo al cliente.
+		$asignatura->cobertura = $peso_total === 0
+			? null
+			: (float) ($peso_evaluado / $peso_total);
 
 		return $asignatura;
 	}

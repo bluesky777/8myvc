@@ -351,6 +351,14 @@ class EditnotaController extends Controller {
 				$asignatura->frases		= FraseAsignatura::deAlumno($asignatura->asignatura_id, $alumno->alumno_id, $periodo_id);
 			}
 
+			// Gana `nota_parcial` y `cobertura` **sin una línea de más**, igual que
+			// `DetallesController`: `$asignatura` se devuelve entera dentro de
+			// `$alumno->asignaturas` (fase 1.bis del 43).
+			//
+			// **`$alumno->promedio` sigue saliendo de la acumulada, a propósito**: es el
+			// promedio con el que esta pantalla ordena y del que salen los puestos, y
+			// cambiarlo movería una posición impresa. La parcial viaja al lado para
+			// mirarla, no para gobernar nada.
 			Asignatura::calculoAlumnoNotas($asignatura, $alumno->alumno_id);
 
 			$sumatoria_asignaturas += $asignatura->nota_asignatura; // Para sacar promedio del periodo

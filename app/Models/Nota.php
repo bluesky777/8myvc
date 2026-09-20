@@ -527,6 +527,18 @@ class Nota extends Model
                     $unidad->subunidades = Subunidad::deUnidad($unidad->unidad_id);
                 }
 
+                // **Este lector NO publica `nota_parcial` ni `cobertura`, y no es un
+                // olvido** — fase 1.bis del 43. Los otros cinco sacan una definitiva POR
+                // PERIODO y ahí los dos números tienen significado; éste no saca
+                // ninguna: promedia los cuatro periodos y publica
+                // `nota_asignatura_year`. El único sitio donde cabrían sería «la
+                // parcial del año», que **no está definida en ninguna parte** — y no
+                // es la media de las cuatro parciales, porque cada una tiene su
+                // propio denominador y una media de razones no es una razón.
+                //
+                // Y encima mezclaría periodos cerrados con el abierto: en un periodo
+                // cerrado la parcial y la acumulada contestan casi lo mismo, así que
+                // el promedio diluiría justo la señal que esto viene a dar.
                 Asignatura::calculoAlumnoNotas($asigna, $alumno->alumno_id);
 
                 $sum_asignatura_year += $asigna->nota_asignatura;

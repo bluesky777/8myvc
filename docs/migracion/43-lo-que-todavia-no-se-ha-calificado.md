@@ -516,7 +516,12 @@ un alumno. Aditivo: **0 rutas nuevas**, campos nuevos en la respuesta del servic
 > O sea que **la parcial y la cobertura no llegan a la planilla con la fase 1**, y eso no se
 > arregla dentro de esta fase: o se cablea ese segundo calculador al servicio —que es mover el
 > número que imprimen los dieciséis, o sea otra decisión— o la fase 2 se sirve de otro sitio.
-> **Queda abierto y es de Joseth.**
+> ~~**Queda abierto y es de Joseth.**~~
+>
+> **CERRADO el 20 sep 2026 por Joseth, con el coste delante, y por la tercera salida: ni se
+> unifica ni se sirve de otro sitio — el segundo calculador aprende a dar los tres números.**
+> Es la §Fase 1.bis de aquí abajo. Unificarlos **habría movido el número impreso** y está
+> medido: 14 pares de 99 en el año que está en `promedio`, el peor 42,3 puntos.
 
 #### Lo que cuesta, medido — y sólo cuesta en un modo
 
@@ -544,6 +549,129 @@ cadena—: se deja medido y no resuelto.
 > sesiones corriendo en el mismo contenedor**, así que los absolutos están inflados. Los dos
 > bloques se alternaron seis veces para que la carga les cayera igual a los dos, y la razón (×2)
 > coincide con la de los contadores, que no dependen de la carga. **Ésa es la cifra.**
+
+### Fase 1.bis — los tres números en el SEGUNDO calculador · **ESCRITA el 20 sep 2026** (`feat/la-parcial-en-la-planilla`)
+
+`App\Models\Asignatura::calculoAlumnoNotas` devuelve además `nota_parcial` y `cobertura`, con
+la misma semántica que el servicio. Sin esto, la fase 1 dejaba los dos números **calculados y
+sin que los viera nadie**: la planilla no pasa por `DefinitivasDeAsignatura`.
+
+**Aditivo: 0 rutas, 0 columnas, 0 migraciones.** Y **la acumulada no se mueve un decimal**, que
+es lo que se comprueba en la misma línea que cada número nuevo.
+
+#### Los seis lectores, censados — y el séptimo, que no estaba en la lista
+
+| lector | ruta | ¿los publica? |
+|---|---|---|
+| `PlanillasController::getShowProfesor` | `GET planillas/show-profesor/{id}` | **sí**, por periodo |
+| `Informes\NotasPerdidasController::getShowProfesor` | `GET notas-perdidas/show-profesor/{id}` | **sí**, por periodo |
+| `Informes\PlanillasAusenciasController::getShowProfesor` | `GET planillas-ausencias/show-profesor/{id}` | **sí**, por periodo |
+| `DetallesController::putGruposPeriodos` | `PUT detalles/grupos-periodos` | **sí**, sin código |
+| `EditnotaController::allNotasAlumno` | `PUT editnota/detailed-notas/{grupo}` | **sí**, sin código |
+| `Nota::alumnoAsignaturasPeriodosDetailed` | `GET boletines{,2,3}/detailed-notas-year/…` | **no** |
+
+Los tres primeros son **el mismo método byte a byte** en tres controladores y por eso ganan los
+tres: dejar dos iguales y uno distinto es un renglón que el siguiente no puede leer como
+decisión. Los dos de en medio los ganan **sin una línea**, porque devuelven la asignatura
+entera.
+
+**El sexto no, y eso es lo que esta fase se queda corta respecto a su título**: ese método **no
+publica ninguna definitiva por periodo** —promedia los cuatro y saca `nota_asignatura_year`—,
+así que el único sitio donde cabrían sería *«la parcial del año»*, **que no está definida en
+ninguna parte**, no es la media de las cuatro parciales —cada una tiene su denominador— y
+mezclaría los periodos cerrados con el abierto, diluyendo justo la señal. *Quedarse corto se
+cuenta y se dice.* O sea que **a los boletines no llega**: el boletín de un periodo
+(`boletines/detailed-notas`) va por un TERCER camino —`Unidad::deAsignaturaCalculada` más
+`notas_finales`— y el del año, por éste.
+
+> **Y hay una SÉPTIMA copia de esta misma cuenta, que el censo del 43 no tenía**:
+> `EditnotaController::notasDeLaAsignatura` (`:111` y `:118`) la lleva escrita **en línea**, no
+> llama a `calculoAlumnoNotas` y sirve `PUT editnota/alum-asignatura`. **No gana los dos
+> números**: unificarla mueve `editnota-alum-asignatura.json`, que es una instantánea publicada,
+> y eso es un lote propio. Queda dicho para que el siguiente censo dé siete y no seis.
+
+#### El divisor sale de la acumulada y NO de `RepartoDeLaNota`, y ahí hay un hallazgo
+
+`calculoAlumnoNotas` **nunca ha pasado por `RepartoDeLaNota`**: pesa `s.porcentaje` crudo,
+porque eso es lo que le traen `Unidad::deAsignatura` y `Subunidad::deUnidad` —las dos que usan
+los seis lectores—. O sea que **en modo `promedio` los dos calculadores ya discrepaban antes de
+esta fase**, y no en la parcial: **en la acumulada**, que es la que se imprime.
+
+*Medido el 20 sep 2026 sobre `simonbolivar`, en el único año de la copia que está en `promedio`
+(2026, con sus cuatro periodos abiertos):*
+
+| | |
+|---:|---|
+| 99 | pares alumno–asignatura–periodo con notas en ese año |
+| **14** | **dan distinto** entre `Σ (u%/100)·(s%/100)·nota` y `Σ (u%/100)·(1/n)·nota` |
+| **42,3** | la peor diferencia, **sobre una escala de 0 a 50** |
+
+```sql
+SELECT COUNT(*), SUM(ABS(php_crudo - servicio) > 0.005), ROUND(MAX(ABS(php_crudo - servicio)),3)
+FROM ( SELECT n.alumno_id, u.asignatura_id, u.periodo_id,
+              SUM((u.porcentaje/100)*((s.porcentaje/100)*n.nota)) php_crudo,
+              SUM((u.porcentaje/100)*((1.0/(SELECT COUNT(*) FROM subunidades sx
+                    WHERE sx.unidad_id=s.unidad_id AND sx.deleted_at IS NULL))*n.nota)) servicio
+         FROM unidades u
+         INNER JOIN subunidades s ON s.unidad_id=u.id AND s.deleted_at IS NULL
+         INNER JOIN notas n ON n.subunidad_id=s.id AND n.deleted_at IS NULL
+         INNER JOIN periodos p ON p.id=u.periodo_id AND p.year_id=9 AND p.deleted_at IS NULL
+        WHERE u.deleted_at IS NULL GROUP BY 1,2,3 ) t;
+```
+
+**Por eso el peso sale de los mismos dos números que la acumulada.** Sacarlo de
+`RepartoDeLaNota` arreglaría el divisor y dejaría el cociente `acumulada ÷ Σ peso` midiendo
+**dos repartos distintos** —que no es una nota de nada— y, sobre todo, **haría creer que el
+problema está resuelto**: la parcial saldría bien al lado de una acumulada que sigue
+discrepando de la que se guarda. *Un arreglo que tapa el síntoma en el número nuevo y deja el
+viejo mintiendo es peor que no hacerlo.*
+
+Lo que se gana con esta forma es un invariante comprobable: **`nota_parcial × Σ peso ==
+nota_asignatura`, siempre y en los dos modos**. Lo fija
+`LaParcialEnLaPlanillaTest::test_en_promedio_la_parcial_sigue_a_la_acumulada_de_este_metodo`,
+que además exige que el servicio diga otra cosa — si algún día ese caso se pone verde con los
+números iguales es que alguien unificó los dos calculadores, y entonces el caso **sobra y se
+borra, no se relaja**.
+
+#### El divisor se acumula en ENTEROS
+
+`peso` se guarda como `porcentaje_unidad * porcentaje_subunidad` y los dos `/100` se reponen al
+final: en la cobertura **se cancelan solos** y en la parcial se repone un `* 10000`. Sumar
+cincuenta veces `0,7*0,3` en coma flotante mete un error que reaparece en el cociente; sumar
+`2100` no mete ninguno. Con eso los tres números del lienzo salen **exactos** —`16.66`, `47.6`
+y `0.35` con `===`— desde PHP, que es la única forma de que un caso de contrato pueda afirmar
+un decimal en vez de un margen.
+
+#### Lo que cuesta, medido — **cero, y con los contadores, no con el reloj**
+
+*Sobre `simonbolivar`, en la asignatura más cargada de la copia (432, periodo 10 — 986 notas,
+45 alumnos, 22 subunidades), cargada **como la cargan los seis lectores** y con 5 vueltas por
+pasada. Cuatro pasadas alternando el fichero viejo y el nuevo.*
+
+| | `Handler_read_key` | `Handler_read_next` | reloj (mediana de 4) |
+|---|---:|---:|---:|
+| antes | 16.630 | 3.827.505 | 4.762 ms |
+| después | **16.630** | **3.827.505** | 5.187 ms |
+
+**Los contadores son idénticos en las ocho corridas: cero trabajo de base añadido.** Aquí no
+hay una consulta que crezca —que es lo que le pasó a la fase 1 en modo `promedio`—: lo que se
+añade es aritmética en PHP dentro de bucles que ya existían.
+
+**Y el reloj no mide esto, así que su diferencia no es un efecto.** La dispersión entre pasadas
+del *mismo* código va de 4.517 a 5.011 ms (11 %) y la del nuevo de 4.688 a 6.130 (31 %) — o sea
+que el ruido es un orden de magnitud mayor que lo que se busca. El techo del trabajo añadido se
+midió aparte: **4.950 casillas —las mismas del banco— en 0,679 ms** (mejor de 7), o sea
+**0,014 %** de una pasada. Es la lección del §7: *con `tools/coste-del-recalculo.php` el reloj
+oscilaba más que el efecto.*
+
+> **Y el banco midió el árbol equivocado en su primera versión, que es la trampa de siempre.**
+> El guion arrancaba Laravel con `require __DIR__.'/../../../vendor/autoload.php'` desde
+> `.worktrees/pla/tools/`, o sea **el `vendor/` del árbol principal**; y como
+> `autoload_psr4.php` calcula su `$baseDir` con `dirname(dirname(__DIR__))`, cargaba
+> `/app/app/Models/Asignatura.php`. Las tres primeras pasadas compararon el código nuevo contra
+> sí mismo. **Lo delató el propio guion**, porque imprime la parcial del último alumno y salía
+> `NO EXISTE` también en la columna «después» — que es exactamente para lo que se le puso esa
+> línea. *Un banco que sólo imprime milisegundos no puede avisar de que midió otra cosa.*
 
 ### Fase 2 — el semáforo deja de acusar al alumno
 
@@ -577,8 +705,12 @@ fase 1 ya está.
 
 > **Y dos cosas de la fase 1 que cambian lo que la fase 2 puede hacer**, las dos medidas el 20 sep:
 > la cobertura **nunca pasa del 100 %** —no sirve para delatar el reparto malo; eso es
-> `porcentaje_unidades`— y **la parcial y la cobertura no llegan hoy a la planilla**, porque ésa la
-> calcula `Asignatura::calculoAlumnoNotas` y no el servicio. Está en la §Fase 1.
+> `porcentaje_unidades`— y ~~**la parcial y la cobertura no llegan hoy a la planilla**~~ **ya
+> llegan desde el 20 sep 2026**, por la §Fase 1.bis: `calculoAlumnoNotas` las devuelve y cinco
+> de sus seis lectores las publican. Los nombres que le llegan al front son **`nota_parcial` y
+> `cobertura`**, al lado de `nota_asignatura` — y no `parcial`, que es como se llama dentro del
+> servicio: junto a `nota_asignatura`, un campo llamado `parcial` se lee como una bandera.
+> **A los boletines NO llega**, y el porqué está en la §Fase 1.bis.
 
 ### Fase 3 — lo que ve la familia
 
@@ -628,7 +760,13 @@ lleva años vacía.
   `Handler_read_key`/`Handler_read_next`, que son deterministas.
 - **Quién lee `nota_asignatura` hoy en los cuatro clientes.** La fase 1 no lo cambia, pero la fase
   3 sí decide qué número se pinta, y el radio lo mide el front, no nosotros.
-- **El segundo calculador de la definitiva.** `Asignatura::calculoAlumnoNotas` —PHP, sin
-  denominador, seis lectores— produce el número de la planilla y de los boletines, y **este
-  documento lo ignoró entero**: por eso la §Fase 1 prometía instantáneas que no existen. Cuánto
-  cuesta unificarlo, y si unificarlo mueve algún número impreso, **no está medido**.
+- ~~**El segundo calculador de la definitiva.**~~ **MEDIDO el 20 sep 2026**, y las dos preguntas
+  tienen respuesta. *Cuánto cuesta darle los tres números*: **cero** —contadores idénticos, 0,014 %
+  de aritmética—, §Fase 1.bis. *Si unificarlo mueve algún número impreso*: **sí, y por eso no se
+  unificó** — en modo `promedio` los dos calculadores ya discrepan hoy, **14 pares de 99 en el año
+  2026 de la copia y hasta 42,3 puntos** sobre una escala de 0 a 50, porque este método pesa
+  `s.porcentaje` crudo y el servicio pesa `1/n`. **Lo que sigue sin medir es qué pasa el día que se
+  unifiquen**: cuántos números impresos se mueven en los dieciséis colegios y cuál de los dos es el
+  que hay que conservar. Es una decisión de Joseth y no un arreglo.
+- **El séptimo calculador.** `EditnotaController::notasDeLaAsignatura` lleva la misma cuenta escrita
+  en línea y no pasa por ninguno de los dos. No está medido cuánto se separa de ellos.

@@ -118,6 +118,27 @@ class PlanillasAusenciasController extends Controller {
 					// Traemos las notas de esta asignatura segun las unidades y subunidades calculadas arriba
 					Asignatura::calculoAlumnoNotas($asignaturaTemp, $alumno->alumno_id);
 					$periodo->nota_asignatura = $asignaturaTemp->nota_asignatura;
+
+					// **Los tres números viajan juntos o no viaja ninguno** — fase 1.bis del
+					// [43](../../../docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md).
+					// `nota_asignatura` contesta *«cuánto del periodo entero lleva ganado»*, que a
+					// mitad de periodo no es la pregunta de nadie: pintada con la escala del
+					// colegio dice BAJO de casi todo el mundo, y **uno de cada tres de esos rojos
+					// va en SUPERIOR contando sólo lo evaluado** (43 §2). `nota_parcial` es esa
+					// otra pregunta y `cobertura` dice sobre cuánto se contesta.
+					//
+					// **Publicar sólo la primera es lo que hace que el silencio del docente se lea
+					// como una nota del alumno**, y por eso no se publica una sin las otras dos:
+					// una parcial sin su cobertura es un 47,6 que puede venir de una sola casilla.
+					//
+					// Las dos pueden venir a `null` y **eso no es un 0**: `nota_parcial` en `null`
+					// es «no hay con qué decirlo» —el gris de D2— y `cobertura` en `null` es «no
+					// hay plan del que hablar». Y `cobertura` es un **factor de 0 a 1**, no un
+					// porcentaje: quien compare contra `15` en vez de contra `0.15` pinta de color
+					// absolutamente todo.
+					$periodo->nota_parcial = $asignaturaTemp->nota_parcial;
+					$periodo->cobertura = $asignaturaTemp->cobertura;
+
 					unset($asignaturaTemp);
 				}
 
