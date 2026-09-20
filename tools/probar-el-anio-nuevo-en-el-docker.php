@@ -45,7 +45,7 @@ $app = require_once __DIR__.'/../bootstrap/app.php';
 $kernel = $app->make(Kernel::class);
 $kernel->bootstrap();
 
-function pedir(string $metodo, string $uri, array $cuerpo = [], ?string $token = null): array
+function pedirAnioNuevo(string $metodo, string $uri, array $cuerpo = [], ?string $token = null): array
 {
     global $kernel;
 
@@ -71,7 +71,7 @@ function pedir(string $metodo, string $uri, array $cuerpo = [], ?string $token =
 echo 'árbol: '.realpath(__DIR__.'/..').PHP_EOL;
 echo 'base:  '.config('database.connections.'.config('database.default').'.database').PHP_EOL.PHP_EOL;
 
-$login = pedir('POST', '/api/login/credentials', [
+$login = pedirAnioNuevo('POST', '/api/login/credentials', [
     'username' => 'administrador',
     'password' => 'patreongreat',
 ]);
@@ -165,7 +165,7 @@ try {
     }
 
     // ── La petición de verdad ────────────────────────────────────────────────
-    $r = pedir('POST', '/api/years/store', [
+    $r = pedirAnioNuevo('POST', '/api/years/store', [
         'year' => ((int) $ultimo->year) + 1,
         // A propósito `false`: `postStore` apaga los demás años cuando se le pide
         // `true`, y aunque esto se deshaga entero, un fallo a mitad dejaría al

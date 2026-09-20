@@ -44,8 +44,8 @@ class CensoDeInterruptoresTest extends TestCase
     private const CENSO = [
         'columnas tinyint(1) distintas' => 157,
         'ni se nombran' => 64,
-        'no deciden nada' => 29,
-        'alguien decide con ellas' => 64,
+        'no deciden nada' => 28,
+        'alguien decide con ellas' => 65,
     ];
 
     /*
@@ -129,8 +129,33 @@ class CensoDeInterruptoresTest extends TestCase
      * una columna cruce de verdad a «alguien decide con ella» quiero verlo. El
      * precio es este comentario cada vez que se mueva el reparto; es más barato que
      * un guardián que no distingue.
+     *
+     * ## 19 sep 2026 — TERCER cruce de `por_defecto`, y esta vez nadie lo apuntó
+     *
+     * `29 / 64` vuelve a `28 / 65` y la suma vuelve de **93** a **92**. Es **la
+     * misma columna por tercera vez**, y las tres con causa distinta y escrita:
+     *
+     * | | | quién la hace decidir |
+     * |---|---|---|
+     * | 13 sep | 29/64 → 28/65 | `DesempenosController::exigirElCandado` (D14) |
+     * | 17 sep | 28/65 → 29/64 | la Fase 2 sustituye ese código — 21 rutas se quedan en 7 |
+     * | **19 sep** | **29/64 → 28/65** | **`CandadoDeLaPlantilla:99`, `if (empty($fila->por_defecto))`** |
+     *
+     * **Las dos primeras las apuntó quien las causó; la tercera no**, y por eso este
+     * caso entró en rojo con la P6 (`3ce3056`) y llegó así a `origin/main`. No es
+     * descuido de nadie en particular: **este caso vive en la testsuite `Unit` y aquí
+     * la cifra se publica casi siempre con `--testsuite=Contrato`**, que no lo
+     * ejecuta. Es el aviso de `CLAUDE.md` sobre las dos poblaciones de tests
+     * ocurriendo — *«un aviso que ya está escrito no protege solo»*.
+     *
+     * Lo encontró la integración del 19 sep por la noche, corriendo `php artisan
+     * test` entero por primera vez en días.
+     *
+     * **El 49 y el 53 del §105 siguen sin remedir**: la población que cruzaban con
+     * los cuatro clientes era 93 y es 92. Ningún test de este repositorio puede
+     * hacer esa medición, y por eso se dice aquí en vez de arreglarse aquí.
      */
-    private const SIN_LECTOR_EN_EL_BACKEND = 93;
+    private const SIN_LECTOR_EN_EL_BACKEND = 92;
 
     /** Las `tinyint(1)` del volcado, con las tablas donde están. Igual que la herramienta. */
     private function columnasBooleanas(): array

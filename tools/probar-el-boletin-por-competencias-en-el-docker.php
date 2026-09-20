@@ -67,7 +67,7 @@ $kernel->bootstrap();
  *
  * @return array{estado: int, cuerpo: mixed, ms: float, consultas: int}
  */
-function pedirMidiendo(string $metodo, string $uri, array $cuerpo = [], ?string $token = null): array
+function pedirMidiendoBoletinCompetencias(string $metodo, string $uri, array $cuerpo = [], ?string $token = null): array
 {
     global $kernel;
 
@@ -98,14 +98,14 @@ function pedirMidiendo(string $metodo, string $uri, array $cuerpo = [], ?string 
     ];
 }
 
-function token(string $usuario, string $clave): ?string
+function tokenBoletinCompetencias(string $usuario, string $clave): ?string
 {
     foreach ([0, 5, 15, 40] as $espera) {
         if ($espera > 0) {
             sleep($espera);
         }
 
-        $r = pedirMidiendo('POST', '/api/login/credentials', ['username' => $usuario, 'password' => $clave]);
+        $r = pedirMidiendoBoletinCompetencias('POST', '/api/login/credentials', ['username' => $usuario, 'password' => $clave]);
 
         if (isset($r['cuerpo']['el_token'])) {
             return $r['cuerpo']['el_token'];
@@ -162,7 +162,7 @@ DB::table('users')->where('username', USUARIO_DE_PASO)->delete();
 $hayAdministrador = DB::selectOne('SELECT id FROM users WHERE username = ? AND deleted_at IS NULL',
     ['administrador']) !== null;
 
-$jefe = $hayAdministrador ? token('administrador', 'patreongreat') : null;
+$jefe = $hayAdministrador ? tokenBoletinCompetencias('administrador', 'patreongreat') : null;
 $usuarioDePaso = null;
 
 if ($jefe === null) {
@@ -182,7 +182,7 @@ if ($jefe === null) {
         'created_at' => now(), 'updated_at' => now(),
     ]);
 
-    $jefe = token(USUARIO_DE_PASO, CLAVE_DE_PASO);
+    $jefe = tokenBoletinCompetencias(USUARIO_DE_PASO, CLAVE_DE_PASO);
 }
 
 if ($jefe === null) {
@@ -237,29 +237,29 @@ $ruta = '/api/boletines-competencias/detailed-notas/'.$asignatura->grupo_id;
 $cuerpo = ['requested_alumnos' => [['alumno_id' => $alumno->alumno_id]]];
 
 echo '── tal como está la base, sin tocar nada ───────────────────────────'.PHP_EOL;
-$r = pedirMidiendo('PUT', $ruta, $cuerpo, $jefe);
+$r = pedirMidiendoBoletinCompetencias('PUT', $ruta, $cuerpo, $jefe);
 printf("  PUT detailed-notas            %d   %6.0f ms   %4d consultas   %7d bytes\n",
     $r['estado'], $r['ms'], $r['consultas'], strlen(json_encode($r['cuerpo']) ?: ''));
 echo '  posiciones de la respuesta:   '.count($r['cuerpo'] ?? []).PHP_EOL;
 echo '  poblacion: '.json_encode($r['cuerpo'][4] ?? null, JSON_UNESCAPED_UNICODE).PHP_EOL;
 
-$g = pedirMidiendo('PUT', '/api/boletines-competencias/detailed-notas-group/'.$asignatura->grupo_id, [], $jefe);
+$g = pedirMidiendoBoletinCompetencias('PUT', '/api/boletines-competencias/detailed-notas-group/'.$asignatura->grupo_id, [], $jefe);
 printf("  PUT detailed-notas-group      %d   %6.0f ms   %4d consultas   %7d bytes\n",
     $g['estado'], $g['ms'], $g['consultas'], strlen(json_encode($g['cuerpo']) ?: ''));
 echo '  poblacion: '.json_encode($g['cuerpo'][4] ?? null, JSON_UNESCAPED_UNICODE).PHP_EOL.PHP_EOL;
 
 echo '── los errores, pedidos uno a uno ──────────────────────────────────'.PHP_EOL;
-$sinToken = pedirMidiendo('PUT', $ruta, $cuerpo);
+$sinToken = pedirMidiendoBoletinCompetencias('PUT', $ruta, $cuerpo);
 echo '  sin token                      '.$sinToken['estado'].PHP_EOL;
 
-$grupoQueNoExiste = pedirMidiendo('PUT', '/api/boletines-competencias/detailed-notas/999999', [], $jefe);
+$grupoQueNoExiste = pedirMidiendoBoletinCompetencias('PUT', '/api/boletines-competencias/detailed-notas/999999', [], $jefe);
 echo '  grupo que no existe            '.$grupoQueNoExiste['estado'].'   '
     .mb_substr(json_encode($grupoQueNoExiste['cuerpo']) ?: '', 0, 90).PHP_EOL;
 
 $grupoBorrado = DB::selectOne('SELECT id FROM grupos WHERE deleted_at IS NOT NULL ORDER BY id LIMIT 1');
 
 if ($grupoBorrado !== null) {
-    $r2 = pedirMidiendo('PUT', '/api/boletines-competencias/detailed-notas/'.$grupoBorrado->id, [], $jefe);
+    $r2 = pedirMidiendoBoletinCompetencias('PUT', '/api/boletines-competencias/detailed-notas/'.$grupoBorrado->id, [], $jefe);
     echo '  grupo en la papelera ('.$grupoBorrado->id.')      '.$r2['estado'].PHP_EOL;
 }
 
@@ -338,7 +338,7 @@ try {
         'created_at' => now(), 'updated_at' => now(),
     ]);
 
-    $r = pedirMidiendo('PUT', $ruta, $cuerpo, $jefe);
+    $r = pedirMidiendoBoletinCompetencias('PUT', $ruta, $cuerpo, $jefe);
 
     printf("  PUT detailed-notas            %d   %6.0f ms   %4d consultas\n",
         $r['estado'], $r['ms'], $r['consultas']);

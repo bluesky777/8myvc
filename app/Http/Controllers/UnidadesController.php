@@ -14,7 +14,6 @@ use App\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Request;
-use Log;
 
 class UnidadesController extends Controller
 {
