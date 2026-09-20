@@ -611,6 +611,23 @@ docker exec 8myvc-app-1 php artisan test --filter=NotasTest    # una clase
 > > La comprobación va **antes de lanzar**, no cuando el resultado sale raro.
 > > Después sirve para diagnosticar; antes es lo único que lo evita.
 > >
+> > **Y UNA TERCERA FORMA, ésta del andamio: la suite dura MÁS que el tope de
+> > quien la lanza.** Si el `docker exec` se corta por timeout —15 minutos de
+> > suite contra un tope de 10—, deja `context canceled` al final del fichero,
+> > **sin línea `Tests:`**, con los rojos que hubiera hasta ahí… **y el `php`
+> > sigue vivo dentro**, escribiendo a un pipe que ya no lee nadie. Leer «cero
+> > rojos» de ahí es leer una corrida que ni terminó.
+> >
+> > Lo que lo evita es no atarla al pipe:
+> >
+> > ```bash
+> > docker exec -d -w /app/.worktrees/<x> -e DB_TEST_DATABASE=simonbolivar_testing_<x> \
+> >     8myvc-app-1 sh -c "php artisan test --testsuite=Contrato > /tmp/<x>.txt 2>&1"
+> > ```
+> >
+> > Y se consulta ese fichero **dentro del contenedor**. Así el corte de quien la
+> > lanzó no la toca.
+> >
 > > **Y el detalle que lo hace útil: le pasó a quien acababa de escribir este
 > > bloque, con la regla ya en el fichero.** Eso no es un descuido, es la forma
 > > normal en que fallan estas cosas — *un aviso escrito no protege solo; sólo
