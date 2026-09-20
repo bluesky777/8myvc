@@ -110,7 +110,9 @@ no la lee nadie, o la lee la pantalla y no la escribe nadie.*
 
     GET requisitos/recorrido/{alumno_id}      auth.personal      NO escribe
 
-**Router 621.** Migración `2026_09_20_300000`, tres columnas:
+**Router 621**, contado con `route:list --json` en el árbol principal sobre `main` y después de
+fundir (`939ec20`), coincidiendo con las 621 del worktree. **`php artisan test` (las tres
+testsuites): 2.475 passed, 1 skipped**, sobre `1b2368d`. Migración `2026_09_20_300000`, tres columnas:
 
 ```
 requisitos_matricula.bloquea       obligatoria antes de continuar (1) u opcional (0)

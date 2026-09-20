@@ -12,8 +12,20 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**620 rutas** (contadas con `route:list --json` el **20 sep 2026 en el ÁRBOL PRINCIPAL, sobre
-`main` y después de fundir** (`b8b3853`) — y coincidieron con las 620 contadas antes en
+**621 rutas** (contadas con `route:list --json` el **20 sep 2026 en el ÁRBOL PRINCIPAL, sobre
+`main` y después de fundir** (`939ec20`) — y coincidieron con las 621 contadas antes en
+`.worktrees/est`. La que sube sobre las 620 es **`GET requisitos/recorrido/{alumno_id}`**, la
+**fase 1 del proceso de admisión**: el recorrido del día de matrículas, que contesta *«¿puede
+atenderlo, o hay que devolverlo, y a dónde?»* — hoy eso depende de que quien atiende mire bien la
+hoja.
+
+> **Y la fase 1 entra con TRES columnas donde la propuesta pedía diez, y ninguna de las siete que
+> faltan se cae por recorte: cada una la cerró una respuesta de Joseth.** `estacion_nro` no, porque
+> el número impreso **es** `requisitos_matricula.orden`, que ya existía; `rol_id` no, porque cierra
+> cualquiera del personal; `obligatorio` no, porque describió **un** interruptor y no dos. *Una
+> columna sin pantalla no la escribe nadie — es `profesores.tono`, y van cinco en un mes.*
+
+El número anterior era **620**, contado en el ÁRBOL PRINCIPAL sobre `main` tras fundir (`b8b3853`) — y coincidieron con las 620 contadas antes en
 `.worktrees/es`, que es la única forma de saber que coincidía. La que sube sobre las
 619 es **`GET colillas-inscripcion/{codigo}`**, la **decimosexta pública y la primera de LECTURA**
 de todo el módulo del formulario: hasta ella las tres públicas eran las tres de escritura, así que

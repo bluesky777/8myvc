@@ -531,6 +531,58 @@
 > significa que no se entregó o que nadie lo marcó. **Esas tres deciden la mitad de la fase 1 y
 > sólo las sabe el colegio.**
 
+> ## ✅ LA FASE 1 DEL PROCESO: EL DÍA DE MATRÍCULAS, ROUTER EN 621 (20 sep 2026, `939ec20`)
+>
+> **Cuatro decisiones de Joseth, cada una con las opciones delante.** Documento:
+> [`44-el-dia-de-matriculas.md`](44-el-dia-de-matriculas.md).
+>
+>     GET requisitos/recorrido/{alumno_id}    auth.personal    NO escribe
+>
+> | | |
+> |---|---|
+> | estaciones | **las que el colegio quiera** — editor de pasos, no plantilla |
+> | frenar | cada una es **«obligatoria antes de continuar» u «opcional»** |
+> | el número impreso | **ES `requisitos_matricula.orden`**, que ya existía |
+> | quién cierra | **cualquiera del personal, con su nombre y su hora** |
+>
+> **Tres columnas donde la propuesta pedía diez**, y ninguna de las siete que faltan se cae por
+> recorte: cada una la cerró una respuesta. *Una columna sin pantalla es `profesores.tono`, y van
+> cinco en un mes.*
+>
+> ### La respuesta que parecía la más floja es la que hace esto desplegable
+>
+> *«¿«falta» significa que la familia no entregó, o que nadie lo marcó?»* — **«las dos cosas, según
+> la estación»**. Eso convierte `bloquea` de lujo en necesidad: **el bloqueo no se puede encender de
+> golpe**. Donde el dato es fiable frena; donde nadie marca, informa y deja pasar. Un bloqueo global
+> habría mandado de vuelta a familias que sí entregaron, **el primer día y en la cola**.
+>
+> ### Un fallo visto antes de cometerlo, y uno cometido
+>
+> **Visto**: el `JOIN` natural para el nombre de quien cierra es `users.profesor_id`. Medido: **0
+> filas** con esa columna, **47** con `profesores.user_id`. Al revés, el renglón habría salido en
+> blanco en los diecisiete sin que nada fallara.
+>
+> **Cometido, y es mío**: `git add -A` en el árbol principal se llevó en `2503b27` **el Pint sin
+> commitear de otra sesión** —`AlumnosController` y `ProfesoresController`, 3.600 líneas—. Rompí la
+> regla que yo mismo tengo escrita: *respaldar sí, commitear no*. No se deshizo —`main` ya había
+> avanzado por encima— y el rojo que introdujo está arreglado en `1b2368d`.
+>
+> > **Y cazarlo enseñó algo**: `git diff main..<rama>` dijo que el fichero era mío **y mentía**,
+> > porque mezcla *«mi rama lo cambió»* con *«main lo cambió mientras yo iba por detrás»*. Es la
+> > trampa que este documento ya tenía escrita para contar ramas. Quien lo contestó fue `git blame`.
+>
+> | | |
+> |---|---|
+> | `php artisan test` | **2.475 passed, 1 skipped**, sobre `1b2368d` con `main` dentro |
+> | `route:list --json` | **621** en el árbol principal tras fundir (`939ec20`) |
+> | `imports-de-facades.php --dry-run` | **0 de 698** — no queda ningún `use` por alias |
+>
+> ### Lo que falta, y no es código
+>
+> Correr `tools/requisitos-de-matricula.php` en `lal`: **ya no bloquea** —Joseth contestó a mano las
+> tres preguntas que dependían de ella— pero dice **qué encuentra un colegio el día que despliegue
+> esto**. Y las pantallas, que son de `myvc_front`.
+
 > ## ✅ EL LIMITADOR: PREGUNTAR YA NO GASTA SUBIDAS (20 sep 2026, `f400145`)
 >
 > **Lo encontró `8myvc-dd` revisando `GET colillas-inscripcion/{codigo}` unas horas después de
