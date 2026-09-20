@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\OrdenDeInscripcion;
 use App\Support\SafeUpload;
 use Carbon\Carbon;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Request;
@@ -217,11 +218,30 @@ class PortalInscripcionController extends Controller
         $ahora = Carbon::now('America/Bogota');
 
         if ($aspirante === null) {
-            DB::insert('INSERT INTO aspirantes (orden_id, year_campana, created_at, updated_at)
-                VALUES (?,?,?,?)',
-                [(int) $orden->id, (int) $orden->year_campana, $ahora, $ahora]);
+            // **El `UNIQUE` de `orden_id` decide, no este `if`.** Quien llena esto está en
+            // un teléfono con mala señal y da dos veces al botón: las dos peticiones
+            // pueden llegar a la vez, encontrar las dos que no hay fila e intentar
+            // insertarla. La segunda choca con el índice —que es exactamente para lo que
+            // está— y **eso no es un error que deba ver la familia**: es que ya existe su
+            // formulario. Se relee y se sigue.
+            //
+            // *Una comprobación previa nunca hace atómica una escritura; el índice sí.*
+            try {
+                DB::insert('INSERT INTO aspirantes (orden_id, year_campana, created_at, updated_at)
+                    VALUES (?,?,?,?)',
+                    [(int) $orden->id, (int) $orden->year_campana, $ahora, $ahora]);
+            } catch (UniqueConstraintViolationException $e) {
+                // La otra petición ganó. No hay nada que arreglar.
+            }
 
             $aspirante = $this->aspiranteDe((int) $orden->id);
+
+            // Y si la que ganó la carrera ya escribió datos, este cuerpo tiene que
+            // presentar el segundo factor como cualquier otro: la fila ya no está en
+            // blanco.
+            if ($aspirante !== null && ! $this->segundoFactorCoincide($aspirante)) {
+                abort(403, 'Para seguir llenando este formulario hay que confirmar el documento del aspirante.');
+            }
         } elseif (! $this->segundoFactorCoincide($aspirante)) {
             abort(403, 'Para seguir llenando este formulario hay que confirmar el documento del aspirante.');
         }
@@ -437,6 +457,18 @@ class PortalInscripcionController extends Controller
      * y el que lo hace en la fila cierran los mismos requisitos y escriben en las
      * mismas filas»* (`PANTALLAS-MATRICULA.md` §0). Un catálogo propio para el portal
      * haría que tener el papel y tener el paso cerrado fueran dos verdades distintas.
+     *
+     * ## EL AÑO SALE DE `years.actual` Y NO DE LA SESIÓN, PORQUE AQUÍ NO HAY SESIÓN
+     *
+     * El resto de este dominio usa `$user->year_id`. **Estas tres rutas no tienen
+     * usuario**, así que la única fuente posible es el año marcado como actual.
+     *
+     * Y eso obliga a que **el lado del colegio use el mismo criterio**
+     * (`AspirantesController::requisitosDeLaCampana`), que si no las dos mitades
+     * enseñarían **listas de documentos distintas**: la familia subiría lo que el
+     * colegio no espera, y la estación 2 pediría lo que la familia no vio nunca. *No
+     * es una simetría bonita: es que las dos caras del mismo paso tienen que estar de
+     * acuerdo en cuál es el paso.*
      */
     private function requisitosDeLaCampana(): array
     {

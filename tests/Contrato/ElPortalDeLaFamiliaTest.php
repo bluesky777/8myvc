@@ -481,6 +481,28 @@ class ElPortalDeLaFamiliaTest extends CasoDeContrato
     }
 
     /**
+     * **Y el segundo factor cierra la ESCRITURA, no sólo la lectura.**
+     *
+     * Sin esto, quien se encontrara el papel podría **reescribir encima** el nombre y el
+     * documento de un menor que la familia ya llenó. Es la mitad que no se ve al leer el
+     * test de la lectura, y la que de verdad hace daño: leer un dato es malo, pisarlo es
+     * peor —el colegio se queda con lo del desconocido y nadie se entera—.
+     */
+    public function test_sin_el_documento_no_se_puede_reescribir_el_formulario(): void
+    {
+        $codigo = $this->unaOrdenPagada();
+
+        $this->putJson(self::PORTAL.'/'.$codigo,
+            ['nombres' => 'Laura', 'documento' => '1090123456'])->assertStatus(200);
+
+        $this->putJson(self::PORTAL.'/'.$codigo, ['nombres' => 'Otra'])->assertStatus(403);
+
+        $this->assertSame('Laura', DB::selectOne('SELECT nombres FROM aspirantes
+            ORDER BY id DESC LIMIT 1')->nombres,
+            'Se contestó 403 y aun así pisó el nombre que la familia había escrito.');
+    }
+
+    /**
      * **Guardar un tramo no borra los otros.**
      *
      * La pantalla guarda sola, tramo a tramo. Un `UPDATE` que nombrara los dieciséis

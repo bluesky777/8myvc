@@ -59,7 +59,7 @@ class ElDiaDeMatriculasTest extends CasoDeContrato
         ]);
 
         // La familia cerró la 1 y llega a la 4 sin haber pasado por la 2 ni la 3.
-        $this->marcar($alumno->id, 'Recepción', 'ok');
+        $this->marcar($alumno->id, 'Recepción', 'ya');
 
         $r = $this->withToken($this->tokenLlano())
             ->getJson(self::RUTA.'/recorrido/'.$alumno->id)->assertStatus(200);
@@ -87,7 +87,7 @@ class ElDiaDeMatriculasTest extends CasoDeContrato
             ['orden' => 2, 'requisito' => 'Encuesta de transporte', 'bloquea' => 0],
         ]);
 
-        $this->marcar($alumno->id, 'Recepción', 'ok');
+        $this->marcar($alumno->id, 'Recepción', 'ya');
 
         $r = $this->withToken($this->tokenLlano())
             ->getJson(self::RUTA.'/recorrido/'.$alumno->id)->assertStatus(200);
@@ -145,7 +145,7 @@ class ElDiaDeMatriculasTest extends CasoDeContrato
         $alumno = $this->unAlumno();
         $this->unosPasos([['orden' => 1, 'requisito' => 'Documentos', 'bloquea' => 1]]);
 
-        $this->marcar($alumno->id, 'Documentos', 'ok');
+        $this->marcar($alumno->id, 'Documentos', 'ya');
 
         $fila = DB::selectOne('SELECT ra.cerrado_por, ra.cerrado_at, ra.updated_by
             FROM requisitos_alumno ra WHERE ra.alumno_id=?', [$alumno->id]);
@@ -178,7 +178,7 @@ class ElDiaDeMatriculasTest extends CasoDeContrato
     {
         $alumno = $this->unAlumno();
         $this->unosPasos([['orden' => 1, 'requisito' => 'Documentos', 'bloquea' => 1]]);
-        $this->marcar($alumno->id, 'Documentos', 'ok');
+        $this->marcar($alumno->id, 'Documentos', 'ya');
 
         $paso = $this->withToken($this->tokenLlano())
             ->getJson(self::RUTA.'/recorrido/'.$alumno->id)->assertStatus(200)->json('pasos.0');
@@ -284,7 +284,19 @@ class ElDiaDeMatriculasTest extends CasoDeContrato
         }
     }
 
-    /** Cierra un paso como lo cierra una estación: por la ruta. */
+    /**
+     * Cierra un paso como lo cierra una estación: por la ruta.
+     *
+     * **El estado era `'ok'` hasta el 20 sep 2026 y ahora es `'ya'`**, que es lo que
+     * manda de verdad la ficha del alumno en los dieciséis colegios. `'ok'` no lo
+     * escribe nadie: se lo inventó este test cuando `estado` era un `varchar` que
+     * aceptaba cualquier cosa, y desde que existe `App\Support\EstadosDelPaso` la ruta
+     * lo rechaza con 422.
+     *
+     * *Los cinco rojos que eso produjo son el candado funcionando en su primer contacto
+     * con el código que ya estaba* — y el arreglo es mandar un valor real, no ensanchar
+     * la lista para que quepa uno que se inventó una prueba.
+     */
     private function marcar(int $alumnoId, string $requisito, string $estado): void
     {
         $paso = DB::selectOne('SELECT id FROM requisitos_matricula

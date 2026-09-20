@@ -508,7 +508,16 @@ class AspirantesController extends Controller
         return (int) $this->user->user_id;
     }
 
-    /** El mismo catálogo que chulea la estación. Ver `PortalInscripcionController`. */
+    /**
+     * El mismo catálogo que chulea la estación.
+     *
+     * **Y va por `years.actual` y no por `$user->year_id` a propósito**, aunque aquí sí
+     * haya sesión: el portal de la familia **no la tiene** y sólo puede mirar el año
+     * actual. Si esta mitad usara el año de la sesión, un administrativo trabajando en
+     * un año pasado vería **una lista de documentos distinta de la que la familia
+     * acaba de llenar**. El porqué entero está en
+     * `PortalInscripcionController::requisitosDeLaCampana`.
+     */
     private function requisitosDeLaCampana(): array
     {
         $filas = DB::select('SELECT r.id, r.orden AS estacion, r.requisito, r.descripcion, r.bloquea
