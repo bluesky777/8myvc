@@ -326,6 +326,28 @@
 > otra punta del mismo defecto que el remitente, y el fósil `MAIL_DRIVER`, que se avisa **gane el
 > veredicto que gane**: es la línea que hace leer un `.env` como configurado cuando no lo está.
 
+> ## 🔜 LA FASE 1 (EL DÍA DE MATRÍCULAS): DOS DECISIONES DE JOSETH, Y LO QUE FALTA (20 sep 2026)
+>
+> Documento nuevo: [`44-el-dia-de-matriculas.md`](44-el-dia-de-matriculas.md). **No hay una línea
+> de código y no se propone escribirla** hasta tener el dato de `lal` (§4 de ese documento).
+>
+> **Decidido por Joseth el 20 sep**: las estaciones son **las que el colegio quiera** —editor de
+> pasos, no plantilla— y cada una es **«obligatoria antes de continuar» u «opcional»**.
+>
+> > **Esa segunda decisión COLAPSA algo que la propuesta separaba, y va dicho sin re-litigarlo.**
+> > `PANTALLAS-MATRICULA.md` §3 distinguía *obligatorio* (hay que cumplirlo para matricular) de
+> > *bloqueante* (impide pasar al siguiente). Joseth describió **una sola**: bloqueante o nada. Es
+> > más simple —una columna y un interruptor— y **lo que se pierde es el caso «hay que hacerlo,
+> > pero no aquí ni ahora»**: la entrevista de orientación, que es obligatoria y no debería frenar
+> > la cola. Se construye con un interruptor, que es lo decidido; queda escrito para que el día que
+> > un colegio pida «que no frene pero que no se me olvide», la respuesta sea revisar esta decisión
+> > con el caso delante y no un parche.
+>
+> **La pregunta que decide si hay migración o ninguna**: ¿el número de estación **es**
+> `requisitos_matricula.orden`, o son dos cosas? El relato admite las dos lecturas —*«el requisito
+> 2… la estación 4»*— y **lo contesta el dato de `lal`, no discutirlo**. Una columna añadida sin
+> saberlo es `profesores.tono` otra vez.
+
 > ## ⚠️ ANTES DE LA FASE 1 DEL PROCESO: `requisitos_matricula` ESTÁ VACÍA **AQUÍ**, NO EN LOS DIECISÉIS
 >
 > **Medido el 20 sep 2026 en la copia de desarrollo (UN colegio), y el denominador es la mitad del
