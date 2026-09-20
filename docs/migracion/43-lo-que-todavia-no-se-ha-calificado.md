@@ -990,6 +990,27 @@ lleva años vacía.
   > los cinco informes**, así que un periodo cerrado con `fuera` imprime bien el boletín y pinta la
   > acumulada en la planilla. Eso sigue abierto y es de Joseth.
   >
+  > > **Y este renglón decía «un TERCER camino» — son más, y el censo bueno es de CINCO.**
+  > > *(20 sep 2026, por la noche.)* Lo destapó `myvc-front-a7` desde la pantalla del semáforo,
+  > > que lee `PUT boletines/detailed-notas-group/{grupo}` y acaba en
+  > > `Grupo::detailed_materias_notafinal` + `notas_finales` — ni el sexto lector ni el séptimo.
+  > > Reproducido aquí antes de escribirlo, y contado con
+  > > `grep -rn "Grupo::detailed_materias_notafinal(" app/` **descartando los comentarios**, que
+  > > son cuatro más y si no inflan el número:
+  > >
+  > > ```
+  > > app/Models/Nota.php:376                                      Nota::alumnoPeriodoDetalle
+  > > Informes/BoletinesController.php:319
+  > > Informes/Boletines2Controller.php:223
+  > > Informes/NotasActualesAlumnosController.php:179
+  > > Informes/BoletinPorCompetenciasController.php:459
+  > > ```
+  > >
+  > > **Lo que no cambia es la conclusión** —el boletín sigue sin pasar por `calculoAlumnoNotas`,
+  > > que es lo que las dos ramas midieron—; lo que cambia es **cuántos caminos hay al otro lado**,
+  > > y eso es lo que decide el alcance de quien vaya a darles la parcial. *Escribir «un tercer
+  > > camino» cuando hay cinco no falla nada y hace que el siguiente crea que ya está contado.*
+  >
   > *Dos mediciones independientes que se tocan valen más que una: ninguna de las dos sesiones
   > podía ver a la otra, y por eso esto se escribe como corroboración y no como repetición.*
 

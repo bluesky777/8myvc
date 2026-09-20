@@ -151,6 +151,33 @@
 > 4. **`tools/requisitos-de-matricula.php` sigue sin correrse en `lal`**, que es el colegio que
 >    de verdad usa esto. No bloquea el código; dice qué se encuentra un colegio al desplegar.
 > 5. **Las doce pantallas de `myvc_flutter`**, que es lo que hace que esto lo use alguien.
+>
+> ### ⛔ Y una decisión que se RECTIFICÓ el mismo día: el push inmediato NO entra
+>
+> El 46 §5.3 decía *«ahora»* y `myvc_flutter/docs/estaciones.md` mandaba meter
+> `firebase_messaging` en `pubspec.yaml` por ello. **Al ir a construir la mitad del servidor se
+> destapó que dos documentos se contradecían**, se le puso delante a Joseth y contestó: *«que
+> llegue cuando tenga que llegar, no me voy a complicar con que le llegue de inmediato, por
+> ahora no importa»*. Corregido en los dos documentos, tachando y no borrando.
+>
+> **La contradicción y lo medido, que es lo que se guarda:** `notificaciones.md` §«Cuándo se
+> envía» prohíbe **publicar dentro de una petición** y lo prohíbe **con la medición hecha** —*«el
+> docente espera a que Google responda»*—, que era exactamente lo que el 46 pedía. Y esa
+> prohibición tiene **dos motivos, de los que aquí sólo aplicaba uno, el peor**: el de *volumen*
+> no aplica —cerrar un paso es **una** acción por familia, no treinta— y el de *latencia* aplica
+> **más fuerte**, porque quien atiende tiene una fila delante y está en un patio con mala señal.
+>
+> **Y la salida que ninguno de los dos documentos contemplaba: el cron YA entra cada minuto** en
+> los dieciséis (`DESPLIEGUE-REFERENCIA.md:1404`). El cuarto de hora es una elección de Laravel
+> y **su motivo escrito en `Kernel.php` es agrupar las notas**, que no aplica a una estación. Un
+> comando propio en `everyMinute()` daba ≤60 s sin tocar el camino crítico, sin tocar el agrupado
+> y sin cron nuevo — era lo recomendado, y la respuesta **contestó al problema en vez de a la
+> solución**, que es mejor.
+>
+> **Lo que quedó SIN MEDIR y hay que medir antes de prometerlo** si alguien retoma la vía de
+> contestar-y-publicar-después: `fastcgi_finish_request()` depende del SAPI de **producción**
+> (cPanel/LiteSpeed). *Desde el docker sólo se ve el de CLI, donde esa función no existe nunca —
+> así que medirlo aquí contesta «no» y esa respuesta no significa nada.*
 
 > ## ✅ QUE EL IMPORTADOR OBEDEZCA — LA FASE 2, CERRADA Y CONDUCIDA (21 sep 2026)
 >

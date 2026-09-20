@@ -457,11 +457,45 @@ Son **columnas anulables sobre dos tablas pequeñas** más una tabla nueva, así
 2. ~~**¿Se le avisa al acudiente en cada estación, o solo cuando lo devuelven?**~~ — **en cada
    estación.** Con el nombre del menor dentro y **sin el motivo**: `notificaciones.md` permite
    lo primero y prohíbe lo segundo, y el motivo se lee abriendo la app.
-3. ~~**¿El push inmediato entra ahora o después?**~~ — **ahora**, y por tanto **no** por la
-   tanda de los quince minutos: hay que publicar en el momento, y el lado Flutter de
-   `notificaciones.md` hay que empezarlo (`firebase_messaging` no está en `pubspec.yaml`).
-   **La cola sondeada con huella no se retira**: un push perdido no puede dejar a una familia
-   invisible.
+3. ~~**¿El push inmediato entra ahora o después?**~~ — **RECTIFICADO el 20 sep 2026, y la
+   respuesta anterior queda tachada y no borrada.** Esta línea decía *«ahora, y por tanto no por
+   la tanda de los quince minutos»*. Al ir a construirlo se le puso delante lo de abajo y Joseth
+   contestó: **«que llegue cuando tenga que llegar, no me voy a complicar con que le llegue de
+   inmediato, por ahora no importa»**. Así que **el push inmediato NO entra**, y el lado Flutter
+   **no tiene que empezar `firebase_messaging` por esto**.
+
+   **La cola sondeada con huella es lo que sostiene el día**, y eso no cambia: era verdad cuando
+   el push iba a entrar y lo sigue siendo ahora. *Un push perdido puede dejar a una familia
+   invisible; una cola que se vuelve a preguntar puede tardar, pero no puede perder.*
+
+   > #### Lo medido antes de preguntar — se guarda para que el día que esto se retome no haya que volver a derivarlo
+   >
+   > **Los dos documentos se contradecían y ninguno podía verlo.**
+   > `myvc_flutter/docs/notificaciones.md` §«Cuándo se envía» prohíbe **publicar dentro de una
+   > petición**, y lo prohíbe **con la medición hecha**: *«si al guardar una nota el servidor
+   > llama a Google, el docente espera a que Google responda»*. Esta §5.3 pedía exactamente eso.
+   >
+   > **Y esa prohibición tiene DOS motivos, de los que aquí sólo aplicaba uno — el peor.** El de
+   > *volumen* —treinta notas, treinta llamadas— **no aplica**: cerrar un paso es una acción por
+   > familia. El de *latencia* **aplica más fuerte**: quien atiende tiene una fila delante y está
+   > en un patio con mala señal, así que esperar a Google ahí es peor que en un aula.
+   >
+   > **La salida que ninguno de los dos documentos contemplaba: el cron YA entra cada minuto.**
+   > `* * * * * … artisan schedule:run` está puesto en los dieciséis
+   > (`docs/DESPLIEGUE-REFERENCIA.md:1404`), y **el cuarto de hora es una elección de Laravel, no
+   > del cron**. Su motivo escrito en `Kernel.php` es **agrupar las notas** —*«un docente pasando
+   > una columna de treinta genera UN aviso y no treinta»*—, que es un argumento del caso *notas*
+   > y **no del caso estaciones**, donde no hay nada que agrupar: una familia, un paso, un aviso.
+   >
+   > O sea que un comando propio en `everyMinute()` daría **≤60 s sin tocar el camino crítico,
+   > sin tocar el agrupado de las notas y sin un cron nuevo**. Era la opción recomendada al
+   > preguntar, y **la respuesta fue que la inmediatez no importa hoy** — que contesta al problema
+   > en vez de a la solución, y por eso cierra las dos.
+   >
+   > **Lo que quedó SIN medir, y hay que medirlo antes de prometerlo si alguien retoma la vía de
+   > contestar-y-publicar-después:** `fastcgi_finish_request()` depende del SAPI de
+   > **producción** (cPanel/LiteSpeed), y desde el docker sólo se ve el de CLI, donde esa función
+   > no existe nunca. *Medirlo aquí contesta que no, y esa respuesta no significa nada.*
 4. ~~**¿La nota de una estación se le avisa a alguien?**~~ — **no: espera ahí.** El globo la
    enseña a cualquiera que abra la ficha, y nadie puede resolverla hasta que la familia llegue.
    **Esto quita trabajo del contrato**: `POST estaciones/{nro}/nota` no dispara nada.
