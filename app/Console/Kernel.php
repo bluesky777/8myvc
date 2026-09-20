@@ -51,7 +51,18 @@ class Kernel extends ConsoleKernel
         // mandarían el aviso dos veces.
         //
         // En el colegio que no tenga credenciales de Firebase esto no hace nada
-        // y lo dice — es lo que va a pasar en los dieciséis hasta que se pongan.
+        // y lo dice. **Cuántos las tienen HOY no se sabe desde aquí**: se mira en
+        // el `.env` de cada instalación y eso sólo lo puede correr Joseth.
+        //
+        // Esta línea decía «es lo que **va a pasar** en los dieciséis hasta que se
+        // pongan», escrito el 23 ago 2026 (`98e6311`) el día que se desplegó esto.
+        // Era una expectativa fechada y **envejeció a afirmación sin que nadie la
+        // reescribiera**: el 20 sep una sesión de `myvc_flutter` la citó como censo
+        // medido —«en los dieciséis no hay credenciales»— y la propagó a su repo
+        // antes de que `8myvc-6f` la cazara. Es el contador de rutas otra vez pero
+        // **en el eje del tiempo en vez del espacio**: una cifra contada en un
+        // worktree describe un árbol que mañana no existe, y un comentario en futuro
+        // describe un día que ya pasó. *Un tiempo verbal no lleva fecha dentro.*
         // Y no hace falta un cron nuevo: el de `schedule:run` ya está, uno por
         // colegio, y esa decisión es la que hace que añadir esto sean tres
         // líneas aquí en vez de dieciséis visitas a paneles de cPanel.
