@@ -77,8 +77,65 @@ class ImporterFixer
         ]);
     }
 
-    public function __construct()
+    /**
+     * Lo que una persona decidió que significa cada valor que no se entendía.
+     *
+     * Sale de la pantalla del ensayo: «CARNÉ DIPLOMÁTICO es Cédula», «Activo es
+     * MATR». Las claves llegan **tal como estaban en el fichero** y se guardan
+     * normalizadas, porque quien las escribe está mirando la celda y no
+     * pensando en tildes.
+     *
+     * ## Por qué viven AQUÍ y no en el importador
+     *
+     * Porque por esta clase pasan **los dos caminos** —el ensayo y la subida— y
+     * ahí está toda la garantía de que el plan que se enseña es el que se
+     * cumple. Si se aplicaran en `ImportarController`, la pantalla enseñaría un
+     * plan SIN las correcciones que la persona acaba de escribir y el resultado
+     * sería otro: el mismo fallo que este módulo persigue, con un paso más de
+     * disimulo.
+     *
+     * @var array<string, array<string, mixed>>
+     */
+    private array $equivalencias = [];
+
+    /**
+     * Cuántas se han usado de verdad, por campo.
+     *
+     * No es telemetría: es lo que deja al informe final decir «se aplicaron las
+     * 13 que aprobaste». Una respuesta que se ignora en silencio es el mismo
+     * silencio que este módulo empezó quitando.
+     *
+     * @var array<string, int>
+     */
+    public array $equivalenciasUsadas = [];
+
+    /**
+     * El tipo dice `mixed` y no `array<string, mixed>` a propósito: esto llega
+     * de un JSON que manda el cliente, así que **lo que promete el docblock no
+     * es lo que puede llegar**. Larastan señaló el `is_array()` de abajo como
+     * redundante y tenía razón sobre el papel; lo que estaba mal era el papel.
+     *
+     * @param  array<string, mixed>  $equivalencias  campo => [valor del fichero => valor bueno]
+     */
+    public function __construct(array $equivalencias = [])
     {
+        foreach ($equivalencias as $campo => $mapa) {
+            if (! is_array($mapa)) {
+                continue;
+            }
+
+            foreach ($mapa as $original => $bueno) {
+                $clave = $this->normalizar($original);
+
+                // Un original vacío casaría con TODA celda vacía, y un hueco no
+                // es un valor que alguien haya decidido. Los vacíos se deciden
+                // por su propio camino, que es otra cosa.
+                if ($clave !== '') {
+                    $this->equivalencias[$campo][$clave] = $bueno;
+                }
+            }
+        }
+
         $this->tipos_doc = DB::select('SELECT id, tipo, abrev FROM tipos_documentos WHERE deleted_at is null');
         $this->cant_td = count($this->tipos_doc);
         $this->ciudades = DB::select('SELECT id, ciudad FROM ciudades WHERE deleted_at is null');
@@ -107,6 +164,16 @@ class ImporterFixer
         $altipo_low = $this->normalizar($alumno['tipo_de_documento'] ?? null);
         $A1tipo_low = $this->normalizar($alumno['tipo_docu_acud1'] ?? null);
         $A2tipo_low = $this->normalizar($alumno['tipo_docu_acud2'] ?? null);
+
+        // LO QUE UNA PERSONA DECIDIÓ MANDA SOBRE EL CATÁLOGO, y va antes que él
+        // a propósito: quien contesta «CARNÉ DIPLOMÁTICO es Cédula» está
+        // mirando esa celda, y el catálogo ya demostró que no sabe leerla.
+        $decidido = $this->equivalencias['tipo_de_documento'][$altipo_low] ?? null;
+
+        if ($decidido !== null && $altipo_low !== '') {
+            $alumno['tipo_doc'] = (int) $decidido;
+            $this->equivalenciasUsadas['tipo_de_documento'] = ($this->equivalenciasUsadas['tipo_de_documento'] ?? 0) + 1;
+        }
 
         for ($i = 0; $i < $this->cant_td; $i++) {
 
@@ -211,6 +278,24 @@ class ImporterFixer
             $cons .= ', is_urbana=1';
         } elseif ($this->normalizar($alumno['urbana'] ?? null) == 'no') {
             $cons .= ', is_urbana=0';
+        }
+
+        // EL ESTADO DE LA MATRÍCULA, que hasta hoy no pasaba por aquí.
+        //
+        // Lo leía el importador directamente, así que una equivalencia puesta
+        // allí la vería la subida y NO el ensayo — y el plan enseñaría un estado
+        // distinto del que se va a escribir. Se traduce aquí porque aquí pasan
+        // los dos.
+        //
+        // «Activo» no se traduce solo, y eso no cambia: podría ser MATR o ASIS y
+        // lo decide el colegio. Lo que cambia es que ahora, cuando alguien lo ha
+        // decidido, su decisión llega.
+        $estadoLow = $this->normalizar($alumno['estado_matricula'] ?? null);
+        $estadoDecidido = $this->equivalencias['estado_matricula'][$estadoLow] ?? null;
+
+        if ($estadoDecidido !== null && $estadoLow !== '') {
+            $alumno['estado_matricula'] = $estadoDecidido;
+            $this->equivalenciasUsadas['estado_matricula'] = ($this->equivalenciasUsadas['estado_matricula'] ?? 0) + 1;
         }
 
         // SISBEN
