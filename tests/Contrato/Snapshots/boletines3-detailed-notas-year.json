@@ -101,6 +101,7 @@
                     "periodos": [
                         {
                             "actual": "int",
+                            "cierre_sin_calificar": "null",
                             "created_at": "null|string",
                             "created_by": "null",
                             "deleted_at": "null",

@@ -74,6 +74,7 @@
         "periodos": [
             {
                 "actual": "int",
+                "cierre_sin_calificar": "null",
                 "created_at": "null|string",
                 "created_by": "null",
                 "deleted_at": "null",
@@ -261,6 +262,7 @@
                         {
                             "actual": "int",
                             "cantNotasPerdidas": "int",
+                            "cierre_sin_calificar": "null",
                             "created_at": "null|string",
                             "created_by": "null",
                             "deleted_at": "null",
@@ -279,6 +281,7 @@
                         {
                             "actual": "int",
                             "cantNotasPerdidas": "int",
+                            "cierre_sin_calificar": "null",
                             "created_at": "string",
                             "created_by": "null",
                             "deleted_at": "null",
@@ -347,6 +350,7 @@
                 {
                     "actual": "int",
                     "cant_perdidas": "int",
+                    "cierre_sin_calificar": "null",
                     "created_at": "null|string",
                     "created_by": "null",
                     "deleted_at": "null",

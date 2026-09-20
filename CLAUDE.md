@@ -8,9 +8,40 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**623 rutas** (contadas con `route:list --json` el **20 sep 2026 en el ÁRBOL PRINCIPAL, sobre
+**625 rutas** (contadas con `route:list --json` el **20 sep 2026 en `.worktrees/cie`**, sobre
+`main` en `26ef140` más la Fase 4 del doc 43 — **SIN FUNDIR: hay que recontarlas en el ÁRBOL
+PRINCIPAL el día que entren**, que es la frase que lleva salvando este número las últimas cuatro
+veces). Las dos que suben sobre las 623 son las del **cierre del periodo y lo no calificado**
+—`PUT years/cierre-sin-calificar`, la elección del rector sobre qué pasa al cerrar con lo que nadie
+calificó (D3), y `GET periodos/sin-calificar/{periodo_id}`, el diálogo que dice cuántas casillas
+quedan, de quién son y qué va a pasar con ellas—.
+
+> **Cerrar el periodo NO gasta ruta, y ése es el dato que importa al copiar esto.** Cerrar ya era
+> `PUT periodos/toggle-profes-pueden-editar-notas`, con sus **tres clientes**, y lo que cambia es
+> que ahora **aplica** la decisión del colegio en vez de dejar el hueco valiendo cero por
+> accidente. Sigue devolviendo **texto**, que es contrato
+> (`myvc_front/scripts/endpoints-de-texto.json`), así que el recuento va dentro de la frase y no en
+> un JSON que las tres pantallas pintarían crudo.
+>
+> **Y el permiso va PARTIDO, como las cuatro del 20 sep:** la elección lleva
+> `Autoriza::puedeElegirQuePasaAlCerrar` **dentro** —12 personas— y el diálogo y el cierre se quedan
+> en `auth.personal` a secas —74—. No es simetría rota: `auth.personal` deja pasar a **53
+> docentes**, y esta columna decide si a un alumno le cuentan como cero **las casillas que su
+> profesor no calificó**. Es el único interruptor del año en el que quien lo pulsa puede ser parte
+> interesada. *Se estrecha elegir la política, no aplicarla.*
+
+> **Mueven TRES instantáneas de ruta… y VEINTE de contrato, que es lo que no se ve al proponerlo.**
+> Las tres de siempre (`rutas.json`, `guards-por-ruta.json`, `guard-por-familia.json`); `years` y
+> `periodos` ya tienen de sobra más de dos hermanas con guard, así que
+> `familias-que-nunca-entran-en-el-candado.json` **no se toca** —comprobado, no supuesto—. Lo caro
+> son las **dos columnas nuevas**: medidas antes de escribirlas con
+> `tools/lo-que-reparte-una-columna.py`, la de `years` mueve **6** instantáneas y la de `periodos`
+> **16**, dos compartidas. `periodos` viaja dentro del boletín, del año y de media docena de
+> informes con `SELECT *`.
+
+El número anterior era **623**, contado con `route:list --json` el **20 sep 2026 en el ÁRBOL PRINCIPAL, sobre
 `main` y después de fundir** (`bdf3c89`) — y coincidieron con las 623 contadas antes en
-`.worktrees/imp` tras traer `main`, que es la única forma de saber que coincidía). Las dos
+`.worktrees/imp` tras traer `main`, que es la única forma de saber que coincidía. Las dos
 que suben sobre las 621 son las de la **Fase 2 de la importación dinámica** —`GET
 importar/alumnos/pendiente/{year}`, que dice si hay una importación a medias, y **`POST
 importar/alumnos/ensayo/{year}`, que contesta qué va a pasar sin escribir una sola fila**—, las dos
@@ -850,8 +881,25 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
   > | `composer run pint` | **ESCRIBE**: formatea los ficheros de la lista |
   > | `pint --test` a secas | mide **todo el repo**, incluido lo que no se formatea a propósito |
   >
-  > Los dos primeros corren sobre **la lista curada de `composer.json`** —hoy **454**
-  > ficheros—; el tercero sobre **695**, y da `FAIL` con **182** avisos.
+  > Los dos primeros corren sobre **la lista curada de `composer.json`** —hoy **478**
+  > ficheros—; el tercero sobre **715**, y da `FAIL` con **177** avisos.
+  >
+  > > *Remedidas las tres el **20 sep 2026 en `.worktrees/cie`**, sobre `main` en `26ef140` más
+  > > la Fase 4 del doc 43: **478** (`PASS`), **715** y **177**. Decían 454, 695 y 182 esa misma
+  > > mañana. **No hubo que tocar `composer.json`**: los tres ficheros que entraron —el soporte,
+  > > la migración y el test— caen bajo `app/Support`, `database/migrations` y `tests`, que ya van
+  > > como directorios enteros, así que **el número subió solo**. Y la tercera **volvió a bajar**
+  > > —182 a 177—, que es otra vez la dirección que nadie supondría sumando. Larastan analiza
+  > > **700** en este árbol y sale `[OK] No errors`.*
+  > >
+  > > > **Y los CINCO ficheros que esta tanda tocó y NO entraron en la lista curada se dicen, con
+  > > > su precio:** `PeriodosController`, `YearsController`, `DefinitivasPeriodosController`,
+  > > > `Models/Year` y `Models/Periodo`. La regla es *«se formatea el día que se toca»*, y aquí
+  > > > no se cumplió **a propósito**: formatearlos enterraría el diff de la fase bajo cinco
+  > > > legados reescritos, y `DefinitivasPeriodosController` **ya lleva dentro el `use \Log;`**
+  > > > que pone `AliasDeFacadesTest` en rojo —la trampa de más abajo, vista tres veces—. *Es la
+  > > > decisión que Joseth toma con el precio delante, como la de `Profesor.php` el 19 sep, y
+  > > > queda escrita para que no se lea como un olvido.*
   >
   > > *Remedidas las tres el **20 sep 2026 en `.worktrees/fi`**, sobre `main` en `fd0bc44` más
   > > las cuatro rutas de «del papel al alumno»: **454** (`PASS`), **695** y **182**. Decían

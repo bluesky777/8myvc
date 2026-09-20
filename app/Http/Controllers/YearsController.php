@@ -20,6 +20,7 @@ use App\Models\EscalaDeValoracion;
 use App\Models\Frase;
 use App\Models\Unidad;
 use Carbon\Carbon;
+use App\Support\CierreDeLoNoCalificado;
 use App\Support\ColumnaSegura;
 use App\Support\FilaQueSeVaAEscribir;
 use App\Services\CalendarioDePeriodos;
@@ -245,6 +246,15 @@ class YearsController extends Controller {
 			// **sin esta línea**. No la cazó ningún test de la entrega porque la
 			// entrega no tenía ninguno.
 			$year->reparto_subunidades 			 = $pasado->reparto_subunidades;
+			// Y la sexta, la fase 4 del doc 43 (D3, 20 sep 2026): qué pasa al cerrar
+			// con lo que nadie calificó. Se hereda por lo mismo que las cinco de
+			// arriba —es una decisión del SIEE del colegio, no algo que se vuelva a
+			// tomar cada enero— y el defecto que reaparecería tiene pinta de decisión:
+			// el colegio que eligió `fuera` amanecería en `cero` y **el primer periodo
+			// que cerrara le pondría ceros a todo lo que sus docentes no hubieran
+			// calificado**, que es justo lo que había decidido no hacer. El centinela
+			// del año nuevo es el que no deja olvidar esta línea.
+			$year->cierre_sin_calificar 		 = $pasado->cierre_sin_calificar;
 			// El año nuevo hereda la elección del anterior por lo mismo que las de
 			// arriba: es una decisión del SIEE del colegio, no algo que se vuelva a
 			// tomar cada enero. Sin esta línea, un colegio que imprime sin número
@@ -1661,6 +1671,106 @@ class YearsController extends Controller {
 	}
 
 	/**
+	 * Qué pasa al CERRAR el periodo con las casillas que nadie calificó.
+	 * `PUT years/cierre-sin-calificar` -> `years.cierre_sin_calificar`.
+	 *
+	 * **D3** del [43](../../docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md),
+	 * fase 4, autorizada por Joseth el 20 sep 2026: *«lo elige cada rector»*, con tres
+	 * salidas —`cero`, `fuera`, `bloquear`— y **`cero` de fábrica**, que es el
+	 * comportamiento de hoy. Qué hace cada una y por qué son dos columnas y no una,
+	 * en {@see \App\Support\CierreDeLoNoCalificado}.
+	 *
+	 * ## Ruta propia y NO `years/toggle-cambiar-valor`, que sí podría
+	 *
+	 * Aquélla escribe cualquier columna de `years` que exista con sólo
+	 * `auth.personal`, así que esto **no es una imposibilidad: es una decisión**. Y
+	 * tiene el mismo motivo que tuvo `modelo_evaluacion`: **esta columna tiene dueño**.
+	 * Colgada del genérico, el permiso de abajo se saltaría en una línea y no lo diría
+	 * nada. Por eso está excluida allí, en la lista `$conDueno` de
+	 * {@see putToggleCambiarValor} — *al darle dueño a una columna se repasan todos los
+	 * caminos que escriben esa tabla, no sólo el que se está tocando*.
+	 *
+	 * Tampoco cabía en `years/modelo-evaluacion`, que es donde viven las otras dos
+	 * políticas del año: aquéllas van con `can_edit_plantilla_notas` y ésta no —el
+	 * permiso es otro, y meterla ahí sería ensanchar aquel método a dos permisos.
+	 *
+	 * ## El permiso va DENTRO, y eso es una decisión
+	 *
+	 * `auth.personal` en la ruta —cierra la puerta a alumnos y acudientes antes de
+	 * tocar el controlador— y `Autoriza::puedeElegirQuePasaAlCerrar` aquí dentro. La
+	 * familia `years/*` va con `auth.personal` y nada dentro; éste va con el otro
+	 * grupo, el de `toggle-mostrar-nota-numerica`, y el porqué entero está en el
+	 * docblock de ese método de `Autoriza`. En una línea: `auth.personal` deja pasar a
+	 * las 74 cuentas de personal, de las que **53 son docentes**, y esta columna decide
+	 * si a un alumno le cuentan como cero **las casillas que su profesor no
+	 * calificó**. Es el único de los interruptores del año en el que quien lo pulsa
+	 * puede ser parte interesada.
+	 *
+	 * **Cerrar el periodo no se estrecha**: sigue en `auth.personal` y nada dentro, con
+	 * sus tres clientes intactos. Se estrecha elegir la política, no aplicarla.
+	 *
+	 * ## Lo que NO lleva, y va escrito para que no se lea como un olvido
+	 *
+	 * **No lleva `Autoriza::exigirEscrituraEnElAnio`**, que sí lleva
+	 * `years/modelo-evaluacion` desde el 15 sep. Y no es simetría rota: allí hacía
+	 * falta porque **el modo se lee vivo en cada cálculo del año**, así que cambiarlo
+	 * reescribía definitivas de un año cerrado. Aquí el cálculo **no lee esta
+	 * columna**: lee `periodos.cierre_sin_calificar`, que sólo escribe el cierre. Esto
+	 * no puede alcanzar un periodo cerrado ni aunque se quiera, y un guard que no
+	 * protege nada es peor que no ponerlo — el día que alguien lo lea creerá que hay
+	 * algo protegido ahí.
+	 *
+	 * Devuelve el valor guardado y no una frase: la pantalla lo pinta como un selector
+	 * de tres opciones, y conviene que confirme lo que quedó en vez de deducirlo de lo
+	 * que mandó.
+	 */
+	public function putCierreSinCalificar(){
+		$user = User::fromToken();
+
+		Autoriza::exigir(
+			Autoriza::puedeElegirQuePasaAlCerrar($user),
+			'Solo un superusuario, secretario, coordinador académico o rector puede '
+				.'elegir qué pasa al cerrar con lo que no se calificó.'
+		);
+
+		// **No se lee con `(bool)` como los doce interruptores hermanos**, y no puede:
+		// esto no es un sí/no, son tres salidas. Por eso tampoco arrastra la laxitud de
+		// aquéllos —donde `"false"` vale por «sí»—: aquí lo que no está en la lista se
+		// rechaza con 422.
+		$valor = Request::input('valor');
+
+		// El `enum` de MySQL rechazaría el valor raro, pero **con el `sql_mode` de estos
+		// servidores no lanza: guarda la cadena vacía y devuelve 200**. Es la misma
+		// familia que `modelo_evaluacion`, y por eso la lista vive en
+		// `CierreDeLoNoCalificado` y un test la cruza contra `SHOW COLUMNS`.
+		if (! is_string($valor) || ! in_array($valor, CierreDeLoNoCalificado::SALIDAS, true)) {
+			abort(422, '`valor` tiene que ser '
+				.implode(', ', CierreDeLoNoCalificado::SALIDAS).'.');
+		}
+
+		$year_id = Request::input('year_id', $user->year_id ?? null);
+
+		if (! is_numeric($year_id)) {
+			abort(422, 'Hace falta `year_id` y la sesión no trae ninguno.');
+		}
+
+		// `findOrFail` y no una consulta cruda, como `putModeloEvaluacion`: el modelo
+		// lleva `SoftDeletes`, así que un año en la papelera es 404. Escribirle la
+		// configuración a un año borrado no le sirve a nadie y reaparecería con
+		// `years/restore`.
+		$year = Year::findOrFail((int) $year_id);
+
+		$year->cierre_sin_calificar = $valor;
+		$year->updated_by = $user->user_id;
+		$year->save();
+
+		return [
+			'year_id' => (int) $year->id,
+			'cierre_sin_calificar' => (string) $year->cierre_sin_calificar,
+		];
+	}
+
+	/**
 	 * Abrir y cerrar la campaña de prematrícula, que son DOS interruptores distintos.
 	 *
 	 *     PUT years/toggle-prematricula-nuevos    ->  years.prematr_nuevos
@@ -1823,6 +1933,19 @@ class YearsController extends Controller {
 				'el permiso de la plantilla de notas'],
 			'mostrar_nota_numerica_boletin' => ['La nota numérica del boletín',
 				'years/toggle-mostrar-nota-numerica',
+				'ser superusuario, Secretario, Coord académico o Rector'],
+			// **Y la cuarta, del 20 sep 2026 (fase 4 del doc 43, D3).** Tiene dueño y
+			// es el mismo que la de arriba, pero por otra ruta — que es exactamente
+			// por lo que este bloque dejó de ser un mensaje fijo: cada columna trae la
+			// suya, y mandar a alguien a la ruta que no es deja el rastro de una
+			// persona probando un endpoint donde no se puede escribir y concluyendo
+			// que no tiene permiso.
+			//
+			// Sin este corte, `auth.personal` —74 cuentas, 53 docentes— escribiría en
+			// una línea la columna que decide si a un alumno le cuentan como cero las
+			// casillas que su profesor no calificó.
+			'cierre_sin_calificar' => ['Qué pasa al cerrar con lo no calificado',
+				'years/cierre-sin-calificar',
 				'ser superusuario, Secretario, Coord académico o Rector'],
 		];
 

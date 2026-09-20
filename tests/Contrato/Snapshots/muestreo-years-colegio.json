@@ -46,6 +46,7 @@
             "capellan_id": "null",
             "caracter": "string",
             "celular": "null",
+            "cierre_sin_calificar": "string",
             "ciudad_id": "string",
             "codigo_dane": "string",
             "compromiso_familiar_label": "null|string",
@@ -105,6 +106,7 @@
             "periodos": [
                 {
                     "actual": "int",
+                    "cierre_sin_calificar": "null",
                     "created_at": "null|string",
                     "created_by": "null",
                     "deleted_at": "null",

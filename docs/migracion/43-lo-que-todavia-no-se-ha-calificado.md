@@ -359,7 +359,7 @@ informe de corte; lo único que le falta es decirlo y calcular como tal.
 | | | |
 |---|---|---|
 | **D1** | Qué ve la familia con el periodo abierto | ✅ **La parcial, sobre lo evaluado.** Y con eso **el interruptor de D1 deja de existir**: una sola forma para los dieciséis. Menos columna, menos ruta y un camino que mantener en vez de tres. |
-| **D3** | Qué pasa al cerrar con lo no calificado | ✅ **Interruptor por colegio: lo elige cada rector.** Las tres salidas —cero, fuera de la cuenta, no dejar cerrar— viven en una columna de `years`. |
+| **D3** | Qué pasa al cerrar con lo no calificado | ✅ **Interruptor por colegio: lo elige cada rector.** Las tres salidas —cero, fuera de la cuenta, no dejar cerrar— viven en una columna de `years`. **Escrita el 20 sep 2026 (fase 4), y en DOS columnas**: la elección en `years` y lo aplicado congelado en `periodos`, porque el cálculo no puede leer una elección que se puede cambiar. §Fase 4. |
 | **D6** | Cómo se escribe «sin calificar» | ✅ **`notas.nota` anulable, `NULL` = sin calificar.** Propuesta de Joseth contra la columna `calificada_at` que traía yo. Cambia la fase 0 entera. |
 | **D7** | Si «quitar la nota» es `update` con `null` o `destroy` | ✅ **`update` con `nota: null`.** Conserva la fila, su `id`, su bitácora y su historial. `destroy` se queda para lo que de verdad es borrar la fila. |
 | **D5** | Si se capturan las fechas de los indicadores | ✅ **No, fuera de alcance.** Las fases 0–4 arreglan los dos síntomas sin pedirle un dato nuevo a nadie. |
@@ -391,6 +391,15 @@ informe de corte; lo único que le falta es decirlo y calcular como tal.
 
 **Ninguna fase cambia una nota ya guardada, y la definitiva de hoy no se toca en ninguna**: es la
 que cierra el periodo y la que imprimen los boletines de los dieciséis.
+
+> **Esa frase vale para las fases 0 a 3, y la 4 la matiza — se escribe aquí y no sólo abajo porque
+> ésta es la que se lee primero.** *(20 sep 2026, construyendo la fase 4.)* Con el valor de fábrica
+> —`cero`— sigue siendo cierta byte por byte en los dieciséis colegios. Pero la salida `fuera` de
+> **D3 mueve la definitiva a propósito**, en el periodo que se cierra y sólo para el colegio que la
+> elija: y **tiene que moverla**, porque la definitiva no normaliza y `SUM(peso × NULL)` vale lo
+> mismo que `SUM(peso × 0)` — sin normalizar, «pasa a cero» y «queda fuera de la cuenta»
+> imprimirían el mismo boletín y D3 sería un adorno. *Lo que no se toca sin que nadie lo pida no es
+> lo mismo que lo que no se toca nunca.*
 
 ### Fase 0 — la casilla vacía
 
@@ -583,7 +592,7 @@ Con D1 decidida no hay interruptor: **0 columnas y 0 rutas nuevas**, sólo los d
 > antes que la API deja a los colegios que aún no recibieron el despliegue enseñando un hueco donde
 > va la nota, y `myvc_flutter` es una sola app para los dieciséis.
 
-### Fase 4 — el cierre, que es donde el hueco tiene que morir
+### Fase 4 — el cierre, que es donde el hueco tiene que morir · **ESCRITA el 20 sep 2026** (`feat/el-cierre-y-lo-no-calificado`)
 
 El diálogo de cierre pregunta qué son las casillas que quedan, con las tres salidas de D3, más los
 botones del docente para resolver en bloque y el estado **NE** por celda si entra D4. 2 rutas y
@@ -592,6 +601,185 @@ botones del docente para resolver en bloque y el estado **NE** por celda si entr
 > **Ésta es la fase que impide que el arreglo se convierta en un agujero.** Dejar de contar lo no
 > calificado **durante** el periodo es correcto; dejar de contarlo **al cerrar** es aprobar a quien
 > no entregó. Es literalmente el aviso de Moodle, y por eso el cierre es una fase y no una línea.
+
+#### Lo entregado: **2 rutas —las que decía el plan— y 2 columnas, que decía una**
+
+```
+PUT  years/cierre-sin-calificar          la elección del rector       auth.personal + permiso dentro
+GET  periodos/sin-calificar/{periodo_id} el diálogo: cuántas y de quién   auth.personal
+```
+
+Y **ninguna ruta nueva para el cierre**: cerrar ya era `PUT
+periodos/toggle-profes-pueden-editar-notas`, con sus tres clientes, y lo que cambia es que ahora
+**hace algo** con lo que queda vacío. Sigue devolviendo **texto**, que es contrato
+(`myvc_front/scripts/endpoints-de-texto.json`), así que la cuenta va dentro de la frase.
+
+**Los botones del docente para resolver en bloque no gastan ruta y eso se cuenta:** `PUT
+notas/lote` ya escribe muchas casillas de una vez y desde la fase 0 acepta `nota: null`, así que
+*«ponerle 0 a todo lo que falta»* y *«vaciarlas»* ya se pueden hacer. Una ruta que duplica a otra
+hay que mantenerla, documentarla y probarla para siempre. **D4 —el estado NE por celda— no entra**,
+por la §5: sólo vuelve el día que un colegio elija «pasa a 0» y quiera excepciones.
+
+#### Las DOS columnas, que es lo único donde el plan se quedó corto
+
+```
+years.cierre_sin_calificar     enum('cero','fuera','bloquear') NOT NULL DEFAULT 'cero'
+periodos.cierre_sin_calificar  enum('cero','fuera')            NULL     DEFAULT NULL
+```
+
+La de `years` es **la elección del rector**. La de `periodos` es **lo que se aplicó el día que se
+cerró**, y es la que lee el cálculo — la elección **no la lee nadie más que el propio cierre**.
+
+**Sin esa segunda columna la regla dura no se puede cumplir por mecanismo.** Si el cálculo leyera
+la elección del año, un rector que cambiara de opinión en octubre movería las definitivas de los
+periodos que ya tiene cerrados e impresos, sin tocar una nota y sin un solo error en ningún log.
+Leyendo la congelada, **no hay ninguna secuencia de pulsaciones que alcance un periodo cerrado**:
+la única escritura de esa columna es el cierre, y el cierre sólo ocurre sobre un periodo abierto.
+Es la forma de la migración de la fase 0, que acotó su `UPDATE` con `profes_pueden_editar_notas =
+1` en vez de confiar en que nadie lo corriera dos veces.
+
+`NULL` es un estado y no un hueco —*«no se ha cerrado nunca por este camino»*—, y es lo que tienen
+**los 36 periodos de la copia y los de los dieciséis colegios el día del despliegue**: con él, el
+cálculo es byte por byte el de ayer. **No se rellena hacia atrás**: marcar un periodo de 2021 como
+`'cero'` afirmaría que alguien tomó esa decisión, y la tomó el `NOT NULL` de `notas.nota`.
+
+**Precio medido antes de escribirla**, con `tools/lo-que-reparte-una-columna.py`: la de `years`
+mueve **6** instantáneas y la de `periodos` **16**, de las que dos coinciden — **veinte en total**.
+`periodos` viaja dentro del boletín, del año y de media docena de informes con `SELECT *`. A
+cambio, los tres clientes **reciben el estado** sin ruta nueva.
+
+#### Qué hace cada salida DE VERDAD, que es donde estaba la trampa
+
+| | la casilla vacía | la definitiva |
+|---|---|---|
+| `cero` | **se escribe un 0 real** | **no se mueve ni un decimal** |
+| `fuera` | se queda vacía | **pasa a ser la parcial** |
+| `bloquear` | no se cierra (422) | no hay cierre |
+
+**La primera fila es la que engaña.** La definitiva **no normaliza** —regla 2 de
+`DefinitivasDeAsignatura`—, así que `SUM(peso × NULL)` y `SUM(peso × 0)` dan **el mismo número**.
+De ahí salen las dos consecuencias que gobiernan esta fase:
+
+1. **`fuera` obliga a normalizar la definitiva, o D3 es un adorno.** Sin eso, «pasa a cero» y
+   «queda fuera de la cuenta» imprimirían el mismo boletín y la decisión del rector no tendría
+   ninguna consecuencia observable. Con el lienzo de la §3.bis c: `cero` deja **16,66** y `fuera`
+   deja **47,60**. *Ésos son los dos números que un rector está eligiendo.*
+2. **`cero` tiene que ESCRIBIR los ceros aunque no muevan la definitiva.** Lo que mueven es la
+   **cobertura** —pasa a 1— y la **parcial** —pasa a coincidir con lo que imprime el boletín—. Sin
+   esa escritura, un periodo cerrado se queda **gris en el semáforo para siempre** y la familia ve
+   47,60 donde el papel dice 16,66. *Ahí es donde muere el hueco: en un periodo cerrado, lo que ve
+   la familia y lo que dice el papel vuelven a ser el mismo número.*
+
+> **Y esto corrige la primera línea de la §6**, que dice *«la definitiva de hoy no se toca en
+> ninguna fase»*. Vale para las fases 0 a 3 y para los dieciséis colegios con el defecto puesto;
+> **`fuera` sí la mueve**, a propósito, sólo en el periodo cerrado y sólo para quien lo elija. Es
+> literalmente lo que D3 pone en manos del rector.
+
+#### `cerrar con cero` es IRREVERSIBLE, y eso no estaba en el plan
+
+*(Salió al escribir el control de un test, no al releer el documento.)* Las dos salidas **no son
+simétricas**: `fuera` conserva la información —las casillas siguen vacías, así que reabrir y cerrar
+con `cero` todavía puede ponerles el 0— y `cero` **la destruye**: escribe un 0 real, y a partir de
+ahí *«nadie lo calificó»* y *«sacó cero»* vuelven a ser indistinguibles, que es el fallo entero que
+la fase 0 vino a quitar. Reabrir y cerrar con `fuera` ya no devuelve 47,60: devuelve 16,66.
+
+**No se arregla y no es un fallo**: hacerlo reversible pediría guardar qué casillas se cerraron a
+cero, o sea la columna `calificada_at` que **D6 descartó**. Lo que hace falta es que esté escrito,
+porque la pantalla que pregunte *«¿seguro?»* tiene que poder decir por qué. Lo fija
+`ElCierreYLoNoCalificadoTest::cerrar_con_cero_es_irreversible_y_reabrir_no_lo_deshace`.
+
+#### El cierre es la ÚLTIMA escritura posible, y por eso la decisión se aplica ahí
+
+No es una elección de diseño: es la decisión de Joseth del 17 sep 2026 vista desde este lado.
+`DefinitivasDeAsignatura::ponerAlDiaUnInforme()` **no escribe si el periodo está cerrado**
+—*imprimir un histórico no debería reescribir definitivas de hace tres años*— y con el periodo
+cerrado las notas tampoco se pueden tocar, así que **ningún recálculo posterior se dispara**. Si el
+cierre no escribe, `fuera` no llega nunca al papel.
+
+**Lo que cuesta, medido** el 20 sep 2026 sobre `simonbolivar`, periodo 2 de 2025 (79 asignaturas,
+3.611 definitivas) y **contra el código que se entrega, no contra el de antes**: **7.779
+consultas**, 7.154 ms dentro de MySQL y **7,88 s de pared**. **De las tres cifras la que vale es la
+de consultas**: el reloj de este banco dio entre **7 y 34 s para la misma operación** según lo que
+hubiera corriendo al lado —esa tarde había cinco suites y el contenedor al 1.300 % de CPU—, y
+producción es CloudLinux con límites de I/O por cuenta. Lo que viaja es el orden de magnitud: **dos
+consultas por definitiva**.
+
+> **Las 80 de diferencia con las 7.699 que daba el mismo periodo antes de esta fase son el precio
+> de la fase, y se dicen**: una consulta por asignatura, la que `calcular()` hace ahora para
+> preguntarle al periodo cómo se cerró. Es el 1 %, y **se paga también con el defecto puesto**, o
+> sea en los dieciséis colegios. *Un coste que no se mide se convierte en un argumento.* Es un acto que ocurre cuatro veces al año, así que el precio es
+asumible; **lo que no sería asumible es pagarlo sin haberlo elegido**, y por eso el defecto es
+`cero`, que no llama a eso ni una vez —su coste es **un `UPDATE`**, cronometrado por la fase 0 en
+**0,49 s para 20.655 filas** contra MariaDB 10.5—.
+
+**Si la petición se corta a la mitad, se reanuda**, y eso no es un arreglo aparte: el cierre
+congela la marca **antes** de rehacer nada, así que desde ese instante el cálculo ya dice la
+verdad; un corte deja definitivas sin rehacer pero **ninguna mal calculada**, y volver a pulsar
+«cerrar» termina el trabajo. Por eso el cierre de un periodo ya cerrado **y marcado** reanuda —con
+la marca congelada, nunca con la elección vigente— y el de un periodo cerrado **sin** marca no
+toca nada.
+
+#### La puerta de atrás que había que cerrar, y las dos que no
+
+Al darle dueño a un número se repasan **todos** los caminos que lo escriben. Los escritores de una
+definitiva automática que podían alcanzar un periodo cerrado son tres, y sólo uno estaba vivo:
+
+| | |
+|---|---|
+| `DefinitivasPeriodosController::putCalcularGrupoPeriodo` | **VIVO** — lo llaman los dos fronts. Su consulta es la acumulada a pelo, así que pulsarlo tras cerrar con `fuera` habría devuelto las definitivas a la otra fórmula **en silencio y con 200**. Ahora contesta **422** en un periodo marcado como `fuera` y dice a dónde ir: volver a cerrar. |
+| `NotaFinal::calcularAsignaturaPeriodo` | muerto — **no tiene un solo camino** en todo `app/`, comprobado en BI-2 y escrito en su propio docblock |
+| `Alumnos\Definitivas` | roto — usa `$alumno_id` sin definirla; no puede escribir una fila |
+
+**No se le enseña a normalizar al que está vivo**, y no es pereza: está condenado —es uno de los
+seis escritores que la fase 3 del [10](10-definitivas.md) sustituye— y enseñarle la fórmula nueva
+sería la decimoséptima copia del reparto. Lo que se hace es impedir que deshaga una decisión que él
+no conoce.
+
+#### El permiso: **dentro**, y es el de `toggle-mostrar-nota-numerica`
+
+`auth.personal` en la ruta y `Autoriza::puedeElegirQuePasaAlCerrar` dentro del método
+—superusuario, Secretario, Coord académico y Rector, **12 personas de las 74** de la copia—. La
+familia `years/*` va con `auth.personal` y nada dentro salvo `toggle-mostrar-nota-numerica`, y éste
+va con el segundo grupo. **La razón no es simetría: es de quién es el interés.**
+
+`auth.personal` deja pasar a las 74 cuentas de personal, de las que **53 son docentes**, y esta
+columna decide si a un alumno le cuentan como cero **las casillas que su profesor no calificó**.
+Puesta en `fuera`, la consecuencia de no haber calificado desaparece del boletín. O sea que con el
+permiso de la familia **el docente que no calificó podría borrar la huella de no haber
+calificado**, y para el colegio entero. Es el único de los interruptores del año en el que quien lo
+pulsa puede ser parte interesada.
+
+**Y cerrar el periodo NO se estrecha**, que es la mitad que hay que leer para no tomarlo por un
+olvido: `periodos/toggle-profes-pueden-editar-notas` sigue con `auth.personal` y nada dentro, con
+sus tres clientes intactos. Se estrecha **elegir** la política, no **aplicarla**. El diálogo
+—`GET periodos/sin-calificar/{periodo_id}`— va con el permiso del cierre y no con el de la
+elección, porque un diálogo más estrecho que el botón que precede dejaría a secretaría cerrando a
+ciegas.
+
+**Y la columna queda excluida de `PUT years/toggle-cambiar-valor`**, que escribe cualquier columna
+de `years` con el mismo `auth.personal`: es la **cuarta** de esa lista y sin ese corte el permiso
+se saltaría en una línea. *Al darle dueño a una columna se repasan todos los caminos que escriben
+esa tabla, no sólo el que se está tocando.*
+
+#### Lo que NO lleva, dicho para que no se lea como un olvido
+
+**`Autoriza::exigirEscrituraEnElAnio`**, que sí lleva `years/modelo-evaluacion` desde el 15 sep.
+Allí hacía falta porque **el modo se lee vivo en cada cálculo del año**, así que cambiarlo
+reescribía definitivas de un año cerrado. Aquí el cálculo **no lee esta columna**: lee la congelada
+del periodo, que sólo escribe el cierre. Esto no puede alcanzar un periodo cerrado ni aunque se
+quiera, y **un guard que no protege nada es peor que no ponerlo** — el día que alguien lo lea creerá
+que hay algo protegido ahí.
+
+#### Lo que queda abierto de esta fase
+
+- **La planilla de un periodo cerrado con `fuera` sigue pintando la acumulada.** Es el pendiente
+  que la fase 1 ya dejó escrito y que esta fase **no cierra**: `Asignatura::calculoAlumnoNotas`
+  —PHP, sin denominador, seis lectores— produce `nota_asignatura` y no pasa por el servicio. El
+  **boletín sí** queda bien, porque imprime `notas_finales` (`BoletinesController:335`), que es lo
+  que el cierre reescribe. Unificar los dos calculadores es la decisión de Joseth que sigue
+  pendiente.
+- **Las pantallas.** Esta fase deja el backend: el diálogo de cierre y el selector de tres opciones
+  los pinta `app2`.
 
 ### ~~Fase 5 — las fechas~~ · **descartada el 19 sep 2026 (D5)**
 
@@ -621,6 +809,19 @@ lleva años vacía.
 - **Quién lee `nota_asignatura` hoy en los cuatro clientes.** La fase 1 no lo cambia, pero la fase
   3 sí decide qué número se pinta, y el radio lo mide el front, no nosotros.
 - **El segundo calculador de la definitiva.** `Asignatura::calculoAlumnoNotas` —PHP, sin
-  denominador, seis lectores— produce el número de la planilla y de los boletines, y **este
-  documento lo ignoró entero**: por eso la §Fase 1 prometía instantáneas que no existen. Cuánto
-  cuesta unificarlo, y si unificarlo mueve algún número impreso, **no está medido**.
+  denominador, seis lectores— produce el número de la planilla, y **este documento lo ignoró
+  entero**: por eso la §Fase 1 prometía instantáneas que no existen. Cuánto cuesta unificarlo, y si
+  unificarlo mueve algún número impreso, **no está medido**.
+
+  > **Y la fase 4 acotó la mitad de esta frase, que decía «de la planilla Y DE LOS BOLETINES».**
+  > *(20 sep 2026.)* El boletín **no** pasa por ahí: `Informes\BoletinesController:335` lee
+  > `notas_finales` directamente, o sea la tabla que el cierre reescribe. Lo que se queda con el
+  > otro calculador es **la planilla y los cinco informes**, así que un periodo cerrado con `fuera`
+  > imprime bien el boletín y pinta la acumulada en la planilla. Eso sigue abierto y es de Joseth.
+
+- **Los otros cinco escritores de `notas_finales`, en un periodo cerrado con `fuera`.** La fase 4
+  cerró el único vivo —`putCalcularGrupoPeriodo`, con un 422— y **comprobó que los otros dos que
+  escriben una definitiva automática no tienen camino**: uno está muerto y el otro roto. Los tres
+  que quedan escriben `manual`, `recuperada` o la nivelación, que `recalcular()` respeta por
+  diseño. **Lo que no está medido es qué pasa el día que la fase 2 del 10 ponga la clave única** y
+  este censo tenga que rehacerse.

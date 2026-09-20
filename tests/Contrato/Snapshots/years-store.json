@@ -8,6 +8,7 @@
     "capellan_id": "null",
     "caracter": "string",
     "celular": "null",
+    "cierre_sin_calificar": "string",
     "ciudad_id": "null",
     "codigo_dane": "string",
     "compromiso_familiar_label": "null",

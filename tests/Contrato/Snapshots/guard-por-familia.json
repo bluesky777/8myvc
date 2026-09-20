@@ -312,8 +312,8 @@
         "con_guard": 17
     },
     "periodos": {
-        "total": 12,
-        "con_guard": 10
+        "total": 13,
+        "con_guard": 11
     },
     "permissions": {
         "total": 1,
@@ -432,7 +432,7 @@
         "con_guard": 3
     },
     "years": {
-        "total": 23,
-        "con_guard": 21
+        "total": 24,
+        "con_guard": 22
     }
 }

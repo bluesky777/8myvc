@@ -114,6 +114,41 @@ Route::get('years', [YearsController::class, 'getIndex']);
 // «cuatro de las cinco cosas que devuelvo son para ti y la quinta no».
 Route::get('sincronizacion/huella', [SincronizacionController::class, 'getHuella'])->middleware('auth.personal');
 Route::put('years/alumnos-can-see-notas', [YearsController::class, 'putAlumnosCanSeeNotas'])->middleware('auth.personal');
+// **Qué pasa al CERRAR el periodo con lo que nadie calificó** — fase 4 de
+// docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md, decisión **D3** de Joseth
+// del 20 sep 2026. Tres salidas —`cero`, `fuera`, `bloquear`— en
+// `years.cierre_sin_calificar`, con **`cero` de fábrica**, que es el comportamiento
+// de hoy.
+//
+// **Ruta propia y NO `years/toggle-cambiar-valor`, que sí podría**: aquélla escribe
+// cualquier columna de `years` con este mismo `auth.personal`, así que esto no es una
+// imposibilidad, es que **esta columna tiene dueño**. Por eso está además excluida
+// allí, en la lista `$conDueno` — sin ese corte el permiso de aquí abajo se saltaría
+// en una línea y no lo diría nada. Es `modelo_evaluacion` otra vez, y la cuarta de esa
+// lista.
+//
+// **`auth.personal` en la ruta y `Autoriza::puedeElegirQuePasaAlCerrar` DENTRO**, o
+// sea la forma de `toggle-mostrar-nota-numerica` y no la de los otros once
+// interruptores del año, que van con `auth.personal` y nada. **Es una decisión y no un
+// olvido**, y el porqué está en los dos métodos: `auth.personal` deja pasar a las 74
+// cuentas de personal, de las que **53 son docentes**, y esta columna decide si a un
+// alumno le cuentan como cero **las casillas que su profesor no calificó**. Es el
+// único interruptor del año en el que quien lo pulsa puede ser parte interesada.
+//
+// **Cerrar el periodo no se estrecha**: `periodos/toggle-profes-pueden-editar-notas`
+// sigue con `auth.personal` y nada dentro, con sus tres clientes intactos. Se estrecha
+// elegir la política, no aplicarla.
+//
+// Es un segmento literal, así que no la puede tapar ningún `{id}` —los cuatro
+// comodines de esta familia van detrás de un literal distinto— y no debe añadirse
+// ninguna `PUT years/{algo}` que pudiera tragársela. Va entre `alumnos-can-see-notas`
+// y `colegio` para no romper el orden alfabético del bloque.
+//
+// No es pública ni debe serlo: no mueve `RutasPreLoginTest::TOTAL_PUBLICAS` (siguen
+// dieciséis) ni `AutenticacionTest::SIN_GUARD`. Y la familia `years` tiene de sobra
+// más de dos hermanas con guard, así que tampoco mueve
+// `familias-que-nunca-entran-en-el-candado.json`.
+Route::put('years/cierre-sin-calificar', [YearsController::class, 'putCierreSinCalificar'])->middleware('auth.personal');
 Route::get('years/colegio', [YearsController::class, 'getColegio']);
 Route::put('years/guardar-cambios', [YearsController::class, 'putGuardarCambios'])->middleware('auth.personal');
 // **El modelo de evaluación del año**, Fase 1 de
@@ -193,6 +228,34 @@ Route::get('periodos', [PeriodosController::class, 'getIndex']);
 Route::put('periodos/cambiar-fecha-fin', [PeriodosController::class, 'putCambiarFechaFin'])->middleware('auth.personal');
 Route::put('periodos/cambiar-fecha-inicio', [PeriodosController::class, 'putCambiarFechaInicio'])->middleware('auth.personal');
 Route::put('periodos/copiar', [PeriodosController::class, 'putCopiar'])->middleware('auth.personal');
+// **El diálogo de cierre: qué casillas de este periodo no ha calificado nadie** —
+// fase 4 del doc 43. Devuelve la cuenta, el desglose por asignatura con su docente y
+// **qué va a pasar** con ellas al cerrar, leído de la elección del colegio (o de lo
+// que ya se aplicó, si el periodo está cerrado).
+//
+// Hace falta una ruta porque **nadie cuenta casillas vacías**: `informes/notas-perdidas`
+// cuenta lo contrario —notas puestas y bajas— y la planilla las enseña de una
+// asignatura en una, que es justo lo que no sirve para decidir un cierre.
+//
+// **`auth.personal` y nada dentro, al contrario que `years/cierre-sin-calificar`**, y
+// eso es una decisión: esto se **lee** y aquello se **decide**. Quien cierra el periodo
+// son las 74 cuentas de personal, así que el diálogo que va justo antes del cierre
+// tiene que alcanzar a las mismas 74 — más estrecho dejaría a secretaría cerrando a
+// ciegas.
+//
+// **`sin-calificar` es un literal y va DELANTE de `{periodo_id}`… salvo que aquí no hay
+// ningún `{periodo_id}` suelto en esta familia**: los tres comodines de `periodos/`
+// van detrás de un literal distinto (`destroy`, `establecer-actual`, `show`), así que
+// nada puede tragarse ésta. Se comprueba con `getRoutes()->match()` y no con
+// `route:list`, que ordena alfabéticamente y no por orden de registro.
+Route::get('periodos/sin-calificar/{periodo_id}', [PeriodosController::class, 'getSinCalificar'])->middleware('auth.personal');
+// **Y desde el 20 sep 2026 esto no sólo abre y cierra: APLICA la decisión D3** sobre
+// las casillas que nadie calificó (fase 4 del doc 43). No es una ruta nueva —cerrar ya
+// era este interruptor— y **sigue devolviendo texto**, que es contrato con los tres
+// clientes que la llaman (`myvc_front/scripts/endpoints-de-texto.json`).
+//
+// **El guard no se toca**: `auth.personal` y nada dentro, igual que ayer. Lo que se
+// estrechó es elegir la política (`years/cierre-sin-calificar`), no aplicarla.
 Route::put('periodos/toggle-profes-pueden-editar-notas', [PeriodosController::class, 'putToggleProfesPuedenEditarNotas'])->middleware('auth.personal');
 Route::put('periodos/toggle-profes-pueden-nivelar', [PeriodosController::class, 'putToggleProfesPuedenNivelar'])->middleware('auth.personal');
 Route::delete('periodos/destroy/{periodo_id}', [PeriodosController::class, 'deleteDestroy'])->middleware('auth.personal');
