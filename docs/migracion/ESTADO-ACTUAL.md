@@ -8,6 +8,90 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+> ## 🔴🔴 LA FASE 2 VACÍA EL SEMÁFORO EN MODO `promedio` — BLOQUEANTE DE DESPLIEGUE (20 sep 2026)
+>
+> **Lo más importante de esta casilla: NO desplegar la Fase 2 a un colegio en `promedio` hasta
+> que esto esté decidido.** Lo encontró `myvc-front-a7` imprimiendo el PDF contra el docker con
+> `main` en `9185879`, y está reproducido por separado desde este lado.
+>
+> ### Lo que sale por pantalla
+>
+> `PUT boletines/detailed-notas-group/113`, periodo 1: **120 de 120** pares vienen con
+> `nota_parcial: null` **y** `cobertura: null`, mientras `nota_asignatura` trae 42.3, 50, 34, 10…
+> En el papel: diez asignaturas, **diez rayas**, la columna del `%` **vacía entera**, sin rótulo
+> de corte y con «**0 asignaturas perdidas**». *La hoja que ayer decía quién va en rojo hoy no
+> dice nada — y se firma y se archiva.*
+>
+> ### La causa, medida en la base
+>
+> ```
+> año         reparto_subunidades   subunidades   con_peso   en_cero
+> 2018–2025   porcentaje                 33.113     33.091        22
+> 2026        promedio                    2.205          0     2.205
+> ```
+>
+> **El único año en `promedio` es el único con los pesos a cero, y es el año en curso.** Ni una
+> sola subunidad de 2026 tiene peso. *(Medido por los dos lados con consultas distintas:
+> `myvc-front-a7` da 2.233/2.232 y esto 2.205/2.205 —entra por `grupos → asignaturas → unidades`—
+> y la cifra que decide, `con_peso = 0`, es idéntica en las dos.)*
+>
+> ### El mecanismo, que ya estaba escrito en el propio 43
+>
+> La §Fase 1.bis dice que `calculoAlumnoNotas` **nunca ha pasado por `RepartoDeLaNota`**: pesa
+> `s.porcentaje` crudo. En `promedio` ese campo no se usa —el peso lo pone `1/n`— así que se
+> queda en 0. Entonces `peso_total = Σ(porcentaje_unidad × 0) = 0`, y por la regla del propio
+> helper `peso_total = 0 → cobertura null`. El front lee `null` como «no hay nada que calificar»,
+> lo pinta gris y **deja de imprimir la nota**, que es justo lo que mandó D2.
+>
+> **Y va más hondo de como se descubrió**: el **numerador** del helper también se acumula con
+> `porcentaje_subunidad`, así que en `promedio` su `nota_asignatura` interna sale 0 igual. No es
+> que la Fase 2 calcule mal en `promedio` — **es que no calcula nada calculable**.
+>
+> ### Lo que esto enseña, y es más grande que el fallo
+>
+> **`LaParcialYLaCobertura` asume el modo `porcentaje` y eso no está escrito en ningún sitio** —ni
+> en su cabecera, ni en la §Fase 2 del 43, ni en la casilla que la dio por cerrada—. Cada pieza
+> hace lo correcto por separado; juntas vacían el papel. *Una premisa que no está dicha no la
+> puede comprobar nadie*, y por eso el arreglo no es ninguno de los dos parches hasta que la
+> premisa esté escrita.
+>
+> ### La pregunta que hay que contestar ANTES de desplegar, y no se puede desde este repo
+>
+> **¿Cuántos de los dieciséis están en `promedio`?** `reparto_subunidades` es una columna de
+> `years` y cada colegio tiene su base; desde aquí sólo se ve `simonbolivar`, y **está en
+> `promedio`**. Se contesta con el bucle de `docs/DESPLIEGUE.md` sobre los diecisiete
+> `/home/micolev1/*.micolevirtual.com/8myvc`, y lo corre Joseth. Un colegio en `promedio` que
+> reciba el despliegue **se queda sin semáforo el mismo día**.
+>
+> ### Las salidas, y por qué ninguna se toma sin Joseth
+>
+> | | qué cambia |
+> |---|---|
+> | Que la cobertura use el peso de `RepartoDeLaNota` cuando el año está en `promedio` | es el arreglo de fondo, y cambia lo que significa el número en **las cinco pantallas que ya lo publican** |
+> | Que `peso_total = 0` con unidades existentes signifique `0` y no `null` | más barato, pero convierte «no hay plan» en «no se evaluó nada», que son cosas distintas y la pantalla las pinta distinto |
+> | ~~**Defensa del front**: si en el grupo entero no hay ni una cobertura medible, volver a imprimir la acumulada~~ | **DESCARTADA POR JOSETH el 20 sep.** El número correcto tiene que venir de la API y una red en el front taparía el síntoma |
+>
+> ### Y con esa decisión, el orden del despliegue es la ÚNICA protección
+>
+> Joseth descartó la defensa del front, así que **no hay nada en `app2` que amortigüe esto**: el
+> día que la Fase 2 llegue a un colegio en `promedio`, ese colegio se queda sin semáforo. *El
+> arreglo tiene que estar hecho antes, no en paralelo.* Es lo que convierte esta casilla de
+> «hallazgo» en «bloqueante de despliegue» — y la Fase 2 ya está en `main`, así que lo que la
+> retiene hoy es únicamente que nadie ha desplegado.
+>
+> **Lo que el front SÍ dejó hecho** (`myvc-front-a7`, en `RELEVO-SEMAFORO.md` §9): el guion
+> `conducir-semaforo-con-corte.mjs` mide ya contra la API de verdad (`MYVC_SIN_INYECTAR=1`) y
+> **caza la hoja en blanco**, diagnosticándola en el terminal y mandando mirar
+> `years.reparto_subunidades`. Con los campos inyectados los doce veredictos siguen en verde: *con
+> datos correctos el front hace lo correcto*, así que el fallo es entero de este lado.
+>
+> ### Lo que NO es
+>
+> **No está desplegado.** Vive en `main`, y `main` lleva 42 commits sin subir a `origin`. El papel
+> en blanco sólo existe en el docker de `myvc-front-a7`. Y Joseth ya dijo que desplegará **a un
+> solo colegio y subiendo front y back a la vez**, así que el escenario de «la API llega sola» no
+> va a pasar.
+
 > ## 🔴 LA FASE 2 MIENTE EN EL BOLETÍN INDEPENDIENTE — MEDIDO AL FUNDIRLA (20 sep 2026)
 >
 > **Espera decisión de Joseth. No es una deuda vieja: es la fase que se acaba de fundir dando un
@@ -45,13 +129,40 @@
 > ahora da una razón y es falsa. *Para esos alumnos el 43 sale al revés de lo que pretendía*, y la
 > Fase 2 es lo que lo hace visible — el fallo es de la siembra, no del helper.
 >
+> ### El volumen, medido después — y NO es lo que sostiene el argumento
+>
+> Lo midió `8myvc-d7` a petición de esta casilla: `bol_ind_periodos` tiene **11 filas**, **2** con
+> `aplica = 1`, y son **2 alumnos**. Y de esos dos, mirando su año:
+>
+> ```
+> alumno 1109 -> 2025, porcentaje   <- aquí la cobertura SÍ sale 1
+> alumno 1055 -> 2026, promedio     <- aquí sale null, tapado por el bloqueante de arriba
+> ```
+>
+> O sea que **hoy, en esta copia, el fallo se ve en UN alumno**, no en dos. *Se dice porque esta
+> casilla llegó a decir «dos» y el dato exacto es uno.*
+>
+> **Y por eso el argumento NO es el volumen, que hoy es ridículo: es que es DETERMINISTA.** No es
+> que a veces salga mal — es que para **toda** casilla creada por esas dos rutas la cobertura sale
+> 1 **siempre**. Un fallo que ocurre el 100 % de las veces sobre un alumno se arregla; uno que
+> ocurre a veces sobre muchos se discute. Aquí es el primero, y el módulo es nuevo —fase 6 del
+> 19—, así que la población sólo puede crecer.
+>
+> ### Y «nunca escriben NULL» es cierto HOY POR LOS DATOS, no por construcción
+>
+> Lo corrigió `8myvc-d7`: el esquema dice `nota_default int DEFAULT NULL`
+> (`database/schema/mysql-schema.sql:525`) y `PlantillaNotasController:296-300` **acepta
+> explícitamente `null`** al editar la plantilla. La columna admite nulos y hoy no hay ninguno.
+> O sea que ese mismo código **sería correcto para una subunidad con `nota_default` nulo** e
+> incorrecto para las 36.733 restantes: correcto por accidente y según el dato. *Por eso el
+> arreglo es escribir `NULL` literal y no apoyarse en que `nota_default` nunca sea nulo, que sería
+> cierto hoy y falso el día que un colegio ponga uno.*
+>
 > ### Lo que NO se midió, y por qué no se midió aquí
 >
-> **Cuántos alumnos tienen hoy boletín independiente sembrado en un colegio de verdad.** En la
-> copia de desarrollo hay **82.975** notas con valor `0` sobre **1.166.608**, pero **no se separó
-> lo que tecleó un docente de lo que sembró esto**, y sin esa separación el número no dice nada:
-> ese censo es del §7 del 43 y su dueño es `8myvc-79`. *Una cifra sobre la población equivocada no
-> falla, contesta.*
+> **Cuántos de los 82.975 ceros de `notas` los tecleó un docente y cuántos los sembró esto.** Sin
+> esa separación el número no dice nada: ese censo es del §7 del 43 y su dueño es `8myvc-79`.
+> *Una cifra sobre la población equivocada no falla, contesta.*
 >
 > ### Las dos salidas, para que se elija con el precio delante
 >

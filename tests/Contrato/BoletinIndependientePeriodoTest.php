@@ -669,6 +669,114 @@ class BoletinIndependientePeriodoTest extends CasoDeContrato
     // ─────────────────────────────────────────────────────────────────────
 
     /** Cuántas unidades **propias** tiene el alumno en ese periodo, dentro de su grupo. */
+    /**
+     * **La casilla que se siembra nace SIN nota, no con el valor por defecto de su
+     * subunidad.** Es la fase 0 del
+     * [43](../../docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md) llegando a las
+     * dos siembras de este controlador, que eran las que faltaban: aquel censo dijo «las
+     * tres siembras vivas» y son **cinco**.
+     *
+     * ## Por qué hacía falta un test nuevo y no valía ninguno de los de arriba
+     *
+     * Los demás comprueban **contadores** —`sembrado.subunidades`, `notas_traidas`— y
+     * ninguno mira **el valor de la casilla**, así que los dos comportamientos —sembrar
+     * `NULL` y sembrar `nota_default`— los dejan igual de verdes. El cambio del 20 sep
+     * 2026 pasó la suite entera sin que nada lo cubriera; esto es lo que lo cubre.
+     *
+     * ## El valor distintivo no es adorno: sin él el test pasa con el bug puesto
+     *
+     * En la copia de desarrollo **el 88 % de las subunidades tienen `nota_default = 0`**, y
+     * `assertEquals(0, null)` es **cierto** en PHP —comparación laxa—, que es exactamente
+     * por lo que `NotasTest::test_abrir_la_rejilla_crea_las_notas_que_faltan` sigue en
+     * verde desde la fase 0 sin comprobar nada. Poniendo un **41** antes de marcar, la
+     * diferencia entre las dos versiones del código deja de poder disimularse: o la
+     * casilla vale `null`, o vale 41.
+     */
+    public function test_la_casilla_sembrada_nace_sin_nota(): void
+    {
+        $e = $this->escenario();
+        $periodo = $e['periodos'][1];
+
+        $this->assertSame(0, $this->suyasEn($e, $periodo), 'El alumno ya tenía estructura propia.');
+
+        // Un valor que no se confunde con nada: ni con el 0 del defecto, ni con el null de
+        // la ausencia. Va sobre la rejilla DEL CURSO, que es de donde se copia la suya.
+        $tocadas = DB::update(
+            'UPDATE subunidades s
+               INNER JOIN unidades u ON u.id = s.unidad_id AND u.deleted_at IS NULL
+                                    AND u.periodo_id = ? AND u.alumno_id IS NULL
+               INNER JOIN asignaturas a ON a.id = u.asignatura_id AND a.grupo_id = ? AND a.deleted_at IS NULL
+                SET s.nota_default = 41
+              WHERE s.deleted_at IS NULL',
+            [$periodo, $e['grupo']]
+        );
+
+        $this->assertGreaterThan(0, $tocadas,
+            'No se pudo marcar ninguna subunidad del curso: el control de este test no existiría.');
+
+        // **Y hay que dejarle huecos, o esto no prueba nada.** `copiarleA()` se trae la nota
+        // que el alumno YA tenía en la subunidad del curso, y sólo lo que quede sin fila pasa
+        // por `sembrarLasCasillasDeSusUnidades()`, que es la siembra que se está midiendo. En
+        // el seed el alumno tiene nota en todas, así que sin esto `casillas_nuevas` sale **0**
+        // y el test saldría verde midiendo una población vacía — pasó al escribirlo.
+        $borradas = DB::update(
+            'UPDATE notas n
+               INNER JOIN subunidades s ON s.id = n.subunidad_id AND s.deleted_at IS NULL
+               INNER JOIN unidades u ON u.id = s.unidad_id AND u.deleted_at IS NULL
+                                    AND u.periodo_id = ? AND u.alumno_id IS NULL
+               INNER JOIN asignaturas a ON a.id = u.asignatura_id AND a.grupo_id = ? AND a.deleted_at IS NULL
+                SET n.deleted_at = NOW()
+              WHERE n.alumno_id = ? AND n.deleted_at IS NULL',
+            [$periodo, $e['grupo'], $e['alumno']]
+        );
+
+        $this->assertGreaterThan(0, $borradas,
+            'El alumno no tenía ninguna nota en la rejilla del curso: no se le pueden abrir huecos.');
+
+        $r = $this->withToken($this->tokenDelPersonalDe($e['year']))
+            ->putJson(self::RUTA, ['alumno_id' => $e['alumno'], 'periodo_id' => $periodo, 'aplica' => true]);
+
+        $r->assertStatus(200);
+
+        // El contador de LA siembra que se está midiendo, no el de subunidades copiadas.
+        $this->assertGreaterThan(0, $r->json('sembrado.casillas_nuevas'),
+            'No se sembró ninguna casilla nueva: sin eso, las dos cuentas de abajo miden una '
+            .'población vacía y salen verdes con el bug puesto.');
+
+        // La pregunta entera, en una consulta: ¿queda alguna casilla suya con el valor por
+        // defecto dentro? Se cuenta sobre `notas`, que es donde se escribe, y no sobre la
+        // respuesta, que es donde se cuenta.
+        $conElDefecto = (int) DB::selectOne(
+            'SELECT COUNT(*) c FROM notas n
+               INNER JOIN subunidades s ON s.id = n.subunidad_id AND s.deleted_at IS NULL
+               INNER JOIN unidades u ON u.id = s.unidad_id AND u.deleted_at IS NULL
+                                    AND u.periodo_id = ? AND u.alumno_id = ?
+              WHERE n.alumno_id = ? AND n.deleted_at IS NULL AND n.nota = 41',
+            [$periodo, $e['alumno'], $e['alumno']]
+        )->c;
+
+        $this->assertSame(0, $conElDefecto,
+            'Una casilla recién sembrada nació con el `nota_default` de su subunidad en vez de '
+            .'`NULL`. Desde ese instante pesa en la definitiva sin que nadie la haya calificado '
+            .'—es el bug de origen del 43— y además la cobertura de la Fase 2 la cuenta como '
+            .'evaluada, así que la pantalla afirma que se evaluó todo justo donde no se evaluó nada.');
+
+        // Y la otra mitad, que es la que impide que esto pase por estar vacío: que SÍ se
+        // hayan creado casillas, y sin nota.
+        $sinNota = (int) DB::selectOne(
+            'SELECT COUNT(*) c FROM notas n
+               INNER JOIN subunidades s ON s.id = n.subunidad_id AND s.deleted_at IS NULL
+               INNER JOIN unidades u ON u.id = s.unidad_id AND u.deleted_at IS NULL
+                                    AND u.periodo_id = ? AND u.alumno_id = ?
+              WHERE n.alumno_id = ? AND n.deleted_at IS NULL AND n.nota IS NULL',
+            [$periodo, $e['alumno'], $e['alumno']]
+        )->c;
+
+        $this->assertGreaterThan(0, $sinNota,
+            'No quedó ni una casilla suya sin nota: si no se creó ninguna, el cero de arriba no '
+            .'demuestra nada. Un control que mide una población vacía sale verde siempre.');
+    }
+
     private function suyasEn(array $e, int $periodo): int
     {
         return (int) DB::selectOne(

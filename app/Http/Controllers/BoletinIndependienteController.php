@@ -2359,9 +2359,28 @@ class BoletinIndependienteController extends Controller
      */
     private function sembrarLasCasillasDeSusUnidades(int $alumnoId, int $periodoId, string $ahora): int
     {
+        // **`NULL` literal y no `s.nota_default`**: la casilla nace SIN nota, que es la
+        // fase 0 del [43](../../../../docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md).
+        // Es la misma regla y el mismo porqué que `Models\Nota::verificarCrearNota`, y estas
+        // dos siembras eran las que faltaban: el censo de la fase 0 dijo «las tres siembras
+        // vivas» y son **cinco** —las otras tres ya ponían `NULL`—. Corregido el 20 sep 2026.
+        //
+        // Lo que lo hacía invisible es que el fallo NO depende del azar: **ninguna subunidad
+        // viva tiene `nota_default` nulo** (0 nulas, 32.288 con 0 y 4.445 con más de 0, medido
+        // en la copia de desarrollo), así que esto no fallaba «a veces»: toda casilla que
+        // sembraba nacía pesando en la definitiva sin que nadie la hubiera calificado.
+        //
+        // Y desde la Fase 2 tenía además una segunda víctima: `LaParcialYLaCobertura` cuenta
+        // como evaluada toda fila con `nota !== null` —que es lo correcto, porque el 0 que
+        // teclea un docente es una nota—, así que estas casillas hacían salir `cobertura: 1`
+        // y la pantalla afirmaba, con un número al lado, que se había evaluado todo
+        // justamente donde no se evaluó nada.
+        //
+        // Va en el SQL y no ligado porque **no es un valor que se elija**: es la ausencia de
+        // valor, y ligar un `null` invitaría a que algún día alguien le pase otra cosa.
         return DB::affectingStatement(
             'INSERT INTO notas (subunidad_id, alumno_id, nota, created_by, created_at, updated_at)
-             SELECT s.id, ?, s.nota_default, ?, ?, ?
+             SELECT s.id, ?, NULL, ?, ?, ?
                FROM unidades u
                INNER JOIN subunidades s ON s.unidad_id = u.id AND s.deleted_at IS NULL
               WHERE u.alumno_id = ?
@@ -2404,8 +2423,12 @@ class BoletinIndependienteController extends Controller
      * La razón de fondo es que **la pregunta es otra**. `permiteEditarNotas` contesta
      * *«¿puedes editar notas?»*; aquí la pregunta es *«acabas de devolver a este
      * alumno a la planilla del grupo, ¿le dejamos las casillas puestas?»*. Las filas
-     * que esto crea son **notas sin valor**, con `nota_default`: no crearlas es el
-     * daño. Se firman con el `user_id` de quien llamó, que es quien tomó la decisión.
+     * que esto crea son **notas sin valor**, con `NULL`: no crearlas es el daño. Se
+     * firman con el `user_id` de quien llamó, que es quien tomó la decisión.
+     *
+     * Esta línea decía «con `nota_default`» y **describía el código de entonces**, que
+     * sembraba el valor por defecto: las dos frases del mismo renglón —«sin valor» y
+     * «con `nota_default`»— no podían ser ciertas a la vez, y la que mandaba era el SQL.
      *
      * ## Una sentencia y no un bucle, y el `GROUP BY` no es adorno
      *
@@ -2427,9 +2450,28 @@ class BoletinIndependienteController extends Controller
     {
         // `affectingStatement` y no `insert`, que devuelve un booleano: desde la Entrega 4
         // el número viaja en la respuesta, y un `true` no se puede enseñar.
+        // **`NULL` literal y no `s.nota_default`**: la casilla nace SIN nota, que es la
+        // fase 0 del [43](../../../../docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md).
+        // Es la misma regla y el mismo porqué que `Models\Nota::verificarCrearNota`, y estas
+        // dos siembras eran las que faltaban: el censo de la fase 0 dijo «las tres siembras
+        // vivas» y son **cinco** —las otras tres ya ponían `NULL`—. Corregido el 20 sep 2026.
+        //
+        // Lo que lo hacía invisible es que el fallo NO depende del azar: **ninguna subunidad
+        // viva tiene `nota_default` nulo** (0 nulas, 32.288 con 0 y 4.445 con más de 0, medido
+        // en la copia de desarrollo), así que esto no fallaba «a veces»: toda casilla que
+        // sembraba nacía pesando en la definitiva sin que nadie la hubiera calificado.
+        //
+        // Y desde la Fase 2 tenía además una segunda víctima: `LaParcialYLaCobertura` cuenta
+        // como evaluada toda fila con `nota !== null` —que es lo correcto, porque el 0 que
+        // teclea un docente es una nota—, así que estas casillas hacían salir `cobertura: 1`
+        // y la pantalla afirmaba, con un número al lado, que se había evaluado todo
+        // justamente donde no se evaluó nada.
+        //
+        // Va en el SQL y no ligado porque **no es un valor que se elija**: es la ausencia de
+        // valor, y ligar un `null` invitaría a que algún día alguien le pase otra cosa.
         return DB::affectingStatement(
             'INSERT INTO notas (subunidad_id, alumno_id, nota, created_by, created_at, updated_at)
-             SELECT s.id, ?, s.nota_default, ?, ?, ?
+             SELECT s.id, ?, NULL, ?, ?, ?
                FROM matriculas m
                INNER JOIN grupos g ON g.id = m.grupo_id AND g.deleted_at IS NULL AND g.year_id = ?
                INNER JOIN asignaturas asg ON asg.grupo_id = g.id AND asg.deleted_at IS NULL

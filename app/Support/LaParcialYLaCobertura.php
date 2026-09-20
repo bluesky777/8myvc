@@ -24,6 +24,31 @@ namespace App\Support;
  * bien hecho y todo calificado las dos son el mismo número**, porque `peso_total` vale
  * entonces 10.000; la parcial sólo existe como cifra distinta mientras falte algo.
  *
+ * ## ⚠️ ESTO SUPONE EL MODO `porcentaje`, Y EN `promedio` NO CALCULA NADA
+ *
+ * **Premisa que no estaba escrita en ninguna parte y que costó un papel en blanco el 20 sep
+ * 2026.** Las dos fórmulas pesan `s.porcentaje` crudo, igual que `calculoAlumnoNotas`, que
+ * **nunca ha pasado por `RepartoDeLaNota`** (§Fase 1.bis del 43). En un año con
+ * `years.reparto_subunidades = 'promedio'` ese campo **no se usa** —el peso lo pone `1/n`— así
+ * que se queda a 0 y entonces:
+ *
+ *     peso_total = SUM(porcentaje_unidad x 0) = 0   ->   cobertura null   ->   parcial null
+ *
+ * Y no sólo el divisor: **el numerador se acumula con el mismo campo**, así que la
+ * `nota_asignatura` que devuelve `deLasUnidades` sale 0 también. O sea que en `promedio` esto no
+ * calcula mal: **no calcula nada calculable**.
+ *
+ * Medido en la copia de desarrollo el 20 sep 2026: de nueve años, los ocho en `porcentaje` tienen
+ * 33.091 subunidades con peso de 33.113; **el único en `promedio` es 2026 —el año en curso— y
+ * tiene 0 con peso de 2.205**. El front lo destapó imprimiendo el PDF: diez asignaturas, diez
+ * rayas y la columna del `%` vacía entera, porque lee `null` como «no hay nada que calificar» y
+ * deja de imprimir la nota, que es lo que mandó D2.
+ *
+ * **Cada pieza hace lo correcto por separado; juntas vacían el papel.** Está sin resolver y es
+ * decisión de Joseth —las dos salidas cambian lo que significa el número en las cinco pantallas
+ * que ya lo publican—, y hasta entonces **no se despliega a un colegio en `promedio`**. El estado
+ * y las opciones, en `ESTADO-ACTUAL.md`.
+ *
  * ## LO QUE DECIDE QUE UNA CASILLA CUENTE, Y ES DONDE ESTO SE ROMPE SOLO
  *
  * Son **dos preguntas distintas** y confundirlas es el bug del 43 otra vez:
