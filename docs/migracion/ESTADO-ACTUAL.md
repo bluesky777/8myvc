@@ -73,6 +73,44 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## ✅ EL ÁRBOL, VERDE Y MEDIDO — Y UNA CIFRA DE RELEVO QUE NO RECONCILIA (20 sep 2026)
+
+> **Medido sobre `main` en `57bf6b9`, árbol limpio y sin moverse durante la corrida**, con base
+> propia `simonbolivar_testing_rel` recién construida:
+>
+> ```
+> Tests:    1 skipped, 2520 passed (53416 assertions)     php artisan test  (las tres testsuites)
+> Duration: 1359.02 s
+> pint:test  PASS 475     ·     stan  [OK] 697     ·     route:list --json  623
+> ```
+>
+> **0 rojos, 0 `FAILED`, 0 `ERROR`.** Las 2.520 coinciden con las que midió por su cuenta la
+> sesión de `tests-que-tocan.py` (`5383eb8`), que es la única forma de saber que coincidían.
+>
+> ### La cifra que no cuadra, y lo que se descartó antes de decirlo
+>
+> **El relevo de `8myvc-b2` publicó 2.475 pruebas diciendo `main` en `26ef140`.** Sobre ese
+> mismo árbol más dos commits que **no tocan ni tests ni código** salen **2.520**. Los 45 de
+> diferencia no los explica nada de lo que se pudo comprobar:
+>
+> | descartado | cómo |
+> |---|---|
+> | la fusión de definitivas los trajo | trae **un** fichero de test y, **corriéndolo**, son **10** |
+> | el árbol cambió de tests | en todo el tramo reciente difieren **2** ficheros |
+> | la cuenta depende del seed | **no hay ningún proveedor de datos que consulte la base** |
+>
+> **No se reconstruye desde aquí y no se le inventa una causa.** Lo que sí deja es que la regla
+> del repo —*una cifra de pruebas se publica con la orden que la produjo*— **se queda corta**:
+> `b2` dio la orden correcta y el número sigue sin cuadrar con el árbol que nombró. Le falta la
+> tercera pata, que es la barata: **el commit exacto**. Una cifra con orden y sin commit es
+> media cifra, y la mitad que falta es justo la que envejece.
+>
+> > **Y el «no hay proveedores que lean la base» costó un detector equivocado antes de ser
+> > cierto.** El primer barrido dio **siete**, y los siete eran métodos de test con la palabra
+> > «datos» en el nombre — ninguno era un proveedor. *Un detector que casa por el nombre cuenta
+> > nombres.* Es la tercera vez en la misma sesión: antes fue leer «suite desnuda» de `ps`,
+> > donde `docker exec -e` no escribe.
+
 > ## ✅ LA IMPORTACIÓN DINÁMICA — LAS TRES PIEZAS DE LA FASE 2, ROUTER EN 623 (20 sep 2026)
 >
 > **FUNDIDA** en `bdf3c89`. **623 recontadas en el árbol principal, sobre `main` y después de
