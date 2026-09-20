@@ -1114,12 +1114,38 @@ lleva años vacía.
   > coincidir perfectamente y nadie lo ha mirado**: `s.porcentaje` crudo y `1/n` sólo divergen
   > cuando el reparto no es por porcentaje.
   >
-  > **No se mide aquí**: Joseth dijo el 20 sep que este renglón es de `8myvc-79` y que no se pisa.
-  > Queda escrito para que quien lo recoja **empiece por la población y no por el código** — la
-  > consulta es la misma contra 2025, que es `porcentaje`, con 60.825 notas reales y un 32,9 % sin
-  > calificar. Si ahí coinciden, la §7 deja de ser «dos calculadores que hay que unificar» y pasa
-  > a ser «dos calculadores que sólo divergen en un modo que nadie usa», que es otro lote y mucho
-  > más barato.
+  > **No se midió aquí**: Joseth dijo el 20 sep que este renglón es de `8myvc-79` y que no se pisa.
+  >
+  > #### Y lo midió el front esa misma noche, sin que se lo pidiéramos: EN `porcentaje` COINCIDEN
+  >
+  > `myvc-front-a7` condujo el boletín de **Quinto, periodo 1 de 2025** —año en `porcentaje`, 10
+  > asignaturas con plan, 3.997 notas y **todas calificadas**— y `nota_parcial` y
+  > `nota_asignatura` salieron **el mismo número en las diez**:
+  >
+  > ```
+  > MAT 40.7 / 40.7      EdF 46.15 / 46.15    NAT 43.72 / 43.72    ESP 34.65 / 34.65
+  > ART 45.925 / 45.925  ING 30 / 30          INF 39.6 / 39.6
+  > SOC 33.69 / 33.690000000000005            ETI 45.52 / 45.519999999999996
+  > REL 37.35 / 37.349999999999994
+  > ```
+  >
+  > Sólo el último bit de coma flotante. Y las dos cifras vienen de sitios distintos —la parcial la
+  > recalcula el bucle, la `nota_asignatura` es **la guardada en `notas_finales`**—, así que
+  > coincidir significa que **el camino que escribió la definitiva y el que la recalcula dan lo
+  > mismo** cuando el reparto es por porcentaje y el plan está completo.
+  >
+  > **Lo que NO cierra, y conviene decirlo antes de que alguien lo cite de más:** son **10 parejas
+  > de un grupo y un periodo**, no las 99 del censo original. Es una señal fuerte y **no** un censo
+  > en `porcentaje`. La §7 sigue necesitando la comparación completa sobre 2025 antes de decidir
+  > nada — lo que ha cambiado es hacia dónde apunta la evidencia, no que esté medido.
+  >
+  > *Se dice así a propósito: la lección del día es que una población pequeña y cierta se lee como
+  > si describiera el todo, y este resultado favorece la hipótesis de quien escribe — que es
+  > exactamente cuándo hay que contar las parejas en vez de celebrarlas.*
+  >
+  > Si el censo completo confirma esto, la §7 deja de ser «dos calculadores que hay que unificar»
+  > y pasa a ser «dos calculadores que sólo divergen en un modo que nadie usa», que es otro lote y
+  > mucho más barato.
   >
   > *Es la tercera vez en el mismo día que una cifra cierta describe el año trasteado y se lee
   > como si describiera los dieciséis colegios.* Las otras dos: el bloqueante del semáforo, y la

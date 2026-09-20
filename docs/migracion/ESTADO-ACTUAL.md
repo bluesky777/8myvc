@@ -8,6 +8,48 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+> ## ✅ LA FASE 2, VISTA FUNCIONANDO CON DATOS DE VERDAD (20 sep 2026, noche)
+>
+> **Ya no es «la lógica es correcta»: es el papel impreso.** Lo condujo `myvc-front-a7` contra el
+> docker **sin inyectar nada**, en dos grupos de **2025** —año en `porcentaje`, 60.825 notas de
+> indicador y 20.022 sin calificar, que es el escenario del 43 tal cual—.
+>
+> | grupo | lo que tenía | lo que imprimió |
+> |---|---|---|
+> | Quinto, periodo 1 | 10 asignaturas con plan, 3.997 notas, **todas calificadas** | 0 grises, 7 con color, «corte · 100 % evaluado» |
+> | Segundo, periodo 2 | sólo NAT con plan, **64,7 % sin calificar** | **9 grises sin `%`** y NAT con su nota y su **81** al lado |
+>
+> **El segundo es el papel que todo esto vino a arreglar**: nueve asignaturas que no han reportado
+> salen **calladas** en vez de en rojo, y la que sí reportó enseña su nota con el porcentaje que le
+> da su tamaño. Y el invariante se cumple en Quinto —parcial y acumulada idénticas en las diez—,
+> que es lo que acota la §7 del 43; está anotado allí con su salvedad.
+>
+> ### Y el caso real SÍ se podía medir aquí: había que mirar otro año
+>
+> Este documento llegó a decir que el escenario real no se veía en el docker y que había que
+> esperar a que un colegio eligiera algo. **Falso.** 2026 es el año trasteado, pero **2025 está en
+> `porcentaje` y a medio calificar**. *Los dos nos quedamos mirando el año en curso porque era el
+> que estaba roto* — y el año en curso era justamente el único que no servía.
+>
+> ### Tres trampas del camino, medidas al conducirlo
+>
+> 1. **`POST auth/login` deshace la preparación del año.** Medido aislado por `myvc-front-a7`:
+>    `PUT years/useractive/8` deja la fila en 2025 y **al entrar vuelve a 2026**. Preparar el año
+>    por fuera y entrar después **no sirve, y no avisa**: la primera medida salió con las diez
+>    casillas grises y **se leía como un fallo del semáforo**.
+>
+>    > **El mecanismo NO está confirmado, y las dos fuentes discrepan.** Buscado desde este lado:
+>    > el único escritor de `users.periodo_id` por ese camino es `ContextoDeUsuario:42`, y **sólo
+>    > actúa cuando `periodo_id` viene vacío** —no reescribe uno puesto—. O sea que el efecto está
+>    > medido y la explicación no, y uno de los dos está mirando mal. *Se anota como hallazgo en
+>    > vez de resolverse por decreto.* Lo que vale igual sin saber el mecanismo: **preparar el año
+>    > DESPUÉS de entrar, y comprobar qué año te tocó antes de creerte el papel.**
+>
+> 2. **El `periodo_a_calcular` de la URL no elige el periodo**: sale de la fila de `users`. Pedir
+>    el 2 y recibir el 1 devuelve **el papel de otro periodo y con pinta de correcto**.
+> 3. **Un login colgado es `throttle:login`** (`routes/api/auth.php:36`), no la contraseña.
+>    Comprobado: lo llevan las ocho rutas de login del fichero.
+
 > ## 🟠 LA FASE 2 NO CALCULA EN MODO `promedio` — REAL, PERO NO ES BLOQUEANTE (20 sep 2026)
 >
 > ### ⚠️ ESTA CASILLA SE ESCRIBIÓ COMO «BLOQUEANTE DE DESPLIEGUE» Y ERA FALSO. LA CORRECCIÓN VA PRIMERA
