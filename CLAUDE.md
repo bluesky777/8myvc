@@ -8,10 +8,13 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**625 rutas** (contadas con `route:list --json` el **20 sep 2026 en `.worktrees/cie`**, sobre
-`main` en `26ef140` más la Fase 4 del doc 43 — **SIN FUNDIR: hay que recontarlas en el ÁRBOL
-PRINCIPAL el día que entren**, que es la frase que lleva salvando este número las últimas cuatro
-veces). Las dos que suben sobre las 623 son las del **cierre del periodo y lo no calificado**
+**625 rutas** (**recontadas con `route:list --json` el 20 sep 2026 en el ÁRBOL PRINCIPAL, sobre
+`main` y después de fundir** (`04b6852`) — y coincidieron con las 625 contadas antes en
+`.worktrees/cie`, que es la única forma de saber que coincidía. Esta línea decía *«SIN FUNDIR: hay
+que recontarlas en el ÁRBOL PRINCIPAL el día que entren»*, y **aquél fue ese día**: van cinco veces
+seguidas que esa condición de caducidad salva el número, y la tercera en que quien la escribió y
+quien la cumple son sesiones distintas). Las dos que suben sobre las 623 son las del **cierre del
+periodo y lo no calificado**
 —`PUT years/cierre-sin-calificar`, la elección del rector sobre qué pasa al cerrar con lo que nadie
 calificó (D3), y `GET periodos/sin-calificar/{periodo_id}`, el diálogo que dice cuántas casillas
 quedan, de quién son y qué va a pasar con ellas—.

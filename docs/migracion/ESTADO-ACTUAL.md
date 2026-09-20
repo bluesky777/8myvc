@@ -291,15 +291,17 @@
 >    delante a Joseth antes**, no después. `app/Models/Nota.php` sí está en la lista y su cambio va
 >    con espacios: `pint:test` pasa.
 > 4. Fases 2, 3 y 4 del [43](43-lo-que-todavia-no-se-ha-calificado.md), sin empezar.
-> ## 🚧 EL CIERRE Y LO NO CALIFICADO — FASE 4 DEL 43, **SIN FUNDIR** (20 sep 2026)
+> ## ✅ EL CIERRE Y LO NO CALIFICADO — FASE 4 DEL 43, **FUNDIDA** (20 sep 2026)
 >
-> **Rama `feat/el-cierre-y-lo-no-calificado`, árbol `.worktrees/cie`, base
-> `simonbolivar_testing_cie`.** Autorizada por Joseth el 20 sep. Es **D3**: al cerrar, qué pasa con
+> **FUNDIDA en `04b6852`. Router en 625, RECONTADAS en el árbol principal sobre `main` y después
+> de fundir** — y coincidieron con las 625 que esta misma casilla había contado en
+> `.worktrees/cie`, que es la única forma de saber que coincidía.
+>
+> Escrita en `.worktrees/cie` con base `simonbolivar_testing_cie`. Autorizada por Joseth el 20 sep. Es **D3**: al cerrar, qué pasa con
 > lo que nadie calificó lo elige cada rector — *pasa a cero*, *queda fuera de la cuenta* o *no dejar
 > cerrar*—, con **`cero` de fábrica**, que es el comportamiento de hoy.
 >
-> **Router en 625 contado con `route:list --json` en `.worktrees/cie`. SIN FUNDIR: hay que
-> recontarlas en el árbol principal el día que entren.** Las dos que suben sobre las 623 de `main`
+> **Router en 625, recontado en el árbol principal.** Las dos que suben sobre las 623 de `main`
 > son `PUT years/cierre-sin-calificar` —la elección, con permiso dentro— y
 > `GET periodos/sin-calificar/{periodo_id}` —el diálogo: cuántas casillas quedan, de quién son y qué
 > va a pasar con ellas—. **Cerrar no gasta ruta**: ya era
@@ -3657,6 +3659,16 @@
 >
 > *La fila se corrige y no se borra: explica por qué el árbol principal tenía algo colgando esa
 > mañana, que es información que no se repone corriendo nada.*
+
+> **FUNDIDA el 19 sep 2026, y esta casilla lo dijo mal catorce días.** Comprobado el 20 sep con
+> `git merge-base --is-ancestor origin/fix/reparar-la-hora-y-uniformes main` y con las dos
+> migraciones `2026_09_06_*` presentes en el árbol principal. Entró en la integración que vació la
+> cola de ramas (`b8abca2`), y **nadie volvió aquí a tacharlo**.
+>
+> *Es exactamente lo que avisa la cabecera de este documento: una **medición** envejece a «vieja»
+> y se defiende sola; una **instrucción** —«sin fundir», «no lo toques»— **envejece a mentira**, y
+> la única forma de que no pase es escribirla con su condición de caducidad al lado. Ésta no la
+> llevaba. Las tres casillas de hoy sí, y las tres se cerraron el día que les tocaba.*
 
 **6 sep 2026 — LA REPARACIÓN DE LA HORA Y LA DEUDA DE `uniformes`, ESCRITAS Y **SIN FUNDIR**
 · `database/migrations/2026_09_06_100000_reparar_la_hora_escrita_dos_veces.php`,
