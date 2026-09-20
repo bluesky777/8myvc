@@ -55,6 +55,10 @@
         "total": 3,
         "con_guard": 3
     },
+    "aspirantes": {
+        "total": 5,
+        "con_guard": 5
+    },
     "ausencias": {
         "total": 7,
         "con_guard": 7
@@ -180,8 +184,8 @@
         "con_guard": 3
     },
     "estaciones": {
-        "total": 9,
-        "con_guard": 9
+        "total": 10,
+        "con_guard": 10
     },
     "eventos": {
         "total": 1,
@@ -234,6 +238,10 @@
     "informes-recientes": {
         "total": 3,
         "con_guard": 3
+    },
+    "inscripcion": {
+        "total": 3,
+        "con_guard": 0
     },
     "login": {
         "total": 7,
@@ -380,8 +388,8 @@
         "con_guard": 2
     },
     "requisitos": {
-        "total": 7,
-        "con_guard": 7
+        "total": 8,
+        "con_guard": 8
     },
     "respuestas": {
         "total": 1,

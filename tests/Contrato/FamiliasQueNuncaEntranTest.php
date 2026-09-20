@@ -238,10 +238,31 @@ class FamiliasQueNuncaEntranTest extends CasoDeContrato
         // ruta que no pregunte nada—, y por eso el número se sube a mano y con el
         // motivo escrito cada vez, en vez de regenerarlo.
         //
+        // **28 desde el 20 sep 2026**, con las dos escrituras del portal de la familia
+        // —`PUT inscripcion/{codigo}` y `POST inscripcion/{codigo}/documento/{id}`—, que
+        // estrenan la familia `inscripcion` y la meten en el censo como **0 de 3**.
+        //
+        // **Es el CUARTO motivo distinto seguido, y el más cercano a lo que este
+        // centinela busca de verdad**, así que conviene leerlo entero antes de fiarse:
+        //
+        //   - la llave es el dato, como en `pagos-inscripcion` —un código que valida su
+        //     propio carácter de control—, **pero aquí eso no basta y por eso no es el
+        //     mismo renglón**: estas dos escriben datos personales de un menor.
+        //   - lo que las cierra es **un segundo factor**: en cuanto el formulario lleva
+        //     nombre dentro, hace falta además el documento del aspirante, que lo
+        //     escribió la familia y no va impreso en el papel que circula.
+        //   - y hay un **tope por fila** que no se reinicia con el reloj: un aspirante
+        //     por orden, y un documento pendiente por requisito.
+        //
+        // **El día que acepten un `aspirante_id` suelto en el cuerpo seguirán contando
+        // 28 y ya serán un agujero**, exactamente como está escrito para
+        // `pagos-inscripcion`: el número no es la garantía, el porqué de cada renglón
+        // sí. Lo fija `ElPortalDeLaFamiliaTest::test_el_codigo_solo_no_revela_los_datos_del_aspirante`.
+        //
         // (Antes eran 22, desde el 2 sep 2026, y aquella vez bajó por la razón buena:
         // Joseth mandó retirar `POST tardanzas/login/traer-datos`. Y 24 el 19 sep, con
-        // las dos de `pagos-inscripcion`.)
-        $this->assertCount(26, $escrituras,
+        // las dos de `pagos-inscripcion`; 26 esa misma noche con las dos del calendario.)
+        $this->assertCount(28, $escrituras,
             "Cambió cuántas escrituras viven en familias que el candado de familia no mira nunca.\n".
             "Si SUBIÓ, hay una ruta nueva que ningún mecanismo va a preguntar de quién es la fila que toca.\n".
             "Si BAJÓ, alguien puso un guard o la familia llegó a dos hermanas guardadas y entró en el candado: bien, y hay que actualizar el número.\n".

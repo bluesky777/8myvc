@@ -177,6 +177,50 @@ class RouteServiceProvider extends ServiceProvider
         });
 
         /*
+         * **Guardar el formulario del aspirante.** Pantalla 05: cuatro tramos que se
+         * guardan solos, con lo que eso implica — **una familia llenando un formulario
+         * genera muchas escrituras pequeñas**, no una.
+         *
+         * Por eso es el más alto de los tres de este módulo y va **por minuto y no por
+         * hora**: un tope horario cortaría a la mitad del formulario a quien lo esté
+         * llenando bien, que es justo a quien no hay que cortar. Doce por minuto son
+         * más de lo que teclea cualquiera y siguen siendo un tope de verdad.
+         *
+         * **Y tiene nombre propio, que no es un detalle**: con `throttle:consulta-inscripcion`
+         * compartiría cubo con el `GET` del mismo URI —la clave de un limitador con
+         * nombre es `md5($limiterName.$limit->key)`, sin el verbo y sin la ruta— y
+         * **guardar consumiría consultas**. Es exactamente el fallo que costó reproducir
+         * el 20 sep en la colilla, cometido en la familia de al lado.
+         */
+        RateLimiter::for('formulario-inscripcion', function (Request $request) {
+            return [
+                Limit::perMinute(12)->by('ip:'.$request->ip()),
+                Limit::perMinute(12)->by('cod:'.strtoupper(trim((string) $request->route('codigo')))),
+            ];
+        });
+
+        /*
+         * **Subir un documento del aspirante.** Mismo reparto y mismo número que la
+         * colilla —diez por hora, por IP y por código—, porque es la misma acción: un
+         * desconocido dejando un fichero en el disco del colegio.
+         *
+         * **Cubo propio y no el de la colilla**, aunque el número coincida: son dos
+         * flujos distintos de la misma familia y compartirlos haría que subir el recibo
+         * del pago gastara los intentos de subir el registro civil. El número es igual
+         * hoy **por la misma razón**, no por ser el mismo cubo.
+         *
+         * Y tampoco aquí es la defensa principal: **el tope de verdad es uno pendiente
+         * por requisito**, que es una regla de la fila y no se reinicia con el reloj.
+         * Un limitador protege la base; lo que protege el disco es la cuenta por fila.
+         */
+        RateLimiter::for('documento-inscripcion', function (Request $request) {
+            return [
+                Limit::perHour(10)->by('ip:'.$request->ip()),
+                Limit::perHour(10)->by('cod:'.strtoupper(trim((string) $request->route('codigo')))),
+            ];
+        });
+
+        /*
          * El checkout del pago en línea del formulario. Mismo reparto que
          * `colilla` —por IP y por código a la vez— y por los mismos dos agujeros:
          * el de IP corta al que abre checkouts en bucle desde un sitio, y el de

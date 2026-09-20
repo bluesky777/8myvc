@@ -493,6 +493,39 @@ class Autoriza
     }
 
     /**
+     * Quién decide si un aspirante entra al colegio.
+     *
+     * **Es la escritura más estrecha de todo el proceso de admisión, y la única del
+     * portal que no va con `auth.personal` a secas.** El resto del módulo lo decidió
+     * Joseth el 20 sep en la dirección contraria —*«cerrar un paso lo puede hacer
+     * cualquiera del personal, con su nombre y su hora»*—, y eso está bien para un
+     * paso: es reversible, lo ve la familia y lo corrige el de al lado.
+     *
+     * Admitir no es un paso. Es **la respuesta del colegio a una familia**, se dice una
+     * vez y se dice fuera: un «no admitido» escrito por equivocación viaja al portal y
+     * lo lee la madre antes de que nadie se entere. `auth.personal` deja pasar a las 75
+     * cuentas de personal, de las que **53 son docentes**, y ninguno de ellos admite a
+     * nadie en ningún colegio.
+     *
+     * **Se escribe con nombre propio y no llamando a `esAdministrativo()` desde la
+     * ruta**, por lo mismo que `puedeAtarFormularios`: ese método lo comparten quince
+     * llamadas de dominios que no se parecen a éste, y el día que alguien lo ensanche
+     * esta puerta se ensancharía con él sin que nadie lo decidiera.
+     *
+     * > **Lo que sigue abierto y es de Joseth**, dicho aquí para que no se lea como
+     * > cerrado: `INVESTIGACION-MATRICULAS.md` §10.4 pregunta *«¿quién admite en un
+     * > colegio típico: el rector solo, o un comité?»* y **sigue sin contestar**. Hasta
+     * > que conteste, esto es secretaría o superusuario —lo mismo que atar el papel—,
+     * > que es el conjunto más pequeño que ya existe y que deja el módulo utilizable.
+     * > *Un permiso provisional se dice provisional; si no, dentro de un mes es una
+     * > decisión que nadie recuerda haber tomado.*
+     */
+    public static function puedeDecidirAdmision($user): bool
+    {
+        return self::esAdministrativo($user);
+    }
+
+    /**
      * Quién aprueba o rechaza la colilla del pago de un formulario.
      *
      * Decidido por Joseth el 19 sep 2026: **el tesorero, y si no hay, secretaría.**

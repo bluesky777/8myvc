@@ -107,8 +107,16 @@ class TemasDeNotificacionTest extends CasoDeContrato
         TemasDeNotificacion::deAlumnoYTipo(345, 'inventado');
     }
 
-    /** Un alumno recibe los suyos, y sólo los suyos. */
-    public function test_un_alumno_recibe_sus_tres_temas(): void
+    /**
+     * Un alumno recibe los suyos, y sólo los suyos.
+     *
+     * **Eran tres y son CUATRO desde el 20 sep 2026**: entró `matricula`, decidido por
+     * Joseth el día de las estaciones. La lista va escrita a mano y **en orden**, no
+     * derivada de `TIPOS`: lo que este test protege es el contrato que lee la app, y
+     * un `foreach (TIPOS)` se adaptaría solo a cualquier cambio futuro — o sea que
+     * dejaría de avisar justo cuando hay algo de lo que avisar.
+     */
+    public function test_un_alumno_recibe_sus_cuatro_temas(): void
     {
         $usuario = $this->usuarioDeTipo('Alumno');
 
@@ -127,7 +135,7 @@ class TemasDeNotificacionTest extends CasoDeContrato
         $this->assertCount(1, $cuerpo['alumnos'], 'Un alumno recibió temas de más de una persona.');
         $this->assertSame((int) $suyo->id, $cuerpo['alumnos'][0]['alumno_id']);
 
-        $this->assertSame(['notas', 'asistencia', 'disciplina'],
+        $this->assertSame(['notas', 'asistencia', 'disciplina', 'matricula'],
             array_keys($cuerpo['alumnos'][0]['temas']));
 
         $this->assertSame(

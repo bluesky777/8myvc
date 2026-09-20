@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Notificaciones\Publicador;
 use App\Services\Notificaciones\TemasDeNotificacion;
+use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -107,6 +108,7 @@ class EnviarNotificaciones extends Command
         $mandados += $this->porFuente('asistencia', fn ($desde) => $this->avisosDeAsistencia($desde), $publicador, $seco);
         $mandados += $this->porFuente('disciplina', fn ($desde) => $this->avisosDeDisciplina($desde), $publicador, $seco);
         $mandados += $this->porFuente('muro', fn ($desde) => $this->avisosDelMuro($desde), $publicador, $seco);
+        $mandados += $this->porFuente('matricula', fn ($desde) => $this->avisosDeMatricula($desde), $publicador, $seco);
 
         $this->info(($seco ? 'Se mandarían ' : 'Mandados ').$mandados.' avisos.');
 
@@ -347,6 +349,225 @@ class EnviarNotificaciones extends Command
      *
      * @return array{avisos: array<int, array<string, mixed>>, hasta: int}
      */
+    /**
+     * **El día de matrículas: dónde va la familia.**
+     *
+     * Decidido por Joseth el 20 sep 2026 —*«al acudiente se le avisa en CADA
+     * estación»*, `myvc_flutter/docs/estaciones.md` §2.2 bis— contra la otra opción
+     * que se planteó, avisar sólo al devolver. La familia sabe en todo momento dónde
+     * va y a dónde sigue **sin preguntarle a nadie**, que es lo que hace la fila más
+     * corta.
+     *
+     * ## POR QUÉ ESTO ES UNA FUENTE DEL CRON Y NO UN PUSH AL CERRAR EL PASO
+     *
+     * El 46 §5.3 pedía publicar **dentro** de la petición que cierra el paso. Se le
+     * puso delante a Joseth la contradicción con este mismo fichero y **rectificó el
+     * mismo día**: *«que llegue cuando tenga que llegar, no me voy a complicar con
+     * que le llegue de inmediato»*.
+     *
+     * Y la prohibición de la cabecera de esta clase aquí **aplica más fuerte, no
+     * menos**: de sus dos motivos, el de *volumen* no vale —cerrar un paso es una
+     * acción por familia, no treinta— pero el de *latencia* sí, porque **quien
+     * atiende tiene una fila delante y está en un patio con mala señal**. Un docente
+     * esperando a que Google conteste con doce personas mirándolo es peor aquí que en
+     * la planilla de notas.
+     *
+     * ## LA MARCA ES UN `YmdHis`, Y ESO NO ES INGENIO: ES EL PROBLEMA DE LOS DOS RELOJES
+     *
+     * Las otras cuatro fuentes marcan por `id`, porque miran tablas donde **cada
+     * evento es una fila nueva**. Aquí no: `requisitos_alumno` se rellena de forma
+     * perezosa y después **se actualiza**, así que su `id` no se mueve cuando una
+     * estación cierra el paso. Lo que se mueve es `cerrado_at`.
+     *
+     * Y un sello no se puede convertir a segundos de época para compararlo:
+     * `cerrado_at` lo escribe la aplicación con `Carbon::now('America/Bogota')` —un
+     * reloj de pared— y `FROM_UNIXTIME()` lo leería con **la zona de la sesión de
+     * MySQL**, que en el docker es UTC. Son cinco horas, y el fallo saldría como
+     * *«los avisos llegan con retraso»* sin que nada se ponga rojo. Es el caso de
+     * `importaciones` otra vez: *dos relojes en el mismo sitio y el que se lee no
+     * lleva escrito cuál es.*
+     *
+     * Por eso la marca es el propio sello **como número** —`20260920170600`—,
+     * comparado contra `DATE_FORMAT(...)`: los dos lados son la misma cadena de
+     * pared, así que no hay ninguna zona de por medio. Sigue siendo un entero
+     * creciente, que es lo único que `porFuente` pide.
+     *
+     * ## Y EL BORDE VA CON `>=`, QUE NO ES UN DESCUIDO: ES LA DOCTRINA DE ESTA CLASE
+     *
+     * `timestamp` tiene precisión de **segundo**, así que un paso cerrado en el mismo
+     * segundo en que corrió la pasada anterior cae justo en la marca. Con `>` **se
+     * pierde para siempre**: la marca ya avanzó y ese sello nunca vuelve a entrar en
+     * ninguna ventana.
+     *
+     * Con `>=` se repite **una vez** —sólo los de ese segundo exacto, y sólo en la
+     * pasada siguiente—, que es exactamente lo que la cabecera de esta clase decide
+     * para el otro borde: *«un aviso repetido es una molestia y uno perdido es la
+     * función sin cumplir, así que ante la duda se repite»*.
+     *
+     * Es la misma medicina que el 46 §4 tuvo que recetarle a la huella de las
+     * estaciones, y por el mismo motivo: *cuando el reloj no tiene resolución
+     * suficiente, se elige de qué lado se falla.* Lo destapó el test, que corre entero
+     * dentro de un segundo y por tanto **vive siempre en ese borde**.
+     *
+     * ## UNO POR FAMILIA Y POR PASADA, Y NO UNO POR ESTACIÓN — se dice
+     *
+     * La decisión fue *«en cada estación»* y esto manda **como mucho uno por pasada**,
+     * nombrando **dónde está ahora**. No es un recorte: el cron va cada quince
+     * minutos y agrupar es lo que hace viable esta clase entera. Dos pasos cerrados
+     * dentro de la misma ventana son **un** aviso con la estación buena, en vez de dos
+     * de los que el primero ya es mentira al llegar.
+     *
+     * Y lo que la decisión protegía se conserva entero: el riesgo que ella misma
+     * nombra es que *«la familia aprenda a ignorarlos»*, y agrupar va en esa
+     * dirección, no en contra.
+     *
+     * ## EL NOMBRE SÍ, EL MOTIVO NO
+     *
+     * `notificaciones.md` permite nombrar al menor y prohíbe el contenido. Aquí eso
+     * es *«Laura pasó a Tesorería»* y *«Laura fue devuelta en Documentos»* **sin el
+     * motivo dentro**: el motivo lo escribió un docente para que lo lea la familia,
+     * pero se lee **abriendo la app** —`GET requisitos/mi-recorrido/{alumno_id}`—, no
+     * en la pantalla bloqueada de un bus.
+     */
+    private function avisosDeMatricula(int $desde): array
+    {
+        $tope = (int) Carbon::now('America/Bogota')->format('YmdHis');
+
+        // El último movimiento de cada alumno dentro de la ventana, y si fue una
+        // devolución. **`cerrado_at` para avanzar y `updated_at` para devolver**,
+        // porque devolver limpia `cerrado_at` a propósito (el paso se sigue debiendo)
+        // y sin la segunda mitad la devolución no movería nada que esto pueda ver.
+        $filas = DB::select(
+            'SELECT ra.alumno_id,
+                    MAX(CASE WHEN LOWER(TRIM(ra.estado)) = "devuelto" THEN 1 ELSE 0 END) AS devuelto,
+                    MAX(r.orden) AS orden
+               FROM requisitos_alumno ra
+               INNER JOIN requisitos_matricula r ON r.id = ra.requisito_id AND r.deleted_at IS NULL
+               INNER JOIN alumnos a ON a.id = ra.alumno_id AND a.deleted_at IS NULL
+              WHERE (
+                      (ra.cerrado_at IS NOT NULL
+                       AND DATE_FORMAT(ra.cerrado_at, "%Y%m%d%H%i%s") + 0 >= ?
+                       AND DATE_FORMAT(ra.cerrado_at, "%Y%m%d%H%i%s") + 0 <= ?)
+                   OR (LOWER(TRIM(ra.estado)) = "devuelto"
+                       AND DATE_FORMAT(ra.updated_at, "%Y%m%d%H%i%s") + 0 >= ?
+                       AND DATE_FORMAT(ra.updated_at, "%Y%m%d%H%i%s") + 0 <= ?)
+                    )
+              GROUP BY ra.alumno_id
+              ORDER BY ra.alumno_id
+              LIMIT '.self::TOPE_POR_FUENTE,
+            [$desde, $tope, $desde, $tope]
+        );
+
+        $avisos = [];
+
+        foreach ($filas as $fila) {
+            $alumnoId = (int) $fila->alumno_id;
+            $nombre = $this->primerNombreDe($alumnoId);
+            $donde = $this->dondeVa($alumnoId, (int) $fila->orden, (bool) $fila->devuelto);
+
+            if ($donde === null) {
+                // Cerró el último paso que le quedaba: el recorrido está completo. Es
+                // la única buena noticia del día y no tiene estación que nombrar.
+                $avisos[] = [
+                    'tema' => TemasDeNotificacion::deAlumnoYTipo($alumnoId, 'matricula'),
+                    'titulo' => 'Matrícula',
+                    'cuerpo' => $nombre.' terminó el recorrido de matrícula.',
+                    'datos' => ['pantalla' => 'matricula', 'alumno_id' => (string) $alumnoId],
+                ];
+
+                continue;
+            }
+
+            $avisos[] = [
+                'tema' => TemasDeNotificacion::deAlumnoYTipo($alumnoId, 'matricula'),
+                'titulo' => 'Matrícula',
+                'cuerpo' => $fila->devuelto
+                    ? $nombre.' fue devuelta en '.$donde.'. Abre la app para ver por qué.'
+                    : $nombre.' pasó a '.$donde.'.',
+                'datos' => ['pantalla' => 'matricula', 'alumno_id' => (string) $alumnoId],
+            ];
+        }
+
+        return ['avisos' => $avisos, 'hasta' => $tope];
+    }
+
+    /**
+     * El nombre con el que se le habla a la familia. **El primero y no la ficha
+     * entera**: un aviso que dice «Laura» se lee de un vistazo, y uno que dice
+     * «LAURA SOFÍA GUTIÉRREZ PÉREZ» ocupa la notificación sin decir nada más.
+     */
+    private function primerNombreDe(int $alumnoId): string
+    {
+        $fila = DB::selectOne('SELECT nombres FROM alumnos WHERE id=? AND deleted_at IS NULL',
+            [$alumnoId]);
+
+        $nombres = trim((string) ($fila->nombres ?? ''));
+
+        if ($nombres === '') {
+            return 'Tu hijo';
+        }
+
+        return explode(' ', $nombres)[0];
+    }
+
+    /**
+     * **La estación en la que está ahora**, o `null` si ya no le queda ninguna.
+     *
+     * Una «estación» es el grupo de requisitos que comparten `orden`, así que está
+     * cerrada cuando **todos** los suyos lo están — contando sobre el catálogo y no
+     * sobre las filas que existan, porque `requisitos_alumno` se rellena perezosamente
+     * y contar lo existente daría por hecha una estación de dos con un solo paso
+     * cerrado.
+     *
+     * **Esa regla también vive en `EstacionesController::cerrada()`, y aquí es una
+     * consulta y no una llamada.** Va dicho en vez de tapado: aquel método trabaja
+     * sobre el mapa que ya tiene cargado en memoria para pintar las colas, y esto
+     * necesita la misma pregunta para un alumno suelto desde un comando que no monta
+     * ese mapa. *El día que una tercera cosa la necesite, lo que toca es sacarla a un
+     * `Support` — no copiarla otra vez.*
+     *
+     * Al **devolver**, la estación es la del paso devuelto: la familia tiene que
+     * volver ahí, y `cerrado_at` ya se limpió, así que sale sola por ser la primera
+     * abierta.
+     */
+    private function dondeVa(int $alumnoId, int $ordenDelEvento, bool $devuelto): ?string
+    {
+        $fila = DB::selectOne(
+            'SELECT r.orden, MIN(r.requisito) AS nombre
+               FROM requisitos_matricula r
+              INNER JOIN years y ON y.id = r.year_id AND y.deleted_at IS NULL AND y.actual = 1
+              LEFT JOIN requisitos_alumno ra ON ra.requisito_id = r.id AND ra.alumno_id = ?
+              WHERE r.deleted_at IS NULL
+              GROUP BY r.orden
+             HAVING SUM(CASE WHEN ra.cerrado_at IS NOT NULL THEN 1 ELSE 0 END) < COUNT(r.id)
+              ORDER BY r.orden
+              LIMIT 1',
+            [$alumnoId]
+        );
+
+        if (! $fila) {
+            return null;
+        }
+
+        // Si lo que pasó fue una devolución, el aviso nombra la estación del paso
+        // devuelto aunque el recorrido tenga otra abierta antes. Es a donde tiene que
+        // volver, y es lo único que la familia necesita saber.
+        if ($devuelto && (int) $fila->orden !== $ordenDelEvento) {
+            $suya = DB::selectOne(
+                'SELECT MIN(requisito) AS nombre FROM requisitos_matricula r
+                  INNER JOIN years y ON y.id = r.year_id AND y.deleted_at IS NULL AND y.actual = 1
+                  WHERE r.orden = ? AND r.deleted_at IS NULL',
+                [$ordenDelEvento]
+            );
+
+            if ($suya && $suya->nombre !== null) {
+                return (string) $suya->nombre;
+            }
+        }
+
+        return (string) $fila->nombre;
+    }
+
     private function avisosDelMuro(int $desde): array
     {
         $tope = (int) (DB::selectOne('SELECT COALESCE(MAX(id), 0) AS m FROM publicaciones')->m ?? 0);

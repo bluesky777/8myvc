@@ -1,6 +1,7 @@
 [
     "DELETE api/enfermeria/destroy/{id}",
     "POST api/enfermeria/crear-suceso",
+    "POST api/inscripcion/{codigo}/documento/{requisito_id}",
     "POST api/pagos-inscripcion/webhook",
     "POST api/pagos-inscripcion/{codigo}/checkout",
     "POST api/tardanzas/login",
@@ -16,6 +17,7 @@
     "PUT api/calendario/this-year",
     "PUT api/enfermeria/guardar-valor",
     "PUT api/enfermeria/guardar-valor-suceso",
+    "PUT api/inscripcion/{codigo}",
     "PUT api/publicaciones/borrar-comentario",
     "PUT api/publicaciones/comentar",
     "PUT api/publicaciones/delete",
