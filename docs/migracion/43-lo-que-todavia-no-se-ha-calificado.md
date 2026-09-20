@@ -1095,6 +1095,36 @@ lleva años vacía.
   unifiquen**: cuántos números impresos se mueven en los dieciséis colegios y cuál de los dos es el
   que hay que conservar. Es una decisión de Joseth y no un arreglo.
 
+  > ### ⚠️ ESAS 14 PAREJAS SE MIDIERON EN EL AÑO QUE ALGUIEN TRASTEÓ ESE MISMO DÍA
+  >
+  > *(Anotado el 20 sep 2026 por la noche. **No es una medición nueva**: es mirar de qué población
+  > salió la que ya está escrita arriba.)*
+  >
+  > El renglón dice *«14 pares de 99 **en el año 2026 de la copia**»* y dice por qué discrepan:
+  > *«este método pesa `s.porcentaje` crudo y el servicio pesa `1/n`»* — o sea que **la
+  > discrepancia es del modo `promedio`**. Y 2026 está en `promedio` porque **una sesión de
+  > desarrollo lo puso ahí ese mismo día a las 00:18**, junto con `modelo_evaluacion =
+  > competencias`; los ocho años anteriores están en `porcentaje` y Joseth confirmó que **ningún
+  > colegio ha usado nunca otra cosa**. El detalle está en `ESTADO-ACTUAL.md`.
+  >
+  > **Lo que eso pone en duda no es el número, es la frase que cuelga de él.** Arriba se lee
+  > *«¿unificarlo mueve algún número impreso? **sí, y por eso no se unificó**»*, y esa decisión
+  > descansa entera en una medición hecha sobre un modo que **no usa ningún colegio**. En
+  > `porcentaje` —los ocho años reales y los dieciséis colegios— los dos calculadores **podrían
+  > coincidir perfectamente y nadie lo ha mirado**: `s.porcentaje` crudo y `1/n` sólo divergen
+  > cuando el reparto no es por porcentaje.
+  >
+  > **No se mide aquí**: Joseth dijo el 20 sep que este renglón es de `8myvc-79` y que no se pisa.
+  > Queda escrito para que quien lo recoja **empiece por la población y no por el código** — la
+  > consulta es la misma contra 2025, que es `porcentaje`, con 60.825 notas reales y un 32,9 % sin
+  > calificar. Si ahí coinciden, la §7 deja de ser «dos calculadores que hay que unificar» y pasa
+  > a ser «dos calculadores que sólo divergen en un modo que nadie usa», que es otro lote y mucho
+  > más barato.
+  >
+  > *Es la tercera vez en el mismo día que una cifra cierta describe el año trasteado y se lee
+  > como si describiera los dieciséis colegios.* Las otras dos: el bloqueante del semáforo, y la
+  > cobertura del boletín independiente.
+
   > **Y este renglón decía «de la planilla Y DE LOS BOLETINES», que era falso — lo midieron DOS
   > ramas el mismo día, por caminos distintos, y coincidieron.** La de la planilla censando los
   > seis lectores de `calculoAlumnoNotas`; la del cierre mirando quién lee `notas_finales`
