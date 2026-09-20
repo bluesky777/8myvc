@@ -76,6 +76,28 @@ Route::post('informes/formularios-inscripcion', [FormulariosInscripcionControlle
 // funcionaría y el error no diría por qué. Lo fija `FormulariosInscripcionTest`.
 Route::get('informes/formularios-inscripcion/campos', [FormulariosInscripcionController::class, 'getCampos'])->middleware('auth.personal');
 Route::put('informes/formularios-inscripcion/campos', [FormulariosInscripcionController::class, 'putCampos'])->middleware('auth.personal');
+// DEL PAPEL AL ALUMNO — las cuatro que cierran el ciclo. Autorizadas por Joseth el
+// 20 sep 2026 con el alcance delante; decisiones en el 41 §9.
+//
+// **`campana` y `codigo/…` VAN ANTES QUE `{lote}`, por lo mismo que `campos`**: con
+// el comodín delante, `…/campana` entraría por el lote llamado «campana» y
+// contestaría 404 sin decir por qué. `codigo/{codigo}` son dos segmentos y no
+// chocaría, pero se registra aquí para que las cuatro se lean juntas. Lo fija un
+// test, porque es un fallo que vive en una línea invisible.
+//
+// **LAS DOS ESCRITURAS LLEVAN CRITERIO DENTRO Y LAS DOS LECTURAS NO, y la
+// diferencia va escrita porque es una decisión**: `auth.personal` deja pasar a las
+// 74 cuentas de personal, de las que 53 son docentes. Mirar un papel que se tiene en
+// la mano es lo que hay que poder hacer en la estación de documentos; **atarlo a un
+// alumno decide de quién es un cobro**, y corregir su código cambia lo que lleva
+// impreso un papel que está en casa de una familia. Ésas dos son
+// `Autoriza::puedeAtarFormularios` dentro del método — la forma de la bandeja del
+// tesorero y la de `can_edit_plantilla_notas`, no la de las otras cuatro de esta
+// familia.
+Route::get('informes/formularios-inscripcion/campana', [FormulariosInscripcionController::class, 'getCampana'])->middleware('auth.personal');
+Route::get('informes/formularios-inscripcion/codigo/{codigo}', [FormulariosInscripcionController::class, 'getPorCodigo'])->middleware('auth.personal');
+Route::put('informes/formularios-inscripcion/codigo/{codigo}', [FormulariosInscripcionController::class, 'putCodigo'])->middleware('auth.personal');
+Route::put('informes/formularios-inscripcion/codigo/{codigo}/alumno', [FormulariosInscripcionController::class, 'putAlumno'])->middleware('auth.personal');
 Route::get('informes/formularios-inscripcion/{lote}', [FormulariosInscripcionController::class, 'getLote'])->middleware('auth.personal');
 
 // ColillasInscripcionController

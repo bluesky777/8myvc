@@ -104,6 +104,26 @@ class CodigoDeInscripcion
     }
 
     /**
+     * Un código a partir de un sufijo que tecleó una persona.
+     *
+     * Existe para **corregir** el código de un formulario ya acuñado, que Joseth
+     * pidió el 20 sep 2026. La forma es la que hace que esa corrección sea segura:
+     * quien corrige escribe **los cinco caracteres y no el código**, y el carácter
+     * de control lo pone esto. Por ese camino **no puede salir un código que no
+     * valide**, porque la persona no escribe la parte que podría estar mal.
+     *
+     * Lo que sigue sin garantizar —igual que `generar`— es que no se repita: eso lo
+     * dice el `UNIQUE` de la tabla, y quien llame tiene que traducir el choque a un
+     * 409 en vez de a un 500.
+     *
+     * @throws InvalidArgumentException si el sufijo trae algo que no es del alfabeto
+     */
+    public static function componer(int $year, string $sufijo): string
+    {
+        return $year.'-'.$sufijo.self::control($year, $sufijo);
+    }
+
+    /**
      * Si un código tecleado a mano es uno de los nuestros.
      *
      * Devuelve `false` en vez de lanzar: quien llama es una ruta que tiene que

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Informes;
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Http\Controllers\Controller;
 use App\Services\CodigoDeInscripcion;
+use App\Support\Autoriza;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Request;
@@ -249,6 +250,371 @@ class FormulariosInscripcionController extends Controller
         }
 
         return $this->pintarLote($filas, (int) $filas[0]->year_campana, $filas[0]->cierra);
+    }
+
+    /**
+     * **Lo que hay detrás de un código**, para la ventanilla.
+     *
+     * Secretaría tiene el papel lleno delante y teclea lo que lleva impreso en la
+     * cabecera. Esto le dice de quién es ese formulario, si está pagado y si ya
+     * llegó a matrícula. **No escribe nada.**
+     *
+     * ## Encuentra también por el código VIEJO, y eso es la mitad del método
+     *
+     * Un código corregido (ver `putCodigo`) deja un papel circulando con lo que se
+     * imprimió. Buscar sólo por `codigo` le contestaría a esa familia *«no existe»*,
+     * que es exactamente la avería que `codigo_anterior` viene a impedir. Por eso la
+     * respuesta dice **`encontrado_por`**: la pantalla necesita poder avisar de que
+     * ese papel ya no lleva el código bueno.
+     *
+     * ## El guard es `auth.personal` y aquí NO hay criterio dentro, a propósito
+     *
+     * Leer un formulario no decide nada —las dos escrituras de esta familia sí, y
+     * por eso ésas llevan `puedeAtarFormularios` dentro—. Poner el mismo criterio
+     * aquí dejaría a un docente que atiende la estación de documentos sin poder
+     * mirar el papel que tiene en la mano, que es justo lo que el día de matrículas
+     * hay que hacer.
+     */
+    public function getPorCodigo(string $codigo)
+    {
+        $orden = $this->ordenDelCodigo($codigo);
+
+        return $this->pintarOrden($orden);
+    }
+
+    /**
+     * **Ata el papel a un alumno.** El código **no cambia**: es el requisito literal
+     * de Joseth —*«se queda con ese alumno al que inscriban para matricular»*—.
+     *
+     * ## Los tres casos, y el segundo es el que pidió Joseth por su nombre
+     *
+     * 1. **La orden está libre** (`alumno_id` NULL) y el alumno no tiene ninguna de
+     *    esta campaña → se ata. El código sigue siendo el mismo que hay impreso.
+     * 2. **El alumno YA tiene una orden de esta campaña** → **no se acuña nada, no
+     *    se mueve nada, y se devuelve la suya**. Es el caso de *«ya le dimos el
+     *    formulario a un acudiente y viene otro nuevo por el mismo alumno»*: el
+     *    papel que trae el segundo queda **libre** para otra familia, que es lo que
+     *    hay que hacer con un formulario en blanco que no se usó. Contesta **409**
+     *    con el código que ya tiene dentro, porque lo que se pidió no se hizo.
+     * 3. **Se repite la misma llamada** (esta orden ya es de ese alumno) → **200**,
+     *    idempotente. Un reintento de la pantalla no puede ser un error.
+     *
+     * ## Y el 409 del caso 2 lo garantiza la BASE, no este `if`
+     *
+     * La lectura previa cubre el 99 % y **no es la garantía**: dos ventanillas
+     * atando dos papeles al mismo alumno a la vez pasarían las dos. Lo que lo impide
+     * es el `UNIQUE (year_campana, alumno_id)`, y por eso el `UPDATE` va dentro de un
+     * `try` que, al chocar, **relee y contesta lo mismo que el camino normal**. Es la
+     * misma forma que `insertarConCodigo`, y por el mismo motivo: el
+     * comprueba-y-luego-escribe de `notas_finales` es medio
+     * [10](../../../docs/migracion/10-definitivas.md).
+     *
+     * ## `matricula_id` se rellena aquí, y el estado va detrás
+     *
+     * Si el alumno **ya tiene matrícula viva del año de la campaña**, se guarda y la
+     * orden pasa a `MATRICULADA`. No hace falta pedirlo aparte: el día de matrículas
+     * el papel se ata cuando el alumno ya existe.
+     *
+     * **Lo que NO se hace es enganchar esto en el flujo de matrícula**, y conviene
+     * que quede dicho porque es la pregunta obvia: `matriculas` tiene **ocho
+     * escritores** en todo `app/` —`MatriculasController`, `LoginController`,
+     * `PromovidosController`, `ImportarController` y `GuardarAlumno`— y ninguno es de
+     * este módulo. Meter una escritura nuestra en los ocho es tocar el camino
+     * caliente de los dieciséis colegios para una columna que sólo lee este informe.
+     * Por eso **el informe de campaña no se fía de `estado`: cuenta los matriculados
+     * con el `JOIN` vivo** (ver `getCampana`), y esta columna es una comodidad, no
+     * una fuente de verdad. *Una caché con ocho escritores ajenos es `notas_finales`
+     * otra vez.*
+     */
+    public function putAlumno(string $codigo)
+    {
+        $user = $this->user;
+
+        Autoriza::exigir(Autoriza::puedeAtarFormularios($user),
+            'No tiene permiso para atar formularios de inscripción a un alumno.');
+
+        $orden = $this->ordenDelCodigo($codigo);
+        $alumno = $this->alumnoDelCuerpo();
+
+        // `$orden->alumno_id !== null` va DELANTE y no sobra: `(int) null` es **0**, así
+        // que sin él las dos comparaciones de aquí abajo funcionarían por accidente
+        // —hoy ningún `alumnos.id` vale 0 porque es autoincremental— y dejarían de
+        // funcionar el día que alguien importe una fila con id 0. Una condición que
+        // depende de que un id nunca valga cero no es una condición, es una apuesta.
+        if ($orden->estado === 'MATRICULADA'
+            && ($orden->alumno_id === null || (int) $orden->alumno_id !== (int) $alumno->id)) {
+            abort(409, 'Ese formulario ya está cerrado con otro alumno matriculado.');
+        }
+
+        // Caso 3: la misma llamada otra vez. Se recomprueba la matrícula —puede
+        // haberse matriculado entre las dos— y se contesta 200.
+        if ($orden->alumno_id !== null && (int) $orden->alumno_id === (int) $alumno->id) {
+            $this->cerrarSiYaEstaMatriculado($orden, $user);
+
+            return $this->pintarOrden($this->ordenPorId((int) $orden->id));
+        }
+
+        // Caso 2, camino normal: el alumno ya tiene la suya. No se toca ninguna de
+        // las dos — la de este papel se queda libre para otra familia.
+        $suya = DB::selectOne('SELECT * FROM ordenes_inscripcion
+            WHERE year_campana=? AND alumno_id=? AND deleted_at IS NULL',
+            [(int) $orden->year_campana, (int) $alumno->id]);
+
+        if ($suya) {
+            return $this->yaTieneElSuyo($suya, $alumno);
+        }
+
+        if ($orden->alumno_id !== null) {
+            abort(409, 'Ese formulario ya es de otro alumno. Un formulario vendido no cambia de dueño.');
+        }
+
+        $matricula = $this->matriculaDeLaCampana((int) $alumno->id, (int) $orden->year_campana);
+
+        try {
+            // Condicional: `alumno_id IS NULL`. Si otra ventanilla lo ató entre la
+            // lectura y esto, afecta **cero filas** y no se pisa nada.
+            $tocadas = DB::update('UPDATE ordenes_inscripcion
+                SET alumno_id=?, matricula_id=?, estado=?, updated_by=?, updated_at=NOW()
+                WHERE id=? AND alumno_id IS NULL AND deleted_at IS NULL', [
+                (int) $alumno->id,
+                $matricula?->id,
+                $matricula ? 'MATRICULADA' : $orden->estado,
+                $user->user_id,
+                (int) $orden->id,
+            ]);
+        } catch (QueryException $e) {
+            // Caso 2, la carrera: otra ventanilla acaba de atarle el suyo. El
+            // `UNIQUE` es lo que lo impide, y la respuesta es la misma que arriba.
+            if (! str_contains($e->getMessage(), 'ordenes_inscripcion_alumno_campana')) {
+                throw $e;
+            }
+
+            $suya = DB::selectOne('SELECT * FROM ordenes_inscripcion
+                WHERE year_campana=? AND alumno_id=? AND deleted_at IS NULL',
+                [(int) $orden->year_campana, (int) $alumno->id]);
+
+            if (! $suya) {
+                throw $e;   // chocó contra otra cosa: no se disfraza de conflicto
+            }
+
+            return $this->yaTieneElSuyo($suya, $alumno);
+        }
+
+        if ($tocadas === 0) {
+            // Se lo ató otro entre la lectura y el `UPDATE`, y no fue a este alumno
+            // —si lo fuera, habría chocado el `UNIQUE`—.
+            abort(409, 'Ese formulario acaba de atarse a otro alumno.');
+        }
+
+        return $this->pintarOrden($this->ordenPorId((int) $orden->id));
+    }
+
+    /**
+     * **Corregir el código de un formulario ya acuñado.**
+     *
+     * Pedido por Joseth el 20 sep 2026, y su frase lleva dentro las dos mitades:
+     * *«los códigos no los debe inventar la secretaría, eso debe ser automático,
+     * aunque no estaría mal que lo pueda modificar después de generado/atado,
+     * asegurando de darle herramientas para que no repita código»*.
+     *
+     * ## Se teclea el SUFIJO, no el código — y eso ES la herramienta
+     *
+     * El cuerpo lleva `sufijo`, cinco caracteres del alfabeto. **El carácter de
+     * control lo calcula la API**, así que por este camino no puede salir un código
+     * que no valide: el que corrige no tiene forma de escribir uno roto porque no
+     * escribe esa parte. Sin `sufijo`, se acuña uno **automático**, que es el botón
+     * de *«deme otro»* cuando el papel se estropeó.
+     *
+     * Y que no se repita **no lo garantiza ninguna comprobación de aquí**: lo
+     * garantiza el `UNIQUE (codigo)`. Este método lo traduce a un **409 que dice qué
+     * pasó** en vez de a un 500 — *que la base lo rechace es una garantía; que el
+     * generador «no repita» es una esperanza*.
+     *
+     * ## El papel viejo NO se queda huérfano
+     *
+     * El código que se retira se guarda en `codigo_anterior`, y `getPorCodigo`
+     * busca por las dos columnas. Sin eso, corregir un código convierte en basura
+     * silenciosa el papel que está en casa de la familia: quien lo teclee recibe
+     * *«no existe»* y **nadie puede saber que existió**.
+     *
+     * Se guarda **uno solo**, el inmediatamente anterior. Corregir dos veces deja
+     * huérfano el primero, y es una limitación consciente: el caso de uso es *una*
+     * corrección, y un historial sería una tabla que nadie ha pedido.
+     *
+     * ## Lo único que no se puede corregir es lo que ya cerró
+     *
+     * `MATRICULADA` es 409: ese código ya está pegado a una matrícula y cambiarlo
+     * sólo puede confundir a quien lo busque después. Con pagos **sí** se deja, y no
+     * por descuido: las colillas y los pagos apuntan a `orden_id`, no al código, así
+     * que dentro de la casa no se rompe nada — lo único que cambia es el papel, y
+     * de eso se ocupa `codigo_anterior`. La respuesta lleva `tenia_pagos` para que
+     * la pantalla pueda avisar antes.
+     */
+    public function putCodigo(string $codigo)
+    {
+        $user = $this->user;
+
+        Autoriza::exigir(Autoriza::puedeAtarFormularios($user),
+            'No tiene permiso para corregir el código de un formulario.');
+
+        $orden = $this->ordenDelCodigo($codigo);
+
+        if ($orden->estado === 'MATRICULADA') {
+            abort(409, 'Ese formulario ya está cerrado con una matrícula: su código no se cambia.');
+        }
+
+        $campana = (int) $orden->year_campana;
+        $sufijo = $this->sufijoValidado();
+
+        // Pedir el que ya tiene no es un error ni una corrección: no se toca nada y
+        // `codigo_anterior` se queda como estaba. Si esto escribiera, el papel
+        // bueno pasaría a ser «el anterior» de sí mismo.
+        if ($sufijo !== null && CodigoDeInscripcion::componer($campana, $sufijo) === $orden->codigo) {
+            return $this->pintarOrden($orden) + ['tenia_pagos' => $this->tienePagos((int) $orden->id)];
+        }
+
+        $tenia = $this->tienePagos((int) $orden->id);
+        $intentos = $sufijo === null ? self::INTENTOS_DE_CODIGO : 1;
+
+        for ($intento = 0; $intento < $intentos; $intento++) {
+            $nuevo = $sufijo === null
+                ? CodigoDeInscripcion::generar($campana)
+                : CodigoDeInscripcion::componer($campana, $sufijo);
+
+            try {
+                $tocadas = DB::update('UPDATE ordenes_inscripcion
+                    SET codigo=?, codigo_anterior=?, updated_by=?, updated_at=NOW()
+                    WHERE id=? AND codigo=? AND deleted_at IS NULL',
+                    [$nuevo, $orden->codigo, $user->user_id, (int) $orden->id, $orden->codigo]);
+            } catch (QueryException $e) {
+                // **`ordenes_inscripcion_codigo` es PREFIJO de
+                // `ordenes_inscripcion_codigo_anterior`**, así que este `str_contains`
+                // casaría con los dos. Hoy da igual —el segundo es un índice de
+                // búsqueda y no puede lanzar «Duplicate entry»— y queda dicho porque
+                // el día que alguien le ponga un `UNIQUE` a esa columna, el choque se
+                // leería aquí como «el aleatorio repitió» y se reintentaría para
+                // siempre con el mismo resultado.
+                if (! str_contains($e->getMessage(), 'ordenes_inscripcion_codigo')) {
+                    throw $e;
+                }
+
+                if ($sufijo !== null) {
+                    abort(409, 'Ese código ya está en uso. Escriba otro.');
+                }
+
+                continue;   // el aleatorio chocó: otro
+            }
+
+            if ($tocadas === 0) {
+                abort(409, 'Ese formulario acaba de cambiar de código. Vuelva a mirarlo.');
+            }
+
+            return $this->pintarOrden($this->ordenPorId((int) $orden->id)) + ['tenia_pagos' => $tenia];
+        }
+
+        abort(500, 'No se pudo acuñar un código libre después de '.self::INTENTOS_DE_CODIGO.' intentos.');
+    }
+
+    /**
+     * **El informe de la campaña**: qué se imprimió, qué se cobró y **quién compró y
+     * no volvió**.
+     *
+     * Esa última lista es la que el docblock de la migración prometía —*«de aquí sale
+     * la lista de quién compró y no volvió, que hoy no existe en ninguna parte y es
+     * dinero que el colegio ya recibió»*— y hasta hoy no salía de ningún sitio:
+     * `ordenes_inscripcion` sólo se podía leer **por lote**.
+     *
+     * ## Los matriculados NO se cuentan por `estado`, y ésa es la decisión del método
+     *
+     * Se cuentan con un `JOIN` vivo contra `matriculas`. El motivo está en
+     * `putAlumno`: `estado = 'MATRICULADA'` lo escribe **sólo** este módulo, y
+     * `matriculas` tiene **ocho escritores ajenos**, así que la columna va por detrás
+     * siempre que alguien matricule por cualquiera de los otros siete caminos.
+     * **Contarla daría una cifra que baja sola** y una lista de llamadas con gente
+     * que ya está en clase.
+     *
+     * ## «Vendido» no es «acuñado», aunque la columna se llame `vendida_at`
+     *
+     * Conviene decirlo porque el nombre engaña: `vendida_por` y `vendida_at` se
+     * escriben **al acuñar**, o sea al imprimir. Cincuenta formularios en blanco no
+     * son cincuenta ventas. Lo que dice que alguien pagó es el **estado**
+     * —`PAGADA` la pone la colilla aprobada o el webhook—, y por eso `recaudado`
+     * suma sobre el estado y no sobre esa fecha.
+     *
+     * ## Y por eso «compró y no volvió» es una resta de dos cosas medidas distinto
+     *
+     * Pagó (el estado lo dice) **y** no tiene matrícula viva del año de la campaña
+     * (el `JOIN` lo dice). Viaja con los teléfonos del alumno y de su primer
+     * acudiente, porque para lo que sirve esa lista es para una tarde de llamadas.
+     */
+    public function getCampana()
+    {
+        $campana = $this->campanaDeLaPeticion();
+
+        $porEstado = DB::select('SELECT estado, COUNT(*) AS cuantas,
+                SUM(CASE WHEN alumno_id IS NOT NULL THEN 1 ELSE 0 END) AS atadas,
+                SUM(COALESCE(valor,0)) AS suma
+            FROM ordenes_inscripcion
+            WHERE year_campana=? AND deleted_at IS NULL
+            GROUP BY estado', [$campana]);
+
+        $cuenta = array_fill_keys(self::ESTADOS, 0);
+        $impresos = 0;
+        $atados = 0;
+        $recaudado = 0;
+
+        foreach ($porEstado as $fila) {
+            $cuenta[$fila->estado] = (int) $fila->cuantas;
+            $impresos += (int) $fila->cuantas;
+            $atados += (int) $fila->atadas;
+
+            if (in_array($fila->estado, self::PAGADOS, true)) {
+                $recaudado += (int) $fila->suma;
+            }
+        }
+
+        $pagados = array_sum(array_map(fn ($e) => $cuenta[$e], self::PAGADOS));
+
+        // El `JOIN` vivo, que es de donde sale la verdad. `LEFT JOIN … IS NULL` y no
+        // un `NOT EXISTS` porque la misma consulta tiene que servir para contar y
+        // para listar, y así las dos miran exactamente lo mismo.
+        $sinVolver = DB::select('SELECT o.codigo, o.estado, o.valor, o.updated_at AS pagado_at,
+                a.id AS alumno_id, a.nombres, a.apellidos, a.documento,
+                a.telefono, a.celular, a.email
+            FROM ordenes_inscripcion o
+            LEFT JOIN alumnos a ON a.id=o.alumno_id AND a.deleted_at IS NULL
+            LEFT JOIN matriculas m ON m.alumno_id=o.alumno_id AND m.deleted_at IS NULL
+                AND (m.estado="ASIS" OR m.estado="MATR")
+                AND m.grupo_id IN (SELECT g.id FROM grupos g
+                    INNER JOIN years y ON y.id=g.year_id AND y.deleted_at IS NULL AND y.year=?
+                    WHERE g.deleted_at IS NULL)
+            WHERE o.year_campana=? AND o.deleted_at IS NULL
+                AND o.estado IN ("'.implode('","', self::PAGADOS).'")
+                AND m.id IS NULL
+            GROUP BY o.id
+            ORDER BY o.updated_at DESC
+            LIMIT '.(self::MAXIMO_SIN_VOLVER + 1), [$campana, $campana]);
+
+        $recortada = count($sinVolver) > self::MAXIMO_SIN_VOLVER;
+        $sinVolver = array_slice($sinVolver, 0, self::MAXIMO_SIN_VOLVER);
+
+        return [
+            'year_campana' => $campana,
+            'resumen' => [
+                'impresos' => $impresos,
+                'atados' => $atados,
+                'en_blanco' => $impresos - $atados,
+                'pagados' => $pagados,
+                'matriculados' => $this->cuantosMatriculados($campana),
+                'recaudado' => $recaudado,
+                'sin_volver' => count($sinVolver),
+            ],
+            'por_estado' => $cuenta,
+            // **Recortada y dicho**: una lista que se corta en silencio deja al
+            // colegio llamando a los primeros quinientos y creyendo que no hay más.
+            'sin_volver' => $this->conAcudientes($sinVolver),
+            'sin_volver_recortada' => $recortada,
+        ];
     }
 
     /**
@@ -741,6 +1107,394 @@ class FormulariosInscripcionController extends Controller
         // colegio vuelve a elegir. Un 500 aquí dejaría la pantalla muerta por una
         // fila mal escrita a mano.
         return is_array($campos) ? array_values(array_filter($campos, 'is_string')) : [];
+    }
+
+    /**
+     * Los estados de una orden, **en el orden del embudo**.
+     *
+     * Están escritos aquí y no se leen de la base por una razón concreta: el
+     * `array_fill_keys` con esta lista es lo que hace que **un estado con cero salga
+     * igualmente en la respuesta**. Sin él, la pantalla no puede distinguir
+     * «ninguno» de «no me lo mandaron», que es la diferencia entre un tablero que
+     * dice «0 rechazados» y uno que se deja el renglón.
+     *
+     * **Lo que NO hace es filtrar**, y conviene no creerlo: la columna es un
+     * `varchar` sin `CHECK`, así que un estado inventado a mano en phpMyAdmin se
+     * añade a la respuesta además de los cinco. **Eso es lo que hace falta** —un
+     * estado que nadie puso ahí desde el código tiene que verse, no esconderse—,
+     * pero significa que esta lista es un **mínimo garantizado**, no un censo
+     * cerrado.
+     */
+    private const ESTADOS = ['IMPRESA', 'PAGADA', 'APROBADA', 'RECHAZADA', 'MATRICULADA'];
+
+    /**
+     * Los estados que significan **que el colegio ya recibió el dinero**.
+     *
+     * `PAGADA` la pone la colilla aprobada por el tesorero y también el webhook de
+     * la pasarela. `APROBADA` no la escribe hoy nadie y va aquí de todas formas: el
+     * día que alguien la use, dejarla fuera contaría un pago como impago **sin que
+     * nada se ponga rojo**.
+     */
+    private const PAGADOS = ['PAGADA', 'APROBADA'];
+
+    /**
+     * Cuántos «compró y no volvió» caben en una respuesta.
+     *
+     * No es rendimiento: es que esa lista es **una tarde de llamadas**, y quinientas
+     * ya son más de las que nadie hace en una tarde. Lo que importa es el
+     * `sin_volver_recortada` que viaja al lado — una lista cortada en silencio deja
+     * al colegio llamando a los primeros y creyendo que no hay más.
+     */
+    private const MAXIMO_SIN_VOLVER = 500;
+
+    /**
+     * La orden que lleva ese código, buscando **también por el código viejo**.
+     *
+     * El 422 y el 404 dicen cosas distintas y por eso no se juntan: lo primero es
+     * *«eso no es un código nuestro»* —lo caza el carácter de control sin tocar la
+     * base, que es también lo que impide usar esta ruta para tantear la tabla— y lo
+     * segundo es *«es un código nuestro y no existe»*.
+     */
+    private function ordenDelCodigo(string $codigo): object
+    {
+        $normal = CodigoDeInscripcion::normalizar($codigo);
+
+        if ($normal === null || ! CodigoDeInscripcion::esValido($normal)) {
+            abort(422, 'Ese código no tiene la forma de un código de inscripción. Revíselo.');
+        }
+
+        $orden = DB::selectOne('SELECT * FROM ordenes_inscripcion
+            WHERE codigo=? AND deleted_at IS NULL', [$normal]);
+
+        if ($orden) {
+            $orden->encontrado_por = 'codigo';
+
+            return $orden;
+        }
+
+        $orden = DB::selectOne('SELECT * FROM ordenes_inscripcion
+            WHERE codigo_anterior=? AND deleted_at IS NULL ORDER BY id DESC', [$normal]);
+
+        if (! $orden) {
+            abort(404, 'No hay ningún formulario con ese código.');
+        }
+
+        $orden->encontrado_por = 'codigo_anterior';
+
+        return $orden;
+    }
+
+    private function ordenPorId(int $id): object
+    {
+        $orden = DB::selectOne('SELECT * FROM ordenes_inscripcion WHERE id=?', [$id]);
+
+        if (! $orden) {
+            abort(404, 'No hay ningún formulario con ese código.');
+        }
+
+        $orden->encontrado_por = 'codigo';
+
+        return $orden;
+    }
+
+    /**
+     * Una orden vista desde la ventanilla.
+     *
+     * Lleva los **textos** y no los ids por lo mismo que el papel: quien mira esto
+     * tiene una familia delante. Y lleva `matricula` resuelta contra `matriculas` y
+     * no contra `matricula_id`, porque esa columna sólo la escribe este módulo y el
+     * alumno puede haberse matriculado por cualquiera de los otros siete caminos
+     * (ver `putAlumno`).
+     *
+     * @return array<string, mixed>
+     */
+    private function pintarOrden(object $orden): array
+    {
+        $alumno = null;
+
+        if ($orden->alumno_id !== null) {
+            $alumno = DB::selectOne('SELECT a.id, a.nombres, a.apellidos, a.documento,
+                    a.telefono, a.celular, a.email, g.nombre AS grupo_actual
+                FROM alumnos a
+                LEFT JOIN matriculas m ON m.alumno_id=a.id AND m.deleted_at IS NULL
+                    AND (m.estado="ASIS" OR m.estado="MATR")
+                LEFT JOIN grupos g ON g.id=m.grupo_id AND g.deleted_at IS NULL
+                WHERE a.id=? AND a.deleted_at IS NULL
+                GROUP BY a.id', [(int) $orden->alumno_id]);
+        }
+
+        $grado = null;
+
+        if ($orden->grado_id !== null) {
+            $fila = DB::selectOne('SELECT nombre FROM grados WHERE id=? AND deleted_at IS NULL',
+                [(int) $orden->grado_id]);
+            $grado = $fila->nombre ?? null;
+        }
+
+        $matricula = $orden->alumno_id === null
+            ? null
+            : $this->matriculaDeLaCampana((int) $orden->alumno_id, (int) $orden->year_campana);
+
+        return [
+            'codigo' => $orden->codigo,
+            'codigo_anterior' => $orden->codigo_anterior,
+            'encontrado_por' => $orden->encontrado_por ?? 'codigo',
+            'year_campana' => (int) $orden->year_campana,
+            'lote_id' => $orden->lote_id,
+            'modo' => $orden->modo,
+            'estado' => $orden->estado,
+            'cierra' => $orden->cierra,
+            'valor' => $orden->valor === null ? null : (int) $orden->valor,
+            'vendida_at' => $orden->vendida_at,
+            'grado' => $grado,
+            'alumno' => $alumno,
+            'matricula' => $matricula,
+            'pagos' => $this->pagosDeLaOrden((int) $orden->id),
+        ];
+    }
+
+    /**
+     * El 409 del caso 2 de `putAlumno`, con **el código que ese alumno ya tiene
+     * dentro del cuerpo**.
+     *
+     * El cuerpo importa tanto como el código HTTP: sin él la pantalla sólo puede
+     * decir *«ya tiene uno»* y la secretaría tendría que ir a buscarlo, que es
+     * exactamente el trabajo que este módulo existe para quitar.
+     */
+    private function yaTieneElSuyo(object $suya, object $alumno): never
+    {
+        abort(response()->json([
+            'message' => 'Ese alumno ya tiene el formulario '.$suya->codigo.' para esta campaña. '
+                .'El que trae en la mano queda libre para otra familia.',
+            'codigo' => $suya->codigo,
+            'alumno_id' => (int) $alumno->id,
+            'year_campana' => (int) $suya->year_campana,
+        ], 409));
+    }
+
+    /**
+     * El alumno que manda el cuerpo, comprobado.
+     *
+     * Un alumno en la papelera es **404 y no un 200 que no escribió nada**: atar un
+     * cobro a una ficha borrada es justo el caso en que el silencio se descubre
+     * meses después.
+     */
+    private function alumnoDelCuerpo(): object
+    {
+        $alumno_id = Request::input('alumno_id');
+
+        if (! is_numeric($alumno_id)) {
+            abort(422, 'Falta el alumno.');
+        }
+
+        $alumno = DB::selectOne('SELECT id, nombres, apellidos FROM alumnos
+            WHERE id=? AND deleted_at IS NULL', [(int) $alumno_id]);
+
+        if (! $alumno) {
+            abort(404, 'Ese alumno no existe.');
+        }
+
+        return $alumno;
+    }
+
+    /**
+     * La matrícula viva del alumno **en el año de la campaña**, si la hay.
+     *
+     * `matriculas` no tiene `year_id`: el año va por `grupos.year_id`, así que el
+     * `JOIN` es obligado y no un adorno. Y se compara contra `years.year` —el número
+     * del año lectivo— y no contra un id, porque `year_campana` es *«el año al que la
+     * familia se inscribe»* y **puede no tener fila todavía**; el día que la tenga,
+     * esto la encuentra sin cambiar nada.
+     */
+    private function matriculaDeLaCampana(int $alumnoId, int $campana): ?object
+    {
+        return DB::selectOne('SELECT m.id, m.estado, m.fecha_matricula, g.nombre AS grupo
+            FROM matriculas m
+            INNER JOIN grupos g ON g.id=m.grupo_id AND g.deleted_at IS NULL
+            INNER JOIN years y ON y.id=g.year_id AND y.deleted_at IS NULL
+            WHERE m.alumno_id=? AND y.year=? AND m.deleted_at IS NULL
+                AND (m.estado="ASIS" OR m.estado="MATR")
+            ORDER BY m.id DESC', [$alumnoId, $campana]);
+    }
+
+    /**
+     * Cierra la orden si su alumno ya está matriculado en la campaña.
+     *
+     * Se llama desde el camino idempotente de `putAlumno` —la misma llamada otra
+     * vez— porque entre las dos el alumno puede haberse matriculado. **Un reintento
+     * que no recomprueba deja la columna por detrás para siempre.**
+     */
+    private function cerrarSiYaEstaMatriculado(object $orden, object $user): void
+    {
+        if ($orden->estado === 'MATRICULADA' || $orden->alumno_id === null) {
+            return;
+        }
+
+        $matricula = $this->matriculaDeLaCampana((int) $orden->alumno_id, (int) $orden->year_campana);
+
+        if (! $matricula) {
+            return;
+        }
+
+        DB::update('UPDATE ordenes_inscripcion
+            SET matricula_id=?, estado="MATRICULADA", updated_by=?, updated_at=NOW()
+            WHERE id=? AND estado<>"MATRICULADA"',
+            [(int) $matricula->id, $user->user_id, (int) $orden->id]);
+    }
+
+    /** Si por este formulario ya pasó dinero, por cualquiera de los dos caminos. */
+    private function tienePagos(int $ordenId): bool
+    {
+        $fila = DB::selectOne('SELECT
+                (SELECT COUNT(*) FROM colillas_inscripcion WHERE orden_id=?) AS colillas,
+                (SELECT COUNT(*) FROM pagos_inscripcion WHERE orden_id=?) AS pagos',
+            [$ordenId, $ordenId]);
+
+        return ((int) $fila->colillas + (int) $fila->pagos) > 0;
+    }
+
+    /**
+     * Los comprobantes y los pagos en línea de una orden, para la ventanilla.
+     *
+     * **El nombre del fichero de la colilla no viaja.** La URL es la llave —lo dice
+     * el 41 §5— y esta ruta la puede llamar cualquiera de las 74 cuentas de
+     * personal; lo que hace falta aquí es saber **si está pagado y si algo se
+     * rechazó**, no poder abrir el recibo.
+     *
+     * @return array<string, mixed>
+     */
+    private function pagosDeLaOrden(int $ordenId): array
+    {
+        return [
+            'colillas' => DB::select('SELECT id, estado, motivo, created_at, resuelta_at
+                FROM colillas_inscripcion WHERE orden_id=? ORDER BY id', [$ordenId]),
+            'en_linea' => DB::select('SELECT id, proveedor, estado, estado_pasarela,
+                    monto_centavos, verificado_por, verificado_at, created_at
+                FROM pagos_inscripcion WHERE orden_id=? ORDER BY id', [$ordenId]),
+        ];
+    }
+
+    /**
+     * El sufijo que teclea quien corrige, o `null` para que lo acuñe la API.
+     *
+     * Se valida contra el **mismo alfabeto** del generador, y eso es lo que hace que
+     * la corrección no pueda producir un código ambiguo: la `O`, el `0`, la `I`, el
+     * `1`, la `L`, la `S` y el `5` no están fuera por estética, están fuera porque
+     * una persona los confunde leyendo un papel. Dejar colar una `O` aquí metería
+     * en circulación justo el código que este módulo evita acuñar.
+     */
+    private function sufijoValidado(): ?string
+    {
+        $sufijo = Request::input('sufijo');
+
+        if ($sufijo === null || trim((string) $sufijo) === '') {
+            return null;
+        }
+
+        $sufijo = strtoupper(trim((string) $sufijo));
+        $clase = preg_quote(CodigoDeInscripcion::ALFABETO, '/');
+
+        if (preg_match('/^['.$clase.']{'.CodigoDeInscripcion::LARGO.'}$/', $sufijo) !== 1) {
+            abort(422, 'El código son '.CodigoDeInscripcion::LARGO
+                .' caracteres de «'.CodigoDeInscripcion::ALFABETO.'». '
+                .'No lleva la O, el 0, la I, el 1, la L, la S ni el 5: se confunden en el papel.');
+        }
+
+        return $sufijo;
+    }
+
+    /**
+     * De qué campaña es el informe.
+     *
+     * Por defecto **la misma cuenta que `postAcunar`** —el año de la sesión más
+     * uno—, y por el mismo motivo: la pantalla que llama esto está mirando el año en
+     * el que trabaja. Se deja elegir porque en enero el colegio sigue llamando a los
+     * que compraron en septiembre, y para entonces la sesión ya está en el año nuevo.
+     */
+    private function campanaDeLaPeticion(): int
+    {
+        $campana = Request::input('year_campana');
+
+        if ($campana === null || $campana === '') {
+            $anio = DB::selectOne('SELECT year FROM years WHERE id=? AND deleted_at IS NULL',
+                [$this->user->year_id]);
+
+            if (! $anio) {
+                abort(404, 'El año lectivo de la sesión no existe.');
+            }
+
+            return ((int) $anio->year) + 1;
+        }
+
+        if (! is_numeric($campana) || (int) $campana != $campana
+            || (int) $campana < 2000 || (int) $campana > 2999) {
+            abort(422, 'El año de la campaña no es válido.');
+        }
+
+        return (int) $campana;
+    }
+
+    /**
+     * Cuántos de los formularios de la campaña acabaron en matrícula, **contado
+     * contra `matriculas` y no contra `estado`** (ver `getCampana`).
+     */
+    private function cuantosMatriculados(int $campana): int
+    {
+        $fila = DB::selectOne('SELECT COUNT(DISTINCT o.id) AS cuantos
+            FROM ordenes_inscripcion o
+            INNER JOIN matriculas m ON m.alumno_id=o.alumno_id AND m.deleted_at IS NULL
+                AND (m.estado="ASIS" OR m.estado="MATR")
+            INNER JOIN grupos g ON g.id=m.grupo_id AND g.deleted_at IS NULL
+            INNER JOIN years y ON y.id=g.year_id AND y.deleted_at IS NULL AND y.year=?
+            WHERE o.year_campana=? AND o.deleted_at IS NULL AND o.alumno_id IS NOT NULL',
+            [$campana, $campana]);
+
+        return (int) ($fila->cuantos ?? 0);
+    }
+
+    /**
+     * Le pega a cada fila el celular de su primer acudiente, **en una consulta**.
+     *
+     * Uno por fila sería `N+1` con quinientas. Y va aquí y no en el `SELECT` de
+     * arriba porque un `JOIN` con `parentescos` multiplicaría las filas por el número
+     * de acudientes, que es el error que convierte un informe en una lista con
+     * repetidos.
+     *
+     * @param  array<int, object>  $filas
+     * @return array<int, object>
+     */
+    private function conAcudientes(array $filas): array
+    {
+        $ids = array_values(array_filter(array_map(fn ($f) => $f->alumno_id, $filas)));
+
+        if (count($ids) === 0) {
+            return $filas;
+        }
+
+        $acudientes = DB::select('SELECT p.alumno_id, ac.nombres, ac.apellidos,
+                ac.celular, ac.telefono, ac.email
+            FROM parentescos p
+            INNER JOIN acudientes ac ON ac.id=p.acudiente_id AND ac.deleted_at IS NULL
+            WHERE p.alumno_id IN ('.implode(',', array_fill(0, count($ids), '?')).')
+                AND p.deleted_at IS NULL
+            ORDER BY p.alumno_id, p.id', $ids);
+
+        $primero = [];
+
+        foreach ($acudientes as $acudiente) {
+            $alumno_id = $acudiente->alumno_id;
+
+            if (! isset($primero[$alumno_id])) {
+                unset($acudiente->alumno_id);
+                $primero[$alumno_id] = $acudiente;
+            }
+        }
+
+        foreach ($filas as $fila) {
+            $fila->acudiente = $primero[$fila->alumno_id] ?? null;
+        }
+
+        return $filas;
     }
 
     private function gradoValidado(): ?int
