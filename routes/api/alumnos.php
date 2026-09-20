@@ -76,6 +76,19 @@ Route::post('importar/cartera', [ImportarController::class, 'postCartera'])->mid
 Route::post('importar/algo/{year}', [ImportarController::class, 'postAlgo'])->middleware('auth.personal');
 Route::get('importar/modificar/{year}', [ImportarController::class, 'getModificar'])->middleware('auth.personal');
 
+// Si hay una importación de alumnos a medias en este año. Es lo primero que
+// pregunta la pantalla AL ENTRAR, antes de que nadie elija fichero: con una a
+// medias, lo que toca no es subir otra sino decidir entre seguir donde se quedó
+// o empezar de cero (Fase 2 de docs/migracion/44-la-importacion-dinamica.md).
+//
+// `pendiente` es un segmento LITERAL y no hay ningún comodín hermano que se lo
+// pueda tragar —las otras tres de `importar/` son dos POST y un GET con
+// `modificar/` delante—, así que el orden de registro aquí no decide nada. Se
+// dice porque en este repo esa trampa ya se ha cobrado dos rutas en dos
+// familias distintas, y la forma natural de comprobarlo —`route:list`— ordena
+// alfabéticamente y NO por orden de registro.
+Route::get('importar/alumnos/pendiente/{year}', [ImportarController::class, 'getPendiente'])->middleware('auth.personal');
+
 // FoliosController
 // Un `UPDATE matriculas` sobre todas las del año actual sin número de folio, sin
 // mirar el token ni una vez —el método no llama a `fromToken()`—. En el seed

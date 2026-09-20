@@ -561,12 +561,15 @@ class ImportarController extends Controller
      * App\Services\PuntoDeControlDeImportacion; el porqué de cada decisión está
      * ahí y no aquí.
      *
-     * **La respuesta no cambia.** Sigue siendo la cadena pelada 'Importados.',
-     * que es lo que leen hoy los cuatro clientes —uno de ellos la app de Flutter,
-     * que es UNA para los dieciséis colegios y por tanto no se puede escalonar—.
-     * Ese es justo el motivo de que se haya hecho reanudable y no encolado: la
-     * cola devuelve un identificador y obliga a preguntar después, y eso sí es
-     * cambiar el contrato (§3 del mismo documento).
+     * **La respuesta SÍ cambió, el 20 sep 2026**, y este bloque decía lo
+     * contrario: «sigue siendo la cadena pelada 'Importados.', que es lo que
+     * leen hoy los cuatro clientes». Lo segundo era falso y se midió: ninguno
+     * de los cuatro lee el cuerpo cuando la importación va bien, y los dos de
+     * `app2` lo piden como JSON, así que la cadena los mandaba por su rama de
+     * error **después de importar bien**. El motivo de fondo del párrafo sigue
+     * en pie —Flutter es UNA app para los dieciséis y por eso esto es
+     * reanudable y no encolado (§3 de 09-pendientes)—; lo que no valía era dar
+     * por conocido a un lector que no se había ido a mirar.
      */
     public function postAlgo($year)
     {
@@ -585,6 +588,13 @@ class ImportarController extends Controller
                 $this->user->user_id
             );
 
+            // Lo que la persona contestó en la pantalla viaja CON el fichero, no
+            // por una ruta propia: es parte de «sube esto con estas
+            // instrucciones», no un recurso aparte. Se guarda ANTES de leer una
+            // sola fila, porque el caso en que hacen falta es precisamente aquel
+            // en el que esto se corta a la mitad.
+            $punto->guardarRespuestas($this->respuestasDelCuerpo());
+
             $fixer = new ImporterFixer;
             $Import = new ExcelUtils($year, $fixer, $punto);
 
@@ -595,9 +605,16 @@ class ImportarController extends Controller
             try {
                 Excel::import($Import, $archivo);
             } catch (\Throwable $e) {
+                // Los avisos de lo que SÍ se escribió antes de reventar se
+                // guardan igual, y ése es el caso que más los necesita: la
+                // pantalla que retoma esta importación tiene que poder decir qué
+                // llevaban las filas que ya entraron.
+                $punto->guardarAvisos($fixer->avisos);
                 $punto->fallar($e);
                 throw $e;
             }
+
+            $punto->guardarAvisos($fixer->avisos);
 
             $punto->completar();
 
@@ -635,6 +652,67 @@ class ImportarController extends Controller
         // rama de «no me mandaste fichero», y los cuatro llamadores mandan uno
         // siempre.
         return 'No se encontró archivo.';
+    }
+
+    /**
+     * Las instrucciones que la pantalla mandó con el fichero.
+     *
+     * Vienen en un `multipart/form-data` —el fichero manda—, así que un objeto
+     * llega como cadena y hay que decodificarlo. Lo que no sea un objeto se
+     * descarta en silencio y no se guarda: esto no valida la forma de las
+     * respuestas, sólo se niega a guardar algo que no lo sea. Quien las
+     * interpreta es la Fase 2, y validar aquí una forma que todavía se está
+     * dibujando sería fijarla antes de tiempo.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function respuestasDelCuerpo(): ?array
+    {
+        $crudo = Request::input('respuestas');
+
+        if (is_string($crudo)) {
+            $crudo = json_decode($crudo, true);
+        }
+
+        return is_array($crudo) && $crudo !== [] ? $crudo : null;
+    }
+
+    /**
+     * La importación de alumnos de este año que quedó a medias, si la hay.
+     *
+     * Es lo primero que pregunta la pantalla de importar **al entrar**, antes de
+     * que nadie elija fichero: si hay uno a medias, lo que toca no es subir otro
+     * sino decidir entre seguir donde se quedó o empezar de cero.
+     *
+     * Devuelve lo que esa decisión necesita y que hasta hoy no salía por ningún
+     * lado: por qué se cortó, por dónde iba hoja a hoja, **qué llevaban las
+     * filas que ya entraron** —los avisos— y **qué contestó quien la empezó**
+     * —las respuestas—. Sin los dos últimos, «seguir donde se quedó» obliga a
+     * contestarlo todo otra vez con pasos saltados, que es peor que empezar de
+     * cero.
+     *
+     * `auth.personal` como la subida: quien puede importar puede preguntar si
+     * hay algo a medias. No lleva permiso propio dentro porque **no decide
+     * nada** — lee lo que ya pasó en el año de trabajo del colegio.
+     */
+    public function getPendiente($year)
+    {
+        $pendiente = PuntoDeControlDeImportacion::pendienteDe('alumnos', (int) $year);
+
+        if ($pendiente === null) {
+            // Un `null` explícito y no un 404: «no hay ninguna a medias» es una
+            // respuesta buena a esta pregunta, y la más frecuente con mucho.
+            return response()->json(['pendiente' => null]);
+        }
+
+        $pendiente->avance = json_decode((string) $pendiente->avance, true) ?: [];
+        $pendiente->avisos = json_decode((string) $pendiente->avisos, true) ?: [];
+        $pendiente->respuestas = json_decode((string) $pendiente->respuestas, true) ?: null;
+        $pendiente->empezada_por = $pendiente->empezada_por !== null && trim($pendiente->empezada_por) !== ''
+            ? $pendiente->empezada_por
+            : null;
+
+        return response()->json(['pendiente' => $pendiente]);
     }
 
     /**

@@ -178,6 +178,92 @@ class PuntoDeControlDeImportacion
     }
 
     /**
+     * Lo que esta tanda no supo traducir, guardado con la importación.
+     *
+     * **Acumula, no pisa.** Una importación reanudada tiene avisos de las dos
+     * tandas y la pantalla del escenario 8 los enseña juntos: «de las 63 filas
+     * ya escritas, 4 llevaron un valor que no se reconoció» habla de filas que
+     * se escribieron en otro proceso y puede que hace meses. Si esto pisara, al
+     * reanudar se perdería justo lo que esa frase cuenta.
+     *
+     * Se recorta a 2.000 avisos por si alguien sube una hoja entera escrita en
+     * otro idioma: lo que protege la fila no es el límite de la columna —es
+     * `longText`— sino que la respuesta siga cabiendo en una pantalla.
+     *
+     * @param  array<int, array<string, mixed>>  $nuevos
+     */
+    public function guardarAvisos(array $nuevos): void
+    {
+        if ($nuevos === []) {
+            return;
+        }
+
+        $fila = DB::selectOne('SELECT avisos FROM importaciones WHERE id = ?', [$this->id]);
+        $previos = json_decode((string) ($fila->avisos ?? ''), true);
+
+        $todos = array_slice(array_merge(is_array($previos) ? $previos : [], $nuevos), -2000);
+
+        DB::update(
+            'UPDATE importaciones SET avisos = ?, updated_at = ? WHERE id = ?',
+            [json_encode($todos, JSON_UNESCAPED_UNICODE), now(), $this->id]
+        );
+    }
+
+    /**
+     * Lo que contestó la persona, para que reanudar no obligue a contestarlo
+     * otra vez.
+     *
+     * Éstas SÍ pisan, al revés que los avisos, y es la diferencia que importa:
+     * un aviso es algo que pasó —histórico, se acumula— y una respuesta es una
+     * instrucción vigente. Quien vuelve a subir el archivo con el mapa
+     * corregido está corrigiendo lo que dijo antes, no añadiendo.
+     *
+     * Un `null` no borra: significa «esta subida no traía instrucciones», que
+     * no es lo mismo que «olvida las que te di».
+     *
+     * @param  array<string, mixed>|null  $respuestas
+     */
+    public function guardarRespuestas(?array $respuestas): void
+    {
+        if ($respuestas === null) {
+            return;
+        }
+
+        DB::update(
+            'UPDATE importaciones SET respuestas = ?, updated_at = ? WHERE id = ?',
+            [json_encode($respuestas, JSON_UNESCAPED_UNICODE), now(), $this->id]
+        );
+    }
+
+    /**
+     * La importación de este año que quedó a medias, si la hay.
+     *
+     * Es lo que la pantalla pregunta **al entrar**, antes de que nadie elija un
+     * fichero: no sabe ningún `id`, sabe que entró a importar. Devuelve la más
+     * reciente sin terminar, con quién la empezó —la pantalla dice «empezada el
+     * 14 de enero a las 9:41 por Marta Ospina», y un nombre evita que alguien
+     * pise el trabajo de otra persona— y con el error tal cual.
+     *
+     * `estado <> 'completada'` es el mismo criterio con el que `abrir()` decide
+     * reanudar, y tiene que seguir siéndolo: si esto enseñara una importación
+     * que aquél no va a reanudar, el botón «seguir donde se quedó» mentiría.
+     */
+    public static function pendienteDe(string $tipo, int $year): ?object
+    {
+        return DB::selectOne(
+            'SELECT i.id, i.archivo, i.huella, i.year, i.avance, i.filas, i.estado, i.error,
+                    i.avisos, i.respuestas, i.inicio, i.fin, i.created_by,
+                    TRIM(CONCAT(COALESCE(p.nombres, ""), " ", COALESCE(p.apellidos, ""))) AS empezada_por
+             FROM importaciones i
+             LEFT JOIN users u ON u.id = i.created_by
+             LEFT JOIN profesores p ON p.user_id = u.id AND p.deleted_at IS NULL
+             WHERE i.tipo = ? AND i.year = ? AND i.estado <> ?
+             ORDER BY i.id DESC LIMIT 1',
+            [$tipo, $year, self::COMPLETADA]
+        );
+    }
+
+    /**
      * Guarda por qué se cortó y deja la fila reanudable.
      *
      * El mensaje se recorta a lo que cabe en un `text` sin cargarse la fila, y
