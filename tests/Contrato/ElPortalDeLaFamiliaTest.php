@@ -672,6 +672,87 @@ class ElPortalDeLaFamiliaTest extends CasoDeContrato
         $this->assertNotNull($fila->decidido_at, 'La decisión tiene que quedar con su hora.');
     }
 
+    /**
+     * **El coordinador académico admite, y NO es superusuario.**
+     *
+     * Decisión de Joseth del 20 sep 2026: *«el coordinador académico puede admitir
+     * estudiantes también.»* Es la mitad que el test de arriba no puede demostrar —
+     * aquél enseña que un docente llano no pasa y que un superusuario sí, y con los dos
+     * verdes `puedeDecidirAdmision` podría seguir siendo `is_superuser` a secas.
+     *
+     * **El sujeto es el mismo `Usuario` llano que acaba de recibir un 403**, y lo único
+     * que cambia entre las dos llamadas es la fila de `role_user`. Por eso el 200 no
+     * puede venir de otro sitio.
+     *
+     * > **Lo que este verde NO dice**, con su medición al lado: en la base de tests el
+     * > rol `Coord académico` tiene **cero titulares** —lo fija `LoQueDecideUnRolTest`—
+     * > así que aquí se fabrica. En la copia de desarrollo tiene **uno, y no es
+     * > superusuario** (contado por `role_id` el 20 sep 2026: 12 personas admitían, 13
+     * > con esto). O sea que la regla nace viva, pero eso lo dice aquella medición y no
+     * > este test.
+     */
+    public function test_el_coordinador_academico_admite_y_no_es_superusuario(): void
+    {
+        [$aspirante] = $this->unAspiranteConDocumento();
+
+        $usuario = $this->usuarioLlanoDelPersonal();
+        $token = $this->tokenDe($usuario->username);
+
+        $this->assertSame(0, (int) $usuario->is_superuser,
+            'El sujeto tiene que ser llano: con un superusuario esto pasaría por la otra rama.');
+
+        $this->withToken($token)
+            ->putJson(self::ASPIRANTES.'/'.$aspirante.'/decision', ['decision' => 'ADMITIDO'])
+            ->assertStatus(403);
+
+        $rol = DB::selectOne("SELECT id FROM roles WHERE name = 'Coord académico' AND deleted_at IS NULL");
+
+        $this->assertNotNull($rol,
+            "No está el rol `Coord académico` en la base de tests. Lo primero que hay que\n"
+            .'mirar es la CADENA: lleva tilde, y un literal sin ella no casa con nada y no '
+            .'falla nada — es la trampa del 33.');
+
+        DB::insert('INSERT INTO role_user (role_id, user_id) VALUES (?, ?)', [$rol->id, $usuario->id]);
+
+        $this->withToken($token)
+            ->putJson(self::ASPIRANTES.'/'.$aspirante.'/decision', ['decision' => 'ADMITIDO'])
+            ->assertStatus(200);
+
+        $fila = DB::selectOne('SELECT estado_embudo, decidido_por FROM aspirantes WHERE id=?', [$aspirante]);
+
+        $this->assertSame('ADMITIDO', $fila->estado_embudo);
+        $this->assertSame((int) $usuario->id, (int) $fila->decidido_por,
+            'La decisión queda con el nombre del coordinador, no con el de nadie más.');
+    }
+
+    /**
+     * **Y `Rector` sigue fuera, que es la otra mitad de la decisión.**
+     *
+     * Joseth nombró **un** rol el 20 sep. `Rector` no cambiaría hoy nada medible —cero
+     * titulares en la copia de desarrollo y cero en el seed— y por eso es justo el que
+     * se colaría sin que nadie lo notara: *lo que nadie pidió no se concede de paso*.
+     *
+     * Este test es el que se pondrá rojo el día que se meta, y entonces hay que venir
+     * aquí a borrarlo **con la frase de Joseth delante**, no a hacerlo pasar.
+     */
+    public function test_el_rector_no_admite_mientras_nadie_lo_pida(): void
+    {
+        [$aspirante] = $this->unAspiranteConDocumento();
+
+        $usuario = $this->usuarioLlanoDelPersonal();
+        $token = $this->tokenDe($usuario->username);
+
+        $rol = DB::selectOne("SELECT id FROM roles WHERE name = 'Rector' AND deleted_at IS NULL");
+
+        $this->assertNotNull($rol, 'El rol `Rector` es de 2018 y viene dentro del seed.');
+
+        DB::insert('INSERT INTO role_user (role_id, user_id) VALUES (?, ?)', [$rol->id, $usuario->id]);
+
+        $this->withToken($token)
+            ->putJson(self::ASPIRANTES.'/'.$aspirante.'/decision', ['decision' => 'ADMITIDO'])
+            ->assertStatus(403);
+    }
+
     /** No admitir sin motivo tampoco: la familia recibe un no y nadie sabe por qué. */
     public function test_no_admitir_sin_motivo_se_rechaza(): void
     {

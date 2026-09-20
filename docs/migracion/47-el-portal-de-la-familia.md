@@ -4,11 +4,12 @@
 proceso de matrículas, todos los endpoints que flutter y front necesitan»*. Se le pusieron tres
 alcances y eligió el segundo: **cerrar lo decidido sin dueño, más el portal de la familia**.
 
-**Fuera queda una sola cosa: la firma del contrato** (pantalla 13), que espera su respuesta sobre
-si el papel se queda en papel (`INVESTIGACION-MATRICULAS.md` §10.3). *La pasarela ya no está en esa
-lista*: la retiró él mismo ese día —*«cada colegio maneja su propio sistema de cartera y
-contabilidad, unos ni tienen pagos en línea. Eso no importa»*—, y de esa respuesta sale además que
-**la pantalla 12 no se puede construir aquí**. Las dos cosas, en la §9.
+**Ya no queda nada fuera: la pantalla 13 y la «fase 4» las retiró él mismo** ese mismo día, en la
+respuesta que cerró el pagaré (§9). Antes de ella este párrafo decía *«fuera queda una sola cosa:
+la firma del contrato»* — y la cosa no existía. La pasarela la había retirado unas horas antes
+—*«cada colegio maneja su propio sistema de cartera y contabilidad, unos ni tienen pagos en línea.
+Eso no importa»*—, y de esa respuesta sale además que **la pantalla 12 no se puede construir
+aquí**. Todo, en la §9.
 
 **Diez rutas.** El router queda en **644** contado con `route:list --json` en `.worktrees/mat`.
 **SIN FUNDIR: hay que recontarlas en el ÁRBOL PRINCIPAL el día que entren** — que es la frase que
@@ -31,7 +32,7 @@ es lo que decidió qué se construye:
 | **15 · el tablero del día** | `app2` | **no** |
 | **04 · mi proceso** | la familia | **no** |
 | **02, 05, 06 · el portal** | la familia | **no** |
-| 13 · firmar el contrato | la familia | **no, y no entra**: fase 4 |
+| ~~13 · firmar el contrato~~ | — | **RETIRADA por Joseth el 20 sep**: la pantalla no describe nada que su producto haga (§9) |
 
 Y dos huecos más que no son pantallas y que el censo destapó de camino:
 
@@ -182,7 +183,7 @@ respuesta pública no rompe nada, no pone nada en rojo y no se nota hasta que im
 | **Crear el alumno al admitir** | `matriculas` tiene **ocho escritores** en `app/` y ninguno sería éste; una novena forma de abrir una matrícula es exactamente cómo aparecieron los huérfanos que `MatriculasHuerfanas` va a buscar. Y matricular **ya es la pantalla 14**, con sus rutas. Admitir y matricular tienen días de por medio. |
 | **El informe de campaña dentro del tablero** | Ya es `GET informes/formularios-inscripcion/campana`, con `sin_volver` dentro. Duplicarlo serían dos cifras que algún día se contradicen — el fallo que aquel documento ya deja avisado en su propio cuerpo. |
 | **Una ruta para resolver la cita** | Agendarla y resolverla son **una escritura sobre la misma fila**. Es el caso de `accesos-favoritos`, que previó tres rutas y entregó dos. **Quedarse corto respecto a lo autorizado se cuenta y se dice; no se rellena para cuadrar.** |
-| **La firma y la pasarela** | Fase 4, y **bloqueadas por dos preguntas de Joseth sin contestar**: qué pasarela tiene cada colegio, y si el contrato se queda en papel. |
+| **La firma y la pasarela** | **Ninguna de las dos está bloqueada: las dos están RETIRADAS**, por dos respuestas de Joseth del 20 sep. La fase 4 se queda sin contenido y desaparece. Ver la §9. |
 
 ---
 
@@ -200,11 +201,36 @@ simetría rota:
 > entere. `auth.personal` deja pasar a las 75 cuentas de personal, de las que **53 son docentes**,
 > y ninguno de ellos admite a nadie en ningún colegio.
 
-**Y es provisional, dicho aquí para que no se lea como cerrado**: `INVESTIGACION-MATRICULAS.md`
-§10.4 pregunta *«¿quién admite en un colegio típico: el rector solo, o un comité?»* y sigue sin
-contestar. Hasta que conteste, es secretaría o superusuario — el conjunto más pequeño que ya
-existe. *Un permiso provisional se dice provisional; si no, dentro de un mes es una decisión que
-nadie recuerda haber tomado.*
+### Y el coordinador académico entra — Joseth, 20 sep 2026
+
+Textual: *«el coordinador académico puede admitir estudiantes también.»* Con eso
+`puedeDecidirAdmision` **deja de ser `esAdministrativo()`** y pasa a la forma de
+`puedeCambiarLaNotaNumerica`: lista de roles cruzada contra `Role::getUserRoles()` en **una sola
+consulta**.
+
+**Contado por `role_id` y no por nombre** —la tilde de `Coord académico` hace que un `WHERE
+r.name IN (…)` desde el cliente `mysql` devuelva cero filas teniendo titular, que es el
+[33](33-la-tilde-que-sql-no-ve.md)—, remedido en la copia de desarrollo el 20 sep:
+
+```
+rol  1  Admin              10 titulares, los 10 superusuarios
+rol  9  Coord académico     1 titular,  NO superusuario   <- el que entra
+rol 10  Rector              0
+rol 12  Secretario          0
+
+quien admitía (superusuario o Secretario) ......... 12
+con `Coord académico` dentro ...................... 13   de 75 de personal
+```
+
+O sea que **añade a una persona de verdad**. `Rector` **no se mete de paso** aunque la pregunta
+de abajo lo nombre: Joseth nombró un rol, y meterlo sería [[crear-rol-no-regala-permisos]] al
+revés — además de inerte, con cero titulares. Lo fija un test que se pondrá rojo el día que se
+cuele.
+
+**Y sigue medio provisional, dicho aquí para que no se lea como cerrado**:
+`INVESTIGACION-MATRICULAS.md` §10.4 pregunta *«¿quién admite en un colegio típico: el rector solo,
+o un comité?»*, y esta respuesta contesta **quién más**, no **cómo**. La forma de lista hace que
+el día que conteste sea una línea y no un rediseño.
 
 ---
 
@@ -334,10 +360,68 @@ de notas—, y el estado de cuenta lo mira el tesorero donde lo mira hoy.
 
 ---
 
+### ~~¿El contrato y el pagaré se quedan en papel?~~ — CONTESTADA, Y LA PANTALLA 13 SE RETIRA
+
+**Joseth, 20 sep 2026:** *«No entiendo lo del pagaré en papel. Nosotros solo le damos opciones
+para que mande la colilla por foto o el número de recibo y le mandamos la notificación al
+tesorero, él verifica, acepta y con eso le llega el formulario al solicitante. No me importa si
+después le piden la colilla en físico.»*
+
+**Con eso se cae la pantalla 13 entera y con ella la «fase 4», que se queda sin contenido.** El
+contrato con firma electrónica, el pagaré, la huella del PDF, la IP y la Ley 527 salieron de
+`myvc_front/INVESTIGACION-MATRICULAS.md` §4 —una investigación de *qué hacen los buenos*— y **no
+de un requisito suyo**: no reconoce eso como algo que su producto haga. *Una pregunta que llevaba
+días citada como «bloqueante» estaba bloqueando una pantalla que nadie había pedido.* Es la
+segunda de las dos que se retiraron el mismo día, y las dos por lo mismo.
+
+#### Y su frase describe un flujo que YA EXISTE salvo una pieza
+
+| lo que él describe | qué hay |
+|---|---|
+| «que mande la colilla por foto **o el número de recibo**» | `POST colillas-inscripcion/{codigo}` — acepta fichero **o** referencia |
+| «**le mandamos la notificación al tesorero**» | **NO EXISTE, en ningún nivel.** Ver abajo |
+| «él verifica, acepta» | `PUT colillas-inscripcion/{id}/aprobar` · `…/rechazar` |
+| «y con eso le llega el formulario al solicitante» | la orden pasa a `PAGADA`, y con eso `PUT inscripcion/{codigo}` ya deja llenar el formulario (esta tanda) |
+
+### EL AVISO AL TESORERO: medido antes de prometerlo, y NO es «una fuente más del cron»
+
+Es el único hueco de lo que él da por hecho, y lleva desde el 19 sep escrito como abierto en el
+[41](41-el-formulario-de-inscripcion.md) §7. **Se midió en vez de estimarlo, y lo que aparecieron
+fueron tres faltas encadenadas, no una** — medido el 20 sep 2026:
+
+| | medido | con qué |
+|---|---|---|
+| **1 · No hay ningún tema de PERSONAL** | los temas son **4 por alumno** (`TemasDeNotificacion::TIPOS`) más **2 de colegio** (`DEL_COLEGIO`). Ninguno se dirige a una persona del colegio | leyendo la clase |
+| **2 · La app no puede recibir push** | `myvc_flutter/pubspec.yaml` trae `firebase_core` y `firebase_analytics` y **no `firebase_messaging`**; `subscribeToTopic` aparece **0 veces** en código —los 4 aciertos son docblocks que dicen justamente que no está— | `grep` en el otro repositorio |
+| **3 · No hay a quién avisar** | `years.tesorero_id` está **en NULL en los 9 años vivos** de la copia de desarrollo, y su único lector es `Autoriza::puedeAprobarColilla`, que por eso lleva el respaldo de secretaría | consulta a la base |
+
+**El nombre del tema es la única puerta de este diseño** —se deriva con HMAC del **id del alumno**,
+y eso es lo que impide apuntarse al de otro—. Un aviso al tesorero no tiene alumno: tiene
+**persona**, y eso es un tipo de tema que hoy no existe. O sea que la pieza que falta no es una
+consulta más en `EnviarNotificaciones`: es **un tema nuevo, una app que añada el plugin y se
+suscriba, y un colegio que nombre a su tesorero** —lo tercero ya tiene pantalla, `colegio-ficha`
+de `app2`, así que es una elección suya y no un hueco—.
+
+> **Y la bandeja tampoco la abre nadie todavía, que es el dato que cambia la urgencia.**
+> `GET colillas-inscripcion/pendientes` existe desde el 19 sep y **ningún cliente la llama**:
+> `colillas-inscripcion` aparece **0 veces** en `myvc_front`, `myvc_front_2` y `myvc_flutter`.
+> *Conectar el aviso a una bandeja que no tiene pantalla sería avisar de algo que no se puede ir a
+> mirar.* El orden barato es el contrario: primero la pantalla, y el aviso cuando haya push.
+
+**No se escribe nada de esto hasta que Joseth elija**, porque las tres salidas cuestan cosas
+distintas y ninguna es obviamente la suya:
+
+| | qué cuesta | qué deja |
+|---|---|---|
+| **Tema nuevo de persona** (`p_` + HMAC del `user_id`) | el plugin en `myvc_flutter`, la suscripción, y un tipo de tema que hoy no existe | el aviso que él describe, en el teléfono |
+| **Correo al tesorero** | esta API sólo manda correo en `LoginController`, y `tools/correo-de-los-colegios.sh` dice que **hay instalaciones que no pueden mandarlo** | llega sin app, pero no en todos los colegios |
+| **Un contador en la bandeja** | nada nuevo: la ruta ya existe | no es un aviso, es que se vea al entrar — y necesita la pantalla igual |
+
 | | quién |
 |---|---|
-| **¿El contrato y el pagaré se quedan en papel?** | **Joseth** — decide si hace falta proveedor de firma. **Es lo único que queda de la fase 4** |
-| **¿Quién admite: el rector solo o un comité?** | **Joseth** — hoy `puedeDecidirAdmision` es provisional (§6) |
+| ~~¿El contrato y el pagaré se quedan en papel?~~ | **CONTESTADA el 20 sep**: no hay pagaré. La pantalla 13 y la fase 4 se retiran (arriba) |
+| **¿Por qué canal se avisa al tesorero?** | **Joseth** — tres salidas medidas arriba, y ninguna se escribe hasta que elija |
+| **¿Quién admite: el rector solo o un comité?** | **Joseth** — contestada a medias: el coordinador académico entra (§6), la forma no |
 | Correr `tools/requisitos-de-matricula.php` en `lal` | **Joseth** — sigue sin correrse desde el 20 sep; dice qué se encuentra un colegio al desplegar |
 | Las pantallas 02, 04, 05, 06 y 15 | **`myvc_front`** — el backend está, y sin ellas no lo usa nadie |
 | Las doce pantallas de estaciones | **`myvc_flutter`** |

@@ -8,94 +8,57 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-> ## 🔴 TRASPASO A LA SESIÓN SIGUIENTE — DOS RESPUESTAS DE JOSETH SIN APLICAR (20 sep 2026)
+> ## ✅ LAS DOS RESPUESTAS DE JOSETH, APLICADAS — y la segunda destapó tres faltas (20 sep 2026)
 >
-> **`8myvc-6f` se quedó sin ventana con el trabajo fundible y DOS decisiones suyas recién
-> dadas todavía sin escribir en código.** Están aquí porque son lo primero que hay que
-> hacer, y porque las dijo en un chat que la sesión siguiente no ve.
+> **La casilla que había aquí era un traspaso: `8myvc-6f` se quedó sin ventana con dos
+> decisiones suyas recién dadas y sin escribir.** Las dos están hechas, en la misma rama
+> `feat/el-proceso-de-matriculas` de `.worktrees/mat`. Lo que sigue **sin fundir** es todo,
+> incluido esto.
 >
-> **Dónde está todo:** `.worktrees/mat`, rama `feat/el-proceso-de-matriculas`, base
-> `simonbolivar_testing_mat`, **tres commits y SIN FUNDIR**. Lo construido está en la
-> casilla de abajo y el contrato en [47](47-el-portal-de-la-familia.md).
+> ### 1 · ✅ EL COORDINADOR ACADÉMICO ADMITE
 >
-> ### 1 · EL COORDINADOR ACADÉMICO PUEDE ADMITIR — falta la línea
+> *«el coordinador académico puede admitir estudiantes también.»* `puedeDecidirAdmision` deja
+> de ser `esAdministrativo()` y pasa a la forma de `puedeCambiarLaNotaNumerica` —lista de roles
+> contra `Role::getUserRoles()` en una consulta—.
 >
-> **Joseth, textual:** *«el coordinador académico puede admitir estudiantes también.»*
+> **Recontado aquí por `role_id`, no heredado del traspaso**: `Coord académico` tiene **1
+> titular y no es superusuario**, así que quien admite pasa de **12 a 13** de las **75** cuentas
+> de personal. `Rector` **no entró**: nombró un rol, y meterlo sería inerte (cero titulares) y
+> además nadie lo pidió. Lo fijan **dos** tests —uno que admite con el rol puesto sobre el mismo
+> sujeto que acaba de recibir un 403, y otro que se pondrá rojo el día que `Rector` se cuele—.
 >
-> `Autoriza::puedeDecidirAdmision()` hoy es `esAdministrativo()` —superusuario o
-> `Secretario`—. Hay que pasarlo a la forma de `puedeCambiarLaNotaNumerica()`: una lista
-> de nombres de rol cruzada contra `Role::getUserRoles()` **en una sola consulta**.
+> ### 2 · ✅ LA PANTALLA 13 SE RETIRA… y el aviso al tesorero NO era «una fuente más»
 >
-> **Medido por `role_id` y no por nombre**, que es la regla de
-> [33](33-la-tilde-que-sql-no-ve.md) —un `WHERE r.name IN ('Coord académico')` desde el
-> cliente `mysql` devuelve **cero filas teniendo titular**, por la tilde—:
+> *«No entiendo lo del pagaré en papel…»* — con eso se cae la pantalla 13 y la **fase 4** entera,
+> que se queda sin contenido. Escrito en el [47](47-el-portal-de-la-familia.md) §9.
 >
-> ```
-> rol 1  Admin             10 titulares, los 10 superusuarios
-> rol 9  Coord académico    1 titular,  NO superusuario   <- éste es el que añade
-> rol 10 Rector             0
-> rol 12 Secretario         0
+> **Y la pieza que él da por hecha —«le mandamos la notificación al tesorero»— se midió antes de
+> prometerla, que era el encargo. No falta un cable: faltan tres piezas.**
 >
-> quien admite hoy (superusuario o Secretario) ....... 12
-> a quien añade `Coord académico` ..................... 1   -> 13
-> ```
->
-> > **Y `Rector` NO se mete de paso, aunque parezca lo natural.** Joseth nombró **un**
-> > rol. Meterlo sería [[crear-rol-no-regala-permisos]] al revés: *lo que nadie pidió no
-> > se concede*. Hoy tiene cero titulares en desarrollo, así que **no cambiaría nada
-> > medible** y sí cambiaría la regla — es una línea el día que él lo diga.
->
-> ### 2 · 🔴 EL PAGARÉ Y LA FIRMA NO EXISTEN — LA PANTALLA 13 SE RETIRA
->
-> **Joseth, textual:** *«No entiendo lo del pagaré en papel. Nosotros solo le damos
-> opciones para que mande la colilla por foto o el número de recibo y le mandamos la
-> notificación al tesorero, él verifica, acepta y con eso le llega el formulario al
-> solicitante. No me importa si después le piden la colilla en físico.»*
->
-> **Eso retira la pantalla 13 entera y con ella la «fase 4».** El contrato con firma
-> electrónica, el pagaré, la huella del PDF, la IP y la Ley 527 salieron de
-> `myvc_front/INVESTIGACION-MATRICULAS.md` §4 —una investigación de *qué hacen los
-> buenos*—, **no de un requisito suyo**. Él no lo reconoce como algo que su producto
-> haga. *Una pregunta que lleva días citada como «bloqueante» puede estar bloqueando una
-> pantalla que nadie pidió.*
->
-> #### Y su frase describe un flujo que YA EXISTE… salvo una pieza
->
-> | lo que él describe | qué hay |
+> | | medido |
 > |---|---|
-> | «que mande la colilla por foto **o el número de recibo**» | `POST colillas-inscripcion/{codigo}` — acepta fichero **o** referencia |
-> | «**le mandamos la notificación al tesorero**» | **NO EXISTE.** Ver abajo |
-> | «él verifica, acepta» | `PUT colillas-inscripcion/{id}/aprobar` · `…/rechazar` |
-> | «y con eso le llega el formulario al solicitante» | la orden pasa a `PAGADA`, y con eso `PUT inscripcion/{codigo}` ya deja llenar el formulario (esta tanda) |
+> | no hay ningún tema de **persona** | los temas son 4 por alumno + 2 de colegio; el nombre se deriva del **id del alumno**, y eso es la única puerta del diseño |
+> | la app **no puede recibir push** | `myvc_flutter` trae `firebase_core` y `firebase_analytics`, **no `firebase_messaging`**; `subscribeToTopic`, 0 veces en código |
+> | **no hay a quién avisar** | `years.tesorero_id` en NULL en los **9 años vivos**; su único lector es `Autoriza::puedeAprobarColilla`, que por eso lleva respaldo de secretaría |
 >
-> **El aviso al tesorero es el único hueco de lo que él da por hecho**, y lleva desde el
-> 19 sep escrito como abierto en el [41](41-el-formulario-de-inscripcion.md) §7: *«hoy la
-> bandeja hay que abrirla porque nadie ha conectado el aviso»*.
+> > **Y esto corrige una frase del [41](41-el-formulario-de-inscripcion.md) §7**, que decía que el
+> > tesorero *«tiene cuenta y tiene app, o sea push, que ya existe… no porque falte canal»*.
+> > **Falta el canal.** Corregida allí con la medición al lado.
 >
-> **Lo que hay que medir antes de prometerlo** —y `8myvc-6f` no llegó—: las
-> notificaciones de esta casa son **temas por alumno** (`TemasDeNotificacion::TIPOS`,
-> hoy cuatro) más dos de colegio. **No hay ningún tema de PERSONAL**, así que avisar al
-> tesorero no es una fuente más del cron: es **un tema nuevo que la app tiene que
-> suscribir**, y `myvc_flutter` sigue sin `firebase_messaging`. *Antes de decir «es una
-> fuente más», comprobar a qué se suscribe la app — que es el otro repositorio.*
+> > **Además la bandeja no la abre nadie todavía**: `GET colillas-inscripcion/pendientes` existe
+> > desde el 19 sep y `colillas-inscripcion` aparece **0 veces** en los tres clientes. *Conectar un
+> > aviso a una bandeja sin pantalla sería avisar de algo que no se puede ir a mirar.*
 >
-> ### 3 · Y lo que sí quedó hecho de esta conversación
->
-> - **La pasarela deja de ser pregunta**: *«cada colegio maneja su propio sistema de
->   cartera y contabilidad, unos ni tienen pagos en línea. Eso no importa.»* Escrito en
->   el 47 §9, en el `TAREAS-PORTAL-MATRICULA.md` del front y en su `PANTALLAS-MATRICULA.md`.
-> - **La pantalla 12 no se puede construir aquí** — medido: **ni una tabla** de cartera,
->   pagos, saldos, recibos ni pensiones; lo único que esta API sabe de deuda es
->   `alumnos.pazysalvo`, un `tinyint`.
-> - **La regla de la suite entera, corregida en los dos sitios que la contradecían.**
->   Ver la casilla de abajo.
+> **🟠 ESPERA A JOSETH:** las tres salidas —tema de persona, correo, o contador en la bandeja—
+> están medidas con su precio en el 47 §9. **No se escribe ninguna hasta que elija**, porque
+> cuestan cosas distintas y la más obvia (push) es la que hoy no puede recibir nadie.
 
 > ## ✅ EL PORTAL DE LA FAMILIA Y EL TABLERO DEL DÍA — DIEZ RUTAS (20 sep 2026)
 >
 > **Escrito en `.worktrees/mat`, rama `feat/el-proceso-de-matriculas`, base
 > `simonbolivar_testing_mat`.** Cierra el proceso de matrículas por el lado del backend:
-> **de las veintisiete pantallas diseñadas entre los dos clientes, ya no le falta endpoint
-> a ninguna salvo la 13 (firma), que es fase 4 y está bloqueada por Joseth.** Contrato y
+> **de las veintisiete pantallas diseñadas entre los dos clientes ya no le falta endpoint a
+> ninguna** — la 13 no es la excepción: se retiró (casilla de arriba), no se aplazó. Contrato y
 > porqués en [47](47-el-portal-de-la-familia.md).
 >
 > **Router en 644** contado con `route:list --json` en `.worktrees/mat`. **SIN FUNDIR: hay
@@ -187,7 +150,12 @@
 >
 > | | |
 > |---|---|
-> | `ElPortalDeLaFamiliaTest`: **28 passed (225 aserciones)** | `--filter=ElPortalDeLaFamiliaTest --testsuite=Contrato` |
+> | `ElPortalDeLaFamiliaTest`: **32 passed (263 aserciones)** | `--filter=ElPortalDeLaFamiliaTest --testsuite=Contrato` |
+> 
+> > **Este renglón decía 28 (225) y ya era falso antes de tocarlo**: en `a8d036d` el fichero
+> > tenía **30** métodos de prueba, o sea que la cifra se escribió y el commit siguiente la
+> > movió sin recontarla. Con los dos de la admisión son 32. *Recontado, no sumado* — que es
+> > lo que el propio traspaso mandaba hacer con cualquier cifra suya.
 > | `PASS 494 files` | `composer run pint:test` |
 > | `[OK] No errors`, 716 ficheros | `composer run stan` (nivel 7) |
 > | `0 imports en 0 ficheros, de 723` | `php tools/imports-de-facades.php --dry-run`, y **detrás `pint:test`** |

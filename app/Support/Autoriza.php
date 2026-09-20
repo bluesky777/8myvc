@@ -185,6 +185,22 @@ class Autoriza
     private const ROLES_QUE_CAMBIAN_LA_NOTA_NUMERICA = ['Secretario', 'Coord académico', 'Rector'];
 
     /**
+     * Los roles que deciden si un aspirante entra al colegio. Superusuario va por
+     * encima, como siempre.
+     *
+     * **`Secretario` se conserva y no es decorativo aquí, aunque en la base de tests
+     * ese rol no exista** —`LoQueDecideUnRolTest` lo fija—: hasta el 20 sep 2026 esto
+     * era `esAdministrativo()`, o sea `is_superuser || Secretario`, y quitarlo sería
+     * estrechar un permiso que nadie mandó estrechar mientras se ensancha otro.
+     *
+     * La tilde de `Coord académico` importa por lo mismo que en la constante de
+     * arriba: se compara en PHP contra lo que devuelve la tabla, nunca en SQL.
+     *
+     * @var list<string>
+     */
+    private const ROLES_QUE_DECIDEN_LA_ADMISION = ['Secretario', 'Coord académico'];
+
+    /**
      * Marcar y desmarcar un periodo de un alumno como boletín independiente.
      * `PUT boletin-independiente/periodo`, §6.3 del
      * [19](../../docs/migracion/19-boletin-independiente.md).
@@ -512,17 +528,62 @@ class Autoriza
      * llamadas de dominios que no se parecen a éste, y el día que alguien lo ensanche
      * esta puerta se ensancharía con él sin que nadie lo decidiera.
      *
+     * ## EL COORDINADOR ACADÉMICO ENTRA — decisión de Joseth del 20 sep 2026
+     *
+     * Textual: *«el coordinador académico puede admitir estudiantes también.»* Con eso
+     * esto **deja de ser `esAdministrativo()`** y pasa a la forma de
+     * `puedeCambiarLaNotaNumerica`: la lista de roles de arriba, cruzada contra
+     * `Role::getUserRoles()` en **una sola consulta**.
+     *
+     * **Medido por `role_id` y no por nombre**, que es la regla de
+     * [33](../../docs/migracion/33-la-tilde-que-sql-no-ve.md) —un `WHERE r.name IN
+     * ('Coord académico')` desde el cliente `mysql` devuelve cero filas teniendo
+     * titular—. Remedido en la copia de desarrollo el 20 sep 2026:
+     *
+     * ```
+     * rol  1  Admin              10 titulares, los 10 superusuarios
+     * rol  9  Coord académico     1 titular,  NO superusuario   <- el que entra
+     * rol 10  Rector              0
+     * rol 12  Secretario          0
+     *
+     * quien admitía (superusuario o Secretario) ......... 12
+     * con `Coord académico` dentro ...................... 13   de 75 de personal
+     * ```
+     *
+     * O sea que **añade a una persona de verdad**, no a un conjunto vacío: es la
+     * diferencia entre esta decisión y la de `Rector`, que hoy sería inerte.
+     *
+     * > **Y `Rector` NO se mete de paso, aunque la pregunta de abajo lo nombre.**
+     * > Joseth nombró **un** rol. Meterlo sería [[crear-rol-no-regala-permisos]] al
+     * > revés —*lo que nadie pidió no se concede*— y encima no cambiaría nada medible:
+     * > cero titulares. Es una línea el día que él lo diga.
+     *
      * > **Lo que sigue abierto y es de Joseth**, dicho aquí para que no se lea como
      * > cerrado: `INVESTIGACION-MATRICULAS.md` §10.4 pregunta *«¿quién admite en un
-     * > colegio típico: el rector solo, o un comité?»* y **sigue sin contestar**. Hasta
-     * > que conteste, esto es secretaría o superusuario —lo mismo que atar el papel—,
-     * > que es el conjunto más pequeño que ya existe y que deja el módulo utilizable.
-     * > *Un permiso provisional se dice provisional; si no, dentro de un mes es una
-     * > decisión que nadie recuerda haber tomado.*
+     * > colegio típico: el rector solo, o un comité?»*. La respuesta del 20 sep
+     * > contesta **media**: nombra a quién añadir, no si el colegio típico lo decide
+     * > en comité. Mientras tanto son trece, y la forma de lista hace que el día que
+     * > conteste sea una línea y no un rediseño.
      */
     public static function puedeDecidirAdmision($user): bool
     {
-        return self::esAdministrativo($user);
+        if (self::esSuperusuario($user)) {
+            return true;
+        }
+
+        $userId = $user->user_id ?? null;
+
+        if ($userId === null) {
+            return false;
+        }
+
+        foreach (Role::getUserRoles($userId) as $rol) {
+            if (in_array($rol->name, self::ROLES_QUE_DECIDEN_LA_ADMISION, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
