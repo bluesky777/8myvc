@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Informes;
 
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Http\Controllers\Controller;
-use App\Services\CodigoDeInscripcion;
+use App\Services\OrdenDeInscripcion;
 use App\Support\Autoriza;
 use App\Support\SafeUpload;
 use Illuminate\Support\Facades\DB;
@@ -107,13 +107,16 @@ class ColillasInscripcionController extends Controller
         // Antes que nada y antes de tocar la base: si el código no cuadra consigo
         // mismo, no existe y no hay nada que consultar. Es gratis y quita de en
         // medio todo lo que no sea un código de verdad.
-        if (! CodigoDeInscripcion::esValido($codigo)) {
+        if (! OrdenDeInscripcion::tieneForma($codigo)) {
             abort(422, 'Ese código no es válido. Revísalo: son el año y seis caracteres.');
         }
 
-        $orden = DB::selectOne('SELECT id, estado FROM ordenes_inscripcion
-            WHERE codigo=? AND deleted_at IS NULL',
-            [CodigoDeInscripcion::normalizar($codigo)]);
+        // **Y busca también por el código VIEJO**, que es lo que esta línea no hacía
+        // hasta el 20 sep 2026 por la tarde. Si secretaría corrigió el código, el
+        // papel que la familia tiene en la mano lleva el anterior — y sin esto se
+        // estrellaba aquí contra un «No encontramos ese formulario» que no puede
+        // reportarle a nadie, porque no tiene cuenta. Ver `OrdenDeInscripcion`.
+        $orden = OrdenDeInscripcion::porCodigo($codigo);
 
         if (! $orden) {
             abort(404, 'No encontramos ese formulario.');
@@ -151,6 +154,106 @@ class ColillasInscripcionController extends Controller
         // pareciera una aprobación sería peor que no contestar.
         return ['recibido' => true,
             'mensaje' => 'Recibimos su comprobante. El colegio lo revisará y le avisará.'];
+    }
+
+    /**
+     * **«¿Cómo va mi inscripción?»** — la contesta la familia, sin cuenta.
+     *
+     * Autorizada por Joseth el 20 sep 2026. Cierra el único hueco que quedaba en
+     * este flujo, y estaba medido: **de las catorce rutas del formulario, las tres
+     * públicas eran las tres de ESCRITURA y ninguna lectura lo era.** O sea que la
+     * familia mandaba su comprobante y **no tenía forma de saber si se lo aprobaron,
+     * se lo rechazaron, ni por qué**.
+     *
+     * El motivo del rechazo ya se guardaba —`putRechazar` lo exige, y no por
+     * formulismo: sin texto no se puede rechazar— pero **sólo lo veía el personal**.
+     * El aviso que debía cerrarlo iba por correo, y el correo de esta API está en
+     * rojo desde el 2 sep: `lalvirtual.com`, el `MAIL_FROM_ADDRESS` de quince
+     * colegios, **no está registrado**, y falla callado.
+     *
+     * **Por eso esto no espera al correo**: la familia entra con el código que ya
+     * lleva impreso en el papel. Es *pull* en vez de *push*, y para un destinatario
+     * que no tiene cuenta y puede no tener correo —sólo el **9,2 %** de los 1.085
+     * acudientes vivos tiene uno, medido en el doc 42— es el único canal que
+     * funciona seguro.
+     *
+     * ## Es PÚBLICA, así que lo que decide su forma es qué es inocuo
+     *
+     * La llave es el código, y el código **se dicta por teléfono y viaja en un papel
+     * que pasa de mano en mano**. Así que la pregunta al elegir cada campo no fue
+     * «¿le sirve a la familia?» sino **«¿qué pasa si esto lo lee alguien que se
+     * encontró el papel?»**:
+     *
+     *     SÍ   el estado, el valor, la fecha límite, en qué va el comprobante y el
+     *          motivo del rechazo — que el tesorero escribe PARA la familia
+     *     NO   el nombre del alumno, su documento, sus teléfonos, de qué grupo es
+     *     NO   el nombre del fichero del recibo: la URL es la llave (41 §5), y
+     *          saber un código no puede dar el recibo que subió otro
+     *     NO   quién lo resolvió ni desde qué IP se subió
+     *
+     * **Un código no puede revelar el nombre de un menor**, y ésa es la línea. Lo que
+     * sale de aquí describe un trámite, no a una persona.
+     *
+     * ## Y encuentra por el código VIEJO, que es la mitad del motivo de que exista
+     *
+     * Si secretaría corrigió el código, el papel que la familia tiene lleva el
+     * anterior. `encontrado_por` lo dice, para que la pantalla pueda enseñarle **cuál
+     * es el bueno ahora** — que es justo lo que nadie le va a decir por teléfono.
+     */
+    public function getEstado(string $codigo)
+    {
+        if (! OrdenDeInscripcion::tieneForma($codigo)) {
+            abort(422, 'Ese código no es válido. Revísalo: son el año y seis caracteres.');
+        }
+
+        $orden = OrdenDeInscripcion::porCodigo($codigo);
+
+        if (! $orden) {
+            abort(404, 'No encontramos ese formulario.');
+        }
+
+        // Sin `archivo`, sin `resuelta_por` y sin `subida_ip`: ver la cabecera. Van
+        // todos —son tres como mucho por orden, y el tope lo pone la base— porque
+        // quien mandó dos rechazados necesita leer los dos motivos para no mandar
+        // un tercero igual.
+        $comprobantes = DB::select('SELECT estado, motivo, created_at AS enviado_at,
+                resuelta_at AS resuelto_at
+            FROM colillas_inscripcion WHERE orden_id=? ORDER BY id', [$orden->id]);
+
+        $pendientes = 0;
+
+        foreach ($comprobantes as $comprobante) {
+            // El motivo sólo viaja cuando explica un rechazo. En una aprobación no
+            // hay nada que corregir, y un texto interno del tesorero pegado a un
+            // «aprobado» es información que nadie pidió enseñar.
+            if ($comprobante->estado !== 'RECHAZADA') {
+                $comprobante->motivo = null;
+            }
+
+            if ($comprobante->estado === 'PENDIENTE') {
+                $pendientes++;
+            }
+        }
+
+        $quedan = max(0, self::MAXIMO_POR_ORDEN - count($comprobantes));
+
+        return [
+            // **El código BUENO**, aunque haya entrado por el viejo. Es lo único que
+            // esta ruta le puede decir a alguien que tiene un papel desactualizado.
+            'codigo' => $orden->codigo,
+            'encontrado_por' => $orden->encontrado_por,
+            'year_campana' => (int) $orden->year_campana,
+            'estado' => $orden->estado,
+            'pagado' => in_array($orden->estado, ['PAGADA', 'APROBADA', 'MATRICULADA'], true),
+            'valor' => $orden->valor === null ? null : (int) $orden->valor,
+            'cierra' => $orden->cierra,
+            'comprobantes' => $comprobantes,
+            // Las dos condiciones que `postSubir` comprueba de verdad, dichas ANTES
+            // de que la familia gaste una subida. Sin esto, se entera con un 429
+            // después de elegir la foto.
+            'puede_enviar_otro' => $pendientes === 0 && $quedan > 0,
+            'comprobantes_restantes' => $quedan,
+        ];
     }
 
     /**

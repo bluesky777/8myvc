@@ -12,9 +12,29 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**619 rutas** (contadas con `route:list --json` el **20 sep 2026 en el ÁRBOL PRINCIPAL, sobre
-`main` y después de fundir** (`032a1a6`) — **y coincidieron con las 619 contadas antes en
-`.worktrees/fi`, que es la única forma de saber que coincidía**. Las cuatro que suben sobre las 615 son las de **del
+**620 rutas** (contadas con `route:list --json` el **20 sep 2026 en `.worktrees/es`** —
+**SIN FUNDIR: hay que recontarlas en el ÁRBOL PRINCIPAL el día que entre**. La que sube sobre las
+619 es **`GET colillas-inscripcion/{codigo}`**, la **decimosexta pública y la primera de LECTURA**
+de todo el módulo del formulario: hasta ella las tres públicas eran las tres de escritura, así que
+la familia mandaba su comprobante y no podía saber si se lo aprobaron ni por qué.
+
+> **Mueve los CINCO sitios de la regla y ni uno más, y las dos que NO mueve explican dónde
+> ponerla.** `guards-por-ruta.json` lista las que **llevan** guard, y ésta no lleva; y
+> `familias-que-nunca-entran-en-el-candado.json` no la recoge porque `colillas-inscripcion` tiene
+> **3 hermanas con guard** —o sea ≥ 2— así que el candado de familia sigue mirándola. *Ése fue el
+> motivo de colgarla ahí y no de `pagos-inscripcion`, que está en ese censo como «0 de 2».*
+> `FamiliasQueNuncaEntranTest` sigue en **26**: esto lee, no escribe.
+
+> **Y aquí la trampa nº 3 de este mismo fichero se cometió otra vez, en la familia de al lado y al
+> día siguiente.** `{codigo}` se registró **delante** de `…/pendientes` y **se tragaba la bandeja
+> del tesorero**, que pasaba a contestar 422. Lo delató `getRoutes()->match()`, no `route:list`:
+> **ése ordena alfabéticamente y no por orden de registro**, así que la forma natural de
+> comprobarlo miente. *Un aviso escrito no protege solo; sólo protege el día que alguien hace lo
+> que dice* — y esta vez no lo hizo.
+
+El número anterior era **619**, contado con `route:list --json` el **20 sep 2026 en el ÁRBOL
+PRINCIPAL, sobre `main` y después de fundir** (`032a1a6`) — y coincidió con las 619 contadas antes
+en `.worktrees/fi`, que es la única forma de saber que coincidía. Las cuatro que subían sobre las 615 eran las de **del
 papel al alumno** —`GET …/campana`, `GET`/`PUT …/codigo/{codigo}` y `PUT
 …/codigo/{codigo}/alumno`—, que cierran el formulario de inscripción: hasta ellas, un formulario
 del modo `nuevos` **no se ataba a ningún alumno jamás** y `matricula_id` no lo escribía nadie.
@@ -622,9 +642,24 @@ Usuario). Lo monta `App\Services\ContextoDeUsuario`; el token lo valida
 
 `routes/api/*.php`, un fichero por dominio. **El guard va por defecto a toda la
 API** y las excepciones públicas se marcan una a una — son
-**`RutasPreLoginTest::TOTAL_PUBLICAS`, hoy quince**, y son un test que las ata por las
+**`RutasPreLoginTest::TOTAL_PUBLICAS`, hoy dieciséis**, y son un test que las ata por las
 dos direcciones: que la lista no tenga de más y que el router no tenga de menos.
-Las tres últimas son del formulario de inscripción y entraron el 19 sep 2026 —la colilla del
+
+> **La decimosexta entró el 20 sep 2026 y es la PRIMERA DE LECTURA del formulario de
+> inscripción**, que es lo interesante: hasta ella, las tres públicas de ese módulo eran **las tres
+> de ESCRITURA**, así que la familia mandaba su comprobante y **no tenía forma de saber si se lo
+> aprobaron, se lo rechazaron ni por qué**. `GET colillas-inscripcion/{codigo}`.
+>
+> **Y lo que la hace aceptable no es su limitador: es lo que NO devuelve.** La llave es un código
+> que se dicta por teléfono y viaja en un papel que pasa de mano en mano, así que la pregunta de
+> cada campo no fue *«¿le sirve a la familia?»* sino *«¿qué pasa si esto lo lee quien se encontró
+> el papel?»* — no salen el nombre del alumno, su documento, sus teléfonos ni el fichero del
+> recibo. **Un código no puede revelar el nombre de un menor.** Eso **no lo puede ver ningún
+> candado de autorización**, así que lo fija un test que busca el dato en el JSON entero, no campo
+> a campo: *un campo de más en una respuesta pública no rompe nada, no pone nada en rojo y no se
+> nota hasta que importa.*
+
+Las tres anteriores son del mismo formulario y entraron el 19 sep 2026 —la colilla del
 pago y las dos de la pasarela—, y las tres por el mismo motivo: **quien paga es la familia de un
 aspirante que todavía no es alumno, no tiene cuenta y no puede tenerla**; la del webhook ni
 siquiera la llama una persona. La duodécima entró el 1 sep 2026 y es la única que no va del login ni del logout:

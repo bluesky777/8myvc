@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Informes;
 
 use App\Http\Controllers\Controller;
-use App\Services\CodigoDeInscripcion;
+use App\Services\OrdenDeInscripcion;
 use App\Services\Pasarela\Wompi;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -99,7 +99,7 @@ class PagosInscripcionController extends Controller
     {
         // Lo mismo que en la colilla y por lo mismo: si el código no cuadra consigo
         // mismo no existe, y eso se sabe sin tocar la base.
-        if (! CodigoDeInscripcion::esValido($codigo)) {
+        if (! OrdenDeInscripcion::tieneForma($codigo)) {
             abort(422, 'Ese código no es válido. Revísalo: son el año y seis caracteres.');
         }
 
@@ -112,9 +112,10 @@ class PagosInscripcionController extends Controller
             abort(404, 'Este colegio no recibe pagos en línea.');
         }
 
-        $orden = DB::selectOne('SELECT id, codigo, estado, valor FROM ordenes_inscripcion
-            WHERE codigo=? AND deleted_at IS NULL',
-            [CodigoDeInscripcion::normalizar($codigo)]);
+        // **También por el código viejo.** El papel que la familia tiene en la mano
+        // puede llevar el anterior si secretaría lo corrigió, y sin esto no podría
+        // pagar — ver `OrdenDeInscripcion`, donde está medido el agujero.
+        $orden = OrdenDeInscripcion::porCodigo($codigo);
 
         if (! $orden) {
             abort(404, 'No encontramos ese formulario.');

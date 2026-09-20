@@ -96,6 +96,7 @@
     "GET api/ciudades/por-departamento/{departamento}": "App\\Http\\Controllers\\CiudadesController@getPorDepartamento",
     "GET api/colegio/logo": "App\\Http\\Controllers\\Perfiles\\ImagesController@getLogoDelColegio",
     "GET api/colillas-inscripcion/pendientes": "App\\Http\\Controllers\\Informes\\ColillasInscripcionController@getPendientes",
+    "GET api/colillas-inscripcion/{codigo}": "App\\Http\\Controllers\\Informes\\ColillasInscripcionController@getEstado",
     "GET api/comportamiento": "App\\Http\\Controllers\\Disciplina\\ComportamientoController@getIndex",
     "GET api/contratos": "App\\Http\\Controllers\\ContratosController@getIndex",
     "GET api/definiciones_comportamiento": "App\\Http\\Controllers\\DefinicionesComportamientoController@getIndex",

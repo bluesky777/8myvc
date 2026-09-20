@@ -66,7 +66,7 @@ class RutasPreLoginTest extends CasoDeContrato
      * La auditoria commit a commit de los tres numeros viejos:
      * `docs/migracion/noche-2026-08-25/pub-1.md`.
      */
-    public const TOTAL_PUBLICAS = 15;
+    public const TOTAL_PUBLICAS = 16;
 
     /**
      * Verbo y URI tal y como las llama el frontend.
@@ -79,6 +79,12 @@ class RutasPreLoginTest extends CasoDeContrato
         // del login: la manda la familia de un aspirante, que no tiene cuenta. El
         // porqué entero está en `AutenticacionTest::SIN_GUARD` y en el doc 41.
         ['POST', 'colillas-inscripcion/{codigo}'],
+
+        // La decimosexta (20 sep 2026) y **la primera de LECTURA de este módulo**: la
+        // familia pregunta cómo va lo suyo con el código que lleva impreso el papel.
+        // Tampoco va del login. El porqué entero está en `AutenticacionTest::SIN_GUARD`
+        // y en el doc 41 §10.
+        ['GET', 'colillas-inscripcion/{codigo}'],
         // La decimocuarta y la decimoquinta (19 sep 2026): el pago en línea del
         // mismo formulario. Tampoco van del login. La del checkout la abre la
         // familia del aspirante; **la del webhook no la llama una persona**, la

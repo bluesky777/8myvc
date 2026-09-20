@@ -107,6 +107,79 @@
 > **NO es un paso de despliegue**: el `.env` no viaja en el despliegue, así que desplegar no
 > rompe el correo ni lo arregla.
 
+> ## ✅ LA FAMILIA PREGUNTA — LA 16ª PÚBLICA Y LA PRIMERA DE LECTURA, ROUTER EN 620 (20 sep 2026)
+>
+> **Encargo de Joseth**, al preguntar qué faltaba del formulario. El porqué entero está en
+> [`41 §10`](41-el-formulario-de-inscripcion.md).
+>
+> **Está en `.worktrees/es`, rama `feat/la-familia-pregunta`, SIN FUNDIR**: el 620 se contó en ese
+> árbol y **hay que recontarlo en el árbol principal el día que entre**.
+>
+>     GET colillas-inscripcion/{codigo}    PÚBLICA    la llama la familia, sin cuenta
+>
+> ### El hueco estaba medido, y era de forma
+>
+> De las catorce rutas del formulario, **las tres públicas eran las tres de ESCRITURA**. La familia
+> mandaba su comprobante y **no podía saber si se lo aprobaron, se lo rechazaron ni por qué** — el
+> motivo ya se guardaba desde el 19 sep, y **sólo lo veía el personal**.
+>
+> **No espera al correo, y ése es el punto**: el aviso que debía cerrarlo va por correo, que está
+> en rojo desde el 2 sep y **falla callado**, y sólo el **9,2 %** de los acudientes tiene uno. Esto
+> es *pull* en vez de *push*: la familia entra con el código que lleva impreso el papel. *Arreglar
+> el correo sigue haciendo falta; lo que ya no hace falta es esperarlo.*
+>
+> ### Lo que devuelve lo decide que sea pública, no que le sirva a la familia
+>
+> La llave se dicta por teléfono y viaja en un papel que pasa de mano en mano, así que la pregunta
+> de cada campo fue **«¿qué pasa si esto lo lee quien se encontró el papel?»**. Salen el estado, el
+> valor, la fecha límite y **el motivo del rechazo** —que el tesorero escribe *para* la familia—.
+> **No** salen el nombre del alumno, su documento, sus teléfonos ni el fichero del recibo: la URL
+> es la llave. **Un código no puede revelar el nombre de un menor.**
+>
+> Eso **no lo ve ningún candado de autorización**, así que lo fija un test que busca el dato del
+> alumno **en el JSON entero**, no campo a campo. *Un campo de más en una respuesta pública no
+> rompe nada, no pone nada en rojo y no se nota hasta que importa.*
+>
+> ### EL AGUJERO QUE DESTAPÓ, Y ERA DE UNAS HORAS ANTES
+>
+> **La §9 había dejado medio cerrado su propio invariante.** `putCodigo` guarda el código retirado
+> en `codigo_anterior` para que el papel viejo no quede huérfano, y **sólo la ruta del PERSONAL
+> aprendió a buscar por él**: las dos públicas —subir el comprobante y pagar— seguían con `WHERE
+> codigo=?`.
+>
+> **Corregir un código dejaba a la familia sin poder pagar**, y era **silencioso para las dos
+> partes**: secretaría corrige creyendo que es inocuo, y la familia se estrella contra un 404 que
+> no puede reportarle a nadie porque no tiene cuenta. Ni error, ni registro, ni llamada — sólo una
+> inscripción que no se paga.
+>
+> Se arregló con una clase compartida (`App\Services\OrdenDeInscripcion`) **y no parcheando las dos
+> consultas**, que era lo obvio y lo insuficiente: habría tapado el de hoy y dejado el de mañana,
+> porque la siguiente ruta que reciba un código —van quince— se escribiría con la consulta obvia,
+> que es la mala. *Un sitio compartido convierte «acordarse» en «no tener que acordarse».*
+>
+> ### Y LA TRAMPA Nº 3 DEL MÓDULO, COMETIDA OTRA VEZ AL DÍA SIGUIENTE
+>
+> `{codigo}` se registró **delante** de `…/pendientes` y **se tragaba la bandeja del tesorero**,
+> que pasaba a contestar 422. Lo delató `getRoutes()->match()` — **no `route:list`, que ordena
+> alfabéticamente y no por orden de registro**, así que la forma natural de comprobarlo miente.
+> Es la misma trampa que `…/campos` antes que `…/{lote}`, en la familia de al lado. *Un aviso
+> escrito no protege solo.* Lo fija un test que pide `…/pendientes` sin token y exige **401**: si
+> se la tragara `getEstado`, daría 422.
+>
+> ### Los cinco sitios, que son los cinco justos
+>
+>     AutenticacionTest::SIN_GUARD              declarada con su motivo
+>     RutasPreLoginTest::TOTAL_PUBLICAS         15 -> 16
+>     AutorizacionTest::EXCEPCIONES_DE_FAMILIA  declarada: sus hermanas llevan guard
+>     rutas.json                                619 -> 620
+>     guard-por-familia.json                    colillas-inscripcion 4 -> 5 (con_guard sigue en 3)
+>
+> **Las dos que NO se movieron explican dónde ponerla**: `guards-por-ruta.json` lista las que
+> **llevan** guard, y ésta no; y `familias-que-nunca-entran-en-el-candado.json` no la recoge porque
+> `colillas-inscripcion` tiene **3 hermanas con guard** —≥ 2— así que el candado de familia sigue
+> mirándola. *Por eso va ahí y no en `pagos-inscripcion`, que está en ese censo como «0 de 2».*
+> `FamiliasQueNuncaEntranTest` sigue en **26**: esto lee.
+
 > ## ✅ DEL PAPEL AL ALUMNO — LAS CUATRO QUE CIERRAN EL FORMULARIO, ROUTER EN 619 (20 sep 2026)
 >
 > **Encargo de Joseth**: *«terminemos lo del formulario de inscripción… lo del código único que no
