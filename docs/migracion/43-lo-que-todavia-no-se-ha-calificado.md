@@ -1143,9 +1143,63 @@ lleva años vacía.
   > si describiera el todo, y este resultado favorece la hipótesis de quien escribe — que es
   > exactamente cuándo hay que contar las parejas en vez de celebrarlas.*
   >
-  > Si el censo completo confirma esto, la §7 deja de ser «dos calculadores que hay que unificar»
-  > y pasa a ser «dos calculadores que sólo divergen en un modo que nadie usa», que es otro lote y
-  > mucho más barato.
+  > #### CENSADO el 20 sep 2026, por encargo de Joseth. Y la respuesta es ANALÍTICA
+  >
+  > **En modo `porcentaje` los dos calculadores no «coinciden»: usan la MISMA fórmula.**
+  > `RepartoDeLaNota::pesoDeSubunidad()` es literalmente:
+  >
+  > ```php
+  > if ($modo === self::PROMEDIO) {
+  >     return '(1.0/'.self::cuantasSubunidades($s).')';
+  > }
+  > return "{$s}.porcentaje/100";
+  > ```
+  >
+  > y `calculoAlumnoNotas` calcula `nota * s.porcentaje / 100` a mano. **Es la misma expresión**,
+  > así que la divergencia en `porcentaje` no es improbable: es **estructuralmente imposible**. La
+  > §7 queda acotada al modo `promedio`, y ningún colegio lo usa.
+  >
+  > *Esto vale más que cualquier muestra —las diez parejas del front incluidas— porque no depende
+  > de qué datos te toquen.* Y por eso se dice primero: el censo de abajo **confirma**, no
+  > demuestra.
+  >
+  > #### Y el censo empírico, con lo que NO contesta dicho antes que lo que sí
+  >
+  > **La consulta que se corrió NO compara los dos calculadores.** Compara la definitiva
+  > **guardada** en `notas_finales` contra una recomposición en SQL, que es otra pregunta y
+  > arrastra al menos tres confusores: las nivelaciones, los alumnos con boletín independiente
+  > —que tienen unidades propias— y la normalización del cierre de la Fase 4. *Se dice antes del
+  > número porque es lo que decide qué puede concluirse de él.*
+  >
+  > Sobre el año **2025** (`porcentaje`), con `manual = 0`:
+  >
+  > | periodo | pares | discrepan | % |
+  > |---|---|---|---|
+  > | 30 | 4.538 | **0** | 0,0 |
+  > | 31 | 2.538 | **616** | 24,3 |
+  > | 32 | 3 | 0 | 0,0 |
+  > | 33 | 45 | **0** | 0,0 |
+  >
+  > **4.586 parejas en tres periodos con CERO discrepancias**, y las 616 **enteras en uno solo**.
+  > Eso es lo contrario de un desacuerdo sistemático entre calculadores: un desacuerdo de fórmula
+  > se repartiría por todos los periodos.
+  >
+  > **Qué tiene el 31, medido pero SIN cerrar**: tiene **138** parejas con notas tocadas *después*
+  > de que se guardara su definitiva, contra **2** en el periodo 30 y **0** en el 33 — o sea
+  > definitivas rancias, que es un fenómeno conocido y ajeno a esto. Pero 138 **no explica 616**,
+  > así que **el resto queda sin atribuir y no se finge**. Lo que sí se puede afirmar es que el
+  > fenómeno vive en un periodo y no en la aritmética.
+  >
+  > > **Lo midió quien escribió la hipótesis, y eso se dice.** La regla de la casa es que una cifra
+  > > la corra alguien que no la propuso; aquí Joseth encargó explícitamente *«encárgate tú»* con
+  > > el dueño del renglón ya desaparecido. La parte que **no** depende de quién mida es la
+  > > analítica de arriba, que es una lectura del código y se puede comprobar en treinta segundos.
+  >
+  > **Qué queda para quien retome la §7**: la frase *«¿unificarlo mueve algún número impreso? sí,
+  > y por eso no se unificó»* se sostenía en una medición hecha en `promedio`, sobre el año
+  > trasteado. En `porcentaje` no hay nada que unificar. **La decisión de unificar o no se
+  > convierte en «qué hacer el día que un colegio elija `promedio`»**, que es mucho más pequeño —
+  > y lo que sí sigue abierto, aparte, es de dónde salen las 616 del periodo 31.
   >
   > *Es la tercera vez en el mismo día que una cifra cierta describe el año trasteado y se lee
   > como si describiera los dieciséis colegios.* Las otras dos: el bloqueante del semáforo, y la
