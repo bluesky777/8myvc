@@ -392,7 +392,32 @@
 > Lo cierra `RutasTest::test_ninguna_ruta_literal_la_atiende_un_comodin`, que no lee lo declarado:
 > recorre el router y **le pregunta a `getRoutes()->match()` quién atiende cada ruta literal**, que
 > es lo que hará el servidor. Cubre las **620** de hoy y las de mañana sin que nadie se acuerde.
+> *(**623** al recontarlas el 20 sep en el árbol principal sobre `main`; la cifra se movió, no
+> envejeció mal — el candado las cubre sin tocarlo, que es el motivo de que sea genérico.)*
 > Control visto en rojo con los dos casos históricos; hoy el router está limpio.
+>
+> > **REPRODUCIDO POR UNA SEGUNDA SESIÓN, Y EL CONTROL LLEVA SU CUENTA DE ASERCIONES AL LADO**
+> > (`8myvc-97`, 20 sep 2026, en un árbol propio para no tocar el principal con tres suites
+> > corriendo). Movido `GET colillas-inscripcion/{codigo}` por delante de `pendientes` —el fallo
+> > del tesorero, literal— y corrido `RutasTest`:
+> >
+> > ```
+> > en verde     3 passed             (5 assertions)
+> > roto         1 failed, 2 passed   (5 assertions)
+> > ```
+> >
+> > **Las aserciones no se movieron**, y ése es el dato: es lo único que distingue haber roto la
+> > propiedad de haber roto el fichero. Un rojo que se lleva por delante la cuenta de aserciones
+> > no ha medido nada, y se lee igual que éste.
+> >
+> > Y las otras dos patas salieron en la misma corrida, sin buscarlas:
+> > **`test_cada_uri_la_atiende_la_misma_accion` se quedó VERDE** —el candado viejo mintiendo en
+> > vivo, no en el relato— y `route:list` listó `pendientes -> getPendientes` **el primero, por
+> > orden alfabético**, que es justo al revés de lo que hacía el servidor, con el total intacto.
+> >
+> > **Esto no hacía falta para dar por bueno el trabajo de `8myvc-dd`.** Hacía falta porque esta
+> > misma casilla dice *«no leas su docblock»*, y creerse la frase «control visto en rojo» de un
+> > relevo es leer un docblock más largo.
 >
 > **La lección no es del router, es del candado**: *un detector puede contar bien un síntoma sin
 > estar contando la causa* — y éste llevaba **el nombre de la causa escrito en el docblock**, que
