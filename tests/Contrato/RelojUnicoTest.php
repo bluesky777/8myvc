@@ -88,6 +88,34 @@ class RelojUnicoTest extends TestCase
         // antes de devolverlas— y no cambiando la escritura, que habría metido el
         // segundo reloj. La decisión de mover la tabla entera sigue siendo de
         // quien lleve las importaciones, y ya no la fuerza ninguna pantalla.
+        //
+        // > **Y EL 20 SEP 2026 APARECIÓ EL CASO QUE EL MOTIVO DE ARRIBA DABA POR
+        // > IMPOSIBLE: alguien comparó esa tabla con otra y se equivocó.** El
+        // > argumento era «sólo se restan entre sí, nunca se comparan con otra
+        // > tabla». Conduciendo la pantalla de la Fase 2 contra el docker, la
+        // > sesión del front consultó qué había escrito una importación usando
+        // > la ventana de `importaciones.inicio` —UTC— contra `alumnos.updated_at`
+        // > —Bogotá—, le salieron CERO filas tocadas mientras la pantalla decía
+        // > 32, y estuvo a punto de anotar que la importación no había escrito.
+        // >
+        // > Reproducido desde aquí sobre la copia de desarrollo, y son de LA
+        // > MISMA PETICIÓN, el mismo segundo:
+        // >
+        // >     importaciones.inicio     2026-09-20 17:37:03   <- UTC
+        // >     alumnos.updated_at       2026-09-20 12:37:03   <- Bogotá
+        // >     matriculas.updated_at    2026-09-20 12:37:03
+        // >     acudientes.updated_at    2026-09-20 12:37:03
+        // >
+        // > Las dos zonas son las que este repo decidió —`ImportarController`
+        // > escribe con `Carbon::now('America/Bogota')`, que es la regla, y esta
+        // > tabla con `now()`, que es la excepción— así que **nada está roto**.
+        // > Lo que ha caducado es la mitad del motivo que decía que no molesta a
+        // > nadie: molesta a quien consulta la base, que es lo que hace todo el
+        // > que viene a diagnosticar una importación.
+        // >
+        // > **La decisión de moverla sigue siendo de quien lleve las
+        // > importaciones**, y ahora tiene la evidencia al lado en vez de la
+        // > suposición.
         'app/Services/PuntoDeControlDeImportacion.php' => 10,
     ];
 
