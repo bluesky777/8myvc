@@ -130,7 +130,7 @@ class ChangeAskedController extends Controller {
 			if ($user->profesor_id) {
 				$now = Carbon::now('America/Bogota');
 				$dia = $now->dayOfWeek;
-				$horario_hoy 	= $this->asignaturas_dia($user->year_id, $user->profesor_id, $user->periodo_id, $dia, $user->show_materias_todas);
+				$horario_hoy 	= self::asignaturas_dia($user->year_id, $user->profesor_id, $user->periodo_id, $dia, $user->show_materias_todas);
 				// EL SÁBADO, `$dia + 1` da 7 y `asignaturas_dia()` no tiene caso 7: `$dia_cond`
 				// se queda en el espacio en blanco con el que nace y «mañana» devuelve TODAS
 				// las asignaturas del docente, un día a la semana (§2.1 del 23). `% 7` lleva
@@ -140,7 +140,7 @@ class ChangeAskedController extends Controller {
 				// porque con las columnas vacías todo sale vacío igual, y se estrena el día
 				// que se derive la primera versión oficial. Arreglarlo luego convertiría el
 				// estreno del horario en un fallo nuevo.
-				$horario_manana = $this->asignaturas_dia($user->year_id, $user->profesor_id, $user->periodo_id, ($dia + 1) % 7);
+				$horario_manana = self::asignaturas_dia($user->year_id, $user->profesor_id, $user->periodo_id, ($dia + 1) % 7);
 			}
 			
 			
@@ -202,9 +202,9 @@ class ChangeAskedController extends Controller {
 			# Asignaturas hoy -  
 			$now = Carbon::now('America/Bogota');
 			$dia = $now->dayOfWeek;
-			$horario_hoy 	= $this->asignaturas_dia($user->year_id, $user->persona_id, $user->periodo_id, $dia, $user->show_materias_todas);
+			$horario_hoy 	= self::asignaturas_dia($user->year_id, $user->persona_id, $user->periodo_id, $dia, $user->show_materias_todas);
 			// El mismo sábado que arriba, en la otra rama de `getToMe` (§2.1 del 23).
-			$horario_manana = $this->asignaturas_dia($user->year_id, $user->persona_id, $user->periodo_id, ($dia + 1) % 7);
+			$horario_manana = self::asignaturas_dia($user->year_id, $user->persona_id, $user->periodo_id, ($dia + 1) % 7);
 
 			
 			
@@ -1318,7 +1318,14 @@ class ChangeAskedController extends Controller {
 		return (int) $fila[0]->horario_version_id;
 	}
 
-	private function asignaturas_dia($year_id, $profesor_id, $periodo_id, $dia, $show_materias_todas=0)
+	/**
+	 * **`public static` desde el 19 sep 2026, y es el ÚNICO cambio de este fichero**
+	 * en la entrega de `muro/app`: la comparte `MuroController`, que manda las mismas
+	 * clases de hoy al docente. No usa `$this` —comprobado antes de moverla—, así que
+	 * pasar a estática no cambia ni una respuesta; lo que evita es tener **dos formas
+	 * de leer el horario**, que es de donde salen los horarios que no coinciden.
+	 */
+	public static function asignaturas_dia($year_id, $profesor_id, $periodo_id, $dia, $show_materias_todas=0)
 	{
 		$dia_cond = ' '; // Para que salgan todos
 

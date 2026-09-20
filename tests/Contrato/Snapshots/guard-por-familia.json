@@ -100,7 +100,7 @@
         "con_guard": 2
     },
     "calendario": {
-        "total": 5,
+        "total": 7,
         "con_guard": 0
     },
     "cambiar-usuarios": {
@@ -246,6 +246,10 @@
     "mis-actividades": {
         "total": 5,
         "con_guard": 2
+    },
+    "muro": {
+        "total": 1,
+        "con_guard": 0
     },
     "myimages": {
         "total": 10,

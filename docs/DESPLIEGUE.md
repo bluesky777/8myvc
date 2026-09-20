@@ -210,6 +210,39 @@ petición llega a su método.**
 sesión del front, no nosotros**. Reproducido aquí contra una base sin migrar: la consulta del
 contexto contesta `SQLSTATE[42S22] Unknown column 'y.regla_nivelacion' in 'field list'`.
 
+> ## ⚠️ ESTA SECCIÓN LLEVA CATORCE DÍAS Y LA TANDA HA TRIPLICADO — REMEDIR ANTES DE DESPLEGAR
+>
+> **Medido el 19 sep 2026 por la noche en el árbol principal, sobre `main` tras vaciar la cola de
+> ramas (`8279c62`):**
+>
+> | | decía (5 sep, `24967af`) | es hoy (19 sep) |
+> |---|---|---|
+> | commits | **321** | **632** |
+> | migraciones | **SIETE**, cuatro bloqueantes | **25** |
+> | rutas | 578 | **615** |
+>
+> **No se rehace la tabla de abajo aquí, y es a propósito**: lo que hay debajo es *lo que se midió
+> el día de aquel despliegue*, y la regla de `CLAUDE.md` es que se remide **el día del siguiente**,
+> entero y de una vez, no fila a fila cada vez que alguien funde algo. Lo que sí hace falta es que
+> nadie la lea creyendo que describe el árbol de hoy — que es exactamente el fallo que la propia
+> sección denuncia dos párrafos más abajo («una tabla con dos extremos es peor que una tabla
+> vieja: la vieja se remide, la mezclada se cree»).
+>
+> **Y ahora muerde de verdad, que es por lo que este aviso se escribe hoy y no se dejó para el
+> día del despliegue: el congelado se levantó el 19 sep** —la app salió de revisión—, así que el
+> siguiente que abra este documento puede ser alguien a punto de desplegar. Ir a los dieciséis
+> colegios con «son siete migraciones» en la cabeza cuando son veinticinco no es un susto: es
+> decidir a las tres de la mañana si las dieciocho que sobran son legítimas.
+>
+> Las tres cifras se rehacen con las órdenes que ya están en la tabla de abajo, cambiando el
+> extremo por el hash de hoy:
+>
+> ```bash
+> git rev-list --count 9474b50..<hash>
+> git diff --name-only 9474b50 <hash> -- database/migrations/ | wc -l
+> docker exec -w /app 8myvc-app-1 php artisan route:list --json | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))'
+> ```
+
 ### Lo que es esta tanda, remedido entero el 5 sep 2026 a las 22:1x sobre `9474b50..24967af`
 
 **El extremo va escrito con su hash y no como `HEAD`**, y no es una manía: aquí se trabaja con un

@@ -1,0 +1,29 @@
+{
+    "desde": "string",
+    "eventos": [
+        {
+            "allDay": "int",
+            "clave": "string",
+            "created_by_nombres": "null|string",
+            "descripcion": "null|string",
+            "destinatarios": [
+                {
+                    "grupo_abrev": "string",
+                    "grupo_id": "int",
+                    "grupo_nombre": "string",
+                    "publico": "string"
+                }
+            ],
+            "end": "null|string",
+            "id": "int|null",
+            "origen": "string",
+            "persona_id": "int|null",
+            "recordatorio_minutos": "int|null",
+            "solo_profes": "int",
+            "start": "string",
+            "title": "string",
+            "url": "null"
+        }
+    ],
+    "hasta": "string"
+}

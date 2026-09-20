@@ -12,7 +12,47 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**612 rutas** (contadas con `route:list --json` el **19 sep 2026 a las 18:54 en el ÁRBOL
+**615 rutas** (contadas con `route:list --json` el **19 sep 2026 por la noche en el ÁRBOL
+PRINCIPAL, sobre `main` y después de fundir** (`b5f5345`), en la integración que vació la cola de
+ramas. Las dos que suben sobre las 613 son las del **calendario con destinatarios** —`PUT
+calendario/mes` y `PUT calendario/proximos`—, que llevaban **dieciocho días** escritas y probadas
+en `feat/calendario` sin fundir.
+
+> **Y aquí este contador hizo lo que lleva meses pidiendo, pero al revés de como se esperaba: lo
+> que se quedó corto no fue el número, fue la LISTA DE RAMAS.** El primer intento de fundir
+> `fix/reparar-la-hora-y-uniformes` murió con un `fatal: Exiting because of an unresolved
+> conflict` —otra sesión tenía un merge abierto en el índice compartido del árbol principal— y al
+> retomar el hilo no se repitió. No lo delató `git branch --no-merged`, que se había leído antes:
+> lo delató **contar las migraciones del árbol** y ver que faltaban dos que sí estaban en la rama.
+> *Una fusión que falla por el árbol y no por su contenido deja el mismo rastro que una que nunca
+> se intentó — ninguno.*
+
+> **Las dos del calendario suben además `FamiliasQueNuncaEntranTest` de 24 a 26 escrituras**, y el
+> renglón está bien por un motivo TERCERO, distinto de los dos que ya había escritos: no es que
+> tengan guard —la familia `calendario/*` sigue con **0 de 7**— ni que la llave sea el dato, como
+> en `pagos-inscripcion`: es que **preguntan de quién es cada fila dentro del método**, con el
+> token, y un evento que no le toca a quien pregunta no viaja. Lo fija `CalendarioMesTest`. **La
+> cifra se midió corriendo el test, no sumando**: la rama traía `assertCount(25)`, cierto el día
+> que se escribió y falso desde entonces.
+
+El número anterior era **613**, **recontado con `route:list --json` el 19 sep 2026 en el ÁRBOL
+PRINCIPAL, sobre `main` y después de fundir** — y coincidió con las 613 contadas antes en
+`.worktrees/muro`, que es la única forma de saber que coincidía. La línea anterior decía *«SIN
+FUNDIR: hay que recontarlas en el árbol principal el día que entren»*, y aquél fue ese día — la
+que subía sobre las 612 era
+**`GET muro/app`**, el muro para la app, y **estrena familia**, así que mueve **cuatro**
+instantáneas y no tres: las tres de siempre más `familias-que-nunca-entran-en-el-candado.json`,
+donde entra como **`muro: 0 de 1`**.
+
+> **Ese `0 de 1` es el renglón que tendría un agujero, y aquí no lo es — va escrito porque la
+> regla dice que se acepta con el motivo y nunca regenerando y pasando.** El censo cuenta
+> `->middleware(...)` **declarados en la ruta**, y `muro/app` no declara ninguno porque vive
+> dentro del grupo `auth.token` de `routes/api.php`, que cubre toda la API. Es **exactamente el
+> mismo caso que `notificaciones: 0 de 1`**, que lleva meses ahí por lo mismo. Lo que lo
+> distingue de un agujero de verdad no es este texto: es
+> `MuroParaLaAppTest::test_sin_token_no_contesta`, que exige **401**.
+
+El número anterior era **612**, contado con `route:list --json` el **19 sep 2026 a las 18:54 en el ÁRBOL
 PRINCIPAL, sobre `main` y después de fundir** (`982a8cb`) — y **coincidió con las 612 contadas
 antes en `.worktrees/92`, que es la única forma de saber que coincidía**. Las dos que suben sobre las 610 son
 las de `pagos-inscripcion/` —el checkout y el webhook del pago en línea del formulario—, que
@@ -27,7 +67,10 @@ contadas antes en el worktree; las cuatro que subían sobre las 606 eran las de
 > ninguna línea de este fichero y que costó un rojo el 19 sep:
 > `FamiliasQueNuncaEntranTest::test_cuantas_escrituras_viven_donde_el_candado_no_llega` lleva la
 > cuenta de las escrituras que viven en familias que el candado de familia **no mira nunca**, y
-> pasa de **22 a 24**.
+> pasa de **22 a 24**. *(Y a **26** esa misma noche, al fundir las dos del calendario: ahí el
+> motivo es un tercero —preguntan de quién es la fila **dentro del método**— y está escrito en el
+> propio test. Tres subidas seguidas con tres motivos distintos y ninguna que sea un agujero: lo
+> que este centinela busca sigue sin aparecer, que es exactamente por qué no se regenera.)*
 >
 > **La colilla no lo movió y éstas sí, y la diferencia no es de mérito**: `colillas-inscripcion`
 > tiene tres hermanas con guard, así que el candado ya la miraba; `pagos-inscripcion` **no tiene
@@ -576,7 +619,8 @@ del 05 — el fichero ya se descargaba sin sesión.
 > **El tercero, medido el 19 sep 2026 con las dos de `pagos-inscripcion/`:**
 > `FamiliasQueNuncaEntranTest::test_cuantas_escrituras_viven_donde_el_candado_no_llega` y su
 > instantánea, que cuentan las **escrituras** que viven en familias que el candado de familia no
-> mira nunca — de **22 a 24**. Sólo se mueve si la ruta nueva **escribe** y su familia tiene menos
+> mira nunca — de **22 a 24**, y a **26** con las dos del calendario. Sólo se mueve si la ruta
+> nueva **escribe** y su familia tiene menos
 > de dos hermanas con guard: la colilla no lo movió porque sus tres hermanas sí lo llevan. O sea
 > que *«una pública mueve cinco sitios»* vale mientras la familia esté guardada por otro lado, y
 > **una familia nueva entera de públicas que escriben mueve seis**.
@@ -658,11 +702,22 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
   > | `composer run pint` | **ESCRIBE**: formatea los ficheros de la lista |
   > | `pint --test` a secas | mide **todo el repo**, incluido lo que no se formatea a propósito |
   >
-  > Los dos primeros corren sobre **la lista curada de `composer.json`** —hoy **430**
-  > ficheros—; el tercero sobre **679**, y da `FAIL` con **189** avisos. **Las dos cifras
+  > Los dos primeros corren sobre **la lista curada de `composer.json`** —hoy **437**
+  > ficheros—; el tercero sobre **682**, y da `FAIL` con **185** avisos. **Las dos cifras
   > son correctas y cuentan poblaciones distintas**: con la tercera se archivó como ruido
   > un rojo real que llevaba desde el 7 sep en `CorsDelEscritorioTest`.
   >
+  > > > **Y las tres se remidieron OTRA VEZ al fundir, esa misma noche: 437, 682 y 185.**
+  > > > Las de `.worktrees/92` —430, 679, 189— y las de la otra tanda —423, 662, 189— eran
+  > > > **ciertas las seis**, y ninguna describía el árbol fundido: dos tandas en paralelo
+  > > > metieron ficheros en la misma lista sin verse. **437 no es 430 + 7 ni 423 + 14**: es
+  > > > lo que contestó `composer run pint:test` sobre el árbol fundido — y hubo que
+> > > medirlo DOS veces, porque entre la primera y la segunda entraron tres commits más
+> > > en `main` y pasó de 436 a 437. Y la tercera cifra
+  > > > **bajó** —189 a 185—, que es la dirección que nadie habría supuesto sumando: un
+  > > > fichero que entra en la lista curada **sale** de la cuenta de avisos al formatearse.
+  > > > *Sumar dos cifras ciertas da una falsa; contar da la buena.*
+  > >
   > > *Remedidas las tres el 19 sep 2026 por la noche en `.worktrees/92`: **430** la lista
   > > curada (`PASS`), **679** el repo entero y **189** avisos, que es el único de los tres
   > > que no se movió. Decían 423, 662 y 189 esa misma mañana. **Que la primera suba es lo
@@ -683,6 +738,43 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
   > > no hubo nada que añadir: el número sube solo. **Que se mueva tres veces en una tarde no
   > > es que esté mal medido; es lo que hace esta cifra**, y por eso lleva al lado la orden que
   > > la rehace en vez de una fecha de caducidad.*
+  > >
+  > > *Y **419** el 19 sep 2026, con `app/Models/Profesor.php` y
+  > > `app/Http/Controllers/Piars/PiarsAsignaturasController.php`, que los formateó el día que
+  > > los tocó el cambio de `materia_id`/`grado_id`. Lo decidió Joseth con el precio delante,
+  > > que es la única forma en que este número debería moverse.*
+  > >
+  > > > **Y el precio que se le puso delante ERA FALSO, así que aquí queda la orden que lo
+  > > > mide bien.** Esta nota dijo que `Profesor.php` *«lo tocan cuatro ramas vivas y el
+  > > > reformateo les deja conflicto a las cuatro»*. **No lo toca ninguna.** Salió de contar
+  > > > con `git diff --name-only main..<rama>`, que mezcla dos cosas distintas: *«la rama
+  > > > cambió este fichero»* y **«la rama va por detrás y fue `main` quien lo cambió»**. Con
+  > > > diecisiete worktrees vivos, lo segundo es casi siempre. Lo que contesta la pregunta
+  > > > que se quería hacer es el **merge-base**:
+  > > >
+  > > > ```bash
+  > > > for b in $(git for-each-ref --format='%(refname:short)' refs/heads/); do
+  > > >   base=$(git merge-base origin/main "$b") || continue
+  > > >   git diff --name-only "$base".."$b" -- <el fichero> | grep -q . && echo "$b"
+  > > > done
+  > > > ```
+  > > >
+  > > > **La decisión no cambia** —formatear el fichero el día que se toca— pero el coste que
+  > > > se usó para tomarla era inventado, y eso se dice. Es la trampa nº 3 de
+  > > > `ESTADO-ACTUAL.md`, la de `--no-merged`, cometida con otra orden.*
+  > >
+  > > *Y **423** un rato después, el mismo 19 sep, con el candado de la plantilla:
+  > > `CandadoDeLaPlantilla` y su test entran solos —`app/Support` y `tests` ya estaban en la
+  > > lista— y `UnidadesController` y `SubunidadesController` se apuntan a mano, formateados el
+  > > día que se tocaron.*
+  > >
+  > > > **Y este 423 es la prueba de que la regla de arriba sirve para algo.** Las dos ramas
+  > > > que lo movieron se escribieron a la vez y cada una contó desde su propio árbol: una dijo
+  > > > **419** y la otra **421**, **las dos ciertas y ninguna describiendo el `main` que iba a
+  > > > quedar**. Al fundir la segunda no se sumó —419 + 2 daría 421, que es lo que decía la
+  > > > otra rama y habría cuadrado de mentira—: se volvió a correr `composer run pint:test`
+  > > > sobre el árbol fundido y dio **423**. *Dos cifras ciertas se contradicen en cuanto
+  > > > salen de su árbol; la única que vale es la que se cuenta después de fundir.*
   > >
   > > **Y el 647 tiene una trampa que conviene dejar dicha: hoy es el número de LARASTAN,
   > > no el de Pint.** `composer run stan` analiza **647** ficheros —**651 el 19 sep 2026 sobre

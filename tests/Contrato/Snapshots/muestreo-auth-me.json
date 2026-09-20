@@ -36,6 +36,7 @@
     "profesor_id": "null",
     "puestos_alfabeticamente": "int",
     "regla_nivelacion": "string",
+    "reparto_subunidades": "string",
     "roles": [
         {
             "created_at": "string",

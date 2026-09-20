@@ -597,16 +597,30 @@ esto es lo primero que hay que mirar — no el `.env`.
 Se activó también `sodium`, que faltaba: `lcobucci/jwt` la declara requisito
 duro y `composer install` habría fallado el chequeo de plataforma.
 
-### 2. Definir `CORS_ALLOWED_ORIGINS` — PENDIENTE
+### 2. `CORS_ALLOWED_ORIGINS` — **CONTESTADO el 3 sep 2026: se queda en `*`**
 
-Sin esta variable el arreglo de CORS **no hace nada**: el fallback sigue siendo `*`,
-puesto a propósito para que desplegar el PR no tumbe nada.
+Sin esta variable el fallback es `*`, que se puso a propósito para que desplegar el PR no
+tumbase nada. **Censado ese día: estaba definida en 1 de 17**, o sea que dieciséis llevaban
+`*` desde el principio.
 
-```env
-CORS_ALLOWED_ORIGINS=https://<dominio del colegio>
-```
+**Joseth decidió que `*` es el valor bueno y no un descuido**: cada colegio recibe conexiones
+de **aplicaciones externas**, así que una lista blanca de orígenes no describe a los clientes
+reales de esta API. Deja de ser un pendiente.
 
-Varios orígenes van separados por comas. Documentado en `.env.example`.
+> **Y `*` aquí no regala nada, que es lo que había que comprobar antes de darlo por bueno:**
+> `supports_credentials` es **`false`** (`config/cors.php:71`) y el token viaja en
+> `Authorization: Bearer` (`Sesion.php:412`), no en cookie. El navegador no manda credenciales
+> a otro origen y **el JavaScript tiene que adjuntar el token a mano**, así que una página
+> cualquiera puede llamar a la API pero sigue necesitando un token que vive en el
+> almacenamiento del cliente legítimo. *Abre la puerta; no reparte llaves.*
+>
+> **Lo que obligaría a volver aquí**: poner `supports_credentials => true` —el navegador
+> rechaza esa combinación con `*`— o mover la sesión a cookie. Las dos son un cambio de una
+> línea en `config/`.
+
+Si algún día hiciera falta acotarlo, varios orígenes van separados por comas y está
+documentado en `.env.example`. El porqué entero, en
+[`29-los-env-no-son-uniformes.md`](migracion/29-los-env-no-son-uniformes.md) §5.
 
 ### 3. Coordinar con el frontend — PENDIENTE
 

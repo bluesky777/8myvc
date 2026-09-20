@@ -477,9 +477,21 @@ tipo honesto, `stdClass`, se fueron 381 de una vez.
 Los 144 siguientes eran columnas de verdad, y **el motivo de que no se
 supieran es la Fase 5**: el esquema no está en migraciones sino congelado en un
 volcado SQL, y larastan de ahí no lee. Se resolvió generando las columnas dentro
-de cada modelo **desde el esquema real** —`tools/columnas-en-los-modelos.php`—,
+de cada modelo **desde ese volcado congelado** —`tools/columnas-en-los-modelos.php`—,
 no a mano, por la misma razón por la que `ColumnaSegura` le pregunta al esquema:
-una lista escrita se queda corta el día que alguien añada un campo. De paso salió
+una lista escrita se queda corta el día que alguien añada un campo.
+
+> **«Desde el esquema real» decía esta frase hasta el 4 sep 2026, y era justo lo
+> contrario.** El volcado es lo único que la herramienta lee, y **está congelado**:
+> no tiene las columnas que entraron por migración después. La distinción no es
+> cosmética, porque de ella salía un fallo silencioso —el bloque generado borraba
+> las `@property` que alguien había anotado a mano dentro de las marcas— y porque
+> el «esquema real», la base migrada, **no es una fuente válida aquí**: el 4 sep,
+> `years` daba **64** columnas en el volcado y **70** en la base de tests, y
+> anotar desde ahí metería en los dieciséis colegios columnas que allí no existen.
+> Medido y arreglado el 4 sep 2026: la herramienta **mueve** en vez de borrar y
+> trae `--control`. La frase correcta ya estaba escrita en
+> [`26-rubricas.md`](26-rubricas.md) §4.7 y ésta siguió viva al lado. De paso salió
 que **`NotaFinal` no declaraba su tabla**: Eloquent deducía `nota_finals`, que no
 existe. Hoy no se nota porque todo lo que hay en esa clase es SQL a mano, pero el
 primer `NotaFinal::where(...)` se habría llevado un «Table doesn't exist».
@@ -12380,6 +12392,16 @@ despliegue.
 > crean— sus temas colisionarían. **Eso no lo introduce esta función**: el tema de alumno
 > depende del mismo secreto desde el primer día. Lo que cambia es que ahora el fallo sería el
 > mismo en los dos sitios y no sólo en uno.
+>
+> > **PASÓ. Medido el 3 sep 2026: `lal` y `fortul` tenían el mismo `APP_KEY`.** Y pasó **por
+> > el camino que esta misma nota nombró** —un `.env` copiado al crear uno nuevo—: el paso E
+> > de [`TRASLADO-LAL.md`](../TRASLADO-LAL.md) mandaba editar «**SOLO** `DB_DATABASE`,
+> > `DB_USERNAME`, `DB_PASSWORD`», así que `lal` heredó la clave de `fortul` el 30 ago. Nadie
+> > quedó expuesto porque el push no está encendido; se rotó la de `lal` y se añadió
+> > `key:generate` al procedimiento, que es lo que faltaba. *La hipótesis estaba escrita con
+> > su mecanismo exacto y aun así nadie la comprobó durante cuatro días: **escribir el camino
+> > por el que algo fallaría no es lo mismo que recorrerlo**.* Censo, causa y radio en
+> > [`29-los-env-no-son-uniformes.md`](29-los-env-no-son-uniformes.md) §1.
 
 ### Lo que cambia de forma en la respuesta, y hay que decirlo entero
 

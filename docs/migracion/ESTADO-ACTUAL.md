@@ -73,10 +73,178 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
-> ## 🚧 LA CASILLA VACÍA — FASE 0 EN `.worktrees/vacia`, SIN FUNDIR (19 sep 2026, noche)
+> ## ✅ LA COLA DE RAMAS, VACIADA: OCHO FUSIONES, ROUTER EN 615 Y `origin/main` AL DÍA (19 sep 2026, noche)
 >
-> **Rama `feat/la-casilla-vacia`. Esto es una INSTRUCCIÓN, no un dato: mientras la rama no esté
-> fundida, el árbol principal NO tiene nada de esto y `notas.nota` sigue siendo `NOT NULL`.**
+> **Encargo de Joseth: reunir lo que estaban haciendo las otras sesiones, arreglar `main` —que
+> estaba 1 adelante y 7 por detrás de `origin/main`— y dejar local y remoto sincronizados.**
+> Hecho en el árbol principal por `8myvc-8b`, con `8myvc-47` trabajando a la vez y repartiéndose
+> el árbol por mensaje.
+>
+> ### Lo primero, que no era fusionar nada: los dos duplicados
+>
+> El commit que `main` tenía de más —`1be0414`, el de las imágenes publicadas— era **byte a byte
+> idéntico** a `52f1b98`, que ya estaba en `origin/main`. Lo dijo `git rebase` él solo:
+> *«skipped previously applied commit»*. Y lo que colgaba sin commitear en el árbol principal era
+> **una segunda redacción entera de la P6**, escrita por otra sesión en paralelo: `ContextoDeUsuario`
+> y las cuatro instantáneas `login-contexto-*` salieron **byte a byte iguales** a las publicadas, y
+> el candado era otra implementación con los mismos tres puntos de llamada. Está guardada en
+> `rescate/p6-copia-paralela-del-arbol-principal`, **no fundida y con el porqué dentro**.
+>
+> > **Y ese trabajo «duplicado» pagó solo unas horas después**: `8myvc-47` comparó su candado
+> > contra el publicado y encontró **dos fallos reales** —reordenar escribía la mitad del lote
+> > antes de abortar con 403, y un `null` se colaba— que `8myvc-14` reprodujo y arregló
+> > (`befdd41`, fundido aquí). Lo que parecía esfuerzo tirado era una **revisión cruzada sin
+> > acordarla**.
+>
+> ### Las ocho, y las tres que entraron A MEDIAS a propósito
+>
+> | rama | qué entró |
+> |---|---|
+> | `docs/despliegue-remedido` | **sólo la casilla**: `DESPLIEGUE.md` decía 232 commits (4 sep) y `main` lleva **321** (5 sep). Fundirla habría hecho retroceder el número |
+> | `docs/appkey-compartida-fortul-lal` | todo **menos** `29-los-env` §5: la rama la cerraba el 3 sep y `main` la tiene cerrada el **7**, con las dos mediciones de Tauri dentro |
+> | `fix/columnas-en-los-modelos-no-borra` | entera; el conflicto de `AutopruebasDeLasHerramientasTest` se resolvió como **unión**: conviven las tres herramientas |
+> | `fix/importacion-fase-1` | el código y el Pint; los docs **40 y 41 se quedan los de `main`** — la §5 de la rama son preguntas que Joseth contestó el 19 sep |
+> | `feat/la-casilla-vacia` | entera (sin su Pint, que su sesión tenía a medias) |
+> | `feat/calendario` | la funcionalidad; **`ChangeAskedController` se queda el de `main`** — ver abajo |
+> | `fix/reparar-la-hora-y-uniformes` | entera: dos migraciones que llevaban **trece días** escritas y probadas |
+> | `fix/candado-los-dos-agujeros` | entera: los dos fallos del candado P6 |
+>
+> **`feat/muro-para-la-app` la fundió `8myvc-47`** en paralelo, y recontó el router en 613.
+>
+> ### Lo que costó más y no se ve en el diff: lo que NO se adoptó
+>
+> **`feat/calendario` llevaba dieciocho días fuera y `ChangeAskedController` lo han reescrito tres
+> sesiones en ese tiempo.** Lo único que la rama le cambia es sustituir cinco `SELECT *` por
+> `CalendarioController::COLUMNAS` —la mejora correcta **de entonces**—, pero esa constante nombra
+> **diecisiete** columnas y `main` hizo después la versión medida: **nueve**, porque el calendario
+> era el 84–96% de esa respuesta y con nueve pesa **un 47% menos**. Fundirla habría devuelto siete
+> columnas de contabilidad a las cuatro ramas de `getToMe` **sin poner nada en rojo**.
+>
+> *Una rama vieja no se funde comprobando que no rompa: se funde comprobando qué deshace.* Las
+> tres fusiones a medias de la tabla son el mismo caso — documentación que esperó dos semanas y
+> llegó **desmentida por lo de después**, no pendiente.
+>
+> ### Las cifras, y de dónde salen
+>
+> - **615 rutas**, `route:list --json` en el **árbol principal, sobre `main` y después de fundir**
+>   (`b5f5345`). 613 + las dos del calendario.
+> - **`FamiliasQueNuncaEntranTest`: 24 → 26**, y la cifra **se midió corriendo el test**, no
+>   sumando: la rama traía `assertCount(25)`, cierto el día que se escribió. El motivo del renglón
+>   es un **tercero** —preguntan de quién es la fila dentro del método—, distinto del guard y
+>   distinto de «la llave es el dato» de `pagos-inscripcion`.
+> - **Base de tests reconstruida** (entraron cuatro migraciones): 38/38, 112 tablas.
+>
+> ### Y una cosa que no era del encargo y salió de camino: la tanda ha TRIPLICADO
+>
+> `DESPLIEGUE.md` describe la tanda pendiente como **SIETE migraciones y 321 commits**, medido el
+> 5 sep. Recontado esta noche sobre `8279c62`: **25 migraciones y 632 commits**, con el router en
+> 615 y no en 578. **La tabla no se rehace** —la regla es que se remide entera el día del
+> despliegue, no fila a fila— pero lleva ya un aviso fechado encima con las tres cifras y las
+> órdenes que las rehacen.
+>
+> **Se escribe hoy y no el día del despliegue porque el congelado se levantó hoy**: el siguiente
+> que abra ese documento puede ser alguien a punto de subir a los dieciséis colegios, y llegar
+> con «son siete» cuando son veinticinco es decidir a las tres de la mañana si las dieciocho que
+> sobran son legítimas.
+>
+> ### Lo que NO se tocó, y por qué
+>
+> - **El Pint sin commitear de `.worktrees/vacia`** (3.391 + 985 líneas) y el de `e6`: eran de
+>   sesiones que en ese momento tenían **una suite entera corriendo encima** (41% y 59% de CPU,
+>   comprobado en el contenedor, no supuesto). Commitearlo desde fuera les habría cambiado el
+>   árbol bajo una medición en curso.
+> - **`medicion/dos-columnas-en-listasignaturas`**: obsoleta. Su única línea —`a.materia_id,
+>   g.grado_id`— ya está en `origin/main` por `0d9af81`.
+> - **`.worktrees/2e`**: sólo una sonda de medición sin commitear y un `Snapshots.parcial/`.
+
+> ## ✅ `GET muro/app` — EL MURO SIN EL CALENDARIO, ROUTER EN 613 (19 sep 2026 — **FUNDIDA esa noche**, ver la casilla de la integración arriba)
+>
+> **Pedido por `myvc_flutter` (§5 de su `backend-pendiente.md`) y autorizado por Joseth el
+> 19 sep con las cuatro opciones delante.** Está en `.worktrees/muro`, rama
+> `feat/muro-para-la-app`, **sin fundir**: el contador de `CLAUDE.md` dice 613 con esa
+> condición escrita al lado, y hay que recontarlo en el árbol principal el día que entre.
+>
+> **El problema**: `GET ChangesAsked/to-me` manda **128 KB de calendario** (593 filas) que la
+> app **no lee en ningún rol** —comprobado: `eventos` no aparece ni una vez en todo `lib/` de
+> Flutter—, y siete consultas por acudido de las que sólo mira una. El argumento no es el
+> coste medio sino el pico: una notificación push hace que cientos de teléfonos abran a la
+> vez contra un hosting de un núcleo.
+>
+> ### Lo que cambió respecto al encargo, y las tres cosas son medidas
+>
+> **1 · La opción barata no existía.** §5 ofrecía «no mandar `eventos` a quien no lo pinta,
+> sin estrenar ruta». **No se puede**: este backend **no distingue la app del front web** —el
+> mismo token, el mismo `tipo`, y no hay cabecera de cliente—, así que vaciar `eventos` para
+> un acudiente se lo quita también al acudiente que abre el panel **en el navegador**, cuya
+> carga inicial sale justamente de ahí (`myvc_front`, `AnunciosCtrl.ts:1485`). O sea que la
+> ruta nueva no es la opción cara: **es la única que no le quita nada a nadie.**
+>
+> **2 · El contrato pedía tres claves y la app lee CINCO** (`MuroApi.dart`, `cuerpo['...']`).
+> Faltaban **`horario_version_id`** —que existe por decisión de Joseth del 2 sep para que
+> `horario_hoy: []` deje de significar dos cosas— y **`ausencias_periodo`**, la asistencia
+> del propio alumno. Es *«un encargo correcto deja atrás lo que no nombra»* otra vez.
+>
+> > **Y el modo de fallo que yo escribí para la primera estaba DEL REVÉS.** Dije que sin ella
+> > volvía el mensaje falso de agosto —«Hoy no tienes clases» a todo el mundo—; lo corrigió
+> > `myvc_flutter-c2` y se comprobó en su fuente: `HorarioDeHoy.tomar` hace
+> > `_clases = versionOficial == null ? null : clasesDeHoy`, así que sin la clave `seSabe`
+> > vale **`false`** y la app **no dice nada** — `MuroScreen` esconde el bloque y el filtro
+> > «sólo las de hoy» de `NotasScreen` se apaga. **Omitirla apaga la función en silencio en
+> > vez de mentir**, que es más barato y exactamente igual de invisible.
+> >
+> > La conclusión no se movió —la clave viaja, y el test la exige— pero el argumento escrito
+> > sí, y la diferencia importa: es lo que hay que buscar el día que alguien la quite. Estaba
+> > mal en el controlador, en el test y en el mensaje del commit `eb13d8e`, que no se puede
+> > reescribir; corregido en los dos primeros.
+>
+> **3 · El calendario no tiene ni una fila de 2026.** Las 593 van de 2019 a 2025 y 86 son
+> anteriores a 2024: **nadie ha curado esa tabla**. Filtrar por año lo dejaría hoy vacío en el
+> front web —que es la verdad y parece una avería—, así que **no se hace aquí** y queda
+> escrito. De paso: `calendario/this-year` **no filtra por año** pese al nombre y sigue
+> mandando los **215,5 KB** con `SELECT *` —el recorte del 2 sep arregló `to-me` y no a ella—,
+> y es la que llama el botón «Actualizar» del panel.
+>
+> ### Lo que cazaron las pruebas y habría salido el día del despliegue
+>
+> - **`persona_id` y no `profesor_id`**: para un Profesor esa propiedad **no existe** en el
+>   contexto (la de `profesor_id` es la rama del superusuario) — «Undefined property» y 500.
+> - **El seed no tiene ni un acudiente con acudidos**: los **76** viven en el año `1` y las
+>   matrículas están en el `7` y el `8`. Sin fabricar el caso dentro del test, `alumnos` sale
+>   `[]` y los casos de columnas pasan **sin mirar una sola fila** — y lo que no se miraría
+>   son datos personales de un menor.
+>
+> ### Lo que mueve, y el renglón que hay que leer con cuidado
+>
+> **Cuatro instantáneas, no tres**, porque estrena familia: `rutas.json`,
+> `guard-por-familia.json`, `familias-que-nunca-entran-en-el-candado.json` —donde entra como
+> **`muro: 0 de 1`**— y `guards-por-ruta.json` **no se movió** (lista las que declaran guard).
+>
+> **Ese `0 de 1` es la forma exacta que tendría un agujero**, y se acepta **con el motivo
+> escrito**: el censo cuenta `->middleware(...)` **declarado en la ruta**, y ésta no declara
+> ninguno porque vive dentro del grupo `auth.token` de `routes/api.php`. Es el mismo caso que
+> `notificaciones: 0 de 1`. Lo que lo distingue de un agujero de verdad no es este párrafo:
+> es `MuroParaLaAppTest::test_sin_token_no_contesta`, que exige **401**.
+>
+> ### Estado
+>
+> `MuroParaLaAppTest`: **7 passed (35 assertions)** (`--filter=MuroParaLaAppTest`,
+> `--testsuite=Contrato`, en `.worktrees/muro` con `DB_TEST_DATABASE=simonbolivar_testing_muro`).
+> Los candados de ruta: **82 passed** (`--filter='Rutas|Autoriza|Autenticacion|FamiliasQueNuncaEntran'`).
+> `pint:test` **PASS, 433 ficheros** —`MuroController` entra en la lista curada en este mismo
+> commit—. **`ChangesAsked/to-me` no se tocó**, y hay un test que lo ata: le sigue mandando el
+> calendario al front web.
+>
+> **Lo único que se tocó del fichero viejo** es que `asignaturas_dia` pasa de `private` a
+> `public static` —no usa `$this`, comprobado antes de moverla— para que las clases de hoy se
+> lean **de un solo sitio**. Cuatro llamadas actualizadas, ninguna respuesta movida.
+
+> ## ✅ LA CASILLA VACÍA — FASE 0 (19 sep 2026, noche — **FUNDIDA esa misma noche**; lo que sigue fuera es sólo su Pint, que su sesión tenía a medias)
+>
+> **Rama `feat/la-casilla-vacia`, FUNDIDA el 19 sep 2026 por la noche.** El párrafo que había
+> aquí era una instrucción con su condición de caducidad puesta —*«mientras la rama no esté
+> fundida, el árbol principal NO tiene nada de esto y `notas.nota` sigue siendo `NOT NULL`»*— y
+> hoy se cumplió esa condición, así que se sustituye en vez de dejarla envejecer a mentira.
+> `notas.nota` ya es anulable en el árbol principal.
 >
 > El porqué entero, medido, en [`43`](43-lo-que-todavia-no-se-ha-calificado.md). En una línea: una
 > casilla de `notas` nace con el indicador y vale 0 desde ese instante, así que **a mitad de periodo
@@ -284,6 +452,166 @@
 > **La diferencia que decide esto no es el precio, es el silencio**: WhatsApp avisa cuando no
 > entrega y el correo falla callado. El «pago aprobado» que no llega no se reintenta, porque
 > el aspirante no sabe que existía.
+
+> ## ✅ P6 · EL CANDADO DE LA PLANTILLA — CERO RUTAS, Y LE QUITA ALGO AL DOCENTE (19 sep 2026)
+>
+> **Autorizado por Joseth el 19 sep, y con el alcance recortado por él**: de las dos mitades de P6
+> entra **sólo el candado**. «Volver a aplicar» se queda fuera. **El router no se mueve: 602.**
+>
+> | | |
+> |---|---|
+> | `unidades/update`, `subunidades/update` y `unidades/update-orden` rechazan **nombre y porcentaje** de una fila con `por_defecto = 1` | 403, y la fila no se toca |
+> | …salvo quien tiene `can_edit_plantilla_notas` | el criterio va **dentro** del método, no en la ruta |
+> | Añadir subunidades **dentro** de una unidad del colegio sigue siendo del docente | **D14** |
+> | `years.reparto_subunidades` pasa a viajar en el contexto del login, en las cuatro ramas | 6 instantáneas |
+> | `Tests: 2122 passed (--testsuite=Contrato)` · larastan `[OK]` · `pint:test` PASS 421 | `.worktrees/e6` |
+>
+> ### El agujero era real y llevaba abierto desde siempre
+>
+> `PUT unidades/update/{id}` lleva sólo `auth.personal`, que cierra la puerta a alumnos y acudientes
+> **y a nadie más**. Así que cualquier docente podía renombrar y recambiar el porcentaje de una fila
+> sembrada desde `unidades_por_defecto`. Y el porcentaje de la unidad **es el factor de fuera de la
+> definitiva** —`(u.porcentaje/100) * …`—, con el recálculo diez líneas más abajo en el mismo
+> método: mover el 60 al 90 movía las notas del curso.
+>
+> ### Las tres decisiones de diseño, y las tres tienen su test
+>
+> **1. Se compara el VALOR, no la presencia del campo.** El front reenvía el formulario entero, así
+> que un candado que salte porque *«vino `porcentaje`»* contesta 403 a quien no cambió nada. Se
+> leería como una avería, y el arreglo evidente —quitar el candado— reabre el agujero.
+>
+> **2. `update-orden` se frena por el ORDEN, y eso es una interpretación.** P6 dice que las tres
+> rutas *«rechazan el cambio de nombre y de porcentaje»*, y esa ruta **no escribe ninguno de los
+> dos**: lo único que puede hacerle a una fila del colegio es moverla de sitio. Si se lee literal,
+> nombrarla no significa nada. Queda fijado en el test para que sea discutible en vez de invisible.
+>
+> **3. 403 y no 422.** El cuerpo es correcto: lo que falta es permiso. Un 422 haría que el front
+> dijera «revisa los campos», que es mentira — no hay nada que revisar.
+>
+> ### `reparto_subunidades` viaja porque si no el candado se nota en el sitio equivocado
+>
+> Lo pidió la app y **la asimetría la vio ella**: su hermana `modelo_evaluacion` salía en las cuatro
+> ramas del contexto y ésta en ninguna —`grep -c` daba 5 y 0—, siendo las dos columnas de `years`
+> que gobiernan lo que un docente ve. Sin ella, con `reparto_subunidades = 'promedio'` el cliente le
+> sigue pintando un campo de porcentaje **que ya no decide nada**: sin error y sin log.
+>
+> ### LO QUE JOSETH DECIDIÓ Y NO ESTÁ HECHO — se escribe para que no se re-litigue
+>
+> - **«Volver a aplicar» queda fuera de este lote.** Y antes de escribirlo hay que medir una cosa:
+>   **`PUT plantilla-notas/sembrar` ya acepta `reemplazar`**, ya salta los periodos cerrados
+>   (`saltadas_por_periodo_cerrado`), ya resiembra las que tienen unidades pero **cero notas**, y ya
+>   contesta con su recuento. Puede que la ruta nueva **no haga falta**.
+> - **Y cuando se haga: las asignaturas que YA tienen notas se actualizan igual**, nombre y
+>   porcentaje. Decisión de Joseth, 19 sep, **tomada con la consecuencia delante**: eso cambia
+>   definitivas ya calculadas, así que un boletín impreso y la pantalla pueden dejar de coincidir.
+>   Hoy `sembrar` las salta; ahí está toda la diferencia entre lo que hay y lo que pide P6.
+> - **Se despliega SIN avisar a los colegios.** P6 dice *«hay que decirlo colegio a colegio antes,
+>   no después»* y Joseth decidió lo contrario el 19 sep, a sabiendas. Queda escrito aquí para que
+>   dentro de un mes se sepa que se sabía: el síntoma en el colegio será un docente que guarda y
+>   recibe un error donde antes guardaba.
+>
+> **Falta**: fundir y desplegar. Rama `feat/candado-de-la-plantilla`, sobre `99060be`.
+> El front tiene que pintar el campo como bloqueado; hasta que lo haga, el docente ve el campo
+> editable y se lleva el 403 al guardar.
+
+> ## ✅ `materia_id` Y `grado_id` EN LAS ASIGNATURAS DE UN DOCENTE — DOS COLUMNAS, CERO RUTAS (19 sep 2026)
+>
+> **Autorizado por Joseth con el precio delante.** Empezó como una **propuesta de ruta nueva** de
+> `myvc_flutter` —`GET desempenos/mis-clases`— y **la retiró la propia sesión de la app** al ir a
+> justificarla: lo que le faltaba era un campo, no un endpoint. **Esto no añade ninguna ruta**
+> —el contador lo movió a **602** la prematrícula de más abajo, que entró en `main` mientras
+> esto se escribía; se dice así y no «sigue en 600» porque un número absoluto en una rama
+> describe un árbol que a las dos horas ya no existe—.
+>
+> | | |
+> |---|---|
+> | `a.materia_id` y `g.grado_id` en `Profesor::asignaturas` | ningún JOIN nuevo: los dos ya estaban |
+> | …y en su **gemelo copiado a mano**, `PiarsAsignaturasController` rama `Usuario` | mismo commit |
+> | 3 instantáneas regeneradas, `+2` claves cada una y nada más | |
+> | `Tests: 2117 passed (--testsuite=Contrato)` · larastan `[OK] No errors` | `.worktrees/e6` |
+>
+> ### Por qué dos ids y no un nombre: el esquema no impide la ambigüedad
+>
+> El plan de área se dirige por ids —`Autoriza::puedeEscribirDesempenos` filtra literalmente por
+> `a.materia_id` y `g.grado_id`— y ese SELECT sólo devolvía **nombres**. Así que `myvc_front` lo
+> reconstruía desde fuera (`app2/…/docente-competencias/alcance.ts`): el grado por `grupo_id`
+> —exacto— y **la materia emparejando `materia`+`alias` contra `GET materias`**, descartando la
+> asignatura en silencio cuando el par no era único. Funciona hoy: en la base de desarrollo hay
+> **35 materias vivas y cero pares repetidos**. Y **eso es una casualidad de los datos de UN
+> colegio**: `materias` **no tiene índice único sobre `(materia, alias)`** —comprobado en el
+> volcado— y hay dieciséis. Ése es el argumento que sostiene el cambio; el de *«la regla escrita
+> dos veces se separa»* es más débil y no lo habría pagado.
+>
+> ### LO QUE SE PAGA, Y NO ES LO QUE SE PUSO ROJO
+>
+> `Profesor::asignaturas` lo comparten **once llamantes en nueve controladores**, y **los once
+> devuelven esas filas al cliente**. De los once, **la suite de contrato mira dos**. O sea que las
+> otras nueve cambiaron de forma **sin que nada se pusiera rojo** — y una de ellas es
+> `asignaturas/listasignaturas`, que es **la única puerta de `myvc_flutter` a las asignaturas de un
+> docente**. Añadir es inocuo (los clientes ignoran lo que no conocen, y ninguno pinta estas filas
+> recorriendo sus claves: comprobado en los tres repositorios); **quitar o renombrar ahí no lo
+> caza nadie**.
+>
+> ### El gemelo quedó demostrado por lo que NO se movió
+>
+> `PiarsAsignaturasController` lleva ese mismo SELECT **copiado a mano** para su rama `Usuario`,
+> con otro `WHERE` —aquél pregunta por el docente, éste por el grupo—, así que no se pueden fundir.
+> En la medición previa, tocando **sólo** el método, `muestreo-piars-asignaturas` **no se movió**:
+> esa instantánea es de la rama `Usuario`, y la del `Profesor` no tiene ninguna. O sea que esa ruta
+> habría contestado **dos formas según quién pregunte y la suite habría seguido verde**. Por eso
+> los dos van en el mismo commit, y por eso cada lado lleva el aviso escrito apuntando al otro.
+> *(Siguen diferenciándose en `caritas`, que el gemelo nunca trajo: es anterior a esto y se deja.)*
+>
+> ### Lo que esto borra en el front, y lo que NO se ha hecho
+>
+> Con las dos columnas, `alcance.ts` (12 KB) sobra entero y con él el emparejamiento por nombre.
+> **Ese borrado no está hecho**: es del repositorio del front y no se toca desde aquí. La app de
+> Flutter escribe su pantalla contra lo que existe hoy, **detrás de un interruptor apagado**, y lo
+> encenderá cuando esto esté **desplegado** —no fundido—, verificado por el hash de la tanda.
+>
+> ### Y la lección que no era nuestra: un umbral no lleva un número dentro
+>
+> De aquí salió que `myvc_flutter` tenía en `Interruptores.dart` la condición de encendido escrita
+> como **«desplegado en los quince»**. Son **dieciséis** desde que entró `lal` el 30 ago
+> ([DESPLIEGUE.md](../DESPLIEGUE.md):966), así que **encendía con un colegio sin desplegar** — y el
+> fallo le salía justo a ése, en la pantalla que usa a diario. Ya está cambiado a *«todos los que
+> recorre el bucle de despliegue»*, **sin cifra**. La sesión de la app lo había propagado hasta el
+> punto de **«corregir» a Joseth** un documento que estaba bien.
+>
+> > **CONTESTADO por Joseth el 19 sep 2026: `lal` está bien.** La duda era que el interruptor
+> > `disciplinaMisFichas` se encendió el 26 ago contra la tanda `eb95cbc`, **cuatro días antes de
+> > que `lal` existiera**, y que `lal` llegó **por traslado desde otro servidor**
+> > ([TRASLADO-LAL.md](../TRASLADO-LAL.md)) — o sea que lo que tenga dependía de qué copia se
+> > llevó y no de la fecha. **Queda cerrado porque lo dice quien lo sabe, no porque se dedujera**:
+> > eso es exactamente lo que no se podía hacer desde aquí. Si alguien vuelve a abrirlo, lo que
+> > lo contesta es el hash desplegado de `lal`, no este párrafo.
+>
+> ### Qué falta, y en qué orden
+>
+> **FUNDIDA el 19 sep 2026 en `6b20cda`. Falta desplegar.** La rama era
+> `feat/materia-id-y-grado-id-en-asignaturas`, **rebasada sobre `99060be`** y con tres commits:
+> `0d9af81` el cambio, `bfd27c7` el Pint de los dos ficheros que toca y `d130bca` el `chore` que
+> los mete en la lista curada de `composer.json` (**419**, apuntado en `CLAUDE.md` en el mismo
+> commit). Es *fast-forward*: `git branch -f main d130bca && git push origin main` — **y se
+> reverifica antes**, que `main` ya se movió una vez debajo de esta rama.
+>
+> > **Una cifra de esta casilla era falsa y se corrige aquí, no se borra.** Decía que
+> > `Profesor.php` *«lo tocan cuatro ramas vivas y el reformateo les deja conflicto»*: **no lo
+> > toca ninguna**. Se contó con `git diff main..<rama>`, que da positivo también cuando la rama
+> > va **por detrás** y fue `main` quien tocó el fichero. Medido contra el merge-base de cada
+> > rama —que es la pregunta que se quería hacer—, las únicas que lo tocan son las de este
+> > trabajo. **Es la trampa nº 3 de la cabecera de este documento, la de `--no-merged`, cometida
+> > con otra orden**: contar referencias en vez de trabajo. La decisión de Joseth no cambia; el
+> > coste con el que se la tomó era inventado, y por eso vale más la orden que el número.
+>
+> **Desplegar ya es posible** desde el 19 sep — ver la casilla del congelado—, pero **esto no
+> corre prisa**: mientras no esté en los dieciséis, el front sigue con su rodeo y la app con su
+> interruptor apagado, y las dos cosas funcionan. Lo que **no** se puede hacer hasta entonces es
+> borrar `alcance.ts`.
+>
+> La medición previa, con el árbol sin el gemelo tocado, quedó aparte en
+> `medicion/dos-columnas-en-listasignaturas` (`7a2df03`, **NO FUSIONAR**): es la prueba de las
+> dos formas de `piars/asignaturas`, y sólo sirve emparejada con ésta.
 
 > ## ✅ ABRIR Y CERRAR LA CAMPAÑA DE PREMATRÍCULA — DOS RUTAS, ROUTER EN 602 (19 sep 2026)
 >
@@ -1861,6 +2189,75 @@
 >
 > *La fila se corrige y no se borra: explica por qué el árbol principal tenía algo colgando esa
 > mañana, que es información que no se repone corriendo nada.*
+
+**6 sep 2026 — LA REPARACIÓN DE LA HORA Y LA DEUDA DE `uniformes`, ESCRITAS Y **SIN FUNDIR**
+· `database/migrations/2026_09_06_100000_reparar_la_hora_escrita_dos_veces.php`,
+`2026_09_06_200000_crear_uniformes_donde_falte.php`,
+`tests/Feature/RepararLaHoraEscritaDosVecesTest.php` (**11 casos**) · rama
+`fix/reparar-la-hora-y-uniformes`, worktree `.worktrees/r` · pint PASS · larastan `[OK] No errors` ·
+**suite entera: `Tests: 2050 passed (18366 assertions)`, 0 fallos, 1131 s**, corrida contra `e279f0b`
+en `.worktrees/r` con `simonbolivar_testing_r` a 22/22 migraciones — *la cifra se lee de la línea
+`Tests:` y no del código de salida, que en una tubería miente*
+
+> **Encargo de Joseth: *«avanza a reparar en local, aún no desplegaré»*.** Están las dos
+> migraciones que quedaban a deber, probadas, **y NO se funden**: cada una sería la octava —o la
+> novena— de una tanda congelada en SIETE y ya ensayada. `main` sigue en siete.
+>
+> ### La de la hora: lo que repara, y lo que renuncia a reparar
+>
+> Repara las tres columnas medidas en la [§250](05-codigo-muerto-y-roto.md) —`change_asked.deleted_at`
+> y `ausencias.created_at`/`updated_at` con `uploaded IS NOT NULL`— con
+> `TIMESTAMP(DATE(col), MAKETIME(HOUR(col), SECOND(col), 0))`, que **devuelve hora y minuto** y
+> pierde sólo los segundos.
+>
+> **Y excluye `SECOND(col) = 0` a propósito, que es lo que la hace segura de repetir.** Una fila ya
+> reparada queda con los segundos en cero; sin esa exclusión, una segunda pasada sobre una fila
+> como `21:21:21` la llevaría a **21:00:00**, esta vez sin arreglo. **El precio de la exclusión**:
+> las filas cuyo minuto real era `00` se quedan sin reparar, porque son indistinguibles de una ya
+> reparada. *Se prefiere no repararlas a arriesgarse a estropearlas.*
+>
+> ### Los once casos, y la mitad que importa es la que dice DÓNDE NO TOCA
+>
+> Ejecutan **las sentencias de la propia migración**, no una copia «equivalente» escrita en el test:
+> la migración las expone en `sentencias()` justo para eso. Fijan que no se toca `fecha_hora` —la
+> hora a la que llegó tarde el alumno—, ni las 52.157 ausencias del alta normal, ni las filas sanas,
+> ni un `deleted_at` nulo; y que **sí** entra `uploaded = 'deleted'`, que el filtro estrecho perdía.
+>
+> **Uno de los once fija EL PRECIO por escrito**: una fila sana escrita en el minuto de su hora
+> —21:21:35— **también se mueve**, a 21:35:00. Es el falso positivo de ~1 de cada 60 que Joseth
+> aceptó. Está en verde a propósito: si algún día se decide no pagarlo, ese test se pone rojo y
+> obliga a leer la cabecera.
+>
+> ### Vistos en ROJO, que es lo único que hace valer los verdes
+>
+> ```
+> quitando `uploaded IS NOT NULL`   -> 1 rojo: repara ausencias que no subió el lector
+> quitando `SECOND(col) <> 0`       -> 2 rojos: la segunda pasada vuelve a mover la fila
+> ```
+>
+> *Y el primer intento de romper la segunda guardia **no llegó a aplicarse** y el test siguió verde:
+> se leyó como «la guardia no hace falta» durante un minuto. Lo delató contar las apariciones que
+> quedaban en el fichero. **Un rojo que no aparece hay que comprobar que se intentó de verdad.***
+>
+> ### La de `uniformes`: paga la deuda del 5 sep, y en los diecisiete es un no-op
+>
+> `Schema::hasTable()` delante. Su valor es **el colegio dieciocho** —uno nuevo se crea copiando la
+> base de otro— y el día que una copia venga incompleta. Comprobado que **crea la tabla idéntica**:
+> se copió la base de test, se le quitó `uniformes`, se migró, y `information_schema` da **22
+> columnas, 4 renglones de índice y 3 claves ajenas iguales uno a uno** — incluida la collation
+> `utf8mb4_general_ci` de `descripcion`, que no es la de la tabla y en los dieciséis es así.
+>
+> **Ninguna de las dos borra nada en `down()`**, y las dos lo dicen en su cabecera. La de la hora
+> porque la vuelta atrás es aritméticamente posible pero **no se sabe qué filas se tocaron**: una
+> fila sana de las 14:30:00 tiene la forma de una reparada, y desandar a ciegas la convertiría en
+> 14:14:30. La de `uniformes` porque un `dropIfExists` se llevaría las faltas de dieciséis colegios
+> que siempre tuvieron la tabla. **El camino de vuelta es la copia de seguridad, no el `down()`.**
+>
+> ### LO QUE FALTA, y no es código
+>
+> **La decisión de Joseth sobre si se reparan las filas**, que sigue abierta: reparar cuesta ese ~1
+> de cada 60 —despreciable donde la columna salió al 100 %, unas 3 o 4 filas en `cads_itagui`, que
+> salió 90 de 214—. Escribir la migración no la toma; la deja lista.
 
 > ## EL ESPACIO DE TRABAJO, LIMPIADO — 5 sep 2026, 22:1x, y queda en CINCO árboles
 >
@@ -4344,6 +4741,26 @@ esta casilla · **cero código** · la copia de ensayo se borró al terminar
 > estado que `construir-bd-test.sh` documenta como el peor: **la columna que esa migración
 > retira ya retirada y las demás sin llegar**. No la he tocado. Se arregla reconstruyéndola.
 
+**19 sep 2026 — EL CONGELADO SE LEVANTA: LA APP SALIÓ DE REVISIÓN** · dicho por Joseth ·
+sólo documentos · **cero código**
+
+> **Joseth, 19 sep 2026:** *«ya salió de revisión y subí versión a producción, bueno, a que lo
+> revisen a ver si sube a producción esta semana.»*
+>
+> O sea que **el suceso que desbloqueaba pasó**: el criterio de la casilla de abajo era *«la app
+> salió de revisión»*, no el 10 de septiembre, y se cumplió. **Ya se puede desplegar.**
+>
+> **Con un matiz que no cambia la decisión pero sí lo que hay que mirar**: hay una versión NUEVA
+> en revisión ahora mismo, con la esperanza de que suba esta semana. La que salió y la que está
+> dentro no son la misma, así que quien despliegue algo que la app lea debería preguntarse si esa
+> versión en revisión lo aguanta — que es la pregunta original del congelado, sobre otra versión.
+>
+> **Lo que queda pendiente de mirar, y no se ha mirado**: `main` lleva cosas fundidas y sin
+> desplegar acumuladas durante el congelado. La lista vive en la sección
+> **«Lo que está fusionado y NO desplegado»** de este mismo documento y **no se ha repasado
+> contra el estado de hoy**: alguien tiene que leerla entera antes de la próxima tanda, porque
+> se escribió cuando desplegar no era una opción.
+
 **4 sep 2026 — EL CONGELADO TIENE FECHA: EL 10 DE SEPTIEMBRE, Y LA PREGUNTA QUE LO
 DESBLOQUEA YA ESTÁ CONTESTADA** · decisión de Joseth · sólo documentos:
 [`DESPLIEGUE.md` §🛑](../DESPLIEGUE.md) y esta casilla · **cero código**
@@ -4752,6 +5169,125 @@ mueve: siguen 567**
 > scratchpad de esta sesión. Lo escribió quien lleva `fix/frases-asignatura-text`, que es un
 > worktree: en el árbol principal eso se queda huérfano.
 
+**4 sep 2026 — EL RANGO SIN DESPLEGAR, REMEDIDO ENTERO: 232 COMMITS Y NO 191, Y CUATRO AVISOS
+QUE FALTABAN** · rama `docs/despliegue-remedido`, **FUNDIDA el 19 sep 2026 — y su titular ya
+estaba superado al fundirla**: el 5 sep otra sesión remidió el mismo documento y dio **321**
+commits, así que de esta rama entró la casilla y **no** `DESPLIEGUE.md`, que se quedó con la
+medición posterior. Los cuatro avisos que traía ya estaban dentro: los veinte (A–S) coinciden
+en las dos versiones, y el de `tono` lo lleva `main` como **P** donde aquí es **R**. *Una rama
+de documentación que espera dos semanas no envejece a «pendiente»: envejece a «desmentida», y
+el que la funde tiene que mirar cuál de las dos cifras es la de después.* · sólo
+documentación: `docs/DESPLIEGUE.md` y esta casilla, **cero ficheros de `app/`, `routes/`,
+`tools/` ni `database/`** · **el despliegue SIGUE CONGELADO**: esto no lo descongela · lote
+repartido por `8myvc-f5`, de parte de Joseth
+
+> **Se remidió porque se le acababa de tocar**, que es la regla del propio documento. La
+> sección grande medía sobre un rango de dos días atrás y describía un código que ya no
+> existe.
+>
+> | | decía | dice, medido el 4 sep sobre `9474b50..main` (**`8f59242`**) |
+> |---|---|---|
+> | commits | 191 | **232** |
+> | rango | `9474b50..347f137` | **`9474b50..aebf4ed` era el de las cifras** — ver abajo |
+> | `app/` · `routes/` · migraciones | 54 · 7 · SIETE | **iguales**: 54 · 7 · SIETE |
+> | rutas | 543 → 566 | **iguales**, restando los dos `rutas.json` |
+> | `547` de 565 con `auth.token` | 547 | **igual, recontado** |
+>
+> **Lo que más costó no fue actualizar cifras: fue que el «hasta dónde» estaba mal escrito.**
+> El encabezado decía `9474b50..347f137` y **ninguna** de sus cinco cifras es de ese rango
+> (allí salen 175 · 52 · 6 · SEIS); los 191/54/7/SIETE son de `aebf4ed`, la fusión del suelo
+> del horario **dos horas más tarde el mismo día**. O sea: se remidió tras fusionar y la
+> etiqueta se quedó del sondeo anterior. *Un extremo de rango se copia del comando que produjo
+> las cifras, no de la frase de antes.*
+>
+> **Y la parte que valía más que los números: se repasaron los cinco avisos del front (K–O)
+> midiendo la POBLACIÓN entera** —las claves de los **125** snapshots de `Contrato/`, restadas
+> hasta el fondo del árbol entre `9474b50` y `main`—. Cambian 35; quitando los seis que no son
+> respuestas quedan **25 respuestas vivas que cambian de forma** y 4 snapshots nuevos.
+>
+> | | |
+> |---|---|
+> | **K, L, M** | ciertas al detalle, incluidas las ocho claves de `to-me` una a una |
+> | **N** | se quedaba corta: nombra 4 sitios y la nivelación toca **10**, uno de ellos `GET notas/alumno/…`, **la que un alumno pide sobre sí mismo**. Y «los boletines» son `boletines` y `boletines2`: **`boletines3` no gana ni una clave** |
+> | **O** | **falsa**: decía que las tres de `horario/` «hoy contestan 501» y ninguna lo hace desde el 3 sep |
+> | **P, Q, R, S — nuevos** | `horario_version_id` en `to-me`; las tres columnas de `years` que reparte un `SELECT y.*` a `GET years`, `/colegio` y `/trashed`; `profesores.tono` en **trece** respuestas —ver abajo, nació diciendo seis—; y los **once** sitios del boletín independiente |
+>
+> **Los cuatro que faltaban tienen la misma forma, y por eso faltaban los cuatro:** son campos
+> que **se reparten solos** —un `SELECT *`, un modelo Eloquent devuelto entero, una clave nueva
+> de primer nivel—. *Un aviso que falta no lo escribe quien escribió el campo, porque nadie
+> escribió el campo.*
+>
+> **Y una fila de migración que ha envejecido TRES veces, la misma**: la de
+> `2026_09_04_100000_horario_versiones`. Decía «1 ruta, y detrás de `esAdministrativo`: el
+> colegio no se cae». Son **4**, y la cuarta no es del módulo: `years.horario_version_id` la lee
+> `ChangeAskedController::horarioOficialDelAnio()` (`:1274`) desde `getToMe` en sus dos ramas
+> (`:140`, `:219`), o sea **`GET ChangesAsked/to-me`, que lleva `auth.token` a secas** y es lo
+> que la app pide al abrir. *Cuando una afirmación ha caducado dos veces, la tercera no se
+> comprueba en el fichero del módulo: se busca quién más nombra la columna, en todo `app/`.*
+>
+> ### Las tres correcciones que salieron para `8myvc-f5` — **aceptadas y cerradas en `bf83d3c`**
+>
+> Las tres eran suyas, **las tres iban hacia abajo** —o sea contando de menos—, y ésa es la
+> dirección en la que no se notan: *nadie audita un aviso que ya suena bastante grave*. Las
+> recomprobó una a una antes de aceptarlas.
+>
+> 1. **`profesores.tono` SÍ tumba algo hacia delante**, al revés de lo que decía el encargo:
+>    `getLecciones` la nombra en `docentesDeLaVersion()` y en `estadoDelTono()`. Sin la
+>    migración, la cuarta ruta contesta **500**. Migración y ruta van **en el mismo commit a
+>    propósito** —respuesta de Joseth a esa pregunta exacta—, así que o entran las dos o ninguna.
+> 2. **Son SEIS respuestas que reparten `tono`, no cinco**, y una de las cinco estaba mal
+>    nombrada: no hay «`getShow` de papelera» —`getShow` usa `Profesor::detallado()`, que nombra
+>    sus columnas y **no** trae `tono`—. Las seis son `postStore`, `putUpdate`,
+>    **`deleteDestroy`**, **`deleteForcedelete`**, `putRestore` y `GruposController::getShow`.
+>    Lo instructivo no es la cifra: era **un nombre que resuelve a otro sitio**, y el `getShow`
+>    que sí existe es justo el que no reparte nada. Quien lo siguiera habría leído el método
+>    equivocado y se habría quedado tranquilo.
+> 3. **El radio de `horario_versiones` son CUATRO rutas**, y la corrección de 1 a 3 se quedó
+>    corta por el mismo motivo por el que la fila estaba mal: **se miró el módulo en vez de mirar
+>    quién lee la columna**. Está escrito así en el [23 §11.5](23-horarios.md), con el porqué del
+>    fallo y no sólo el número.
+>
+> **Y una que se cerró sola:** el `tinker` decía «OK - las siete dentro» comprobando ocho, y lo
+> arregló la sesión que lo escribió. **El `ChangeAskedController.php:1269`** —*«544 de las 566
+> rutas»*, hoy 547 de 565— **lo lleva `8myvc-f5` a Joseth**, no esta sesión: es `app/`, fuera de
+> este lote, y **una misma cosa no se pide por dos puertas**.
+>
+> ### El aviso R se escribió mal dos veces, y la segunda es la que enseña algo
+>
+> Nació diciendo **seis** —las respuestas Eloquent de `ProfesoresController` y `GruposController`—,
+> que era **el alcance del encargo, no el de la pregunta**. Al revisarlo se ensanchó **un eje**: el
+> SQL crudo. Salió que `DocentesExport` hace `SELECT p.*` y filtra en la vista (17 columnas
+> nombradas en `listado-docentes.blade.php`), y se escribió *«seis sigue siendo seis, y ahora dice
+> por dónde se buscó»* (`6f21b7e`). **El otro eje —qué controladores— seguía sin tocar.**
+>
+> Son **trece**. Las siete que faltaban: `PerfilesController::getShow` (gemela de la de grupos),
+> `::putUpdate` en su rama de Profesor, `::putCambiarimgunprofe`,
+> `ImagesUsuariosController::putCambiarFotoUnUsuario` y `::putCambiarFirmaUnProfe`, y **dos de SQL
+> crudo** —`PUT profesores/listado` (`SELECT p.*`) y `PUT participantes/profesores`
+> (`SELECT * FROM profesores p`)—. Lo levantó `8myvc-ff`; **verificadas aquí una a una** antes de
+> aceptarlas, y de paso se descartaron cuatro que **no** llegan a ninguna respuesta
+> (`Profesor::all()` de `creartodoslosusuarios`, el `findOrFail` de `postInscribirProfesores`, el
+> `->get()` de borrar una imagen y `ChangeAskedController::cambiarOficialProfesor`, cuyo retorno
+> **se descarta en el llamante**, `:707`).
+>
+> *Ensanchar la búsqueda por un eje y dar el número por confirmado es peor que no haberla
+> ensanchado: el «ahora dice por dónde se buscó» es lo que hace que nadie vuelva a mirar.* Es la
+> misma forma que ya estaba catalogada tres veces en la fila de `horario_versiones` —mirar el módulo
+> en vez de mirar quién lee la columna—, cometida por quien la escribió.
+>
+> **Y no hay dos avisos: hay uno.** La lista canónica es
+> `docs/AVISO-A-LOS-CLIENTES-tono.md` de `8myvc-ff`, que es lo que se le entregó al front; la fila R
+> de `DESPLIEGUE.md` **apunta y no repite**, como ya hace la N con el [22 §3.4](22-nivelaciones.md).
+> Dos listas de la misma columna en dos ficheros es cómo el front acaba creyendo que la más corta es
+> la corregida.
+
+> **Lo que NO se pudo comprobar y hay que decirlo:** que la base desplegada siga siendo
+> `9474b50` **no se mide desde este repositorio** —el hash vive en el servidor—. Lo que sí:
+> el registro del despliegue del 31 ago, que **ninguno de los 37 commits del rango que nombran
+> el despliegue registra haberlo hecho** (los otros 195 no se leyeron uno a uno), que el
+> congelado sigue puesto y que `origin/main` y `main` están en el mismo commit. El bucle del
+> Paso 2 lo convierte en un hecho el día que se descongele.
+
 **4 sep 2026 — LA CUARTA RUTA DEL HORARIO, ESCRITA: `GET horario/versiones/{id}/lecciones`,
 Y EL ROUTER EN 567** · rama `docs/horario-cuarta-ruta-y-despliegue`, **sin fusionar y sin
 empujar** · `HorarioController`, `routes/api/horario.php`,
@@ -4938,6 +5474,158 @@ lo pidió `myvc-horarios-43` con la forma que midió `myvc-front-4f`
 >   `HorarioController` ni `routes/api/horario.php` en `e25b643..HEAD`.
 
 **3 sep 2026 — EL CÍRCULO DEL HORARIO, CERRADO DE PUNTA A PUNTA CON DATOS REALES** ·
+
+**4 sep 2026 — `columnas-en-los-modelos.php` BORRABA ANOTACIONES A MANO, Y NADIE PODÍA
+ENTERARSE** · `tools/columnas-en-los-modelos.php`, `app/Models/Subunidad.php`,
+`tests/Unit/AutopruebasDeLasHerramientasTest.php`,
+`tests/Unit/FuncionesGlobalesDeLasHerramientasTest.php` (nuevo), `docs/migracion/05-codigo-muerto-y-roto.md` ·
+**cero rutas, cero esquema** · rama
+`fix/columnas-en-los-modelos-no-borra` sobre `main` (`8f59242`) · lote repartido por
+`8myvc-f5`, medido y arreglado por esta sesión en `.worktrees/a` /
+`simonbolivar_testing_a` · **larastan `[OK] No errors`** · suite entera
+**`Tests: 1933 passed (17365 assertions)`**, cero rojos
+
+> ### Y LA PRIMERA VUELTA DE LA SUITE SALIÓ CON UN ROJO QUE NO ERA DE NADIE
+>
+> `Tests: 1 failed, 1930 passed` — `GruposTest > grupos-show`, con `+ 'tono' => 'null'` en
+> la instantánea. **Ni del arreglo ni de la rama del horario**: el worktree nació de
+> `0345ad5`, se rebajó a `main` con `git reset --hard`, y **la base de sesión se quedó con
+> `profesores.tono` migrada**. Esa consulta hace `SELECT *`, así que la columna se coló en
+> la respuesta.
+>
+> **Cambiar de rama en un worktree no deshace las migraciones de su base**, y el guardia de
+> `construir-bd-test.sh` no lo ve porque compara árboles **al construir**, no después.
+> Reconstruida la base desde el árbol de `main` —`PHP_EXEC` con `-w`, y comprobado con
+> `Schema::hasColumn` imprimiendo `getDatabaseName()` al lado— `tono` desaparece y
+> `GruposTest` pasa 15/15.
+>
+> **La salida fácil era regenerar la instantánea, y habría metido en `main` una columna sin
+> su migración** — sin dejar rastro, que es lo que hace peligrosa esa tecla.
+
+> La herramienta que genera las `@property` de los modelos lee
+> `database/schema/mysql-schema.sql`, que está **congelado**. Una columna que entra por
+> migración no está ahí, así que alguien la anota a mano — y la escribe donde están todas
+> las demás, o sea **dentro** de las marcas, que es justo el trozo que la herramienta
+> reemplaza entero. La siguiente corrida se la lleva.
+>
+> ### LA POBLACIÓN ENTERA, QUE ES LA MITAD QUE FALTABA DEL HALLAZGO
+>
+> Regenerando los **54** ficheros de modelo **sobre copias** en `/tmp` y diffeando
+> `@property` a `@property` (no «ficheros que cambian», que es lo que decía la herramienta
+> y no contesta la pregunta):
+>
+> | | |
+> |---|---|
+> | ficheros mirados | **54** — 53 en `app/Models` + `app/User.php` |
+> | con bloque generado | **47** · **7** saltados por no encontrar su tabla |
+> | `@property` dentro de las marcas | **760** · **77** fuera |
+> | **se perdían** | **2** · **entraban 0** |
+> | comentarios a mano sobre líneas generadas | **1** de 760 |
+>
+> Las dos, medidas sobre `0345ad5`: `Subunidad.rubrica_id` (migración de rúbricas) y
+> `Profesor.tono` (migración del 4 sep). Sobre **`main` (`8f59242`) es una**, la de
+> `Subunidad`: la de `Profesor` entra con la rama del horario.
+>
+> **Lo que NO miré**: los 7 sin tabla nunca reciben bloque, así que no pueden perder nada
+> por aquí; y no miré si alguna de esas 760 líneas está *mal* — la pregunta era qué se
+> borra, no qué se anota bien.
+>
+> ### Y LA DEDUCCIÓN QUE VENÍA EN EL LOTE ERA FALSA EN UN CASO — POR SUERTE
+>
+> El lote citaba `Year.php` (`regla_nivelacion`, `horario_version_id`) como víctima. **No
+> lo es**: las dos viven **debajo** de la marca de fin, con su prosa al lado, y la
+> herramienta no toca nada de ahí. `grep` en el volcado da cero para las dos y aun así
+> están a salvo — o sea que *«no está en el volcado»* **no** es el detector de esto; el
+> detector es *«no está en el volcado **y** está dentro de las marcas»*. Es la segunda
+> forma de la regla de `CLAUDE.md`: el síntoma estaba bien contado y la causa que se le
+> puso al lado era otra.
+>
+> **Y ese error fue el que dio el arreglo.** `Year.php` es la prueba viva de que el sitio
+> seguro existe y ya se usaba.
+>
+> ### EL ARREGLO: MOVER, NO FUSIONAR
+>
+> Una `@property` de dentro de las marcas cuyo nombre no es columna de la tabla **se mueve
+> literal —con su comentario— justo debajo de la marca de fin**, y se dice en pantalla.
+> Después de una corrida, dentro sólo hay generado y fuera sólo hay mano.
+>
+> **Fusionar** —conservarla donde está— era la otra salida y se descartó con motivo:
+> convierte el bloque generado en un sitio donde se puede escribir a mano, y entonces
+> nadie que lo mire puede saber qué es qué. **Leer el esquema vivo** se descartó medido:
+> el 4 sep, `years` daba **64** columnas en el volcado y **70** en `simonbolivar_testing_a`
+> migrada — anotar desde ahí metería en los dieciséis colegios columnas que allí no
+> existen.
+>
+> ### LO QUE SIGUE PERDIÉNDOSE, DICHO EN VOZ ALTA
+>
+> Un comentario a mano pegado a una línea que **sí** es columna se pierde igual: esa línea
+> se regenera. No se puede conservar sin reabrir el bloque a la mano. **Ahora se avisa y se
+> cuenta aparte** — que se pierda no es el fallo; que se perdiera callando, sí.
+>
+> ### AUTOPRUEBA, Y EJERCIDA CONTRA LA HERRAMIENTA VIEJA
+>
+> `--control`, seis formas, registrada en `AutopruebasDeLasHerramientasTest` (13 casos,
+> todos verdes). **Se corrió contra el comportamiento de antes antes de darla por buena:
+> sale `exit 1` con dos formas en rojo.** Un control que pasa con la herramienta rota es
+> peor que ninguno.
+>
+> **Por qué hacía falta**: ninguna suite ejecuta `tools/` y borrar una `@property` no rompe
+> nada — larastan sólo deja de saber que la columna existe. El daño sale semanas después,
+> en otro fichero, como un nivel 7 que alguien «arregla» volviendo a anotarla dentro del
+> bloque, para que la próxima corrida la borre otra vez.
+>
+> ### Y UN SEGUNDO HALLAZGO, QUE SALIÓ DE ESCRIBIR EL CONTROL
+>
+> Los ficheros de `tools/` son scripts sueltos **sin namespace**: sus funciones caen en el
+> global. En ejecución da igual —cada uno corre en su proceso—, pero **larastan analiza la
+> carpeta entera como un proyecto**. Este control se escribió con los nombres naturales,
+> `casosDeControl()` y `control()`, que son los que ya usa
+> `independientes-sin-estructura.php`, y larastan resolvió la llamada **contra la función
+> del otro fichero**: `callable.nonCallable`, «Trying to invoke `array<string, mixed>`» —
+> la firma del OTRO `casosDeControl`. La anotación de aquí era correcta y no se estaba
+> usando.
+>
+> **Y la mitad que importa**: con `control()` —los dos devuelven `int`— **no salió ningún
+> error**. La colisión que no cambia de tipo no se delata, así que se renombraron las dos
+> (`formasDeControl`, `controlDeLasColumnas`) y no sólo la que cantó.
+>
+> O sea que **larastan no es el detector de esto**: lo fue por casualidad. Por eso el
+> hallazgo entra como test propio y no como nota —
+> `tests/Unit/FuncionesGlobalesDeLasHerramientasTest`—, que mira la carpeta entera y **dice
+> su población**: **21 ficheros de `tools/`, 81 nombres de función distintos, 0 con
+> namespace**. Sin esa línea, el día que alguien meta un `namespace` ahí el detector dejaría
+> de encontrar declaraciones y **el cero se leería como «no hay colisiones»**.
+>
+> **Y se demostró rojo por las dos puntas**, porque un `uniq -d` vacío sin control negativo
+> es el «0 encontrados» de siempre: un caso sintético ejerce el detector con ficheros que
+> chocan —y con uno bajo `namespace` que **no** debe contar—, y además se metió a mano un
+> `tools/zz-prueba-de-colision.php` declarando `tipoPhp()` para ver caer la aserción de
+> verdad. Cae, y nombra los dos ficheros. Borrado.
+>
+> ### Y UNA FRASE QUE EL REPO SE CONTRADECÍA A SÍ MISMO
+>
+> [`05-codigo-muerto-y-roto.md`](05-codigo-muerto-y-roto.md) §9 decía que las columnas se
+> generan «desde el **esquema real**», que es exactamente lo contrario de lo que hace la
+> herramienta —lee el volcado **congelado**— y es de donde salía este fallo. Corregida con
+> la medición delante. La frase buena **ya estaba escrita** en
+> [`26-rubricas.md`](26-rubricas.md) §4.7 y la mala siguió viva al lado; el barrido lo hizo
+> `8myvc-f5`, que encontró **tres** sitios: los otros dos son `CLAUDE.md` —que **no se ha
+> tocado**, se lo lleva esa sesión a Joseth— y el propio 26, que es el correcto.
+>
+> ### PENDIENTE DE JOSETH — UNA, Y NO LA DECIDE UNA SESIÓN
+>
+> **¿Se refresca `database/schema/mysql-schema.sql` desde producción?** Mientras no se
+> haga, cada columna nueva sigue anotándose a mano (ahora sin perderse). Refrescarlo es
+> cambiar «la verdad» del esquema, con lo que eso arrastra: `CLAUDE.md` dice que ese
+> volcado **es** la verdad, y el seed y la BD de tests salen de ahí. **No se ha tocado.**
+>
+> ### Y UN AVISO PARA LA RAMA DEL HORARIO
+>
+> `Profesor.tono` está hoy **dentro** de las marcas en `docs/horario-cuarta-ruta-y-despliegue`.
+> Con esta herramienta ya no se borra —se mueve—, pero hasta que esta rama se funda, correr
+> la versión vieja allí se lo lleva. Avisado a `8myvc-f5`.
+
+**Anterior: 3 sep 2026 — EL CÍRCULO DEL HORARIO, CERRADO DE PUNTA A PUNTA CON DATOS REALES** ·
 cero ficheros tocados: es una **medición**, no un cambio · **566 rutas** · lo condujo
 `myvc-horarios-f3` en el docker, con permiso de Joseth; la última lectura la corrió esta
 sesión, también con su permiso
@@ -4979,6 +5667,268 @@ sesión, también con su permiso
 > el reloj**: está bien que sea así, pero **no es lo mismo que haberlo visto**. El día que
 > alguien mire un sábado, «mañana» tiene que salir vacío y el domingo lleno — con los dos
 > lados, porque un vacío solo es indistinguible de un endpoint roto.
+
+**3 sep 2026 — CORS SE QUEDA EN `*` POR DECISIÓN, Y EL FRENTE DE LOS `.env` CIERRA CON OCHO PENDIENTES ESCRITOS** ·
+misma rama `docs/appkey-compartida-fortul-lal` · **FUNDIDA el 19 sep 2026** (decía «NO FUSIONADA, NO EMPUJADA», y lo fue dos semanas) · sólo
+documentación · [`29`](29-los-env-no-son-uniformes.md) §5 y **§8 nuevo**,
+[`DESPLIEGUE-REFERENCIA.md`](../DESPLIEGUE-REFERENCIA.md) · decidido por Joseth
+
+> **`CORS_ALLOWED_ORIGINS` deja de ser un `PENDIENTE`: se queda en `*`.** Estaba definida en
+> **1 de 17**, y la lectura fácil era «llevan dieciséis meses sin aplicar el arreglo del PR #3».
+> **La decisión de Joseth es que `*` es el valor bueno**, porque *cada colegio recibe conexiones
+> de aplicaciones externas* y una lista blanca no describe a los clientes reales de esta API.
+>
+> **Y se comprobó antes de darlo por bueno, que es lo que hacía falta:** `supports_credentials`
+> es **`false`** (`config/cors.php:71`) y el token viaja en `Authorization: Bearer`
+> (`Sesion.php:412`), **no en cookie**. El navegador no manda credenciales a otro origen y el
+> JavaScript tiene que adjuntar el token a mano, así que una página cualquiera puede *llamar* a
+> la API pero **sigue necesitando un token**, y el token vive en el almacenamiento del cliente
+> legítimo, que es por origen. ***`*` abre la puerta; no reparte llaves.***
+>
+> > **Lo que obligaría a volver aquí, y por eso queda escrito**: poner `supports_credentials`
+> > en `true` —el navegador **rechaza** esa combinación con `*`— o mover la sesión a cookie.
+> > **Las dos son un cambio de una línea en `config/`**, o sea que este razonamiento descansa
+> > en dos valores que hoy no vigila nadie.
+>
+> **`FRONTEND_URL`, también 1 de 17, no es lo mismo y no se cierra:** es el respaldo de la URL
+> de retorno del reseteo, y si falta y el cliente no manda una `ruta` del mismo host, el método
+> hace `abort(422)`. Hoy no afecta a nadie **y el motivo correcto no es que todos compartan
+> host** —la app Flutter no lo hace— **sino que la app Flutter no tiene recuperación de
+> contraseña**. El día que se la añadan: **422 en dieciséis**. Estaba escrito como hipótesis en
+> el [04](04-auditoria-autenticacion.md); ahora está contado.
+>
+> ### EL BARRIDO DE LAS SIETE VARIABLES ESTÁ COMPLETO, Y CINCO DIERON HALLAZGO
+>
+> El §7 proponía un bucle de siete variables sobre los diecisiete y decía que era «lo único que
+> separa *no se sabe* de *está bien*». **Corrido entero**: `APP_KEY` compartida entre dos
+> colegios, el correo sin configurar en dieciséis, `APP_DEBUG` encendido en cinco,
+> `CORS_ALLOWED_ORIGINS` en uno —y era la decisión correcta— y `FRONTEND_URL` en uno. **Y una
+> octava que nadie pidió: cinco juegos de claves distintos entre diecisiete**, que es la fila
+> que sostiene el título del documento.
+>
+> ### LOS OCHO PENDIENTES, EN EL §8 DEL 29, CON SU CONSECUENCIA Y DE QUIÉN SON
+>
+> Ninguno bloquea nada hoy; están escritos para no tener que volver a descubrirlos. Los tres
+> primeros por consecuencia: **(1)** la instalación viva de `lal` en la cuenta vieja, que el
+> censo **no alcanza** —es la número dieciocho y su correo sigue como estaban los otros—;
+> **(2)** de diecisiete envíos volvieron **cuatro** rebotes, y un límite por hora convertiría
+> una tanda de recuperaciones en correo perdido **sin ningún error**; **(3)** el logo del correo
+> sale de `lalvirtual.edu.co`, así que **el correo de los dieciséis depende de que un colegio
+> conserve su dominio**.
+>
+> **Y la limpieza de variables muertas va la última a propósito** —`JWT_*` en 16 de 17,
+> `AWS_*`, `PUSHER_*`, `MEMCACHED_*`, `REDIS_*`—: es segura y **no arregla nada**. *Borrar
+> líneas que no hacen nada no mejora ningún comportamiento, y tocar diecisiete `.env` sí tiene
+> riesgo.*
+
+
+**Anterior: 3 sep 2026 — `APP_DEBUG=true` EN CINCO COLEGIOS, Y EL ARREGLO DE CORS SIN APLICAR EN DIECISÉIS** ·
+misma rama `docs/appkey-compartida-fortul-lal` · **FUNDIDA el 19 sep 2026** (decía «NO FUSIONADA, NO EMPUJADA», y lo fue dos semanas) · sólo
+documentación · [`29`](29-los-env-no-son-uniformes.md) §5 y §6 · **censado y corregido en el
+servidor por Joseth**, escrito por esta sesión
+
+> **El pendiente más viejo de la lista ya está medido, y estaba encendido.** `01:395` decía
+> «**Verificar producción**» y `09:1159` «comprobarlo colegio a colegio» desde el principio,
+> porque hacía falta la sesión del servidor. Censado: **`APP_DEBUG=true` en 5 de 17** —
+> `caz-zaragoza`, `coabsaravena`, `coal`, `inseaq`, `maranathaarauca`—. **Ya no**: puestos a
+> `false` con respaldo fuera del docroot y `config:clear && config:cache`, los cinco `OK`.
+>
+> **No era teórico**: el cuerpo de cualquier 500 lleva `Host`, `Port` y `Database`, y hay **doce
+> rutas públicas sin token**, entre ellas `PUT login/crear-prematricula` —viva, con
+> `withoutMiddleware('auth.token')`—, que es la que la casilla 1bis describe llegando a un 500.
+>
+> **Y `CORS_ALLOWED_ORIGINS` está en 1 de 17** (`FRONTEND_URL`, también en 1). Ausente,
+> `config/cors.php` cae a `['*']`: **el punto 2 del PR #3 no hace nada en dieciséis**. Es la
+> tercera vez esta noche que un `PENDIENTE` resulta estar sin aplicar en casi todos —correo,
+> CORS— y **la primera que se cuenta**. *Éste no se cierra con un bucle: el valor es el dominio
+> de cada colegio, así que es una decisión de Joseth antes que un script.*
+>
+> ### LA FILA QUE SOSTIENE EL TÍTULO DEL DOCUMENTO
+>
+> **Los diecisiete tienen CINCO juegos de claves distintos** (6 · 8 · 1 · 1 · 1). No divergen
+> sólo en valores: divergen en **qué líneas existen**. `JWT_SECRET` está en **16 de 17** y es
+> peso muerto —`tymon/jwt-auth` se quitó al saltar a Laravel 10, no hay `config/jwt.php`, el
+> paquete no está en `composer.json`, `composer.lock` ni `vendor/`, y `jwt:secret` no existe—.
+> `FCM_CREDENCIALES` y los cuatro `SESION_*_TTL`: **0 de 17**.
+>
+> ### DOS SOSPECHAS MÍAS QUE LA MEDICIÓN TUMBÓ
+>
+> 1. **`APP_ENV=local` en quince asusta y no hace nada.** Sólo `demo` y `eal` están en
+>    `production`. Pero **el código no consulta `APP_ENV` ni una vez** —cero usos de
+>    `App::environment()`, `app()->environment()` y `config('app.env')` en `app/`, `config/`,
+>    `bootstrap/` y `routes/`, contados—. Lo que sí cambia: **artisan no pide confirmación**
+>    para comandos destructivos, así que un `migrate:fresh` correría sin preguntar en quince.
+>    *Riesgo operativo, no de exposición, y conviene no venderlo como lo segundo.*
+> 2. **El «`\r` de Windows» no existía.** Tres censos salieron con `FILESYSTEM_DRIVER=local`
+>    pegado a `QUEUE_CONNECTION=sync` sin espacio, y la hipótesis razonable era un CRLF, que
+>    metería el `\r` dentro del valor. `cat -A` sobre los cuatro: `FILESYSTEM_DRIVER=local$`,
+>    fin de línea limpio. **Era el terminal comiéndose un espacio al ajustar la línea.**
+>    *El primer intento de medirlo además estaba mal escrito —`grep -c` imprime `0` **y** sale
+>    con código 1, así que el `|| echo 0` añadía un segundo cero y `[` reventaba con
+>    `"0\n0"`—: los diecisiete errores insinuaban la respuesta buena por el motivo equivocado.*
+>
+> ### Y UN FALLO MÍO EDITANDO, QUE ES EL DEL PROPIO DOCUMENTO
+>
+> Reescribir el §5 entero **huerfanó una subsección de `myvc-horarios-42`** —la de cómo NO medir
+> CORS, con lo del `Origin` como *forbidden header name*—: mi reemplazo cortó en el primer `---`
+> y dejó sus 31 líneas colgando **bajo el §6**, en la sección equivocada. **No da error y el
+> fichero se lee casi bien.** Devuelta a su sitio y comprobada contra `main`: **31 líneas y 31,
+> diff vacío, ni una perdida.** *Es exactamente la familia que este documento persigue, cometida
+> dentro del documento que la persigue.*
+
+
+**Anterior: 3 sep 2026 — EL CORREO ESTABA CAÍDO EN LOS DIECISÉIS COLEGIOS REALES, Y EL ÚNICO CONFIGURADO ERA `demo`** ·
+misma rama `docs/appkey-compartida-fortul-lal` · **FUNDIDA el 19 sep 2026** (decía «NO FUSIONADA, NO EMPUJADA», y lo fue dos semanas) · sólo
+documentación · [`29`](29-los-env-no-son-uniformes.md) §3 · **censado, arreglado y
+verificado en el servidor por Joseth**, escrito por esta sesión
+
+> **El §3 del 29 decía «en cuántos de los dieciséis se aplicó no lo sabe nadie». Ya se sabe:
+> en UNO, y era `demo`.** El censo de los cuatro `MAIL_*` sobre las diecisiete carpetas dio
+> **dieciséis idénticos** —`smtp` + `mailhog` + `MAIL_FROM_ADDRESS=null` +
+> `MAIL_FROM_NAME="${APP_NAME}"`, el andamiaje de desarrollo intacto— y **uno distinto**,
+> `demo`, con el `sendmail` del PR #3 y el remitente del dominio que no existe.
+>
+> **No era un riesgo, era una función caída.** `null` hace que Laravel rechace el envío antes
+> de intentarlo, así que **el reseteo de contraseña devolvía 500 en los dieciséis colegios
+> reales** desde que se cambió `mail()` por `Mail`. Nadie lo vio porque el reseteo se usa menos
+> de una vez al día y el síntoma es correo que no llega. *`cads-itagui` no era una excepción:
+> era la única muestra que alguien había mirado.*
+>
+> ### Y EL DOCUMENTO SE CORRIGE EN SU PROPIA TESIS
+>
+> Se titula «los `.env` no son uniformes», y para `APP_KEY` lo eran de menos (§1). **Para
+> `MAIL_*` salió lo contrario: dieciséis idénticos.** El daño no lo hizo la divergencia sino
+> que **toda la documentación daba por aplicado un cambio que no estaba en ningún sitio**, y un
+> `PENDIENTE` se leyó meses como «pendiente en alguno». *«Cada uno tiene lo suyo» y «todos
+> tienen lo mismo» son **igual de indistinguibles** desde el repositorio; lo único que las
+> separa es el bucle.*
+>
+> ### EL ARREGLO
+>
+> Los cuatro campos en los diecisiete, con respaldo de cada `.env` **fuera del docroot** y
+> `config:clear && config:cache` detrás: **17 tocados, 0 saltados**, y el `diff` de los dos
+> censos mueve las diecisiete líneas.
+>
+> **Y llegó.** `correo:probar` contra un buzón real, 3 sep 2026: el correo **sale, se releva y
+> se entrega**. Es lo único que ningún paso anterior demostraba —todos probaban que la
+> configuración era correcta, no que el mensaje llegara—.
+>
+> **La primera pasada rebotó, y el rebote enseñó más que un envío bueno.** Fue a un marcador de
+> posición que resultó ser **un dominio real con MX** (`550 5.1.1`, usuario desconocido), y sus
+> cabeceras traían `X-Postfix-Sender: admin@micolevirtual.com` —el arreglo llegó al envío, no
+> sólo al fichero— y `Reporting-MTA: relay.mailchannels.net`. **Eso último corrige el
+> razonamiento del SPF de esta misma noche**: el servidor **no envía directo**, sino que releva
+> por MailChannels, que el SPF autoriza por `include`. La IP que envía **nunca** es la del
+> servidor, así que excluir `lal` por estar en `.70` no tenía fundamento. *Era correcto para un
+> modelo de envío que este servidor no usa, y sólo se vio leyendo las cabeceras de un mensaje
+> real.*
+>
+> **Y una cuenta que no cuadra:** de los diecisiete envíos volvieron **cuatro** rebotes, no
+> diecisiete. Cola, límite de MailChannels o no salieron: **no se sabe**, y la diferencia
+> importa, porque un límite por hora convertiría una tanda de recuperaciones en correo perdido
+> sin ningún error.
+>
+> ### TRES COSAS QUE SE MIDIERON POR EL CAMINO Y CORRIGEN LO ESCRITO
+>
+> 1. **`MAIL_FROM_NAME="${APP_NAME}"` no estaba roto.** Llegó de otra sesión como «hereda
+>    *Laravel*»; el Dotenv de Laravel **sí interpola** —comprobado ejecutándolo—, así que
+>    resolvía al `APP_NAME` de cada colegio. Una variable **sin definir** sí se queda literal, y
+>    ésa es la forma en que este campo sí podría fallar.
+> 2. **Excluir `lal` del script era un error mío.** Lo excluí por SPF razonando sobre dónde
+>    *sirve* `lal` (`.70`), pero **la carpeta que el script toca está en `micolev1`, que es
+>    `.72`**, donde el remitente sí está autorizado. *El razonamiento del SPF era correcto y se
+>    aplicó al servidor equivocado.*
+> 3. **Los respaldos iban dentro de una carpeta servida por web.** El docroot es la carpeta del
+>    colegio, así que `8myvc/` cuelga dentro. Se comprobó que `.env` **no** se descarga —devuelve
+>    la página del front, mientras `composer.json` sí se sirve—, pero **eso no dice nada de un
+>    `.env.bak-*`**, y averiguarlo exigía crear uno, que es el riesgo. Los respaldos se movieron
+>    a `~/respaldos-env/`, fuera de todo docroot, con permisos 700.
+>
+> > **Y un aviso sobre medir con códigos de estado**, que casi produce un «está bloqueado,
+> > tranquilo» falso: la primera prueba dio **403** y la segunda dio **200 para todo**, incluida
+> > una ruta inexistente. Ese servidor **contesta 200 a cualquier cosa** con la página del
+> > front. Hubo que comparar **el contenido**, no el código. *Un 403 y un 404 pueden significar
+> > lo mismo que un 200 si no se mira lo que viene dentro.*
+
+
+**Anterior: 3 sep 2026 — `APP_KEY` COMPARTIDA ENTRE `fortul` Y `lal`: LA PREMISA ERA FALSA, Y LA CAUSA ESTABA ESCRITA EN NUESTRO PROPIO PROCEDIMIENTO** ·
+rama `docs/appkey-compartida-fortul-lal` · **FUNDIDA el 19 sep 2026** (decía «NO FUSIONADA, NO EMPUJADA», y lo fue dos semanas) · sólo documentación:
+**cero código, cero rutas, cero tests** — 566 sin moverse ·
+[`29-los-env-no-son-uniformes.md`](29-los-env-no-son-uniformes.md) §1,
+[`TRASLADO-LAL.md`](../TRASLADO-LAL.md) paso E, [`05`](05-codigo-muerto-y-roto.md) ·
+**medido por Joseth en el servidor**, escrito por esta sesión
+
+> **El §1 del 29 deja de ser una pregunta.** Se escribió el 2 sep como «nadie las ha
+> comparado» y la respuesta llegó al día siguiente: sobre las **diecisiete** carpetas,
+> **`fortul` y `lal` tienen el mismo `APP_KEY`** (`42bb720f546f`); los otros quince, distintos.
+>
+> **Y no se llamó hallazgo hasta descartar las lecturas benignas**, porque un hash repetido
+> también sale de dos colegios *sin* clave, que sería otro problema: sin línea `APP_KEY` da
+> `d41d8cd98f00`, `APP_KEY=` vacía da `adef725c7222`, truncada `75f9a7bb3d5c`, el
+> `SomeRandomString` del andamiaje `1dbf3bbd1d09`. **Ninguno es el que salió.** Clave real.
+>
+> ### LA CAUSA, QUE ES LO QUE DE VERDAD SE ARREGLA
+>
+> No fue un descuido: **el procedimiento lo mandaba hacer así**. El paso E de `TRASLADO-LAL.md`
+> —como nació `lal` el 30 ago— decía *«nano .env — **SOLO** `DB_DATABASE`, `DB_USERNAME`,
+> `DB_PASSWORD`»*. El `git clone` **no trae `.env`**, así que el fichero salió de una copia de
+> otro colegio y **todo lo que ese paso no nombraba se heredó**. `fortul` fue el donante.
+> **Y `key:generate` no aparecía en ningún procedimiento del repositorio** —comprobado con
+> `grep` sobre `docs/` y `CLAUDE.md`: sus cinco menciones estaban todas en textos que *suponían*
+> que se corría—. La premisa «`key:generate` hace uno por instalación» describía **un paso que
+> nadie tenía escrito**. Añadido al paso E, que es el arreglo que impide el próximo.
+>
+> ### EL RADIO, ACOTADO ANTES DE ALARMAR A NADIE — Y LA PRIMERA LECTURA ERA PEOR QUE LA VERDAD
+>
+> La sospecha era que `APP_KEY` firmara los tokens, y entonces **un token de un colegio valdría
+> en otro hoy**. **No los firma**, y se midió en vez de suponerse: `APP_KEY` se lee en
+> **exactamente dos sitios** (`config/app.php:136` y `config/notificaciones.php:38`); en `app/`
+> hay **cero** usos de `Crypt::`, `encrypt(`, `decrypt(`, `signedRoute`, `hasValidSignature` y
+> `temporarySignedRoute`; y **el token no es una firma, es una fila** —`findToken()` busca un
+> hash **en la base de ese colegio**—. **Nadie estuvo expuesto.** Lo que hacía era bloquear el
+> push, y ahí el solape no habría sido raro sino **casi total en los ids bajos**, porque cada
+> base tiene su autoincremento y el `alumno_id` 345 existe en los dos.
+>
+> ### EL ARREGLO, Y POR QUÉ SÓLO SE TOCÓ UNO
+>
+> **Se rotó `lal`, no `fortul`.** `lal` **todavía no sirve desde `micolev1`** —sigue en la
+> cuenta vieja y su subdominio ni resuelve—, así que esa carpeta es una copia preparada y
+> rotarla no le tocó a nadie; `fortul` está vivo y se quedó igual. Era doblemente gratis:
+> **al completar el traslado, la clave de `lal` iba a cambiar de todos modos.**
+>
+> **Verificado con la población delante y comparando los dos censos, no con un vacío a pelo**:
+> población **17**, repetidos **0**, y **17 hashes distintos de 17** —que es más fuerte que «sin
+> repetidos»—; **cambió exactamente una fila**, `lal` de `42bb720f546f` a `136f77f109de`.
+> *Esa última cifra es la mitad importante:* «ya no hay repetidos» lo cumpliría igual un `.env`
+> roto por el camino o un bucle que dejara de ver carpetas. `fortul` conserva la suya y los
+> otros quince están donde estaban.
+>
+> ### TRES COSAS QUE QUEDAN ESCRITAS Y NO SON DE ESTE ARREGLO
+>
+> 1. **Rotar `APP_KEY` con el push encendido re-apunta todos los temas** y los teléfonos
+>    siguen escuchando el nombre viejo: los avisos dejan de llegar **sin un solo error**. Toda
+>    rotación futura va **antes** de encender Firebase, o con resuscripción de la app.
+> 2. **El censo NO cubre la instalación viva de `lal`**, que está en la otra cuenta: barre
+>    `/home/micolev1/*`. Hay **una instalación dieciocho fuera del censo** y su clave sigue sin
+>    medir. Hoy no cambia nada; el día que se diga «están todas comprobadas», esa no lo está.
+> 3. **Las otras seis variables del §7 siguen sin mirarse.** Que la primera que se miró diera
+>    positivo no las rompe: las deja igual de sin medir, sólo que ahora «se creó copiando»
+>    produce colisiones **medidas** y no teóricas.
+>
+> ### Y DOS LECCIONES DEL DETECTOR, QUE SON LA FAMILIA DE SIEMPRE
+>
+> **Un `uniq -d` a secas dice QUE hay un repetido y no dice ni cuál ni cuántos.** La primera
+> salida fue exactamente eso, y no se pudo escribir nada hasta la segunda pasada con el nombre
+> al lado y la población al final. **Y una salida vacía sin población no distingue «miré
+> diecisiete y ninguno» de «el bucle no miró nada»** — por eso la verificación del arreglo se
+> pidió con `tee` y `wc -l`, no como un vacío a pelo.
+>
+> > **Sobre la corrección de nombres de arriba, y va aquí porque me alcanza:** esas entradas me
+> > llaman **`8myvc-d5`** —por el sufijo de mi worktree—, pero mi propio `ListAgents` me nombra
+> > **`8myvc-1f`**. No sé cuál es el bueno y **por eso esta entrada no firma con ninguno**: dice
+> > quién midió (Joseth, en el servidor) y quién escribió (esta sesión). *Es el mismo fallo que
+> > se acaba de corregir arriba: un nombre copiado de buena fe que resuelve a otro sitio.*
+
 
 **Anterior: 3 sep 2026, madrugada — DOS COSAS QUE ENCONTRÓ EL CLIENTE MIDIENDO CONTRA NUESTRO DOCKER,
 Y UNA DE ELLAS ERA UN ERROR MÍO** · `HorarioController`, `HorarioSubidaTest` y
@@ -6170,6 +7120,89 @@ lo trajo la sesión `myvc-front-ea` de parte de Joseth
 > disponibilidad ni los salones ni la rejilla, así que **no puede revalidarlos**. Revalida las tres
 > que puede **y lo dice en la respuesta**, con su población dentro. Aceptar y callar habría sido un
 > «validado» encima de un horario ilegal.
+
+**Última actualización: 1 sep 2026, noche — LA ÉPICA DEL CALENDARIO: PASOS 1, 2 Y 3 HECHOS EN
+`feat/calendario`, SIN FUSIONAR Y SIN DESPLEGAR** · migración + `PUT calendario/mes` y
+`PUT calendario/proximos` + guardado con cuerpo, recordatorio y destinatarios · **dos rutas nuevas**
+· detalle completo en [22-calendario.md](22-calendario.md) · lo coordina la sesión de front
+`myvc-front-14`; la pantalla la escribe `myvc-front-08`, con el contrato confirmado con los dos
+
+> **Los cumpleaños dejan de ser filas y pasan a calcularse al pedir el mes.**
+> `putSincronizarCumples()` **sella el año** —los 507 cumpleaños de la base caen todos en 2025 y en
+> 2026 no hay ninguno—, **congela la matrícula** y **empieza por un `DELETE` sin `WHERE` de año**.
+> Los tres son el mismo fallo: estado derivado que se guarda. **Las 507 filas NO se borran todavía**
+> (es el paso 5, y son la red hasta que la pantalla nueva funcione), así que `calendario/mes` las
+> excluye para no pintar cada cumpleaños dos veces.
+
+> ### EL HALLAZGO QUE NO BUSCABA NADIE: «no tocar `this-year`» ERA LO QUE LA TOCABA
+>
+> El encargo insistía en que `calendario/this-year` se quedara **exactamente** como está.
+> `putThisYear()` hace `SELECT * FROM calendario`, así que **las tres columnas nuevas de la migración
+> se colaron solas en su respuesta** — sin escribir una línea en esa ruta. Y no era una: `grep` sobre
+> `app/` da **siete** lectores con `*`, dos de `putThisYear()` y **cinco de `ChangeAskedController`**.
+>
+> **Se vio porque movió dos instantáneas**, no porque nadie lo pensara. Y **sólo una de las cinco de
+> `ChangeAsked` está cubierta por el muestreo: las otras cuatro habrían llegado a producción
+> calladas** — por eso el arreglo se hizo contando la población entera con `grep`, y no fichero a
+> fichero según lo que se pusiera rojo. La lista vive ahora en **un solo sitio**
+> (`CalendarioController::COLUMNAS`): con siete copias, la próxima columna entra por las seis que
+> alguien olvide.
+>
+> Es lo mismo que se pagó el 24 ago en los cuatro `SELECT *` sobre `matriculas`. **La forma general,
+> que es lo que se hereda: añadir una columna a una tabla es tocar todas las respuestas que la leen
+> con `*`, y una épica puede prometer «esta ruta no se toca» y romperla sin tocarla.**
+
+> ### DOS CORRECCIONES AL ENCARGO, Y LA PRIMERA HABRÍA ABIERTO 37 EVENTOS INTERNOS
+>
+> 1. **«Sin filas de destinatarios = público» rompía `solo_profes`.** Los eventos internos que ya
+>    existen no tienen filas —la tabla es nueva— y la aplicación vieja y `myvc_flutter` van a seguir
+>    creándolos así mientras los quince no estén desplegados. Medido por la coordinación del front:
+>    de los 139 eventos manuales vivos, **37 tienen `solo_profes = 1`**, y con la regla literal **el
+>    día del despliegue esos 37 se vuelven públicos, sin ningún error**. La regla que entra: sin filas
+>    y `solo_profes=0` → público; **sin filas y `solo_profes=1` → sólo personal**; con filas → mandan
+>    las filas.
+> 2. **El personal lo ve todo.** El encargo lo filtraba como a los demás; con eso **el docente que
+>    acaba de crear «Salida de 7º» no la vería en su propio calendario**. Los destinatarios existen
+>    para no llenar de ruido a las familias, no para esconderle el calendario al colegio.
+
+> ### LA DECISIÓN QUE ESPERA, Y ES LA ÚNICA QUE CAMBIA LO QUE VE UN COLEGIO
+>
+> **Los cumpleaños de los alumnos RETIRADOS siguen saliendo.** `putSincronizarCumples()` une
+> `matriculas` sin mirar `estado`, así que las 507 filas de hoy ya los incluyen, y se ha mantenido la
+> paridad **a propósito** para no cambiar quién sale por la puerta de atrás. **No es un matiz:** en el
+> seed hay **59 `RETI` contra 65 `MATR`**. Si el colegio no quiere el cumpleaños de quien ya no está,
+> se toma añadiendo `m.estado IN (...)` en `cumplesDelRango()`. Es de Joseth.
+
+> ### DOS INSTRUMENTOS QUE FALLARON, Y LOS DOS SON MÍOS
+>
+> 1. **Escribí en el árbol principal creyéndome en mi worktree.** Un `cd` al principal en el mismo
+>    comando que lanzaba la suite, **el directorio de trabajo persiste entre llamadas**, y tres
+>    comandos después un script con ruta relativa aterrizó allí. Es literalmente el incidente del 31
+>    ago —«estado que persiste donde no lo estás mirando»— y **la regla que ese incidente dejó
+>    escrita, rutas absolutas, es la que no seguí**. Revertido con `git checkout --` de ese fichero
+>    solo, comprobado después, y contado a la otra sesión de backend antes de que lo viera ella.
+> 2. **Atribuí por descarte.** Vi dos documentos sin commitear en el principal, vi que `8myvc-ab`
+>    había desaparecido de `ListAgents`, y **junté las dos cosas sin comprobar ninguna**: avisé de
+>    «huérfanos de una sesión muerta». Eran de `8myvc-2d`, viva y escribiéndolos. Lo corrigió ella
+>    con el dato que yo no tenía —había corrido `git status` en limpio justo antes—. **Que una sesión
+>    no salga en `ListAgents` demuestra que ella no está, no que el trabajo sin commitear sea suyo.**
+>    Mi aviso era más peligroso que el error que venía a contar: le habría dicho a la siguiente sesión
+>    que «rescatara» documentos vivos.
+>
+> Y una tercera, que sí funcionó y por eso se cuenta: **el centinela de
+> `FamiliasQueNuncaEntranTest` saltó con las dos rutas nuevas** (23 → 25 escrituras en familias que
+> el candado no mira). Está escrito para que subir el número sea **una decisión escrita y no un
+> ajuste**, así que lo que se hizo fue explicar en su docblock por qué esas dos están bien —no tienen
+> guard y no deben tenerlo, pero **preguntan de quién es cada fila dentro del método**— en vez de
+> cambiar el 23 por un 25 y seguir.
+
+> ### AL FUSIONAR — hay OTRA sesión moviendo los mismos snapshots
+>
+> `8myvc-2d` añade **dos rutas** en el árbol principal (548 y 549) y esta épica añade **otras dos**.
+> Acordado: **fusiona ella primero y remido yo**. Con las cuatro dentro son **551**, y hay que mover
+> `rutas.json`, `guards-por-ruta.json`, `guard-por-familia.json`, **más** los dos de
+> `FamiliasQueNuncaEntran` y la cifra de `CLAUDE.md`. **Los snapshots se borran y se regeneran, no se
+> resuelven a mano.**
 
 **Última actualización: 1 sep 2026, tarde — LA ÉPICA DEL BOLETÍN INDEPENDIENTE ESTÁ TERMINADA EN
 ESTE REPO: LAS SEIS FASES ESTÁN EN `main`** · **`Tests: 1736 passed (13495 assertions)`,

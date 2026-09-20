@@ -140,15 +140,34 @@ class FamiliasQueNuncaEntranTest extends CasoDeContrato
      * escritura en una familia con menos de dos guards no la mira ningún candado
      * y aquí sí se ve.
      *
-     * **Y se cuenta por el VERBO, que no es la operación.** Al menos tres de las
-     * 22 sólo leen: `PUT api/publicaciones/ultimas` es el formulario público de
-     * prematrícula —va por PUT desde 2024 y `RutasPreLoginTest` lo explica—, y
+     * **Y se cuenta por el VERBO, que no es la operación.** Al menos **cuatro** de
+     * las 26 sólo leen: `PUT api/publicaciones/ultimas` es el formulario público de
+     * prematrícula —va por PUT desde 2024 y `RutasPreLoginTest` lo explica—,
      * `POST api/tardanzas/login/traer-datos-ausencias` trae datos, como dice su
      * nombre —su hermana `…/traer-datos` estaba en esta misma lista hasta que Joseth
-     * la mandó retirar el 2 sep 2026—. Se quedan dentro **a propósito**: quitarlas a
+     * la mandó retirar el 2 sep 2026—, y desde el 19 sep 2026 **`PUT
+     * api/calendario/mes` y `PUT api/calendario/proximos`**, que leen el calendario
+     * del mes y del futuro próximo. Se quedan dentro **a propósito**: quitarlas a
      * mano convertiría un recuento mecánico en una lista curada, y entonces el
      * día que una de ellas empiece a escribir de verdad no lo diría nadie. Lo que
      * hace falta es que esté escrito aquí, no que el número mienta menos.
+     *
+     * ## Las dos del calendario: por qué SUBEN el número y aun así están bien
+     *
+     * El aviso de abajo dice que si sube *«hay una ruta nueva que ningún
+     * mecanismo va a preguntar de quién es la fila que toca»*, y de estas dos
+     * **eso es falso, pero no por donde parece**. No es que tengan guard —no lo
+     * tienen, y no deben tenerlo: el calendario del colegio es de todo el mundo,
+     * igual que `calendario/this-year`—. Es que **preguntan de quién es cada fila
+     * dentro del método**, con el token: un evento que no le toca a quien pregunta
+     * no viaja. Lo fija `CalendarioMesTest`, caso a caso y por tipo de usuario.
+     *
+     * O sea que la familia `calendario/*` sigue teniendo **0 de 7** con guard y
+     * sigue sin entrar nunca en el candado de familia, que es exactamente lo que
+     * este centinela existe para dejar por escrito. Lo que cambia es que ahora
+     * dos de esas siete **sí** tienen quien les pregunte, y son las únicas.
+     * `crear-evento`, `guardar-evento` y `eliminar-evento` siguen defendiéndose
+     * con su propio `if` de personal, y `sincronizar-cumples` también.
      */
     public function test_cuantas_escrituras_viven_donde_el_candado_no_llega(): void
     {
@@ -194,9 +213,35 @@ class FamiliasQueNuncaEntranTest extends CasoDeContrato
         // suelto en el cuerpo en vez del código, seguirían contando 24 y ya serían un
         // agujero. Por eso el número no es la garantía; el porqué de cada renglón sí.
         //
+        // **26 desde el 19 sep 2026**, al fundir `feat/calendario`: las dos de arriba
+        // —`PUT calendario/mes` y `PUT calendario/proximos`—, cuyo porqué está en el
+        // docblock.
+        //
+        // **Y la mitad que hace que el renglón no dé miedo: no son escrituras.** Este
+        // censo cuenta **por verbo**, y aquí `PUT` es la convención vieja de esta casa
+        // para leer con un cuerpo —la misma de `calendario/this-year`—. Medida la
+        // cadena entera (`putMes`, `putProximos`, `respuestaDelRango`,
+        // `eventosManualesDelRango`, `rejillaDelMes`, `filtroDeDestinatarios`,
+        // `cumplesDelRango` y los seis auxiliares que llaman): **cero**
+        // `DB::insert/update/delete/statement` y cero `->save()`. Las que sí escriben
+        // en ese controlador —`guardarDestinatarios` y las de crear/guardar/eliminar
+        // evento— **no las llama ninguna de las dos**. Lo midió `8myvc-47` y se
+        // reprodujo aquí antes de escribirlo, método por método.
+        //
+        // **Por eso el número no es la garantía, y este motivo caduca igual que el de
+        // `pagos-inscripcion`**: el día que `calendario/*` estrene una escritura de
+        // verdad, el renglón pasa a ser lo que hoy sólo aparenta. Lo que hay que
+        // releer entonces no es la cifra: es este párrafo. Son el tercer caso seguido en que este número SUBE y el renglón
+        // está bien, y los tres por motivos distintos: el pago lleva la llave en el
+        // dato, y éstas **preguntan de quién es la fila dentro del método**. Lo que
+        // no ha aparecido todavía es el caso que este centinela busca de verdad —una
+        // ruta que no pregunte nada—, y por eso el número se sube a mano y con el
+        // motivo escrito cada vez, en vez de regenerarlo.
+        //
         // (Antes eran 22, desde el 2 sep 2026, y aquella vez bajó por la razón buena:
-        // Joseth mandó retirar `POST tardanzas/login/traer-datos`.)
-        $this->assertCount(24, $escrituras,
+        // Joseth mandó retirar `POST tardanzas/login/traer-datos`. Y 24 el 19 sep, con
+        // las dos de `pagos-inscripcion`.)
+        $this->assertCount(26, $escrituras,
             "Cambió cuántas escrituras viven en familias que el candado de familia no mira nunca.\n".
             "Si SUBIÓ, hay una ruta nueva que ningún mecanismo va a preguntar de quién es la fila que toca.\n".
             "Si BAJÓ, alguien puso un guard o la familia llegó a dos hermanas guardadas y entró en el candado: bien, y hay que actualizar el número.\n".

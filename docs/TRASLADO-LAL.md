@@ -186,7 +186,33 @@ zcat ~/lal-*.sql.gz | mysql -u micolev1_USUARIO -p micolev1_BASE
 
 ```bash
 cd /home/micolev1/lal.micolevirtual.com/8myvc
-nano .env          # SOLO DB_DATABASE, DB_USERNAME, DB_PASSWORD
+nano .env          # DB_DATABASE, DB_USERNAME, DB_PASSWORD
+
+# Y la clave, que NO es opcional y por poco no está aquí — ver el aviso de abajo.
+php artisan key:generate --force
+
+>
+> **`key:generate` se añadió el 3 sep 2026, y se añadió porque faltar aquí ya costó una
+> colisión.** Este paso decía *«nano .env — **SOLO** DB_DATABASE, DB_USERNAME,
+> DB_PASSWORD»*, y ese «SOLO» es literal: el `git clone` **no trae `.env`** —está
+> ignorado—, así que el fichero sale de **una copia de otro colegio** y todo lo que no
+> se nombre aquí se hereda. Medido el 3 sep 2026 sobre las diecisiete carpetas del
+> servidor: **`lal` y `fortul` tenían el mismo `APP_KEY`** (`42bb720f546f`), y los otros
+> quince eran distintos. `fortul` fue el donante.
+>
+> **Por qué importa y no es higiene:** `config/notificaciones.php:38` deriva los temas de
+> push de `APP_KEY`, así que dos colegios con la misma clave publican en **el mismo tema**
+> para el mismo `alumno_id` — y como cada base tiene su propio autoincremento, el solape
+> sería casi total en los identificadores bajos. Un acudiente recibiría los avisos de un
+> menor de otro colegio, **y publicar en un tema ajeno no da ningún error en FCM**. No
+> llegó a pasar porque el push no está encendido; se rotó la de `lal` y el barrido de
+> repetidos vuelve vacío.
+>
+> **Y hay una ventana que se cierra:** rotar `APP_KEY` **con el push ya vivo** re-apunta
+> todos los temas y los teléfonos siguen escuchando el nombre viejo, así que los avisos
+> dejan de llegar sin ningún error. Esta línea tiene que correrse **antes** de encender
+> Firebase. Entero en
+> [`docs/migracion/29-los-env-no-son-uniformes.md`](migracion/29-los-env-no-son-uniformes.md) §1.
 
 ln -sfn /home/micolev1/laravel_compartido vendor   # DECISIÓN, ver abajo
 php artisan package:discover

@@ -1,620 +1,624 @@
-<?php namespace App\Http\Controllers;
+<?php
 
-use Illuminate\Support\Facades\Request;
-use App\Services\DefinitivasDeAsignatura;
-use Illuminate\Support\Facades\DB;
+namespace App\Http\Controllers;
 
-
-use App\User;
-use App\Models\Unidad;
-use App\Models\Subunidad;
 use App\Models\Profesor;
-use App\Models\NotaFinal;
-
-use Carbon\Carbon;
-use \Log;
-use App\Support\PeriodoDeLaFila;
+use App\Models\Subunidad;
+use App\Models\Unidad;
+use App\Services\BoletinIndependiente;
+use App\Services\DefinitivasDeAsignatura;
 use App\Support\AlcanceDeLaPlantilla;
+use App\Support\CandadoDeLaPlantilla;
+use App\Support\PeriodoDeLaFila;
+use App\User;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Request;
+use Log;
 
+class UnidadesController extends Controller
+{
+    // Las columnas van nombradas y NO se vuelve a `*`: `unidades.alumno_id` existe
+    // desde el 24 ago 2026 (19-boletin-independiente.md) y un `*` la mete en la
+    // respuesta, moviendo la instantánea de contrato de la ruta que use esto.
+    // Es la §5.bis de noche-2026-08-24/bi-1.md.
+    // **BI-1: `alumno_id IS NULL`.** Las tres lecturas que usan esta constante
+    // —`getDeAsignaturaPeriodo` dos veces y el informe `putDeProfesor`— enseñan
+    // **el reparto del curso**, no el de nadie en particular; el del independiente
+    // se edita por `PUT boletin-independiente/planilla` (§6.1 del plan).
+    //
+    // **Y en `getDeAsignaturaPeriodo` la condición decide una ESCRITURA, no una
+    // lista.** Ese método siembra las unidades por defecto del año cuando
+    // `count($unidades) == 0`. Sin acotar, a un grupo que no tiene ni una unidad
+    // suya pero sí un independiente con las suyas le sale `count() == 1` y **se
+    // queda sin sembrar**: el curso entero con la rejilla vacía y sin un error en
+    // el log. Es exactamente la guarda del 28 ago —«sin unidades no se escribe»—
+    // entrando por una puerta nueva, y por eso esto no es cosmético.
+    //
+    // El índice está puesto para esta forma: `unidades_alcance_index` es
+    // `(asignatura_id, periodo_id, alumno_id)`, en ese orden y a propósito.
+    //
+    // **`unidades.alumno_id` y no `alumno_id` a secas**, aunque aquí no haya `join`
+    // que lo pueda hacer ambiguo: `tools/unidades-sin-alcance.py` reconoce el
+    // `IS NULL` **sólo con el alias delante** —el `<=>` lo acepta sin él—, así que
+    // sin el prefijo esta consulta seguiría saliendo «hay que acotarla» estando
+    // acotada. Un falso pendiente es lo que hace que alguien la «arregle» dos veces.
+    //
+    // Las columnas van nombradas y NO se vuelve a `*`: ver el comentario de abajo.
+    private $cons_unidades = 'SELECT id, definicion, porcentaje, periodo_id, asignatura_id, obligatoria, orden, por_defecto, fecha, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at FROM unidades WHERE asignatura_id=? and periodo_id=? and unidades.alumno_id is null and deleted_at is null order by orden, id';
 
-class UnidadesController extends Controller {
+    // Las diecisiete columnas de `subunidades` nombradas, y NO `*`: la columna
+    // `rubrica_id` (2026_09_03_100000_rubricas) saldría sola en esta respuesta
+    // el día que corra la migración, con este código y sin que nadie lo decidiera.
+    // Es la familia del 27 §4, aquí por `subunidades` en vez de por
+    // `notas_finales`. La rúbrica de una subunidad se pide a `rubricas/`.
+    private $cons_subunidades = 'SELECT id, definicion, porcentaje, unidad_id, nota_default, obligatoria, orden, por_defecto, inicia_at, finaliza_at, actividad_id, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at FROM subunidades WHERE unidad_id=? and deleted_at is null order by orden, id';
 
+    public function putDeAsignaturaPeriodo($asignatura_id, $periodo_id)
+    {
+        $user = User::fromToken();
 
-	// Las columnas van nombradas y NO se vuelve a `*`: `unidades.alumno_id` existe
-	// desde el 24 ago 2026 (19-boletin-independiente.md) y un `*` la mete en la
-	// respuesta, moviendo la instantánea de contrato de la ruta que use esto.
-	// Es la §5.bis de noche-2026-08-24/bi-1.md.
-	// **BI-1: `alumno_id IS NULL`.** Las tres lecturas que usan esta constante
-	// —`getDeAsignaturaPeriodo` dos veces y el informe `putDeProfesor`— enseñan
-	// **el reparto del curso**, no el de nadie en particular; el del independiente
-	// se edita por `PUT boletin-independiente/planilla` (§6.1 del plan).
-	//
-	// **Y en `getDeAsignaturaPeriodo` la condición decide una ESCRITURA, no una
-	// lista.** Ese método siembra las unidades por defecto del año cuando
-	// `count($unidades) == 0`. Sin acotar, a un grupo que no tiene ni una unidad
-	// suya pero sí un independiente con las suyas le sale `count() == 1` y **se
-	// queda sin sembrar**: el curso entero con la rejilla vacía y sin un error en
-	// el log. Es exactamente la guarda del 28 ago —«sin unidades no se escribe»—
-	// entrando por una puerta nueva, y por eso esto no es cosmético.
-	//
-	// El índice está puesto para esta forma: `unidades_alcance_index` es
-	// `(asignatura_id, periodo_id, alumno_id)`, en ese orden y a propósito.
-	//
-	// **`unidades.alumno_id` y no `alumno_id` a secas**, aunque aquí no haya `join`
-	// que lo pueda hacer ambiguo: `tools/unidades-sin-alcance.py` reconoce el
-	// `IS NULL` **sólo con el alias delante** —el `<=>` lo acepta sin él—, así que
-	// sin el prefijo esta consulta seguiría saliendo «hay que acotarla» estando
-	// acotada. Un falso pendiente es lo que hace que alguien la «arregle» dos veces.
-	//
-	// Las columnas van nombradas y NO se vuelve a `*`: ver el comentario de abajo.
-	private $cons_unidades 		= 'SELECT id, definicion, porcentaje, periodo_id, asignatura_id, obligatoria, orden, por_defecto, fecha, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at FROM unidades WHERE asignatura_id=? and periodo_id=? and unidades.alumno_id is null and deleted_at is null order by orden, id';
-	// Las diecisiete columnas de `subunidades` nombradas, y NO `*`: la columna
-	// `rubrica_id` (2026_09_03_100000_rubricas) saldría sola en esta respuesta
-	// el día que corra la migración, con este código y sin que nadie lo decidiera.
-	// Es la familia del 27 §4, aquí por `subunidades` en vez de por
-	// `notas_finales`. La rúbrica de una subunidad se pide a `rubricas/`.
-	private $cons_subunidades 	= 'SELECT id, definicion, porcentaje, unidad_id, nota_default, obligatoria, orden, por_defecto, inicia_at, finaliza_at, actividad_id, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at FROM subunidades WHERE unidad_id=? and deleted_at is null order by orden, id';
-
-
-	public function putDeAsignaturaPeriodo($asignatura_id, $periodo_id)
-	{
-		$user = User::fromToken();
-
-
-		$consulta 	= 'SELECT a.id, a.materia_id, a.grupo_id, g.grado_id FROM asignaturas a
+        $consulta = 'SELECT a.id, a.materia_id, a.grupo_id, g.grado_id FROM asignaturas a
 			INNER JOIN grupos g ON g.id=a.grupo_id and g.deleted_at is null
 			WHERE a.id=:asignatura_id and a.deleted_at is null';
-		
-		// `[0]` sobre una consulta que no trajo filas es un aviso de PHP que Laravel
-		// sube a excepción: **500 con «Undefined array key 0» dentro**. Pasa con una
-		// asignatura que no existe y también con una que está en la papelera o cuyo
-		// grupo lo está, porque el `INNER JOIN` de arriba filtra `deleted_at`. Un id
-		// que no lleva a ninguna fila es un 404, y este método además **escribe** —
-		// crea las unidades por defecto—, así que conviene pararlo antes. §96.
-		$asignaturas = DB::select($consulta, [":asignatura_id"=>$asignatura_id]);
 
-		if ($asignaturas === []) {
-			abort(404, 'La asignatura no existe o está en la papelera.');
-		}
+        // `[0]` sobre una consulta que no trajo filas es un aviso de PHP que Laravel
+        // sube a excepción: **500 con «Undefined array key 0» dentro**. Pasa con una
+        // asignatura que no existe y también con una que está en la papelera o cuyo
+        // grupo lo está, porque el `INNER JOIN` de arriba filtra `deleted_at`. Un id
+        // que no lleva a ninguna fila es un 404, y este método además **escribe** —
+        // crea las unidades por defecto—, así que conviene pararlo antes. §96.
+        $asignaturas = DB::select($consulta, [':asignatura_id' => $asignatura_id]);
 
-		$asignatura = $asignaturas[0];
+        if ($asignaturas === []) {
+            abort(404, 'La asignatura no existe o está en la papelera.');
+        }
 
-		
-		$consulta 	= 'SELECT p.id, p.numero as numero_periodo, p.year_id, y.year FROM periodos p
+        $asignatura = $asignaturas[0];
+
+        $consulta = 'SELECT p.id, p.numero as numero_periodo, p.year_id, y.year FROM periodos p
 			INNER JOIN years y ON y.id=p.year_id and y.deleted_at is null
 			WHERE p.numero=:numero and y.id!=:year_id and p.deleted_at is null order by p.id desc';
 
-		$periodos = DB::select($consulta, [ ":numero"=>$user->numero_periodo, ":year_id"=>$user->year_id ]);
+        $periodos = DB::select($consulta, [':numero' => $user->numero_periodo, ':year_id' => $user->year_id]);
 
-		for ($i=0; $i < count($periodos); $i++) {
-			// Columnas nombradas, no `u.*`: con `*`, `unidades.alumno_id` (24 ago 2026,
-			// 19-boletin-independiente.md) entra en la respuesta y mueve la instantánea.
-			// Ver §5.bis de noche-2026-08-24/bi-1.md. No volver a `*`.
-			// **BI-1: `u.alumno_id IS NULL`.** Este panel es «qué hicieron los años
-			// anteriores en esta misma materia y grado», y existe para copiar de él.
-			// Una unidad con dueño es el plan de UN alumno de hace tres años; aquí
-			// saldría mezclada con las del curso, con el mismo aspecto y sin nada que
-			// dijera de quién es — y lo que se copie de ahí acaba siendo el reparto de
-			// un grupo entero. Es la §9.2 «de más» en su forma más callada: no infla
-			// una nota, propone un plan de estudios que nunca fue del curso.
-			$consulta = 'SELECT u.id, u.definicion, u.porcentaje, u.periodo_id, u.asignatura_id, u.obligatoria, u.orden, u.por_defecto, u.fecha, u.created_by, u.updated_by, u.deleted_by, u.deleted_at, u.created_at, u.updated_at
+        for ($i = 0; $i < count($periodos); $i++) {
+            // Columnas nombradas, no `u.*`: con `*`, `unidades.alumno_id` (24 ago 2026,
+            // 19-boletin-independiente.md) entra en la respuesta y mueve la instantánea.
+            // Ver §5.bis de noche-2026-08-24/bi-1.md. No volver a `*`.
+            // **BI-1: `u.alumno_id IS NULL`.** Este panel es «qué hicieron los años
+            // anteriores en esta misma materia y grado», y existe para copiar de él.
+            // Una unidad con dueño es el plan de UN alumno de hace tres años; aquí
+            // saldría mezclada con las del curso, con el mismo aspecto y sin nada que
+            // dijera de quién es — y lo que se copie de ahí acaba siendo el reparto de
+            // un grupo entero. Es la §9.2 «de más» en su forma más callada: no infla
+            // una nota, propone un plan de estudios que nunca fue del curso.
+            $consulta = 'SELECT u.id, u.definicion, u.porcentaje, u.periodo_id, u.asignatura_id, u.obligatoria, u.orden, u.por_defecto, u.fecha, u.created_by, u.updated_by, u.deleted_by, u.deleted_at, u.created_at, u.updated_at
 				FROM unidades u
 				INNER JOIN asignaturas a ON u.asignatura_id=a.id and a.materia_id=? and u.deleted_at is null
 				INNER JOIN grupos g ON g.id=a.grupo_id and g.grado_id=? and g.deleted_at is null
 				WHERE u.periodo_id=? and u.alumno_id is null and u.deleted_at is null order by orden, id';
 
-			$unidades 			= DB::select($consulta, [$asignatura->materia_id, $asignatura->grado_id, $periodos[$i]->id]);
+            $unidades = DB::select($consulta, [$asignatura->materia_id, $asignatura->grado_id, $periodos[$i]->id]);
 
-			foreach ($unidades as $key => $unidad) {
-				$subunidades = DB::select($this->cons_subunidades, [$unidad->id]);
-				$unidad->subunidades = $subunidades;
-			}
+            foreach ($unidades as $key => $unidad) {
+                $subunidades = DB::select($this->cons_subunidades, [$unidad->id]);
+                $unidad->subunidades = $subunidades;
+            }
 
+            $periodos[$i]->unidades = $unidades;
 
-			$periodos[$i]->unidades = $unidades;
+        }
 
-		}
+        $unidades_actuales = $this->getDeAsignaturaPeriodo($asignatura_id, $periodo_id, $user);
 
+        return ['unidades' => $unidades_actuales, 'anios_pasados' => $periodos];
+    }
 
-		$unidades_actuales = $this->getDeAsignaturaPeriodo($asignatura_id, $periodo_id, $user);
+    public function getDeAsignaturaPeriodo($asignatura_id, $periodo_id, $user = null)
+    {
+        // `is_object` y no `== null`: el tercer parámetro es a la vez el argumento
+        // de la llamada interna de `putDeAsignaturaPeriodo` —que pasa el objeto de
+        // usuario— y el segmento `{user?}` de la URL, que solo puede llegar como
+        // cadena. Con la comparación anterior, una petición con el tercer segmento
+        // se metía aquí con `$user = "1"` y reventaba en `$user->year_id` unas
+        // líneas más abajo: 500 seguro siempre que la asignatura y el periodo no
+        // tuvieran unidades ya. Ver 05 §16.
+        if (! is_object($user)) {
+            $user = User::fromToken();
+        }
 
-		return ["unidades" => $unidades_actuales, "anios_pasados"=>$periodos];
-	}
+        $unidades = DB::select($this->cons_unidades, [$asignatura_id, $periodo_id]);
 
+        // Esta ruta lee y de paso escribe, así que no puede llevar el `abort()` de
+        // sus hermanas: sería apagarle al profesor la vista de un periodo cerrado,
+        // que es justo la que va a querer consultar cuando esté cerrado. Decidido
+        // por Joseth: **enseña lo que hay y no crea nada**. Ver 05 §47.2.
+        $puedeEscribir = User::permiteEditarNotas($user, (int) $periodo_id);
 
+        if (count($unidades) == 0 && $puedeEscribir) {
+            /*
+             * **La plantilla tiene ALCANCE desde el 4 sep 2026** — decisión 8 de
+             * Joseth, §5.7.a del 28. Una fila puede ir dirigida a un nivel
+             * educativo y/o a una materia, y aquí se resuelve **cuál le toca a
+             * esta asignatura**.
+             *
+             * Aquí había un `SELECT *` sobre `unidades_por_defecto` con el año
+             * como único filtro. Se va por dos motivos, y el segundo es el que
+             * obligaba: no sabía del alcance, y el `*` **repartía sola cualquier
+             * columna nueva** a las filas que se copian debajo — que es el aviso
+             * que ya lleva escrito la cabecera de este fichero.
+             *
+             * **Una consulta más y ninguna en el camino caliente**: las dos viven
+             * dentro de este `if`, que sólo entra cuando la asignatura no tiene
+             * ni una unidad — la primera vez que alguien abre la pantalla, no cada
+             * mañana.
+             *
+             * Con las dos columnas a NULL en toda fila —o sea, en los dieciséis
+             * colegios el día del despliegue— esto **selecciona exactamente las
+             * mismas filas** que la consulta que sustituye. Hay un test de
+             * contrato que lo fija.
+             */
+            $alcance = AlcanceDeLaPlantilla::deAsignatura((int) $asignatura_id);
+            $unidades_default = $alcance === null ? [] : AlcanceDeLaPlantilla::unidadesPara(
+                (int) $user->year_id,
+                $alcance->nivel_educativo_id,
+                $alcance->materia_id
+            );
 
-	public function getDeAsignaturaPeriodo($asignatura_id, $periodo_id, $user=null)
-	{
-		// `is_object` y no `== null`: el tercer parámetro es a la vez el argumento
-		// de la llamada interna de `putDeAsignaturaPeriodo` —que pasa el objeto de
-		// usuario— y el segmento `{user?}` de la URL, que solo puede llegar como
-		// cadena. Con la comparación anterior, una petición con el tercer segmento
-		// se metía aquí con `$user = "1"` y reventaba en `$user->year_id` unas
-		// líneas más abajo: 500 seguro siempre que la asignatura y el periodo no
-		// tuvieran unidades ya. Ver 05 §16.
-		if (! is_object($user)) {
-			$user = User::fromToken();
-		}
+            if (count($unidades_default) > 0) {
+                $now = Carbon::now('America/Bogota');
 
-	
-		$unidades = DB::select($this->cons_unidades, [$asignatura_id, $periodo_id]);
+                foreach ($unidades_default as $unidad_d) {
 
-		// Esta ruta lee y de paso escribe, así que no puede llevar el `abort()` de
-		// sus hermanas: sería apagarle al profesor la vista de un periodo cerrado,
-		// que es justo la que va a querer consultar cuando esté cerrado. Decidido
-		// por Joseth: **enseña lo que hay y no crea nada**. Ver 05 §47.2.
-		$puedeEscribir = User::permiteEditarNotas($user, (int) $periodo_id);
+                    // Creo las nuevas unidades basado en las unidades por defecto del año
+                    $consulta = 'INSERT INTO unidades(definicion, porcentaje, periodo_id, asignatura_id, obligatoria, orden, por_defecto, created_by, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?) ';
+                    $insertadas = DB::insert($consulta, [$unidad_d->definicion, $unidad_d->porcentaje, $periodo_id, $asignatura_id, $unidad_d->obligatoria, $unidad_d->orden, true, $user->user_id, $now]);
+                    $last_id = DB::getPdo()->lastInsertId();
 
-		if (count($unidades) == 0 && $puedeEscribir) {
-			/*
-			 * **La plantilla tiene ALCANCE desde el 4 sep 2026** — decisión 8 de
-			 * Joseth, §5.7.a del 28. Una fila puede ir dirigida a un nivel
-			 * educativo y/o a una materia, y aquí se resuelve **cuál le toca a
-			 * esta asignatura**.
-			 *
-			 * Aquí había un `SELECT *` sobre `unidades_por_defecto` con el año
-			 * como único filtro. Se va por dos motivos, y el segundo es el que
-			 * obligaba: no sabía del alcance, y el `*` **repartía sola cualquier
-			 * columna nueva** a las filas que se copian debajo — que es el aviso
-			 * que ya lleva escrito la cabecera de este fichero.
-			 *
-			 * **Una consulta más y ninguna en el camino caliente**: las dos viven
-			 * dentro de este `if`, que sólo entra cuando la asignatura no tiene
-			 * ni una unidad — la primera vez que alguien abre la pantalla, no cada
-			 * mañana.
-			 *
-			 * Con las dos columnas a NULL en toda fila —o sea, en los dieciséis
-			 * colegios el día del despliegue— esto **selecciona exactamente las
-			 * mismas filas** que la consulta que sustituye. Hay un test de
-			 * contrato que lo fija.
-			 */
-			$alcance 			= AlcanceDeLaPlantilla::deAsignatura((int) $asignatura_id);
-			$unidades_default 	= $alcance === null ? [] : AlcanceDeLaPlantilla::unidadesPara(
-				(int) $user->year_id,
-				$alcance->nivel_educativo_id,
-				$alcance->materia_id
-			);
+                    $consulta = 'SELECT * FROM subunidades_por_defecto WHERE unidad_defec_id=? and deleted_at is null';
+                    $subunidades_default = DB::select($consulta, [$unidad_d->id]);
 
-			if (count($unidades_default) > 0) {
-				$now 		= Carbon::now('America/Bogota');
+                    for ($j = 0; $j < count($subunidades_default); $j++) {
+                        // Creo las subunidades por defecto de cada Unidad por defecto
+                        $consulta = 'INSERT INTO subunidades(definicion, porcentaje, unidad_id, nota_default, obligatoria, orden, por_defecto, created_by, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?) ';
+                        $insertadas = DB::insert($consulta, [$subunidades_default[$j]->definicion, $subunidades_default[$j]->porcentaje, $last_id, $subunidades_default[$j]->nota_default, $subunidades_default[$j]->obligatoria, $subunidades_default[$j]->orden, true, $user->user_id, $now]);
 
-				foreach ($unidades_default as $unidad_d) {
+                    }
+                }
+            } else {
+                return '';
+            }
 
-					// Creo las nuevas unidades basado en las unidades por defecto del año
-					$consulta 		= 'INSERT INTO unidades(definicion, porcentaje, periodo_id, asignatura_id, obligatoria, orden, por_defecto, created_by, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?) ';
-					$insertadas 	= DB::insert($consulta, [$unidad_d->definicion, $unidad_d->porcentaje, $periodo_id, $asignatura_id, $unidad_d->obligatoria, $unidad_d->orden, true, $user->user_id, $now ]);
-					$last_id 	    = DB::getPdo()->lastInsertId();
-					
-					$consulta 				= 'SELECT * FROM subunidades_por_defecto WHERE unidad_defec_id=? and deleted_at is null';
-					$subunidades_default 	= DB::select($consulta, [$unidad_d->id]);
-						
-					for ($j=0; $j < count($subunidades_default); $j++) { 
-						// Creo las subunidades por defecto de cada Unidad por defecto
-						$consulta 		= 'INSERT INTO subunidades(definicion, porcentaje, unidad_id, nota_default, obligatoria, orden, por_defecto, created_by, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?) ';
-						$insertadas 	= DB::insert($consulta, [$subunidades_default[$j]->definicion, $subunidades_default[$j]->porcentaje, $last_id, $subunidades_default[$j]->nota_default, $subunidades_default[$j]->obligatoria, $subunidades_default[$j]->orden, true, $user->user_id, $now ]);
-		
-					}
-				}
-			}else{
-				return '';
-			}
-			
-		}
+        }
 
-		// Vuelvo a traer las unidades, por si las moscas y para arreglar orden
-		$orden_duplicado 	= false;
-		$orden_anterior 	= -5;
-		$unidades 			= DB::select($this->cons_unidades, [$asignatura_id, $periodo_id]);
+        // Vuelvo a traer las unidades, por si las moscas y para arreglar orden
+        $orden_duplicado = false;
+        $orden_anterior = -5;
+        $unidades = DB::select($this->cons_unidades, [$asignatura_id, $periodo_id]);
 
-		foreach ($unidades as $unidad) {
+        foreach ($unidades as $unidad) {
 
-			$subunidades 			= DB::select($this->cons_subunidades, [$unidad->id]);
-			$unidad->subunidades 	= $subunidades;
+            $subunidades = DB::select($this->cons_subunidades, [$unidad->id]);
+            $unidad->subunidades = $subunidades;
 
-			// A veces hay varios con el mismo número en el orden, debo encontrarlo y arreglarlo.
-			if ($orden_anterior == $unidad->orden) {
-				$orden_duplicado = true;
-			}else{
-				$orden_anterior = $unidad->orden;
-			}
-		}
+            // A veces hay varios con el mismo número en el orden, debo encontrarlo y arreglarlo.
+            if ($orden_anterior == $unidad->orden) {
+                $orden_duplicado = true;
+            } else {
+                $orden_anterior = $unidad->orden;
+            }
+        }
 
-		// `arreglarOrden()` no ordena la respuesta: **reescribe `orden` en la tabla**
-		// de todas las unidades y subunidades, en cada lectura. O sea que este GET
-		// escribía en la rejilla incluso cuando ya había unidades. Con el periodo
-		// cerrado no se toca — y sin esto quedaría el mismo agujero que la §47
-		// acaba de cerrar en `unidades/update-orden`, alcanzable por el otro lado:
-		// la misma escritura, un camino tapado y el otro no.
-		if ($puedeEscribir) {
-			$unidades = Unidad::arreglarOrden($unidades, $asignatura_id, $periodo_id);
-		}
+        // `arreglarOrden()` no ordena la respuesta: **reescribe `orden` en la tabla**
+        // de todas las unidades y subunidades, en cada lectura. O sea que este GET
+        // escribía en la rejilla incluso cuando ya había unidades. Con el periodo
+        // cerrado no se toca — y sin esto quedaría el mismo agujero que la §47
+        // acaba de cerrar en `unidades/update-orden`, alcanzable por el otro lado:
+        // la misma escritura, un camino tapado y el otro no.
+        if ($puedeEscribir) {
+            $unidades = Unidad::arreglarOrden($unidades, $asignatura_id, $periodo_id);
+        }
 
-		return $unidades;
-	}
-	
-	
+        return $unidades;
+    }
 
+    // Un informe con todo lo del profe
+    public function putDeProfesor()
+    {
+        $user = User::fromToken();
+        $periodo_id = $user->periodo_id;
+        $profesor_id = Request::input('profesor_id');
 
-	// Un informe con todo lo del profe
-	public function putDeProfesor()
-	{
-		$user 			= User::fromToken();
-		$periodo_id 	= $user->periodo_id;
-		$profesor_id	= Request::input('profesor_id');
-		
-		// `Profesor::detallado` acaba en `return $profesor[0];` sin comprobar que la
-		// consulta trajera fila: con un id que no existe **o uno de la papelera** —que
-		// su `where` descarta— eso es 500. El modelo lo comparten seis llamantes de
-		// tres dominios distintos, así que se para aquí y no allí: poner un `?? null`
-		// dentro convertiría seis 500 en seis comportamientos distintos sin haber
-		// medido cuál es el correcto en cada pantalla. Lo encontró el lote E en su
-		// llamante y eligió el mismo 404. §96.
-		if (! Profesor::where('id', $profesor_id)->exists()) {
-			abort(404, 'El profesor no existe o está en la papelera.');
-		}
+        // `Profesor::detallado` acaba en `return $profesor[0];` sin comprobar que la
+        // consulta trajera fila: con un id que no existe **o uno de la papelera** —que
+        // su `where` descarta— eso es 500. El modelo lo comparten seis llamantes de
+        // tres dominios distintos, así que se para aquí y no allí: poner un `?? null`
+        // dentro convertiría seis 500 en seis comportamientos distintos sin haber
+        // medido cuál es el correcto en cada pantalla. Lo encontró el lote E en su
+        // llamante y eligió el mismo 404. §96.
+        if (! Profesor::where('id', $profesor_id)->exists()) {
+            abort(404, 'El profesor no existe o está en la papelera.');
+        }
 
-		$info_profesor 	= Profesor::detallado($profesor_id);
-		$asignaturas 	= Profesor::asignaturas($user->year_id, $profesor_id);
+        $info_profesor = Profesor::detallado($profesor_id);
+        $asignaturas = Profesor::asignaturas($user->year_id, $profesor_id);
 
-		foreach ($asignaturas as $asignatura) {
-			
-			$asignatura->unidades = DB::select($this->cons_unidades, [$asignatura->asignatura_id, $periodo_id]);
-			
-			
-			foreach ($asignatura->unidades as $unidad) {
+        foreach ($asignaturas as $asignatura) {
 
-				$subunidades 			= DB::select($this->cons_subunidades, [$unidad->id]);
-				$unidad->subunidades 	= $subunidades;
+            $asignatura->unidades = DB::select($this->cons_unidades, [$asignatura->asignatura_id, $periodo_id]);
 
-			}
+            foreach ($asignatura->unidades as $unidad) {
 
-		}
-		
-		return ['info_profesor' => $info_profesor, 'asignaturas' => $asignaturas];
-		
-	}
+                $subunidades = DB::select($this->cons_subunidades, [$unidad->id]);
+                $unidad->subunidades = $subunidades;
 
+            }
 
+        }
 
-	public function postIndex()
-	{
-		$user = User::fromToken();
+        return ['info_profesor' => $info_profesor, 'asignaturas' => $asignaturas];
 
-		// La unidad nace con `periodo_id = $user->periodo_id` tres líneas más
-		// abajo, así que el periodo de la fila que se toca ES el del usuario: no
-		// hay fila de la que derivarlo todavía. Faltaba —crear una unidad con el
-		// periodo cerrado devolvía 201— mientras su gemelo
-		// `SubunidadesController::postIndex` sí lo pedía. Ver 05 §47.
-		User::pueden_editar_notas($user, (int) $user->periodo_id);
+    }
 
-		$asignatura_id = Request::input('asignatura_id');
+    public function postIndex()
+    {
+        $user = User::fromToken();
 
-		/*
-		 * **`alumno_id` — la promesa del §8 del plan, que hasta hoy no estaba escrita.**
-		 *
-		 * El plan dice que el front **no construye un editor nuevo** porque *«son los
-		 * mismos endpoints de `unidades` y `subunidades`, con `alumno_id` en el cuerpo al
-		 * crear la unidad»*. Este método no leía ese campo, y lo que pasaba al mandarlo
-		 * **era peor que ignorarlo**: la unidad nacía **del grupo**, se le ponía a todo el
-		 * curso y el reparto de la asignatura dejaba de sumar 100 — sin un error, sin un
-		 * aviso y sin que nada lo dijera. Medido por el front sobre la asignatura 1235:
-		 * una unidad al 10 %, 51 estudiantes, el curso al **110 %**.
-		 *
-		 * O sea que **un docente que intentara montarle el boletín a un independiente le
-		 * desordenaba la asignatura a los otros treinta**, y la única pista era que los
-		 * porcentajes dejaban de cuadrar.
-		 *
-		 * **Ausente o vacío sigue siendo `null` = del grupo**, que es lo que hacen hoy los
-		 * quince colegios y lo que no puede cambiar.
-		 */
-		$alumno_id = Request::input('alumno_id');
-		$alumno_id = ($alumno_id === null || $alumno_id === '') ? null : (int) $alumno_id;
+        // La unidad nace con `periodo_id = $user->periodo_id` tres líneas más
+        // abajo, así que el periodo de la fila que se toca ES el del usuario: no
+        // hay fila de la que derivarlo todavía. Faltaba —crear una unidad con el
+        // periodo cerrado devolvía 201— mientras su gemelo
+        // `SubunidadesController::postIndex` sí lo pedía. Ver 05 §47.
+        User::pueden_editar_notas($user, (int) $user->periodo_id);
 
-		if ($alumno_id !== null) {
-			// Un id que no es un id se rechaza aquí y no en la guarda: `unidades.alumno_id`
-			// es `unsigned`, así que un 0 o un negativo no puede llegar a la fila ni
-			// siquiera para que la clave foránea lo rechace con un 500.
-			if ($alumno_id < 1) {
-				abort(422, 'El `alumno_id` tiene que ser el id de un alumno.');
-			}
+        $asignatura_id = Request::input('asignatura_id');
 
-			$this->exigirDuenoValido($alumno_id, (int) $asignatura_id, (int) $user->periodo_id);
-		}
+        /*
+         * **`alumno_id` — la promesa del §8 del plan, que hasta hoy no estaba escrita.**
+         *
+         * El plan dice que el front **no construye un editor nuevo** porque *«son los
+         * mismos endpoints de `unidades` y `subunidades`, con `alumno_id` en el cuerpo al
+         * crear la unidad»*. Este método no leía ese campo, y lo que pasaba al mandarlo
+         * **era peor que ignorarlo**: la unidad nacía **del grupo**, se le ponía a todo el
+         * curso y el reparto de la asignatura dejaba de sumar 100 — sin un error, sin un
+         * aviso y sin que nada lo dijera. Medido por el front sobre la asignatura 1235:
+         * una unidad al 10 %, 51 estudiantes, el curso al **110 %**.
+         *
+         * O sea que **un docente que intentara montarle el boletín a un independiente le
+         * desordenaba la asignatura a los otros treinta**, y la única pista era que los
+         * porcentajes dejaban de cuadrar.
+         *
+         * **Ausente o vacío sigue siendo `null` = del grupo**, que es lo que hacen hoy los
+         * quince colegios y lo que no puede cambiar.
+         */
+        $alumno_id = Request::input('alumno_id');
+        $alumno_id = ($alumno_id === null || $alumno_id === '') ? null : (int) $alumno_id;
 
-		/*
-		 * **El `orden` se cuenta DENTRO del reparto en el que entra la unidad**, no sobre
-		 * la asignatura entera.
-		 *
-		 * Antes contaba todas las del periodo —las del grupo y las de cualquier
-		 * independiente juntas—, así que la primera unidad propia de un alumno nacía con
-		 * el `orden` de la quinta del curso, y la siguiente del grupo se saltaba un
-		 * número. Son **dos repartos que conviven y no se mezclan**: es la misma frontera
-		 * que `u.alumno_id <=> alcance` traza en las lecturas, aquí en la escritura.
-		 */
-		$cant = Unidad::where('periodo_id', $user->periodo_id)
-				->where('asignatura_id', $asignatura_id)
-				->when($alumno_id === null,
-					fn ($q) => $q->whereNull('alumno_id'),
-					fn ($q) => $q->where('alumno_id', $alumno_id))
-				->count();
+        if ($alumno_id !== null) {
+            // Un id que no es un id se rechaza aquí y no en la guarda: `unidades.alumno_id`
+            // es `unsigned`, así que un 0 o un negativo no puede llegar a la fila ni
+            // siquiera para que la clave foránea lo rechace con un 500.
+            if ($alumno_id < 1) {
+                abort(422, 'El `alumno_id` tiene que ser el id de un alumno.');
+            }
 
-		$unidad = new Unidad;
-		$unidad->definicion		= Request::input('definicion');
-		$unidad->porcentaje		= Request::input('porcentaje');
-		$unidad->periodo_id		= $user->periodo_id;
-		$unidad->created_by		= $user->user_id;
-		$unidad->asignatura_id	= $asignatura_id;
-		$unidad->alumno_id		= $alumno_id;
-		$unidad->orden			= $cant;
-		$unidad->save();
+            $this->exigirDuenoValido($alumno_id, (int) $asignatura_id, (int) $user->periodo_id);
+        }
 
-		return $unidad;
-	}
+        /*
+         * **El `orden` se cuenta DENTRO del reparto en el que entra la unidad**, no sobre
+         * la asignatura entera.
+         *
+         * Antes contaba todas las del periodo —las del grupo y las de cualquier
+         * independiente juntas—, así que la primera unidad propia de un alumno nacía con
+         * el `orden` de la quinta del curso, y la siguiente del grupo se saltaba un
+         * número. Son **dos repartos que conviven y no se mezclan**: es la misma frontera
+         * que `u.alumno_id <=> alcance` traza en las lecturas, aquí en la escritura.
+         */
+        $cant = Unidad::where('periodo_id', $user->periodo_id)
+            ->where('asignatura_id', $asignatura_id)
+            ->when($alumno_id === null,
+                fn ($q) => $q->whereNull('alumno_id'),
+                fn ($q) => $q->where('alumno_id', $alumno_id))
+            ->count();
 
+        $unidad = new Unidad;
+        $unidad->definicion = Request::input('definicion');
+        $unidad->porcentaje = Request::input('porcentaje');
+        $unidad->periodo_id = $user->periodo_id;
+        $unidad->created_by = $user->user_id;
+        $unidad->asignatura_id = $asignatura_id;
+        $unidad->alumno_id = $alumno_id;
+        $unidad->orden = $cant;
+        $unidad->save();
 
-	/**
-	 * Las dos condiciones para que una unidad pueda tener dueño. **Las dos son decisión,
-	 * no mecánica**, y por eso van escritas.
-	 *
-	 * ## 1 · El alumno tiene que estar matriculado en el grupo de esa asignatura
-	 *
-	 * La clave foránea sólo obliga a que el alumno **exista**, no a que tenga nada que
-	 * ver con esta asignatura: sin esta comprobación se le cuelga una unidad a alguien de
-	 * otro curso, o de otro año. Es la familia de `tools/identificadores-del-cuerpo.py` y
-	 * la misma guarda que el lote D tuvo que añadir a `PUT boletin-independiente/periodo`
-	 * por la misma razón.
-	 *
-	 * ## 2 · El alumno tiene que ir aparte EN ESE PERIODO — y esto es lo que se decidió
-	 *
-	 * Crear una unidad con dueño para quien va con el grupo deja una fila **que no le
-	 * cuenta a nadie**: su dueño lee las del grupo —la marca ausente significa «va con el
-	 * grupo», decisión 7— y los demás tampoco la ven, porque tiene dueño. Nace muerta, en
-	 * silencio, y con el reparto ya escrito. Es la §9.1 al revés.
-	 *
-	 * > **Y no prohíbe el estado «tiene unidades propias y no está marcado»**, que es
-	 * > legítimo y está decidido: apagar la marca **no borra nada** —*«no debe borrar los
-	 * > datos … pero esos datos deben ser ignorados»*— y `PUT boletin-independiente/planilla`
-	 * > existe justamente para ver lo que se está ignorando. Lo que se prohíbe es
-	 * > **crear** una fila así desde cero. **Un residuo tiene historia; una fila nueva sin
-	 * > dueño efectivo, no.**
-	 *
-	 * ## Quién puede hacerlo: la guarda que ya había, y es la correcta
-	 *
-	 * No se añade ningún criterio de rol. La ruta pide `auth.personal` y el método
-	 * `User::pueden_editar_notas`, o sea **superusuario o profesor con el periodo
-	 * abierto**: montar la estructura de un boletín es trabajo docente y el §8 del plan
-	 * dice que el front **reutiliza el mismo editor**. Quien decide que un alumno va
-	 * aparte es otra cosa —administradores, secretario y rector, decisión 5— y eso ya lo
-	 * guarda `PUT boletin-independiente/periodo`. Aquí sólo se **construye** lo que
-	 * aquella decisión permitió, y este método exige que aquella decisión ya esté tomada,
-	 * que es la condición 2.
-	 *
-	 * **422 y no 403**: no es que quien llama no pueda; es que lo que pide no tiene
-	 * sentido con el estado que hay.
-	 */
-	private function exigirDuenoValido(int $alumno_id, int $asignatura_id, int $periodo_id): void
-	{
-		$matriculado = DB::selectOne(
-			'SELECT 1 AS hay
+        return $unidad;
+    }
+
+    /**
+     * Las dos condiciones para que una unidad pueda tener dueño. **Las dos son decisión,
+     * no mecánica**, y por eso van escritas.
+     *
+     * ## 1 · El alumno tiene que estar matriculado en el grupo de esa asignatura
+     *
+     * La clave foránea sólo obliga a que el alumno **exista**, no a que tenga nada que
+     * ver con esta asignatura: sin esta comprobación se le cuelga una unidad a alguien de
+     * otro curso, o de otro año. Es la familia de `tools/identificadores-del-cuerpo.py` y
+     * la misma guarda que el lote D tuvo que añadir a `PUT boletin-independiente/periodo`
+     * por la misma razón.
+     *
+     * ## 2 · El alumno tiene que ir aparte EN ESE PERIODO — y esto es lo que se decidió
+     *
+     * Crear una unidad con dueño para quien va con el grupo deja una fila **que no le
+     * cuenta a nadie**: su dueño lee las del grupo —la marca ausente significa «va con el
+     * grupo», decisión 7— y los demás tampoco la ven, porque tiene dueño. Nace muerta, en
+     * silencio, y con el reparto ya escrito. Es la §9.1 al revés.
+     *
+     * > **Y no prohíbe el estado «tiene unidades propias y no está marcado»**, que es
+     * > legítimo y está decidido: apagar la marca **no borra nada** —*«no debe borrar los
+     * > datos … pero esos datos deben ser ignorados»*— y `PUT boletin-independiente/planilla`
+     * > existe justamente para ver lo que se está ignorando. Lo que se prohíbe es
+     * > **crear** una fila así desde cero. **Un residuo tiene historia; una fila nueva sin
+     * > dueño efectivo, no.**
+     *
+     * ## Quién puede hacerlo: la guarda que ya había, y es la correcta
+     *
+     * No se añade ningún criterio de rol. La ruta pide `auth.personal` y el método
+     * `User::pueden_editar_notas`, o sea **superusuario o profesor con el periodo
+     * abierto**: montar la estructura de un boletín es trabajo docente y el §8 del plan
+     * dice que el front **reutiliza el mismo editor**. Quien decide que un alumno va
+     * aparte es otra cosa —administradores, secretario y rector, decisión 5— y eso ya lo
+     * guarda `PUT boletin-independiente/periodo`. Aquí sólo se **construye** lo que
+     * aquella decisión permitió, y este método exige que aquella decisión ya esté tomada,
+     * que es la condición 2.
+     *
+     * **422 y no 403**: no es que quien llama no pueda; es que lo que pide no tiene
+     * sentido con el estado que hay.
+     */
+    private function exigirDuenoValido(int $alumno_id, int $asignatura_id, int $periodo_id): void
+    {
+        $matriculado = DB::selectOne(
+            'SELECT 1 AS hay
 			   FROM asignaturas a
 			   INNER JOIN matriculas m ON m.grupo_id = a.grupo_id AND m.deleted_at IS NULL
 			                          AND m.estado IN ("MATR", "ASIS")
 			  WHERE a.id = ? AND m.alumno_id = ? AND a.deleted_at IS NULL
 			  LIMIT 1',
-			[$asignatura_id, $alumno_id]
-		);
+            [$asignatura_id, $alumno_id]
+        );
 
-		if ($matriculado === null) {
-			abort(422, 'Ese alumno no está matriculado en el grupo de esta asignatura.');
-		}
+        if ($matriculado === null) {
+            abort(422, 'Ese alumno no está matriculado en el grupo de esta asignatura.');
+        }
 
-		// Lo pregunta el servicio y no una consulta de aquí: **el único sitio que decide
-		// de quién es una unidad** es `BoletinIndependiente`, y ésta es la misma pregunta
-		// que resuelven las lecturas, hecha antes de escribir.
-		if (! \App\Services\BoletinIndependiente::aplica($alumno_id, $periodo_id)) {
-			abort(422, 'Ese alumno no lleva boletín independiente en este periodo, así que una unidad suya no la vería nadie.');
-		}
-	}
+        // Lo pregunta el servicio y no una consulta de aquí: **el único sitio que decide
+        // de quién es una unidad** es `BoletinIndependiente`, y ésta es la misma pregunta
+        // que resuelven las lecturas, hecha antes de escribir.
+        if (! BoletinIndependiente::aplica($alumno_id, $periodo_id)) {
+            abort(422, 'Ese alumno no lleva boletín independiente en este periodo, así que una unidad suya no la vería nadie.');
+        }
+    }
 
-	public function putUpdateOrden()
-	{
-		$user = User::fromToken();
+    public function putUpdateOrden()
+    {
+        $user = User::fromToken();
 
-		$sortHash = Request::input('sortHash');
+        $sortHash = Request::input('sortHash');
 
-		// Los periodos de TODAS las unidades que se mueven, como hace su gemelo
-		// `SubunidadesController::putUpdateOrdenVarias`: reordenar es escribir en
-		// la rejilla de notas, y faltaba. Ver 05 §47.
-		$ordenes = [];
+        // Los periodos de TODAS las unidades que se mueven, como hace su gemelo
+        // `SubunidadesController::putUpdateOrdenVarias`: reordenar es escribir en
+        // la rejilla de notas, y faltaba. Ver 05 §47.
+        $ordenes = [];
 
-		for($row = 0; $row < count($sortHash); $row++){
-			foreach($sortHash[$row] as $key => $value){
-				$ordenes[(int)$key] = (int)$value;
-			}
-		}
+        for ($row = 0; $row < count($sortHash); $row++) {
+            foreach ($sortHash[$row] as $key => $value) {
+                $ordenes[(int) $key] = (int) $value;
+            }
+        }
 
-		User::pueden_editar_notas($user, PeriodoDeLaFila::deVariasUnidades(array_keys($ordenes)));
+        User::pueden_editar_notas($user, PeriodoDeLaFila::deVariasUnidades(array_keys($ordenes)));
 
-		foreach ($ordenes as $id => $orden) {
-			// `find()` devolvía null con un id que no existe y `->orden` sobre null
-			// era un 500. Es 404 porque el cliente nombró una unidad que no está.
-			$unidad = Unidad::findOrFail($id);
-			$unidad->orden = $orden;
-			$unidad->save();
-		}
+        // **P6, y va AQUÍ y no dentro del bucle**: el bucle escribe fila a fila, así
+        // que preguntando dentro un lote mixto deja las anteriores ya guardadas y
+        // aborta a mitad — la rejilla medio movida y un 403 en la cara. Es el mismo
+        // invariante que respeta `pueden_editar_notas` tres líneas más arriba, y la
+        // primera versión de este candado lo rompió. Ver `CandadoDeLaPlantilla`.
+        CandadoDeLaPlantilla::exigirElLote($user, $ordenes);
 
-		return 'Ordenado correctamente';
-	}
+        foreach ($ordenes as $id => $orden) {
+            // `find()` devolvía null con un id que no existe y `->orden` sobre null
+            // era un 500. Es 404 porque el cliente nombró una unidad que no está.
+            $unidad = Unidad::findOrFail($id);
+            $unidad->orden = $orden;
+            $unidad->save();
+        }
 
+        return 'Ordenado correctamente';
+    }
 
-	public function putUpdate($id)
-	{
-		$user = User::fromToken();
-		User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad($id));
+    public function putUpdate($id)
+    {
+        $user = User::fromToken();
+        User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad($id));
 
-		$unidad = Unidad::findOrFail($id);
-		// **`porcentaje` no es un dato descriptivo: es un factor de la definitiva.**
-		// La nota sale de `(u.porcentaje/100) * ((s.porcentaje/100) * n.nota)`, y el
-		// recálculo está diez líneas más abajo, en este mismo método.
-		//
-		// **La Entrega 5 no toca ESTE factor, y es una decisión escrita y no un
-		// olvido** (28 §5.5): el modo promedio sustituye la mitad de dentro —la de la
-		// subunidad— por `1/n` y deja `u.porcentaje/100` como está, porque los
-		// porcentajes de las unidades los pone el colegio **una vez al año en la
-		// plantilla** y no le cuestan nada al docente; los de las subunidades los
-		// teclea él en cada asignatura. *Se quita el que cuesta.* O sea que este
-		// comentario sigue siendo cierto entero **en los dos modos**, que es más de lo
-		// que puede decir el de su vecino `SubunidadesController::putUpdate`.
-		//
-		// Con
-		// `Request::input('porcentaje')` a secas, un cuerpo que sólo traía
-		// `definicion` —corregirle la redacción a un logro— dejaba el peso en null y
-		// **cambiaba la nota que va al boletín**, en 200 y sin avisar. Y el de la
-		// unidad es el factor de fuera: se lleva por delante todas las subunidades
-		// que cuelgan de ella de golpe, no una.
-		//
-		// Es la §68 otra vez, y aquí no hace falta `CamposQueVinieron`: este método no
-		// tiene ningún `merge()` delante, así que el defecto de `Request::input()`
-		// distingue igual. §96.
-		$unidad->definicion		= Request::input('definicion', $unidad->definicion);
-		$unidad->porcentaje		= Request::input('porcentaje', $unidad->porcentaje);
-		$unidad->updated_by		= $user->user_id;
-		$unidad->save();
-		
-		
-		// Fase 3 de 10-definitivas.md: el recálculo lo hace el servicio único, y
-		// **deja de depender de que el cliente mande `asignatura_id`**. Ese
-		// `if (Request::input('asignatura_id'))` era la mitad del problema: si el
-		// front no lo mandaba —y no siempre lo manda— **el peso cambiaba y la
-		// definitiva no**, en 200 y sin avisar. La unidad sabe de qué asignatura y
-		// periodo es; no hay nada que preguntarle al cuerpo.
-		DefinitivasDeAsignatura::recalcularPorUnidad((int) $id, $user->user_id);
-		
-		return $unidad;
-	}
+        $unidad = Unidad::findOrFail($id);
 
+        // **P6: lo que puso el colegio no lo cambia un docente.** Va DESPUÉS de
+        // `pueden_editar_notas` a propósito: el periodo cerrado se lo dice a todo el
+        // mundo, y esto sólo a quien no manda en la plantilla — primero el motivo que
+        // vale para todos. Ver `CandadoDeLaPlantilla`, que explica por qué compara el
+        // valor y no la presencia del campo.
+        // Se le pasa **lo que de verdad llegó** y no una lista armada con `input()`:
+        // construida así, la clave existe siempre y el `null` de «no vino» y el de
+        // «bórralo» serían indistinguibles antes de llegar al candado.
+        CandadoDeLaPlantilla::exigir($user, $unidad, Request::all(), 'unidad');
 
-	public function deleteDestroy($id)
-	{
-		$user = User::fromToken();
-		User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad($id));
-		$unidad = Unidad::find($id);
+        // **`porcentaje` no es un dato descriptivo: es un factor de la definitiva.**
+        // La nota sale de `(u.porcentaje/100) * ((s.porcentaje/100) * n.nota)`, y el
+        // recálculo está diez líneas más abajo, en este mismo método.
+        //
+        // **La Entrega 5 no toca ESTE factor, y es una decisión escrita y no un
+        // olvido** (28 §5.5): el modo promedio sustituye la mitad de dentro —la de la
+        // subunidad— por `1/n` y deja `u.porcentaje/100` como está, porque los
+        // porcentajes de las unidades los pone el colegio **una vez al año en la
+        // plantilla** y no le cuestan nada al docente; los de las subunidades los
+        // teclea él en cada asignatura. *Se quita el que cuesta.* O sea que este
+        // comentario sigue siendo cierto entero **en los dos modos**, que es más de lo
+        // que puede decir el de su vecino `SubunidadesController::putUpdate`.
+        //
+        // Con
+        // `Request::input('porcentaje')` a secas, un cuerpo que sólo traía
+        // `definicion` —corregirle la redacción a un logro— dejaba el peso en null y
+        // **cambiaba la nota que va al boletín**, en 200 y sin avisar. Y el de la
+        // unidad es el factor de fuera: se lleva por delante todas las subunidades
+        // que cuelgan de ella de golpe, no una.
+        //
+        // Es la §68 otra vez, y aquí no hace falta `CamposQueVinieron`: este método no
+        // tiene ningún `merge()` delante, así que el defecto de `Request::input()`
+        // distingue igual. §96.
+        // **El defecto de `input()` y NO un `??`, y está decidido y fijado.** Las dos
+        // formas sólo se distinguen en una fila: con `{"porcentaje": null}`, `input()`
+        // devuelve null —se vacía el campo— y `??` devolvería el valor de antes. Se
+        // queda la primera porque **no mandar un campo y mandarlo vacío no son la
+        // misma petición**: lo segundo es un cliente diciendo «quítalo». Lo fijan
+        // `PorcentajeQueSePisaTest::test_mandar_null_a_proposito_si_borra_el_porcentaje`
+        // y `UnidadesTest::test_un_cero_es_un_cero_y_un_null_es_un_null`, y el 19 sep
+        // 2026 esos dos tests **pararon exactamente este cambio**, propuesto como si
+        // fuera un arreglo. Lo que SÍ frena el vaciado es el candado, y sólo para lo
+        // que es del colegio: pedir `null` sobre algo guardado es un cambio.
+        $unidad->definicion = Request::input('definicion', $unidad->definicion);
+        $unidad->porcentaje = Request::input('porcentaje', $unidad->porcentaje);
+        $unidad->updated_by = $user->user_id;
+        $unidad->save();
 
-		if ($unidad) {
-			$unidad->deleted_by = $user->user_id;
-			$unidad->save();
-			$unidad->delete();
-		}else{
-			return abort(404, 'Unidad no existe o está en Papelera.');
-		}
-		
-		
-		// Fase 3 de 10-definitivas.md: el recálculo lo hace el servicio único, y
-		// **deja de depender de que el cliente mande `asignatura_id`**. Ese
-		// `if (Request::input('asignatura_id'))` era la mitad del problema: si el
-		// front no lo mandaba —y no siempre lo manda— **el peso cambiaba y la
-		// definitiva no**, en 200 y sin avisar. La unidad sabe de qué asignatura y
-		// periodo es; no hay nada que preguntarle al cuerpo.
-		DefinitivasDeAsignatura::recalcularPorUnidad((int) $id, $user->user_id);
-		
-		return $unidad;
-	
-	}	
+        // Fase 3 de 10-definitivas.md: el recálculo lo hace el servicio único, y
+        // **deja de depender de que el cliente mande `asignatura_id`**. Ese
+        // `if (Request::input('asignatura_id'))` era la mitad del problema: si el
+        // front no lo mandaba —y no siempre lo manda— **el peso cambiaba y la
+        // definitiva no**, en 200 y sin avisar. La unidad sabe de qué asignatura y
+        // periodo es; no hay nada que preguntarle al cuerpo.
+        DefinitivasDeAsignatura::recalcularPorUnidad((int) $id, $user->user_id);
 
-	public function deleteForcedelete($id)
-	{
-		$user = User::fromToken();
-		// La unidad está en la papelera —esto es un forcedelete—, así que el
-		// resolutor no filtra `deleted_at`. §27.
-		User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad($id));
+        return $unidad;
+    }
 
-		$unidad = Unidad::onlyTrashed()->findOrFail($id);
-		
-		$unidad->forceDelete();
-		return $unidad;
-	
-	}
-	
-	
-	
-	public function putEliminadas($asignatura_id)
-	{
-		$user = User::fromToken();
-		
-		// Columnas nombradas, no `*` — ver el comentario de `$cons_unidades` arriba.
-		//
-		// **BI-1: `alumno_id IS NULL`**, y aquí la papelera es la del grupo porque el
-		// botón que hay al lado es `unidades/restore/{id}`. Sin acotar, la rejilla del
-		// curso ofrece restaurar la unidad borrada de un independiente: quien pulsa
-		// cree que devuelve una unidad al curso y devuelve la de otro alumno, con su
-		// porcentaje contando otra vez en la definitiva de ése. Restaurar va por id y
-		// sigue funcionando — lo que se acota es **a quién se le ofrece**.
-		//
-		// **Lo que esto deja pendiente, y es de la §6.1, no un olvido mío:** la
-		// papelera del independiente se queda sin pantalla hasta que
-		// `PUT boletin-independiente/planilla` la tenga. Hoy no pierde nada —nadie
-		// está marcado— pero el día que alguien lo esté, una unidad suya borrada sólo
-		// se recupera sabiendo su id.
-		$cons_unidades 		= 'SELECT id, definicion, porcentaje, periodo_id, asignatura_id, obligatoria, orden, por_defecto, fecha, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at FROM unidades WHERE asignatura_id=? and periodo_id=? and unidades.alumno_id is null and deleted_at is not null';
-		// Las diecisiete columnas de `subunidades` nombradas, y NO `*`: la columna
-		// `rubrica_id` (2026_09_03_100000_rubricas) saldría sola en esta respuesta
-		// el día que corra la migración, con este código y sin que nadie lo decidiera.
-		// Es la familia del 27 §4, aquí por `subunidades` en vez de por
-		// `notas_finales`. La rúbrica de una subunidad se pide a `rubricas/`.
-		$cons_subunidades 	= 'SELECT id, definicion, porcentaje, unidad_id, nota_default, obligatoria, orden, por_defecto, inicia_at, finaliza_at, actividad_id, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at FROM subunidades WHERE unidad_id=? and deleted_at is null';
+    public function deleteDestroy($id)
+    {
+        $user = User::fromToken();
+        User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad($id));
+        $unidad = Unidad::find($id);
 
-		$unidades = DB::select($cons_unidades, [$asignatura_id, $user->periodo_id]);
+        if ($unidad) {
+            $unidad->deleted_by = $user->user_id;
+            $unidad->save();
+            $unidad->delete();
+        } else {
+            return abort(404, 'Unidad no existe o está en Papelera.');
+        }
 
-		foreach ($unidades as $unidad) {
+        // Fase 3 de 10-definitivas.md: el recálculo lo hace el servicio único, y
+        // **deja de depender de que el cliente mande `asignatura_id`**. Ese
+        // `if (Request::input('asignatura_id'))` era la mitad del problema: si el
+        // front no lo mandaba —y no siempre lo manda— **el peso cambiaba y la
+        // definitiva no**, en 200 y sin avisar. La unidad sabe de qué asignatura y
+        // periodo es; no hay nada que preguntarle al cuerpo.
+        DefinitivasDeAsignatura::recalcularPorUnidad((int) $id, $user->user_id);
 
-			$subunidades 			= DB::select($cons_subunidades, [$unidad->id]);
-			$unidad->subunidades 	= $subunidades;
+        return $unidad;
 
-		}
-		$res = ['unidades_eliminadas' => $unidades];
-		
-		return $res;
-	}
+    }
 
+    public function deleteForcedelete($id)
+    {
+        $user = User::fromToken();
+        // La unidad está en la papelera —esto es un forcedelete—, así que el
+        // resolutor no filtra `deleted_at`. §27.
+        User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad($id));
 
+        $unidad = Unidad::onlyTrashed()->findOrFail($id);
 
-	public function putRestore($id)
-	{
-		$user = User::fromToken();
+        $unidad->forceDelete();
 
-		// Restaurar devuelve la unidad con su `porcentaje` a la rejilla, así que
-		// es escribir en las notas igual que borrarla — y `deleteDestroy` sí lo
-		// pedía. `PeriodoDeLaFila::deUnidad()` no filtra `deleted_at` justo para
-		// esto. Ver 05 §47.
-		User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad($id));
+        return $unidad;
 
-		$consulta = 'UPDATE unidades SET deleted_at=NULL WHERE id=?';
-					
-		DB::update($consulta, [$id]);
+    }
 
-		return 'Retaurada';
-	}
+    public function putEliminadas($asignatura_id)
+    {
+        $user = User::fromToken();
 
+        // Columnas nombradas, no `*` — ver el comentario de `$cons_unidades` arriba.
+        //
+        // **BI-1: `alumno_id IS NULL`**, y aquí la papelera es la del grupo porque el
+        // botón que hay al lado es `unidades/restore/{id}`. Sin acotar, la rejilla del
+        // curso ofrece restaurar la unidad borrada de un independiente: quien pulsa
+        // cree que devuelve una unidad al curso y devuelve la de otro alumno, con su
+        // porcentaje contando otra vez en la definitiva de ése. Restaurar va por id y
+        // sigue funcionando — lo que se acota es **a quién se le ofrece**.
+        //
+        // **Lo que esto deja pendiente, y es de la §6.1, no un olvido mío:** la
+        // papelera del independiente se queda sin pantalla hasta que
+        // `PUT boletin-independiente/planilla` la tenga. Hoy no pierde nada —nadie
+        // está marcado— pero el día que alguien lo esté, una unidad suya borrada sólo
+        // se recupera sabiendo su id.
+        $cons_unidades = 'SELECT id, definicion, porcentaje, periodo_id, asignatura_id, obligatoria, orden, por_defecto, fecha, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at FROM unidades WHERE asignatura_id=? and periodo_id=? and unidades.alumno_id is null and deleted_at is not null';
+        // Las diecisiete columnas de `subunidades` nombradas, y NO `*`: la columna
+        // `rubrica_id` (2026_09_03_100000_rubricas) saldría sola en esta respuesta
+        // el día que corra la migración, con este código y sin que nadie lo decidiera.
+        // Es la familia del 27 §4, aquí por `subunidades` en vez de por
+        // `notas_finales`. La rúbrica de una subunidad se pide a `rubricas/`.
+        $cons_subunidades = 'SELECT id, definicion, porcentaje, unidad_id, nota_default, obligatoria, orden, por_defecto, inicia_at, finaliza_at, actividad_id, created_by, updated_by, deleted_by, deleted_at, created_at, updated_at FROM subunidades WHERE unidad_id=? and deleted_at is null';
 
-	/**
-	 * **BI-1: éste NO se acota, y decidirlo es cerrarlo.**
-	 *
-	 * Es la papelera GLOBAL —todas las unidades borradas del sistema, de los quince
-	 * grados y los cuatro periodos, sin filtro de asignatura—. La pregunta que
-	 * contesta es «qué hay en la papelera», y la respuesta correcta las incluye a
-	 * todas: es la única vista desde la que una unidad borrada de un independiente
-	 * se puede llegar a ver. Acotarla aquí la escondería del único sitio que la
-	 * enseña, que es la forma «de menos» de la §9.2.
-	 *
-	 * Lo que sí queda dicho: **la respuesta no distingue de quién es cada fila**, y
-	 * añadir `u.alumno_id` al `SELECT` movería su instantánea de contrato — o sea
-	 * que es un campo nuevo, o sea una decisión y un aviso al front, no un efecto
-	 * secundario de la fase 1. Va a la fase 3 del plan si alguien lo quiere.
-	 */
-	public function getTrashed()
-	{
-		$user = User::fromToken();
-		$consulta = 'SELECT u.id, u.definicion, u.porcentaje, u.periodo_id, u.orden,
+        $unidades = DB::select($cons_unidades, [$asignatura_id, $user->periodo_id]);
+
+        foreach ($unidades as $unidad) {
+
+            $subunidades = DB::select($cons_subunidades, [$unidad->id]);
+            $unidad->subunidades = $subunidades;
+
+        }
+        $res = ['unidades_eliminadas' => $unidades];
+
+        return $res;
+    }
+
+    public function putRestore($id)
+    {
+        $user = User::fromToken();
+
+        // Restaurar devuelve la unidad con su `porcentaje` a la rejilla, así que
+        // es escribir en las notas igual que borrarla — y `deleteDestroy` sí lo
+        // pedía. `PeriodoDeLaFila::deUnidad()` no filtra `deleted_at` justo para
+        // esto. Ver 05 §47.
+        User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad($id));
+
+        $consulta = 'UPDATE unidades SET deleted_at=NULL WHERE id=?';
+
+        DB::update($consulta, [$id]);
+
+        return 'Retaurada';
+    }
+
+    /**
+     * **BI-1: éste NO se acota, y decidirlo es cerrarlo.**
+     *
+     * Es la papelera GLOBAL —todas las unidades borradas del sistema, de los quince
+     * grados y los cuatro periodos, sin filtro de asignatura—. La pregunta que
+     * contesta es «qué hay en la papelera», y la respuesta correcta las incluye a
+     * todas: es la única vista desde la que una unidad borrada de un independiente
+     * se puede llegar a ver. Acotarla aquí la escondería del único sitio que la
+     * enseña, que es la forma «de menos» de la §9.2.
+     *
+     * Lo que sí queda dicho: **la respuesta no distingue de quién es cada fila**, y
+     * añadir `u.alumno_id` al `SELECT` movería su instantánea de contrato — o sea
+     * que es un campo nuevo, o sea una decisión y un aviso al front, no un efecto
+     * secundario de la fase 1. Va a la fase 3 del plan si alguien lo quiere.
+     */
+    public function getTrashed()
+    {
+        $user = User::fromToken();
+        $consulta = 'SELECT u.id, u.definicion, u.porcentaje, u.periodo_id, u.orden,
 						p.numero as numero_periodo, p.actual as periodo_actual, a.id as asignatura_id, a.materia_id,
 						m.materia, m.alias as alias_materia, 
 						gru.id as grupo_id, gru.nombre as nombre_grupo, gru.abrev as abrev_grupo
@@ -625,7 +629,6 @@ class UnidadesController extends Controller {
 					inner join periodos p on p.id=u.periodo_id
 					where u.deleted_at is not null';
 
-		return DB::select($consulta);
-	}
-
+        return DB::select($consulta);
+    }
 }
