@@ -120,10 +120,11 @@
 > *Y una que sale de paso: para profesores la recuperación alcanza a **12**, no a 34, porque
 > exige `is_active=1` y veintidós cuentas con correo no lo están.*
 
-> ## ✅ EL CALENDARIO SE LEE POR AÑO — SEIS CONSULTAS EN UNA (20 sep 2026, SIN FUNDIR)
+> ## ✅ EL CALENDARIO SE LEE POR AÑO — SEIS CONSULTAS EN UNA (20 sep 2026, EN `main`)
 >
 > **Decidido por Joseth el 20 sep con las tres opciones delante y sabiendo lo que apaga.**
-> En `.worktrees/cal`, rama `fix/el-calendario-del-anio`. **No mueve ninguna ruta.**
+> **Fundido en `main` (`d2073a7`); la rama y su worktree ya no existen.** No mueve ninguna ruta:
+> recontado en el árbol principal después de fundir, **620**, igual que antes.
 >
 > **Lo medido**: `calendario` tiene **593 filas visibles, de 2019 a 2025, y ni una de 2026** —
 > nadie la ha curado—. Las seis consultas que la leían **no filtraban ni por año ni por

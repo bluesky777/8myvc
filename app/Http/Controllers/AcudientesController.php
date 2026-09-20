@@ -1,36 +1,31 @@
-<?php namespace App\Http\Controllers;
+<?php
 
+namespace App\Http\Controllers;
 
-
-use Illuminate\Support\Facades\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
-use Carbon\Carbon;
-
-use App\User;
+use App\Http\Controllers\Alumnos\GuardarAlumno;
+use App\Http\Controllers\Alumnos\OperacionesAlumnos;
+use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Models\Acudiente;
+use App\Models\Ausencia;
+use App\Models\DefinicionComportamiento;
+use App\Models\Matricula;
+use App\Models\NotaComportamiento;
 use App\Models\Parentesco;
 use App\Models\Role;
-use App\Models\Grupo;
-use App\Models\Ausencia;
-use App\Models\NotaComportamiento;
-use App\Models\DefinicionComportamiento;
-use App\Http\Controllers\Alumnos\OperacionesAlumnos;
 use App\Models\Year;
-use App\Models\Matricula;
-use \Log;
-use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Support\Autoriza;
+use App\User;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Request; // para guardar datos de acudiente. No quiero crear otro archivo
 
+class AcudientesController extends Controller
+{
+    use ResuelveElUsuario;
 
-use App\Http\Controllers\Alumnos\GuardarAlumno; // para guardar datos de acudiente. No quiero crear otro archivo
-
-
-class AcudientesController extends Controller {
-	use ResuelveElUsuario;
-
-	public $consulta_pariente = 'SELECT ac.id, ac.nombres, ac.apellidos, ac.sexo, ac.fecha_nac, ac.ciudad_nac, ac.telefono, pa.parentesco, pa.id as parentesco_id, ac.user_id, 
-							ac.celular, ac.ocupacion, ac.email, ac.barrio, ac.direccion, ac.tipo_doc, ac.documento, ac.created_by, ac.updated_by, ac.created_at, ac.updated_at, 
+    public $consulta_pariente = 'SELECT ac.id, ac.nombres, ac.apellidos, ac.sexo, ac.fecha_nac, ac.ciudad_nac, ac.telefono, pa.parentesco, pa.id as parentesco_id, ac.user_id, 
+							ac.celular, ac.ocupacion, ac.email, u.email as email2, ac.barrio, ac.direccion, ac.tipo_doc, ac.documento, ac.created_by, ac.updated_by, ac.created_at, ac.updated_at, 
 							ac.foto_id, IFNULL(i.nombre, IF(ac.sexo="F","default_female.png", "default_male.png")) as foto_nombre, 
 							u.username, u.is_active
 						FROM parentescos pa
@@ -38,17 +33,14 @@ class AcudientesController extends Controller {
 						left join users u on ac.user_id=u.id and u.deleted_at is null
 						left join images i on i.id=ac.foto_id and i.deleted_at is null
 						WHERE pa.id=? and pa.deleted_at is null';
-	
-	
-	
 
-	public function putMisAcudidos()
-	{
-		
-		$user = $this->user;
-		$escalas_val = DB::select('SELECT * FROM escalas_de_valoracion WHERE year_id=? AND deleted_at is null', [$user->year_id]);
-		
-		$consulta 		= 'SELECT distinct(a.id) as alumno_id, a.no_matricula, a.nombres, a.apellidos, a.sexo, a.user_id, 
+    public function putMisAcudidos()
+    {
+
+        $user = $this->user;
+        $escalas_val = DB::select('SELECT * FROM escalas_de_valoracion WHERE year_id=? AND deleted_at is null', [$user->year_id]);
+
+        $consulta = 'SELECT distinct(a.id) as alumno_id, a.no_matricula, a.nombres, a.apellidos, a.sexo, a.user_id, 
 							a.fecha_nac, a.tipo_doc, a.documento, a.tipo_sangre, a.eps, a.telefono, a.celular, 
 							a.direccion, a.barrio, a.estrato, a.religion, a.email, a.facebook, a.created_by, a.updated_by,
 							a.pazysalvo, a.deuda, g.id as grupo_id,
@@ -65,70 +57,80 @@ class AcudientesController extends Controller {
 						left join grupos g on g.id=m.grupo_id and g.deleted_at is null and g.year_id=?
 						where a.deleted_at is null and p.deleted_at is null and g.nombre is not null
 						order by g.orden, a.apellidos, a.nombres';
-			
-		$alumnos 	= DB::select($consulta, [ $user->persona_id, $user->year_id ]);	
 
-		for ($i=0; $i < count($alumnos); $i++) { 
+        $alumnos = DB::select($consulta, [$user->persona_id, $user->year_id]);
 
-			$ausencias 			= Ausencia::totalDeAlumno($alumnos[$i]->alumno_id, $user->periodo_id);
+        for ($i = 0; $i < count($alumnos); $i++) {
 
-			$comportamiento 	= NotaComportamiento::nota_comportamiento($alumnos[$i]->alumno_id, $user->periodo_id, $user->year_id, $escalas_val);
-			// §141. `is_object` y no `if`: sin nota del periodo, el modelo devuelve
-			// `["notas_finales" => []]`, que es un array truthy, y `->id` revienta.
-			// Esta es la pantalla propia de la familia —«mis acudidos»— así que
-			// el 500 le saldría a un acudiente al entrar, no al pedir un informe.
-			//
-			// Con el seed de hoy NO revienta, porque el acudido del seed sí tiene
-			// nota; revienta el día que un colegio tenga un acudido sin ella. Es
-			// la misma FORMA que la de `notas-actuales-alumnos`, no el mismo
-			// fallo probado, y esa distinción es la que se perdió en las series
-			// que hubo que reabrir.
-			if (is_object($comportamiento)) {
-			$comportamiento->definiciones = DefinicionComportamiento::frases($comportamiento->id);
-		}
+            $ausencias = Ausencia::totalDeAlumno($alumnos[$i]->alumno_id, $user->periodo_id);
 
-		$alumnos[$i]->ausencias_periodo 	= $ausencias;
-		$alumnos[$i]->comportamiento 		= $comportamiento;
+            $comportamiento = NotaComportamiento::nota_comportamiento($alumnos[$i]->alumno_id, $user->periodo_id, $user->year_id, $escalas_val);
+            // §141. `is_object` y no `if`: sin nota del periodo, el modelo devuelve
+            // `["notas_finales" => []]`, que es un array truthy, y `->id` revienta.
+            // Esta es la pantalla propia de la familia —«mis acudidos»— así que
+            // el 500 le saldría a un acudiente al entrar, no al pedir un informe.
+            //
+            // Con el seed de hoy NO revienta, porque el acudido del seed sí tiene
+            // nota; revienta el día que un colegio tenga un acudido sin ella. Es
+            // la misma FORMA que la de `notas-actuales-alumnos`, no el mismo
+            // fallo probado, y esa distinción es la que se perdió en las series
+            // que hubo que reabrir.
+            if (is_object($comportamiento)) {
+                $comportamiento->definiciones = DefinicionComportamiento::frases($comportamiento->id);
+            }
 
-		}
+            $alumnos[$i]->ausencias_periodo = $ausencias;
+            $alumnos[$i]->comportamiento = $comportamiento;
 
-		return [ 'alumnos' => $alumnos ];
-	}
-	
+        }
 
-	
-	// Modulo de acudientes con sub filas de acudidos
-	public function putDatos()
-	{
-		
-		$grupo_actual 	= Request::input('grupo_actual');
+        return ['alumnos' => $alumnos];
+    }
 
-		if (!$grupo_actual) {
-			return;
-		}
+    // Modulo de acudientes con sub filas de acudidos
+    public function putDatos()
+    {
+        // `u.email as email2` --el correo de la CUENTA-- viaja en las seis consultas
+        // de acudientes desde el 20 sep 2026, y no es un extra: sin él la rejilla no
+        // puede pintar quién puede recuperar su contraseña y quién no, que es
+        // exactamente lo que se arregló ese día. `ac.email` es la ficha y ya venía;
+        // son dos correos distintos y los dos se editan (`valorAcudiente`).
+        //
+        // El nombre sale de cómo ya se ESCRIBE (`postCrear`, `ProfesoresController:186`),
+        // así que entra y sale igual. Pedido por `myvc-front-2e`, que lo tiene
+        // declarado en `datos/acudientes.ts:154` desde antes.
+        //
+        // No amplía a quién se le enseña nada: `ac.email` —la misma dirección en los
+        // 91 que la tienen— ya viajaba en estas seis respuestas.
+
+        $grupo_actual = Request::input('grupo_actual');
+
+        if (! $grupo_actual) {
+            return;
+        }
 
         /* Esta consulta me sirvió para eliminar parentescos que quedaron al importar de Excel:
         delete from parentescos
 where id in (
     select parentesco_id as id from (
     SELECT distinct(ac.id), pa.id as parentesco_id
-					FROM parentescos pa
-					left join acudientes ac on ac.id=pa.acudiente_id and ac.deleted_at is null
-					left join users u on ac.user_id=u.id and u.deleted_at is null
-					left join images i on i.id=ac.foto_id and i.deleted_at is null
-					left join tipos_documentos t1 on t1.id=ac.tipo_doc and t1.deleted_at is null
-					left join ciudades c1 on c1.id=ac.ciudad_nac and c1.deleted_at is null
-					left join ciudades c2 on c2.id=ac.ciudad_doc and c2.deleted_at is null
-					INNER JOIN alumnos a ON pa.alumno_id=a.id and a.deleted_at is null
-					INNER JOIN matriculas m ON m.alumno_id=a.id and m.grupo_id=12 and m.deleted_at is null and (m.estado="ASIS" or m.estado="MATR" or m.estado="PREM" or m.estado="FORM")
-					WHERE pa.deleted_at is null and ac.id is null Order by ac.is_acudiente desc, ac.id
+                    FROM parentescos pa
+                    left join acudientes ac on ac.id=pa.acudiente_id and ac.deleted_at is null
+                    left join users u on ac.user_id=u.id and u.deleted_at is null
+                    left join images i on i.id=ac.foto_id and i.deleted_at is null
+                    left join tipos_documentos t1 on t1.id=ac.tipo_doc and t1.deleted_at is null
+                    left join ciudades c1 on c1.id=ac.ciudad_nac and c1.deleted_at is null
+                    left join ciudades c2 on c2.id=ac.ciudad_doc and c2.deleted_at is null
+                    INNER JOIN alumnos a ON pa.alumno_id=a.id and a.deleted_at is null
+                    INNER JOIN matriculas m ON m.alumno_id=a.id and m.grupo_id=12 and m.deleted_at is null and (m.estado="ASIS" or m.estado="MATR" or m.estado="PREM" or m.estado="FORM")
+                    WHERE pa.deleted_at is null and ac.id is null Order by ac.is_acudiente desc, ac.id
     ) res
     )
-        */                
+        */
 
-		// , pa.id as parentesco_id lo quité para no duplicar
-		$consulta = 'SELECT distinct(ac.id), ac.id, pa.id as pariente_id, ac.nombres, ac.apellidos, ac.sexo, ac.fecha_nac, ac.ciudad_nac, c1.ciudad as ciudad_nac_nombre, ac.ciudad_doc, c2.ciudad as ciudad_doc_nombre, c2.departamento as departamento_doc_nombre, ac.telefono, pa.parentesco, pa.observaciones, ac.user_id, 
-						ac.celular, ac.ocupacion, ac.email, ac.barrio, ac.direccion, ac.tipo_doc, t1.tipo as tipo_doc_nombre, ac.documento, ac.created_by, ac.updated_by, ac.created_at, ac.updated_at, 
+        // , pa.id as parentesco_id lo quité para no duplicar
+        $consulta = 'SELECT distinct(ac.id), ac.id, pa.id as pariente_id, ac.nombres, ac.apellidos, ac.sexo, ac.fecha_nac, ac.ciudad_nac, c1.ciudad as ciudad_nac_nombre, ac.ciudad_doc, c2.ciudad as ciudad_doc_nombre, c2.departamento as departamento_doc_nombre, ac.telefono, pa.parentesco, pa.observaciones, ac.user_id, 
+						ac.celular, ac.ocupacion, ac.email, u.email as email2, ac.barrio, ac.direccion, ac.tipo_doc, t1.tipo as tipo_doc_nombre, ac.documento, ac.created_by, ac.updated_by, ac.created_at, ac.updated_at, 
 						ac.foto_id, IFNULL(i.nombre, IF(ac.sexo="F","default_female.png", "default_male.png")) as foto_nombre, 
 						u.username, u.is_active, ac.is_acudiente, IF(ac.is_acudiente, "SI", "NO") as es_acudiente
 					FROM parentescos pa
@@ -141,52 +143,50 @@ where id in (
 					INNER JOIN alumnos a ON pa.alumno_id=a.id and a.deleted_at is null
 					INNER JOIN matriculas m ON m.alumno_id=a.id and m.grupo_id=? and m.deleted_at is null and (m.estado="ASIS" or m.estado="MATR" or m.estado="PREM" or m.estado="FORM")
 					WHERE pa.deleted_at is null Order by ac.is_acudiente desc, ac.id';
-		
-		$acudientes = DB::select($consulta, [$grupo_actual['id']]);
-		
-		// Traigo los alumnos de cada acudiente
-		$cantA = count($acudientes);
 
-		for ($i=0; $i < $cantA; $i++) { 
-			$consulta 		= Acudiente::$consulta_alumnos_de_acudiente; // Consulta compleja
-							
-			$alumnos 	= DB::select($consulta, [ $acudientes[$i]->id, $this->user->year_id ]);	
-			
-			
-			$subGridOptions 	= [
-				'enableCellEditOnFocus' => false,
-				'columnDefs' 	=> [
-					['name' => "Grupo", 'field' => "nombre_grupo", 'maxWidth' => 60],
-					['name' => "Nombres", 'field' => "nombres", 'maxWidth' => 120 ],
-					['name' => "Apellidos", 'field' => "apellidos", 'maxWidth' => 110],
-					['name' => "Parentesco", 'field' => "parentesco", 'maxWidth' => 90],
-					['name' => "Usuario", 'field' => "username", 'maxWidth' => 135, 'cellTemplate' => "==directives/botonesResetPassword.tpl.html", 'editableCellTemplate' => "==alumnos/botonEditUsername.tpl.html" ], 
-					['name' => "Documento", 'field' => "documento", 'maxWidth' => 90],
-					['name' => "Teléfono", 'field' => "telefono", 'maxWidth' => 90],
-					['name' => "Celular", 'field' => "celular", 'maxWidth' => 90],
-				],
-				'data' 			=> $alumnos
-			];
-			$acudientes[$i]->subGridOptions = $subGridOptions;
+        $acudientes = DB::select($consulta, [$grupo_actual['id']]);
 
-		}
-		return [ 'acudientes' => $acudientes ];
-	}
+        // Traigo los alumnos de cada acudiente
+        $cantA = count($acudientes);
 
+        for ($i = 0; $i < $cantA; $i++) {
+            $consulta = Acudiente::$consulta_alumnos_de_acudiente; // Consulta compleja
 
-	
-	// Mandar los acudientes de un alumno
-	public function putDePersona()
-	{
-		
-		$alumno_id 	= Request::input('alumno_id');
+            $alumnos = DB::select($consulta, [$acudientes[$i]->id, $this->user->year_id]);
 
-		if (!$alumno_id) {
-			return;
-		}
+            $subGridOptions = [
+                'enableCellEditOnFocus' => false,
+                'columnDefs' => [
+                    ['name' => 'Grupo', 'field' => 'nombre_grupo', 'maxWidth' => 60],
+                    ['name' => 'Nombres', 'field' => 'nombres', 'maxWidth' => 120],
+                    ['name' => 'Apellidos', 'field' => 'apellidos', 'maxWidth' => 110],
+                    ['name' => 'Parentesco', 'field' => 'parentesco', 'maxWidth' => 90],
+                    ['name' => 'Usuario', 'field' => 'username', 'maxWidth' => 135, 'cellTemplate' => '==directives/botonesResetPassword.tpl.html', 'editableCellTemplate' => '==alumnos/botonEditUsername.tpl.html'],
+                    ['name' => 'Documento', 'field' => 'documento', 'maxWidth' => 90],
+                    ['name' => 'Teléfono', 'field' => 'telefono', 'maxWidth' => 90],
+                    ['name' => 'Celular', 'field' => 'celular', 'maxWidth' => 90],
+                ],
+                'data' => $alumnos,
+            ];
+            $acudientes[$i]->subGridOptions = $subGridOptions;
 
-		$consulta = 'SELECT ac.id, ac.nombres, ac.apellidos, ac.sexo, ac.fecha_nac, ac.ciudad_nac, c1.ciudad as ciudad_nac_nombre, ac.ciudad_doc, c2.ciudad as ciudad_doc_nombre, c2.departamento as departamento_doc_nombre, ac.telefono, pa.parentesco, pa.observaciones, pa.id as parentesco_id, ac.user_id, 
-						ac.celular, ac.ocupacion, ac.email, ac.barrio, ac.direccion, ac.tipo_doc, t1.tipo as tipo_doc_nombre, ac.documento, ac.created_by, ac.updated_by, ac.created_at, ac.updated_at, 
+        }
+
+        return ['acudientes' => $acudientes];
+    }
+
+    // Mandar los acudientes de un alumno
+    public function putDePersona()
+    {
+
+        $alumno_id = Request::input('alumno_id');
+
+        if (! $alumno_id) {
+            return;
+        }
+
+        $consulta = 'SELECT ac.id, ac.nombres, ac.apellidos, ac.sexo, ac.fecha_nac, ac.ciudad_nac, c1.ciudad as ciudad_nac_nombre, ac.ciudad_doc, c2.ciudad as ciudad_doc_nombre, c2.departamento as departamento_doc_nombre, ac.telefono, pa.parentesco, pa.observaciones, pa.id as parentesco_id, ac.user_id, 
+						ac.celular, ac.ocupacion, ac.email, u.email as email2, ac.barrio, ac.direccion, ac.tipo_doc, t1.tipo as tipo_doc_nombre, ac.documento, ac.created_by, ac.updated_by, ac.created_at, ac.updated_at, 
 						ac.foto_id, IFNULL(i.nombre, IF(ac.sexo="F","default_female.png", "default_male.png")) as foto_nombre, 
 						u.username, u.is_active, ac.is_acudiente, IF(ac.is_acudiente, "SI", "NO") as es_acudiente
 					FROM parentescos pa
@@ -198,20 +198,17 @@ where id in (
 					left join ciudades c2 on c2.id=ac.ciudad_doc and c2.deleted_at is null
 					INNER JOIN alumnos a ON pa.alumno_id=a.id and a.deleted_at is null
 					WHERE pa.deleted_at is null and a.id=? Order by ac.is_acudiente desc, ac.id';
-		
-		$acudientes = DB::select($consulta, [$alumno_id]);
-		
-		
-		return [ 'acudientes' => $acudientes ];
-	}
 
+        $acudientes = DB::select($consulta, [$alumno_id]);
 
-	public function putNoAsignados()
-	{
-		
+        return ['acudientes' => $acudientes];
+    }
 
-		$consulta = 'SELECT ac.id, ac.nombres, ac.apellidos, ac.sexo, ac.fecha_nac, ac.ciudad_nac, c1.ciudad as ciudad_nac_nombre, ac.ciudad_doc, c2.ciudad as ciudad_doc_nombre, c2.departamento as departamento_doc_nombre, ac.telefono, ac.user_id, 
-						ac.celular, ac.ocupacion, ac.email, ac.barrio, ac.direccion, ac.tipo_doc, t1.tipo as tipo_doc_nombre, ac.documento, ac.created_by, ac.updated_by, ac.created_at, ac.updated_at, 
+    public function putNoAsignados()
+    {
+
+        $consulta = 'SELECT ac.id, ac.nombres, ac.apellidos, ac.sexo, ac.fecha_nac, ac.ciudad_nac, c1.ciudad as ciudad_nac_nombre, ac.ciudad_doc, c2.ciudad as ciudad_doc_nombre, c2.departamento as departamento_doc_nombre, ac.telefono, ac.user_id, 
+						ac.celular, ac.ocupacion, ac.email, u.email as email2, ac.barrio, ac.direccion, ac.tipo_doc, t1.tipo as tipo_doc_nombre, ac.documento, ac.created_by, ac.updated_by, ac.created_at, ac.updated_at, 
 						ac.foto_id, IFNULL(i.nombre, IF(ac.sexo="F","default_female.png", "default_male.png")) as foto_nombre, 
 						u.username, u.is_active, ac.is_acudiente, IF(ac.is_acudiente, "SI", "NO") as es_acudiente
 					FROM acudientes ac 
@@ -225,20 +222,18 @@ where id in (
 						INNER JOIN parentescos p ON p.alumno_id=a.id and p.deleted_at is null 
 						WHERE a.deleted_at is null)
 					Order by ac.id';
-		
-		$acudientes = DB::select($consulta, []);
 
-		return [ 'acudientes' => $acudientes ];
-	}
+        $acudientes = DB::select($consulta, []);
 
-	// Planilla de asistencia padres
-	public function putPlanillasAusencias()
-	{
-		$year			= Year::datos($this->user->year_id, false);
-		
-		
+        return ['acudientes' => $acudientes];
+    }
 
-		$consulta = 'SELECT g.id, g.nombre, g.abrev, g.orden, gra.orden as orden_grado, g.grado_id, g.year_id, g.titular_id,
+    // Planilla de asistencia padres
+    public function putPlanillasAusencias()
+    {
+        $year = Year::datos($this->user->year_id, false);
+
+        $consulta = 'SELECT g.id, g.nombre, g.abrev, g.orden, gra.orden as orden_grado, g.grado_id, g.year_id, g.titular_id,
 				p.nombres as nombres_titular, p.apellidos as apellidos_titular, p.titulo,
 				g.created_at, g.updated_at, gra.nombre as nombre_grado 
 			from grupos g
@@ -247,13 +242,11 @@ where id in (
 			where g.deleted_at is null
 			order by g.orden';
 
-		$grupos = DB::select($consulta, [':year_id'=>$this->user->year_id] );
-		
-		
-		for ($i=0; $i < count($grupos); $i++) { 
-			
-			
-			$consulta 	= 'SELECT m.id as matricula_id, m.alumno_id, a.no_matricula, a.nombres, a.apellidos, a.sexo, a.user_id, 
+        $grupos = DB::select($consulta, [':year_id' => $this->user->year_id]);
+
+        for ($i = 0; $i < count($grupos); $i++) {
+
+            $consulta = 'SELECT m.id as matricula_id, m.alumno_id, a.no_matricula, a.nombres, a.apellidos, a.sexo, a.user_id, 
 							a.fecha_nac, a.ciudad_nac, a.celular, a.direccion, a.religion,
 							m.grupo_id, 
 							u.imagen_id, IFNULL(i.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as imagen_nombre, 
@@ -267,40 +260,37 @@ where id in (
 						where a.deleted_at is null and m.deleted_at is null
 						order by a.apellidos, a.nombres';
 
-			$alumnos = DB::select($consulta, [':grupo_id' => $grupos[$i]->id]);
-			
-			for ($j=0; $j < count($alumnos); $j++) { 
-				$consulta 		= Matricula::$consulta_parientes;
-				$acudientes 	= DB::select($consulta , [ $alumnos[$j]->alumno_id ]);	
-				$alumnos[$j]->acudientes = $acudientes;
-			}
-			
-			$grupos[$i]->alumnos = $alumnos;
-			
-		}
-		
-		return ['year' => $year, 'grupos_acud' => $grupos];
-	}
+            $alumnos = DB::select($consulta, [':grupo_id' => $grupos[$i]->id]);
 
+            for ($j = 0; $j < count($alumnos); $j++) {
+                $consulta = Matricula::$consulta_parientes;
+                $acudientes = DB::select($consulta, [$alumnos[$j]->alumno_id]);
+                $alumnos[$j]->acudientes = $acudientes;
+            }
 
-	public function putOcupacionesCheck()
-	{
-		$texto = Request::input('texto');
-		$consulta = 'SELECT distinct ocupacion FROM acudientes WHERE ocupacion like :texto;';
-		
-		$res = DB::select($consulta, [':texto' => '%'.$texto.'%']);
-		return [ 'ocupaciones' => $res ];
-	}
+            $grupos[$i]->alumnos = $alumnos;
 
+        }
 
+        return ['year' => $year, 'grupos_acud' => $grupos];
+    }
 
+    public function putOcupacionesCheck()
+    {
+        $texto = Request::input('texto');
+        $consulta = 'SELECT distinct ocupacion FROM acudientes WHERE ocupacion like :texto;';
 
-	public function putBuscar()
-	{
-		$termino 	= Request::input('termino');
+        $res = DB::select($consulta, [':texto' => '%'.$texto.'%']);
 
-		$consulta = 'SELECT ac.id, ac.nombres, ac.apellidos, count(p.id) as cant_acudidos, ac.sexo, ac.fecha_nac, ac.ciudad_nac, ac.telefono, ac.user_id, 
-							ac.celular, ac.ocupacion, ac.email, ac.barrio, ac.direccion, ac.tipo_doc, ac.documento, ac.created_by, ac.updated_by, ac.created_at, ac.updated_at, 
+        return ['ocupaciones' => $res];
+    }
+
+    public function putBuscar()
+    {
+        $termino = Request::input('termino');
+
+        $consulta = 'SELECT ac.id, ac.nombres, ac.apellidos, count(p.id) as cant_acudidos, ac.sexo, ac.fecha_nac, ac.ciudad_nac, ac.telefono, ac.user_id, 
+							ac.celular, ac.ocupacion, ac.email, u.email as email2, ac.barrio, ac.direccion, ac.tipo_doc, ac.documento, ac.created_by, ac.updated_by, ac.created_at, ac.updated_at, 
 							ac.foto_id, IFNULL(i.nombre, IF(ac.sexo="F","default_female.png", "default_male.png")) as foto_nombre, 
 							u.username, u.is_active
 						FROM acudientes ac 
@@ -311,15 +301,15 @@ where id in (
 						group by ac.id
 						order by ac.nombres';
 
-		$res = DB::select($consulta, [ '%'.$termino.'%', '%'.$termino.'%' ]);
+        $res = DB::select($consulta, ['%'.$termino.'%', '%'.$termino.'%']);
 
-		return $res;
-	}
+        return $res;
+    }
 
-	public function putUltimos()
-	{
-		$consulta = 'SELECT ac.id, ac.nombres, ac.apellidos, count(p.id) as cant_acudidos, ac.sexo, ac.fecha_nac, ac.ciudad_nac, ac.telefono, ac.user_id, 
-							ac.celular, ac.ocupacion, ac.email, ac.barrio, ac.direccion, ac.tipo_doc, ac.documento, ac.created_by, ac.updated_by, ac.created_at, ac.updated_at, 
+    public function putUltimos()
+    {
+        $consulta = 'SELECT ac.id, ac.nombres, ac.apellidos, count(p.id) as cant_acudidos, ac.sexo, ac.fecha_nac, ac.ciudad_nac, ac.telefono, ac.user_id, 
+							ac.celular, ac.ocupacion, ac.email, u.email as email2, ac.barrio, ac.direccion, ac.tipo_doc, ac.documento, ac.created_by, ac.updated_by, ac.created_at, ac.updated_at, 
 							ac.foto_id, IFNULL(i.nombre, IF(ac.sexo="F","default_female.png", "default_male.png")) as foto_nombre, 
 							u.username, u.is_active
 						FROM acudientes ac 
@@ -330,220 +320,237 @@ where id in (
 						group by ac.id
 						order by ac.id desc, ac.nombres limit 8';
 
-		$res = DB::select($consulta);
+        $res = DB::select($consulta);
 
-		return $res;
-	}
+        return $res;
+    }
 
+    public function postCrear()
+    {
+        // `$this->user->tipo == 'Secretario'` era imposible: `tipo` solo toma los
+        // cuatro valores del `switch` de ContextoDeUsuario. El criterio pasa al
+        // rol, que desde el 21 ago 2026 existe. Ver 05 §30.2.
+        Autoriza::exigir(Autoriza::puedeEditarAcudientes($this->user),
+            'No tienes permiso.');
 
+        $fecha_nac = null;
+        if (Request::input('fecha_nac')) {
+            $fecha_nac = Carbon::parse(Request::input('fecha_nac'));
+        }
 
-	public function postCrear()
-	{
-		// `$this->user->tipo == 'Secretario'` era imposible: `tipo` solo toma los
-		// cuatro valores del `switch` de ContextoDeUsuario. El criterio pasa al
-		// rol, que desde el 21 ago 2026 existe. Ver 05 §30.2.
-		Autoriza::exigir(Autoriza::puedeEditarAcudientes($this->user),
-			'No tienes permiso.');
+        try {
+            $acudiente = new Acudiente;
+            $acudiente->nombres = Request::input('nombres');
+            $acudiente->apellidos = Request::input('apellidos');
+            $acudiente->sexo = Request::input('sexo');
+            $acudiente->tipo_doc = Request::has('tipo_doc') ? Request::input('tipo_doc')['id'] : null;
+            $acudiente->documento = Request::input('documento');
+            $acudiente->ciudad_doc = Request::has('ciudad_doc') ? Request::input('ciudad_doc')['id'] : null;
+            $acudiente->ciudad_nac = Request::has('ciudad_nac') ? Request::input('ciudad_nac')['id'] : null;
+            $acudiente->fecha_nac = $fecha_nac;
+            $acudiente->telefono = Request::input('telefono');
+            $acudiente->celular = Request::input('celular');
+            $acudiente->ocupacion = Request::input('ocupacion');
+            $acudiente->email = Request::input('email');
 
-		$fecha_nac = null;
-		if (Request::input('fecha_nac')) {
-			$fecha_nac = Carbon::parse(Request::input('fecha_nac'));
-		}
+            $acudiente->save();
 
-		try {
-			$acudiente = new Acudiente;
-			$acudiente->nombres			=	Request::input('nombres');
-			$acudiente->apellidos		=	Request::input('apellidos');
-			$acudiente->sexo				=	Request::input('sexo');
-			$acudiente->tipo_doc		=	Request::has('tipo_doc') ? Request::input('tipo_doc')['id'] : null;
-			$acudiente->documento		=	Request::input('documento');
-			$acudiente->ciudad_doc	=	Request::has('ciudad_doc') ? Request::input('ciudad_doc')['id'] : null;
-			$acudiente->ciudad_nac	=	Request::has('ciudad_nac') ? Request::input('ciudad_nac')['id'] : null;
-			$acudiente->fecha_nac		=	$fecha_nac;
-			$acudiente->telefono		=	Request::input('telefono');
-			$acudiente->celular			=	Request::input('celular');
-			$acudiente->ocupacion		=	Request::input('ocupacion');
-			$acudiente->email				=	Request::input('email');
+            $parentesco = new Parentesco;
+            $parentesco->acudiente_id = $acudiente->id;
+            $parentesco->alumno_id = Request::input('alumno_id');
+            $parentesco->parentesco = Request::input('parentesco')['parentesco'];
+            $parentesco->observaciones = Request::input('observaciones');
+            $parentesco->created_by = $this->user->user_id;
+            $parentesco->save();
 
-			$acudiente->save();
+            // Usuario nuevo.
+            //
+            // El username salía del nombre MÁS CINCO DÍGITOS AL AZAR y sin comprobar
+            // nada: `rand(1000, 99999)` no es una desambiguación, es una apuesta
+            // —`users.username` es UNIQUE, así que la colisión no se evita, se
+            // convierte en un error de clave duplicada que este `catch` traduce a
+            // «Datos incorrectos»—. Y el precio lo paga el acudiente todos los días,
+            // porque `Maria12345` es lo que tiene que teclear para entrar.
+            //
+            // `username_no_repetido()` es el mismo generador que usa el importador:
+            // mira si está libre y solo numera cuando hace falta.
+            if (Request::input('documento')) {
+                $uname = Request::input('documento');
+            } else {
+                $opera = new OperacionesAlumnos;
+                $uname = $opera->username_no_repetido(Request::input('nombres'), 'acudiente'.$acudiente->id);
+            }
 
-			$parentesco = new Parentesco;
-			$parentesco->acudiente_id		=	$acudiente->id;
-			$parentesco->alumno_id			=	Request::input('alumno_id');
-			$parentesco->parentesco			=	Request::input('parentesco')['parentesco'];
-			$parentesco->observaciones	=	Request::input('observaciones');
-			$parentesco->created_by			=	$this->user->user_id;
-			$parentesco->save();
+            $usuario = new User;
+            $usuario->username = $uname;
+            $usuario->password = Hash::make(Request::input('password', '123456'));
+            // La CUENTA y la FICHA son dos correos distintos, y la recuperación de
+            // contraseña sólo mira el de la cuenta: `LoginController:240-266` busca
+            // cuatro veces por `users.email` y **no consulta `acudientes.email`
+            // nunca**. El front sólo manda `email` —la ficha—, así que esta cuenta
+            // nacía sin correo y su dueño no podía recuperar la contraseña.
+            //
+            // Medido en el docker el 20 sep 2026: de 1.085 acudientes vivos, 100
+            // tienen correo de ficha y **0 de cuenta**. Los mil piden el reseteo y la
+            // pantalla contesta «Enviado» igual, porque el método responde lo mismo
+            // exista o no el correo — a propósito, para no filtrar cuáles existen.
+            //
+            // Se copia la ficha cuando no viene `email2`, y **si no hay ninguno de los
+            // dos se deja vacío**. `AlumnosController:496` y `ProfesoresController:248`
+            // sí inventan `username@myvc.com` en ese caso y **aquí no se hace**: eso
+            // llena la columna de buzones de nadie, y entonces el método encuentra la
+            // cuenta, manda el enlace y contesta «Enviado» — cambia «no llega» por «no
+            // llega y además creemos que sí». Medido: 16 cuentas vivas ya lo tienen,
+            // 11 de ellas profesores. Decisión de Joseth, 20 sep 2026.
+            $correo_cuenta = trim((string) (Request::input('email2') ?: Request::input('email')));
+            $usuario->email = $correo_cuenta !== '' ? $correo_cuenta : null;
+            $usuario->periodo_id = 1;
+            $usuario->sexo = 'M';
+            $usuario->tipo = 'Acudiente';
+            $usuario->created_by = $this->user->user_id;
+            $usuario->save();
 
-			// Usuario nuevo.
-			//
-			// El username salía del nombre MÁS CINCO DÍGITOS AL AZAR y sin comprobar
-			// nada: `rand(1000, 99999)` no es una desambiguación, es una apuesta
-			// —`users.username` es UNIQUE, así que la colisión no se evita, se
-			// convierte en un error de clave duplicada que este `catch` traduce a
-			// «Datos incorrectos»—. Y el precio lo paga el acudiente todos los días,
-			// porque `Maria12345` es lo que tiene que teclear para entrar.
-			//
-			// `username_no_repetido()` es el mismo generador que usa el importador:
-			// mira si está libre y solo numera cuando hace falta.
-			if (Request::input('documento')) {
-				$uname = Request::input('documento');
-			}else{
-				$opera = new OperacionesAlumnos();
-				$uname = $opera->username_no_repetido(Request::input('nombres'), 'acudiente'.$acudiente->id);
-			}
-			
+            $role = Role::where('name', 'Acudiente')->get();
+            // $usuario->attachRole($role[0]);
+            $usuario->roles()->attach($role[0]['id']);
 
-			$usuario = new User;
-			$usuario->username		=	$uname;
-			$usuario->password		=	Hash::make(Request::input('password', '123456'));
-			$usuario->email				=	Request::input('email2');
-			$usuario->periodo_id	=	1;
-			$usuario->sexo				=	'M';
-			$usuario->tipo				=	'Acudiente';
-			$usuario->created_by	=	$this->user->user_id;
-			$usuario->save();
+            $acudiente->user_id = $usuario->id;
+            $acudiente->save();
 
-			$role = Role::where('name', 'Acudiente')->get();
-			//$usuario->attachRole($role[0]);
-			$usuario->roles()->attach($role[0]['id']);
+            // Traemos el acudiente con todos los datos organizados
+            $acudiente = DB::select($this->consulta_pariente, [$parentesco->id]);
 
-			$acudiente->user_id = $usuario->id;
-			$acudiente->save();
+            return (array) $acudiente[0];
+        } catch (\Exception $e) {
+            abort(422, 'Datos incorrectos');
+        }
+    }
 
-			// Traemos el acudiente con todos los datos organizados
-			$acudiente = DB::select($this->consulta_pariente, [ $parentesco->id ]);
+    public function postCrearUsuario()
+    {
+        $acu = Request::input('acudiente');
 
-			return (array) $acudiente[0];
-		} catch (\Exception $e) {
-			abort(422, 'Datos incorrectos');
-		}
-	}
+        $opera = new OperacionesAlumnos;
+        $username = $opera->username_no_repetido($acu['nombres'], 'acudiente'.$acu['id']);
 
-	
-	
-	public function postCrearUsuario()
-	{
-		$acu 				= Request::input('acudiente');
-		
-		$opera 			= new OperacionesAlumnos();
-		$username 	= $opera->username_no_repetido($acu['nombres'], 'acudiente'.$acu['id']);
-		
-		$usu 								= new User;
-		$usu->password 			= Hash::make('123456');
-		$usu->username 			= $username;
-		$usu->sexo 					= $acu['sexo'];
-		$usu->is_superuser 	= 0;
-		$usu->tipo 					= 'Acudiente';
-		$usu->periodo_id 		= 1;
-		$usu->created_by 		= $this->user->user_id;
-		$usu->save();
+        $usu = new User;
+        $usu->password = Hash::make('123456');
+        $usu->username = $username;
+        $usu->sexo = $acu['sexo'];
+        $usu->is_superuser = 0;
+        $usu->tipo = 'Acudiente';
+        $usu->periodo_id = 1;
+        $usu->created_by = $this->user->user_id;
 
-		DB::update('UPDATE acudientes SET user_id=?, updated_by=?, updated_at=? WHERE id=?', [
-			$usu->id,
-			$this->user->user_id,
-			Carbon::now('America/Bogota'),
-			$acu['id'],
-		]);
-		
-		return $usu;
-	}
-	
+        // Misma regla que `postCrear`, y aquí el agujero era mayor: este camino
+        // —crear la cuenta de un acudiente que ya tenía ficha— **no ponía correo
+        // nunca**, ni siquiera el que el acudiente ya tenía escrito. O sea que
+        // dejaba irrecuperables incluso a los 100 que sí lo tienen.
+        //
+        // Se lee de la base y no de `$acu`, que viene del cliente: de ahí sólo
+        // hace falta el id.
+        $ficha = DB::select('SELECT email FROM acudientes WHERE id = ? AND deleted_at IS NULL', [$acu['id']]);
+        $correo_ficha = count($ficha) > 0 ? trim((string) $ficha[0]->email) : '';
+        $usu->email = $correo_ficha !== '' ? $correo_ficha : null;
 
+        $usu->save();
 
+        DB::update('UPDATE acudientes SET user_id=?, updated_by=?, updated_at=? WHERE id=?', [
+            $usu->id,
+            $this->user->user_id,
+            Carbon::now('America/Bogota'),
+            $acu['id'],
+        ]);
 
-	/*************************************************************
-	 * Guardar por VALOR
-	 *************************************************************/
-	public function putGuardarValor()
-	{
-		// `$this->user->tipo == 'Secretario'` era imposible: `tipo` solo toma los
-		// cuatro valores del `switch` de ContextoDeUsuario. El criterio pasa al
-		// rol, que desde el 21 ago 2026 existe. Ver 05 §30.2.
-		Autoriza::exigir(Autoriza::puedeEditarAcudientes($this->user),
-			'No tienes permiso.');
+        return $usu;
+    }
 
-		$guardarAlumno = new GuardarAlumno();
+    /*************************************************************
+     * Guardar por VALOR
+     *************************************************************/
+    public function putGuardarValor()
+    {
+        // `$this->user->tipo == 'Secretario'` era imposible: `tipo` solo toma los
+        // cuatro valores del `switch` de ContextoDeUsuario. El criterio pasa al
+        // rol, que desde el 21 ago 2026 existe. Ver 05 §30.2.
+        Autoriza::exigir(Autoriza::puedeEditarAcudientes($this->user),
+            'No tienes permiso.');
 
-		return $guardarAlumno->valorAcudiente(
-				Request::input('acudiente_id'), 
-				Request::input('parentesco_id'),  
-				Request::input('user_id'), 
-				Request::input('propiedad'), 
-				Request::input('valor'), 
-				$this->user->user_id
-		);
-		
-	}
+        $guardarAlumno = new GuardarAlumno;
 
+        return $guardarAlumno->valorAcudiente(
+            Request::input('acudiente_id'),
+            Request::input('parentesco_id'),
+            Request::input('user_id'),
+            Request::input('propiedad'),
+            Request::input('valor'),
+            $this->user->user_id
+        );
 
+    }
 
+    public function putQuitarParentescoAlumno()
+    {
+        $parentesco = Parentesco::findOrFail(Request::input('parentesco_id'));
+        $parentesco->deleted_by = $this->user->user_id;
+        $parentesco->save();
+        $parentesco->delete();
 
-	public function putQuitarParentescoAlumno()
-	{
-		$parentesco = Parentesco::findOrFail(Request::input('parentesco_id'));
-		$parentesco->deleted_by 	= $this->user->user_id;
-		$parentesco->save();
-		$parentesco->delete();
+        return $parentesco;
+    }
 
-		return $parentesco;
-	}
+    /**
+     * Quién es un acudiente de un alumno. Con medio cuerpo lo desataba — §153.
+     *
+     * Este método tiene **las dos ramas en el mismo sitio**: con
+     * `parentesco_acudiente_cambiar_id` edita una fila que existe, y sin él crea
+     * una. Las cuatro asignaciones eran `Request::input('x')` sin defecto, y en la
+     * rama de editar eso vacía: cambiar la observación de un parentesco le
+     * borraba el `acudiente_id` y el `alumno_id`, o sea **desataba a la familia
+     * del alumno dejando la fila viva**.
+     *
+     * El defecto es el valor que ya tiene la fila, y por eso una sola expresión
+     * vale para las dos ramas: en la de crear, `$parentesco->acudiente_id` es
+     * `null` y el defecto es exactamente el `null` que había antes. Aquí basta el
+     * defecto de `Request::input()` porque este controlador **no tiene ningún
+     * `Request::merge()` ni `sanarInput*`**; en `ProfesoresController`, que sí,
+     * hace falta `CamposQueVinieron`. Comprobado en cada uno, no copiado.
+     */
+    public function putSeleccionarParentesco()
+    {
+        if (Request::has('parentesco_acudiente_cambiar_id')) {
+            $parentesco = Parentesco::findOrFail(Request::input('parentesco_acudiente_cambiar_id'));
+            $parentesco->updated_by = $this->user->user_id;
+        } else {
+            $parentesco = new Parentesco;
+            $parentesco->created_by = $this->user->user_id;
+        }
 
+        $parentesco->acudiente_id = Request::input('acudiente_id', $parentesco->acudiente_id);
+        $parentesco->alumno_id = Request::input('alumno_id', $parentesco->alumno_id);
+        $parentesco->parentesco = Request::input('parentesco', $parentesco->parentesco);
+        $parentesco->observaciones = Request::input('observaciones', $parentesco->observaciones);
+        $parentesco->save();
 
-	/**
-	 * Quién es un acudiente de un alumno. Con medio cuerpo lo desataba — §153.
-	 *
-	 * Este método tiene **las dos ramas en el mismo sitio**: con
-	 * `parentesco_acudiente_cambiar_id` edita una fila que existe, y sin él crea
-	 * una. Las cuatro asignaciones eran `Request::input('x')` sin defecto, y en la
-	 * rama de editar eso vacía: cambiar la observación de un parentesco le
-	 * borraba el `acudiente_id` y el `alumno_id`, o sea **desataba a la familia
-	 * del alumno dejando la fila viva**.
-	 *
-	 * El defecto es el valor que ya tiene la fila, y por eso una sola expresión
-	 * vale para las dos ramas: en la de crear, `$parentesco->acudiente_id` es
-	 * `null` y el defecto es exactamente el `null` que había antes. Aquí basta el
-	 * defecto de `Request::input()` porque este controlador **no tiene ningún
-	 * `Request::merge()` ni `sanarInput*`**; en `ProfesoresController`, que sí,
-	 * hace falta `CamposQueVinieron`. Comprobado en cada uno, no copiado.
-	 */
-	public function putSeleccionarParentesco()
-	{
-		if (Request::has('parentesco_acudiente_cambiar_id')) {
-			$parentesco = Parentesco::findOrFail(Request::input('parentesco_acudiente_cambiar_id'));
-			$parentesco->updated_by		=	$this->user->user_id;
-		}else{
-			$parentesco = new Parentesco;
-			$parentesco->created_by		=	$this->user->user_id;
-		}
-		
-		$parentesco->acudiente_id		=	Request::input('acudiente_id', $parentesco->acudiente_id);
-		$parentesco->alumno_id			=	Request::input('alumno_id', $parentesco->alumno_id);
-		$parentesco->parentesco			=	Request::input('parentesco', $parentesco->parentesco);
-		$parentesco->observaciones	=	Request::input('observaciones', $parentesco->observaciones);
-		$parentesco->save();
+        $acudiente = DB::select($this->consulta_pariente, [$parentesco->id]);
 
-		$acudiente = DB::select($this->consulta_pariente, [ $parentesco->id ]);
+        return (array) $acudiente[0];
+    }
 
-		return (array) $acudiente[0];
-	}
+    public function deleteDestroy($id)
+    {
+        // Sin la rama de `Profesor` que sí tienen `crear` y `guardar-valor`: aquí
+        // estaba escrita así a propósito y unificarla sería colar una decisión
+        // dentro de un arreglo. Ver 05 §30.2.
+        Autoriza::exigir(Autoriza::puedeEditarAcudientes($this->user, conDocentes: false),
+            'No tienes permiso.');
 
+        $acudiente = Acudiente::findOrFail($id);
+        $acudiente->delete();
 
-	public function deleteDestroy($id)
-	{
-		// Sin la rama de `Profesor` que sí tienen `crear` y `guardar-valor`: aquí
-		// estaba escrita así a propósito y unificarla sería colar una decisión
-		// dentro de un arreglo. Ver 05 §30.2.
-		Autoriza::exigir(Autoriza::puedeEditarAcudientes($this->user, conDocentes: false),
-			'No tienes permiso.');
+        $consulta = 'UPDATE parentescos SET deleted_by=?, deleted_at=? WHERE acudiente_id = ?;';
+        DB::update($consulta, [$this->user->user_id, Carbon::now('America/Bogota'), $id]);
 
-		$acudiente = Acudiente::findOrFail($id);
-		$acudiente->delete();
-
-		$consulta = 'UPDATE parentescos SET deleted_by=?, deleted_at=? WHERE acudiente_id = ?;';
-		DB::update($consulta, [ $this->user->user_id, Carbon::now('America/Bogota'), $id ]);	
-
-		return $acudiente;
-	}
-
+        return $acudiente;
+    }
 }
