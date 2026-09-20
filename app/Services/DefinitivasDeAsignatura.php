@@ -53,6 +53,14 @@ use Illuminate\Support\Facades\DB;
  *    definitiva rara es la intención — es lo que la delata en la planilla. Por
  *    eso `recalcular()` devuelve además `porcentaje_unidades`, para que quien
  *    pinte la planilla pueda señalarla en vez de taparla.
+ *
+ *    > **Y desde el 20 sep 2026 al lado hay un número que SÍ normaliza, así que
+ *    > conviene no confundirlos**: `parcial` divide entre el peso de lo evaluado
+ *    > (fase 1 del [43](../../docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md)).
+ *    > La que no normaliza y no se toca es **la que se guarda**; la que normaliza
+ *    > **no se guarda en ninguna columna**. Son dos preguntas distintas —*«cuánto del
+ *    > periodo lleva ganado»* y *«cómo va en lo que se le ha evaluado»*— y a mitad de
+ *    > periodo sólo la segunda es la que alguien está haciendo.
  * 3. **Ya no hay redondeo**: `cast(... as decimal(7,4))`, que es lo que cabe en la
  *    columna desde la migración `2026_08_30_200000_notas_finales_en_decimal`.
  *    Decía «el redondeo es el del código, `decimal(4,0)`, porque la columna es un
@@ -111,9 +119,33 @@ class DefinitivasDeAsignatura
      * es lo que quedó **guardado**, no lo calculado: si la fila era `manual` o
      * `recuperada` el bucle la respetó y las dos cosas no coinciden.
      *
+     * `parcial` y `cobertura` **van al lado de `definitiva` y no dentro**, y ésta es
+     * la decisión de forma de la fase 1, tomada y no dejada implícita: **las dos
+     * mitades de ese array vendrían de sitios distintos.** `definitiva` se relee de
+     * `notas_finales` —por el párrafo de aquí abajo: si la fila era `manual` o
+     * `recuperada`, lo guardado no es lo calculado— y estas dos **no se guardan en
+     * ninguna columna**, así que sólo pueden salir del cálculo. Metidas ahí, un mismo
+     * array tendría `nota` de la tabla y `parcial` del cálculo **sin nada que lo
+     * dijera**, que es literalmente el fallo que este método ya arregló una vez con
+     * `porcentaje_unidades` —*«dos campos del mismo array hablando de cosas distintas»*—
+     * y volvería a entrar por la puerta de al lado.
+     *
+     * Y además harían creer que hay una columna que las conserva, que es la segunda
+     * verdad que la §1 del [10](../../docs/migracion/10-definitivas.md) enumera como
+     * causa de todo esto. Vienen las dos sólo con `$soloAlumno`, por lo mismo que
+     * `definitiva`: sin un alumno pedido no existe «la» parcial. Qué significan y qué
+     * significa su `NULL`, en {@see calcular}.
+     *
+     * > **Hoy no las sirve ningún endpoint, y eso es la fase 1 entera: aditiva.**
+     * > Ningún controlador devuelve este array completo —`notas/update` toma sólo
+     * > `definitiva`—, así que **no se movió ni una de las 129 instantáneas de
+     * > contrato**, que es la prueba de que la definitiva no cambió ni un decimal. La
+     * > que se moverá el día que alguien las sirva por ahí es `notas-update.json`.
+     *
      * @return array{escritas:int, creadas:int, respetadas:int, porcentaje_unidades:float,
      *     definitiva:array{alumno_id:int, asignatura_id:int, periodo_id:int, nota:int,
-     *         manual:bool, recuperada:bool}|null}
+     *         manual:bool, recuperada:bool}|null,
+     *     parcial:?float, cobertura:?float}
      */
     /**
      * Recalcular la definitiva que depende de una nota, por el id de la nota.
@@ -472,12 +504,27 @@ class DefinitivasDeAsignatura
                 ? BoletinIndependiente::alcance($soloAlumno, $periodoId)
                 : null;
 
+            // **Se leen de lo CALCULADO y no de la tabla, que es al revés que
+            // `definitiva`**, y es la consecuencia de que no se guarden: no hay fila
+            // que releer. Por eso tampoco las mueve que la definitiva fuera `manual` o
+            // `recuperada` — la parcial dice cómo va lo evaluado, no qué se decidió
+            // escribir.
+            $parcial = null;
+            $cobertura = null;
+
+            if ($soloAlumno !== null && isset($calculadas[0])) {
+                $parcial = $calculadas[0]->parcial === null ? null : (float) $calculadas[0]->parcial;
+                $cobertura = $calculadas[0]->cobertura === null ? null : (float) $calculadas[0]->cobertura;
+            }
+
             return [
                 'escritas' => $escritas,
                 'creadas' => $creadas,
                 'respetadas' => $respetadas,
                 'porcentaje_unidades' => self::porcentajeDeLasUnidades($asignaturaId, $periodoId, $alcance),
                 'definitiva' => $definitiva,
+                'parcial' => $parcial,
+                'cobertura' => $cobertura,
             ];
         });
     }
@@ -492,7 +539,77 @@ class DefinitivasDeAsignatura
      * `round(NULL)` vale 0. Se conserva el 0 porque cambiarlo a NULL es una
      * decisión del colegio sobre lo que sale impreso en el boletín, no un arreglo.
      *
-     * @return array<int, object{alumno_id:int, dueno:?int, nota:int, notas:int}>
+     * ## Los TRES números, desde la fase 1 del 43
+     *
+     * `nota` es la de siempre —**la que cierra el periodo y la que imprimen los
+     * dieciséis— y no cambia ni un decimal**. Al lado van dos que **no se guardan en
+     * ninguna parte** y se calculan cada vez
+     * ([43](../../docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md) §3.bis c):
+     *
+     *     peso(n)    = (u.porcentaje/100) × (s.porcentaje/100)      RepartoDeLaNota::pesoDeLaNota
+     *     aporte(n)  = peso(n) × n.nota                             RepartoDeLaNota::aportacionALaDefinitiva
+     *
+     *     nota       = Σ aporte(n)                    sobre TODAS     ← «cuánto del periodo lleva ganado»
+     *     parcial    = Σ aporte(n) ÷ Σ peso(n)        CALIFICADAS     ← «cómo va en lo que se le ha evaluado»
+     *     cobertura  = Σ peso(n) calificadas ÷ Σ peso(n) todas        ← «cuánto del plan se ha evaluado»
+     *
+     * **`Σ aporte` no hace falta filtrarlo y eso no es un descuido que se tolere: es
+     * la fase 0 haciendo su trabajo.** Desde que `notas.nota` es anulable,
+     * `peso × NULL` vale `NULL` y `SUM` se salta la fila sin que nadie se lo pida, así
+     * que el numerador de la parcial **es el mismo `Σ aporte` que la acumulada**. Lo
+     * único que hay que sumar aparte es el divisor.
+     *
+     * ### Las cuatro cosas que decide el `NULL`, y ninguna es cosmética
+     *
+     * 1. **`Σ peso` calificado = 0 → `parcial` es `NULL`, nunca 0.** Es la diferencia
+     *    entre *«va en cero»* y *«no hay con qué decirlo»*, y es el gris del semáforo
+     *    (D2). Lo fuerza el `NULLIF`, no un `if` de PHP que alguien pueda no copiar.
+     * 2. **Una casilla de peso 0 calificada no cuenta como evaluada**, porque suma 0
+     *    arriba y 0 abajo. Son **2.242 de 36.705** subunidades en la copia de
+     *    desarrollo (6,1 %): con la cobertura contada por casillas, calificarlas
+     *    parecería avanzar.
+     * 3. **El divisor es el de CADA ALUMNO, no el del plan del grupo**, y por eso se
+     *    suma sobre sus filas de `notas` y no sobre `unidades × subunidades`. Es lo
+     *    que exige el `NE` por celda del día que vuelva (D4): *«a Isabela no se le
+     *    evaluó la exposición»* le cambia **su** denominador y no el de sus treinta
+     *    compañeros.
+     * 4. **`Σ peso` total = 0 → `cobertura` es `NULL` también.** Es el segundo cero
+     *    de división y **el doc 43 no lo previó**: son **3.158 de los 9.422 pares que
+     *    esta consulta devuelve en periodos abiertos, el 33,5 %** —3.059 sin una sola
+     *    fila en `notas`, porque esto parte de `matriculas`, y 99 con todas sus
+     *    casillas a peso 0—. Un 0 ahí afirmaría que se conoce el plan y que no se ha
+     *    tocado; lo cierto es que no hay plan del que hablar. Su `nota` sigue siendo 0
+     *    por lo dicho arriba: *un 0 ahí significa «sin notas», no «sacó cero»*.
+     *
+     * **`cobertura` es un factor de 0 a 1, no un porcentaje de 0 a 100.** Es la
+     * convención que ya tiene `RepartoDeLaNota`: `pesoDeSubunidad` es el factor y
+     * `porcentajeParaPintar` es el rótulo. Quien pinte «35 %» multiplica.
+     *
+     * ### La cobertura NO puede pasar del 100 %, y el doc 43 promete que sí
+     *
+     * La §3.bis c consecuencia 2 dice que una asignatura cuyas unidades sumen 120
+     * *«termine de calificarse y salga con cobertura 120 %, que delata muchísimo mejor
+     * que una nota alta»*. **Eso no se sostiene con la fórmula del propio documento**:
+     * el mismo `Σ peso` está arriba y abajo, así que el cociente vive en `[0, 1]` y no
+     * puede pasar del 100 % jamás. Medido el 20 sep 2026 sobre `simonbolivar` en
+     * periodos abiertos: **0 de 9.422 pares por encima del 100 %, y con 328
+     * asignaturas mal repartidas dentro de la muestra** —106 con `Σ peso > 1`, hasta
+     * **2,54**, y 222 por debajo, hasta 0,04—.
+     *
+     * **No se arregla inventando un segundo divisor**, y ésa es la razón de dejarlo
+     * escrito aquí: con denominador 1 la cobertura mezclaría dos señales —cuánto se ha
+     * evaluado y si el reparto está mal— en un número, y una asignatura bien
+     * calificada cuyas unidades sumen 80 diría «80 % evaluado» **para siempre**, con
+     * el docente buscando notas que no faltan. El delator del reparto malo ya existe y
+     * ya viaja en esta misma respuesta: **`porcentaje_unidades`**, que es la regla 2 de
+     * esta clase. La consecuencia 2 del doc pedía un delator que ya estaba puesto.
+     *
+     * **Y no se recorta ninguna de las dos**, que es la regla de Joseth del 14 sep:
+     * se redondea en un solo sitio, el que escribe la definitiva. Aquí no se escribe
+     * nada.
+     *
+     * @return array<int, object{alumno_id:int, dueno:?int, nota:int, notas:int,
+     *     parcial:?float, cobertura:?float}>
      */
     public static function calcular(int $asignaturaId, int $periodoId): array
     {
@@ -501,6 +618,14 @@ class DefinitivasDeAsignatura
         // recálculo lanzado desde el contexto de otro año guardaría con el reparto
         // equivocado, y lo que queda escrito es una nota.
         $modo = RepartoDeLaNota::modoDelPeriodo($periodoId);
+
+        // **El peso sale de `RepartoDeLaNota` y no se escribe aquí a mano**, que es la
+        // regla entera de esa clase: en modo `promedio` una subunidad no pesa
+        // `s.porcentaje` sino `1/n`, y una copia local de la fórmula sería la que
+        // todavía dijera `porcentaje` el día que el colegio cambie el reparto. La
+        // parcial y la cobertura tienen que ser correctas en **los dos** modos, y lo
+        // son porque las dos se construyen con este fragmento.
+        $peso = RepartoDeLaNota::pesoDeLaNota($modo);
 
         // **El alcance del boletín independiente, BI-2.** Esta consulta resuelve el
         // grupo entero de una vez y no puede preguntar alumno por alumno, así que
@@ -530,7 +655,30 @@ class DefinitivasDeAsignatura
             'SELECT m.alumno_id,
                     '.BoletinIndependiente::ALCANCE.' AS dueno,
                     CAST(COALESCE(c.suma, 0) AS DECIMAL(7,4)) AS nota,
-                    COALESCE(c.notas, 0) AS notas
+                    COALESCE(c.notas, 0) AS notas,
+                    -- **Sin `CAST` y sin `ROUND`, a propósito.** `nota` se recorta a
+                    -- DECIMAL(7,4) porque es lo que cabe en la columna donde se va a
+                    -- escribir; estas dos no se escriben en ninguna columna, así que
+                    -- recortarlas sería inventar una precisión. La regla del 14 sep:
+                    -- se redondea en un solo sitio, el que escribe la definitiva.
+                    --
+                    -- **Los `NULLIF` son DOS y el doc sólo previó uno.** El de arriba
+                    -- es «no se ha evaluado nada» (regla 2 del 43). El de abajo es
+                    -- **«no hay plan del que hablar»**, que el documento no cubre y es
+                    -- el caso más frecuente: medido el 20 sep 2026 sobre `simonbolivar`
+                    -- en periodos abiertos, **3.158 de los 9.422 pares que esta
+                    -- consulta devuelve — el 33,5 %** —, de los que 3.059 no tienen ni
+                    -- una fila en `notas` (esto parte de `matriculas`, no de `notas`) y
+                    -- 99 tienen todas sus casillas a peso 0. Ahí la cobertura es `NULL`
+                    -- por el mismo motivo que la parcial: un 0 afirmaría que se conoce
+                    -- el plan y que no se ha tocado.
+                    --
+                    -- Y son `NULLIF` y no la división a pelo porque el NULL de dividir
+                    -- entre cero es **configuración de la base**, no contrato: el día
+                    -- que alguien encienda `ERROR_FOR_DIVISION_BY_ZERO` esto pasaría de
+                    -- un NULL a un aviso. Escrito así, el NULL es la respuesta.
+                    c.suma / NULLIF(c.peso_evaluado, 0)          AS parcial,
+                    c.peso_evaluado / NULLIF(c.peso_total, 0)    AS cobertura
                FROM asignaturas a
                INNER JOIN grupos g ON g.id = a.grupo_id AND g.deleted_at IS NULL
                -- **Sin filtro de `m.estado`, y es una decisión de Joseth del 28 ago 2026**,
@@ -565,7 +713,14 @@ class DefinitivasDeAsignatura
                LEFT JOIN (
                     SELECT n.alumno_id, u.alumno_id AS dueno,
                            SUM('.RepartoDeLaNota::aportacionALaDefinitiva($modo).') AS suma,
-                           COUNT(*) AS notas
+                           COUNT(*) AS notas,
+                           -- **El divisor que la definitiva da por hecho que vale 1.**
+                           -- `suma` no necesita filtrar las sin calificar —`peso × NULL`
+                           -- es NULL y `SUM` la salta—, pero el peso sí: una casilla
+                           -- vacía pesa igual que una llena, y contarla en el divisor es
+                           -- exactamente el fallo que la parcial viene a quitar.
+                           SUM(CASE WHEN n.nota IS NULL THEN 0 ELSE '.$peso.' END) AS peso_evaluado,
+                           SUM('.$peso.') AS peso_total
                       FROM unidades u
                       INNER JOIN subunidades s ON s.unidad_id = u.id AND s.deleted_at IS NULL
                       INNER JOIN notas n ON n.subunidad_id = s.id AND n.deleted_at IS NULL
@@ -573,7 +728,12 @@ class DefinitivasDeAsignatura
                      GROUP BY n.alumno_id, u.alumno_id
                ) c ON c.alumno_id = m.alumno_id AND c.dueno <=> '.BoletinIndependiente::ALCANCE.'
               WHERE a.id = ? AND a.deleted_at IS NULL
-              GROUP BY m.alumno_id, dueno, c.suma, c.notas',
+              -- Los dos pesos entran en el `GROUP BY` por lo mismo que ya estaban
+              -- `c.suma` y `c.notas`: este agrupamiento no agrega nada, **deduplica**
+              -- las matrículas repetidas del mismo alumno en el mismo grupo. Todas las
+              -- columnas de `c` vienen de la misma fila —la derivada da una sola por
+              -- (alumno, dueño)—, así que añadirlas no puede partir un grupo.
+              GROUP BY m.alumno_id, dueno, c.suma, c.notas, c.peso_evaluado, c.peso_total',
             [$periodoId, $asignaturaId, $periodoId, $asignaturaId]
         );
     }

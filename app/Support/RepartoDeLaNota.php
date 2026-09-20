@@ -55,6 +55,17 @@ use Illuminate\Support\Facades\DB;
  *      por la que la D30 hace que los cuatro clientes queden correctos sin tocar
  *      una línea de ninguno.
  *
+ * ### Y una quinta desde el 20 sep 2026, que no sale de las dieciséis
+ *
+ * {@see pesoDeLaNota} — **0 veces en el código viejo**, porque hasta la fase 1 del
+ * [43](../../docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md) el peso de una
+ * casilla **no se sumaba nunca por separado**: la definitiva es `Σ (peso × nota)`
+ * dando por hecho que el divisor es 1, y por eso una asignatura mal repartida da una
+ * nota rara en vez de un aviso. La parcial y la cobertura necesitan ese divisor, así
+ * que el fragmento pasa a existir — y vive aquí, no en la consulta, por lo mismo que
+ * los otros cuatro: **el modo promedio lo cambia**, y una copia a mano en
+ * `DefinitivasDeAsignatura` sería la decimoséptima.
+ *
  * ## El recuento del doc 28, que dice 18 y son 16
  *
  * Recontado el 14 sep 2026 con la misma orden que aquel día
@@ -248,6 +259,62 @@ final class RepartoDeLaNota
     public static function aportacionALaDefinitiva(string $modo = self::PORCENTAJE, string $u = 'u', string $s = 's', string $n = 'n'): string
     {
         return '('.self::pesoDeUnidad($u).')*(('.self::pesoDeSubunidad($modo, $s).")*{$n}.nota)";
+    }
+
+    /**
+     * **Lo que pesa una casilla en el periodo**, sin la nota: el divisor que la
+     * definitiva de hoy da por hecho que vale 1.
+     *
+     * Es {@see aportacionALaDefinitiva} sin el último factor, y sirve para las dos
+     * cuentas de la fase 1 del
+     * [43](../../docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md):
+     *
+     *     parcial    = Σ (peso × nota) de las CALIFICADAS ÷ Σ peso de las CALIFICADAS
+     *     cobertura  = Σ peso de las CALIFICADAS          ÷ Σ peso de TODAS
+     *
+     * ## Por qué NO se factoriza fuera de `aportacionALaDefinitiva`
+     *
+     * Sería la escritura natural —`aportacion = peso × nota`— y **cambiaría el texto
+     * de la consulta**: hoy sale `(u.porcentaje/100)*((s.porcentaje/100)*n.nota)` y
+     * factorizado saldría `((u.porcentaje/100)*(s.porcentaje/100))*n.nota`. El
+     * resultado numérico es el mismo y el texto no, y ese texto es contrato: lo leen
+     * `GuardarNotasEnLoteTest` y `CosteDelLoteDeNotasTest` para **contar cuántas veces
+     * se agregó**, casando por cadena. El docblock de `aportacionALaDefinitiva` ya
+     * avisa de que hasta los paréntesis que sobran están ahí a propósito.
+     *
+     * Así que los dos fragmentos comparten los dos factores y **no se comparten entre
+     * sí**. Lo que los ata es que los dos salen de {@see pesoDeUnidad} y
+     * {@see pesoDeSubunidad}: el día que el reparto cambie, cambian los dos a la vez,
+     * que es lo único que esta clase tiene que garantizar.
+     *
+     * ## Lo que cuesta, medido — y sólo cuesta en UN modo
+     *
+     * En `porcentaje` esto es aritmética sobre filas que la consulta ya recorre:
+     * medido el 20 sep 2026 sobre `simonbolivar`, en la asignatura más cargada de la
+     * copia (986 notas, 45 alumnos), las filas leídas son **idénticas** antes y
+     * después — `Handler_read_key` 1.024 y `Handler_read_next` 1.665 las dos veces—.
+     * **Coste cero**, y es el modo de ocho de los nueve años de la copia.
+     *
+     * En `promedio` no: este fragmento arrastra la subconsulta correlacionada de
+     * {@see cuantasSubunidades}, que pasa de evaluarse **una vez por fila a tres**
+     * —la aportación más los dos pesos—. Sobre la misma asignatura,
+     * `Handler_read_key` **2.010 → 3.982** (×1,98) y `Handler_read_next`
+     * **5.707 → 13.791** (×2,42); en reloj, **8,6 ms → 17,7 ms** por consulta
+     * (medianas de 20 pasadas en seis bloques alternados, descontados los 6,7 ms de
+     * arranque del cliente). **Un año de la copia ya está en `promedio`**, así que no
+     * es hipotético.
+     *
+     * De los ms, lo que vale es **la razón y no el valor**: se midieron con tres suites
+     * de otras sesiones corriendo en el mismo contenedor, así que los absolutos están
+     * inflados. Los contadores no dependen de la carga, y por eso son la cifra.
+     *
+     * **Bajar de ahí no es de esta fase**: haría falta sustituir la correlacionada por
+     * un agregado unido en el `FROM`, y eso cambia el texto de
+     * {@see aportacionALaDefinitiva}, que es contrato. Se deja medido, no resuelto.
+     */
+    public static function pesoDeLaNota(string $modo = self::PORCENTAJE, string $u = 'u', string $s = 's'): string
+    {
+        return '('.self::pesoDeUnidad($u).')*('.self::pesoDeSubunidad($modo, $s).')';
     }
 
     /**
