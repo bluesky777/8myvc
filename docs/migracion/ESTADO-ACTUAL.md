@@ -107,13 +107,44 @@
 > **NO es un paso de despliegue**: el `.env` no viaja en el despliegue, así que desplegar no
 > rompe el correo ni lo arregla.
 
+> ## ⚠️ ANTES DE LA FASE 1 DEL PROCESO: `requisitos_matricula` ESTÁ VACÍA **AQUÍ**, NO EN LOS DIECISÉIS
+>
+> **Medido el 20 sep 2026 en la copia de desarrollo (UN colegio), y el denominador es la mitad del
+> hallazgo.** La fase 1 del proceso de admisión —`myvc_front/PANTALLAS-MATRICULA.md`— **ensancha**
+> `requisitos_matricula` y `requisitos_alumno` en vez de empezar de cero. Aquí no hay nada sobre lo
+> que construir:
+>
+> ```sql
+> SELECT COUNT(*) FROM requisitos_matricula WHERE deleted_at IS NULL;            -- 1
+> SELECT COUNT(*) FROM requisitos_matricula r INNER JOIN years y
+>   ON y.id=r.year_id AND y.actual=1 WHERE r.deleted_at IS NULL;                 -- 0
+> SELECT COUNT(*) FROM requisitos_alumno;                                        -- 12, TODAS en «falta»
+> SELECT COUNT(*) FROM requisitos_matricula WHERE editable_por_profe_id IS NOT NULL; -- 0
+> ```
+>
+> Y la única fila es **`Fotocopia del documento (verificacion 234754)`, creada el 22 ago 2026** —un
+> dato de prueba, no de un colegio trabajando.
+>
+> **Joseth lo contestó el 20 sep: «sí lo han usado en otros colegios».** O sea que el mecanismo
+> está vivo y el diseño de la fase 1 se sostiene — **lo que NO se sostiene es diseñarlo sobre lo
+> medido aquí**. Los repartos por defecto, los nombres de los pasos y cuántas estaciones tiene un
+> día de matrículas salen de un colegio que usa esto, y **en esta copia no se pueden ver**.
+>
+> **Esto no es una cifra que haya que corregir: es una cifra cuyo DENOMINADOR hay que decir.** «La
+> tabla está vacía» a secas habría hecho archivar la fase 1 como «funcionalidad muerta», que es
+> exactamente la lectura falsa de las dos — y la que hace tirar trabajo bueno. Es la regla de
+> *«ninguna herramienta imprime OK sin decir su población»* aplicada a una consulta a mano.
+>
+> **Lo que hace falta antes de escribir la fase 1** es correr esas cuatro consultas **en un colegio
+> que la use**, que sólo puede hacer quien tenga acceso a producción.
+
 > ## ✅ LA FAMILIA PREGUNTA — LA 16ª PÚBLICA Y LA PRIMERA DE LECTURA, ROUTER EN 620 (20 sep 2026)
 >
 > **Encargo de Joseth**, al preguntar qué faltaba del formulario. El porqué entero está en
 > [`41 §10`](41-el-formulario-de-inscripcion.md).
 >
-> **Está en `.worktrees/es`, rama `feat/la-familia-pregunta`, SIN FUNDIR**: el 620 se contó en ese
-> árbol y **hay que recontarlo en el árbol principal el día que entre**.
+> **FUNDIDA el 20 sep 2026.** El 620 se contó primero en `.worktrees/es` con su condición de
+> caducidad al lado y **se recontó al fundir, en el árbol principal sobre `main`**.
 >
 >     GET colillas-inscripcion/{codigo}    PÚBLICA    la llama la familia, sin cuenta
 >
