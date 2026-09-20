@@ -49,9 +49,33 @@
 > > desde el 19 sep y `colillas-inscripcion` aparece **0 veces** en los tres clientes. *Conectar un
 > > aviso a una bandeja sin pantalla sería avisar de algo que no se puede ir a mirar.*
 >
-> **🟠 ESPERA A JOSETH:** las tres salidas —tema de persona, correo, o contador en la bandeja—
-> están medidas con su precio en el 47 §9. **No se escribe ninguna hasta que elija**, porque
-> cuestan cosas distintas y la más obvia (push) es la que hoy no puede recibir nadie.
+> **✅ Y ELIGIÓ UNA CUARTA, mejor que las tres:** *«los tesoreros tienen cuenta administradora,
+> al entrar les aparece que hay cambios solicitados… reutilizar eso.»* Eso existe y es
+> **`GET ChangesAsked/to-me`**, que ya agrega siete bloques distintos. **No necesita push, ni
+> correo, ni pantalla nueva.** Medido antes de darlo por fácil, y salieron dos cosas:
+>
+> - **`getToMe` tiene cinco ramas por `tipo` y una no devuelve bandeja**: de las 22 cuentas
+>   `Usuario`, las **11 que no son superusuario** sólo reciben `publicaciones` y `eventos`. El
+>   bloque tiene que colgar de `Autoriza::puedeAprobarColilla`, **no de la rama del `switch`**.
+> - **Un tesorero con «cuenta administradora» NO puede ser nombrado tesorero**: `years.tesorero_id`
+>   es un `profesores.id` y **0 de 22 `Usuario` tienen ficha ahí**. El flujo de hoy funciona por
+>   el respaldo (`esAdministrativo`), no por esa columna.
+>
+> **Es la primera tarea de la tanda siguiente** —`ChangeAskedController` es legado de 1.400 líneas
+> y su respuesta la leen los tres clientes—, y con esto ya no queda nada que investigar.
+
+> ### 🔴 Y EL TEST DE ESTA TANDA DESTAPÓ UN DEFECTO VIVO EN `main`
+>
+> **«Con su nombre y su hora» — y el nombre sale vacío justo para quien atiende.**
+> `getRecorrido` saca `cerrado_por_nombres` de `profesores`, y **0 de las 22 cuentas `Usuario`
+> tienen ficha ahí** (0 de 20 en la base de tests). Cuando cierra el paso un administrativo el id
+> viaja y el nombre viaja en `NULL`. Es la trampa que el `CLAUDE.md` ya tiene escrita, cometida
+> en el módulo cuyo argumento entero es que quede el nombre.
+>
+> **No se arregla solo: `users` no tiene ninguna columna de nombre, sólo `username`**, así que
+> qué se enseña cuando no hay ficha es producto —«ADRIANA GÓMEZ» y «secretaria2» no se leen
+> igual—. **Espera a Joseth.** El test lo fija en el estado en que está, con la línea a cambiar
+> señalada, para que el arreglo salga en rojo en vez de pasar inadvertido. 47 §7.7.
 
 > ## ✅ EL PORTAL DE LA FAMILIA Y EL TABLERO DEL DÍA — DIEZ RUTAS (20 sep 2026)
 >
@@ -150,7 +174,7 @@
 >
 > | | |
 > |---|---|
-> | `ElPortalDeLaFamiliaTest`: **32 passed (263 aserciones)** | `--filter=ElPortalDeLaFamiliaTest --testsuite=Contrato` |
+> | `ElPortalDeLaFamiliaTest`: **33 passed (278 aserciones)** | `--filter=ElPortalDeLaFamiliaTest --testsuite=Contrato` |
 > 
 > > **Este renglón decía 28 (225) y ya era falso antes de tocarlo**: en `a8d036d` el fichero
 > > tenía **30** métodos de prueba, o sea que la cifra se escribió y el commit siguiente la

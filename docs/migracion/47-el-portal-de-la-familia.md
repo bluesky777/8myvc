@@ -295,6 +295,86 @@ Se escribió el test que nombra ese caso, y con él el control **sí** se pone r
 
 ---
 
+### 7.5 · Las dos rutas que se diferencian en tres caracteres, y el error que NO hace ruido
+
+`requisitos/recorrido/{alumno_id}` (el personal, `auth.personal`) y
+`requisitos/mi-recorrido/{alumno_id}` (la familia, `boletin.propio:sin-paz-y-salvo`) son para
+públicos opuestos. Lo levantó `myvc-flutter-1a` —*«eso se va a confundir solo»*— y **el nombre se
+queda**: `disciplina/mis-fichas/{alumno_id?}` ya usa ese prefijo para exactamente lo mismo desde
+antes, así que renombrar rompería un idioma que un lector de `routes/` ya decodifica sin pensar.
+
+**Lo que sí quedó, porque el riesgo es real y va al revés de como se propuso:**
+
+```
+familia  -> requisitos/recorrido      403 SIEMPRE            se ve
+personal -> requisitos/mi-recorrido   200 SIEMPRE, con dos   no se ve
+                                      campos de menos
+```
+
+El primero es ruidoso y seguro. El segundo no falla nunca: `ExigirBoletinPropio` **deja pasar de
+largo a todo el personal** —a propósito, para que secretaría le pueda enseñar el recorrido a una
+madre por teléfono—, así que una pantalla del personal mal cableada devuelve la vista de la
+familia **sin la observación interna y sin quién cerró cada paso**. *El síntoma no es un error,
+son dos campos que faltan, y eso se descubre el día que alguien en el patio pregunta por qué no
+ve la observación.* Lo fija un test.
+
+> **Y la propuesta de test que llegó habría fijado lo contrario.** Decía *«que `mi-recorrido` no
+> traiga `descripcion` ni `cerrado_por_nombres`»*, y **`descripcion` sí viaja**: es la del
+> **requisito**, que es pública y es lo que le dice a la familia qué le piden. La que no viaja es
+> `ra.descripcion`, que sale con el alias `observacion`. *Dos columnas que se llaman igual en dos
+> tablas.* El test fija las tres cosas: sin `observacion`, sin `cerrado_por`, **con**
+> `descripcion`.
+
+> **El riesgo que se propuso primero —un «docente-padre» que pasaría los dos guards— se midió y
+> no se sostiene aquí:** **0** cuentas de personal tienen ficha de acudiente; los 1.000 que la
+> tienen son `tipo=Acudiente`, y un docente con hijo matriculado tiene **dos cuentas**, no una con
+> dos capacidades. *Con su condición de caducidad al lado: eso es la copia de desarrollo, y en los
+> otros quince no ha mirado nadie. Lo que protege esa línea no es una regla del código — es que
+> ningún colegio le haya puesto todavía ficha de acudiente a una cuenta de personal.*
+
+### 7.6 · «Sin desplegar» describe dos estados distintos, y el repo que lo lee no sabe cuál le tocó
+
+`myvc_flutter/docs/backend-pendiente.md` llegó a tener **el mismo rótulo** —*«ESCRITOS el 20 sep,
+sin desplegar»*— para dos cosas que no son lo mismo: las nueve de `estaciones/*`, **fundidas en
+`main`**, y `mi-recorrido` con el cuarto tema, **en una rama sin fundir**. Con ese rótulo el lado
+Flutter construye contra una ruta que no existiría **ni desplegando `main`**. Lo cazó
+`myvc-flutter-1a` con `git grep mi-recorrido main`, que no devolvió nada.
+
+*Es «el router está en N» sin decir el árbol, otra vez, y en el documento que cruza los dos
+repositorios.* **El estado de una ruta se escribe con el dónde delante**: «fundida en `main`», «en
+una rama», «desplegada en los dieciséis». Nunca sólo con el cuándo.
+
+### 7.7 · 🔴 «CON SU NOMBRE Y SU HORA» — y el nombre sale VACÍO justo para quien atiende
+
+Lo destapó el test de la §7.5 al escribirlo, y **no es de esta tanda: está en `main` desde el
+20 sep**, en `getRecorrido`.
+
+Toda la decisión de Joseth sobre el día de matrículas es *«cerrar un paso lo puede hacer
+cualquiera del personal, **con su nombre y su hora**»*. La hora sale. El nombre sale de
+`profesores`:
+
+```sql
+LEFT JOIN profesores p ON p.user_id = u.id
+   -- p.nombres AS cerrado_por_nombres, p.apellidos AS cerrado_por_apellidos
+```
+
+**Y 0 de las 22 cuentas de tipo `Usuario` tienen ficha en `profesores`** —las 47 que la tienen
+son docentes—, medido en la copia de desarrollo y **0 de 20 en la base de tests**. O sea que
+cuando cierra el paso un administrativo, `cerrado_por` viaja con su id y `cerrado_por_nombres`
+viaja **en `NULL`**. Es exactamente la trampa que el `CLAUDE.md` ya tiene escrita —*«cualquier
+consulta que saque el nombre de una persona uniendo sólo contra `profesores` deja sin nombre justo
+a secretaría»*—, cometida de nuevo, y esta vez **en el módulo cuyo argumento entero es que quede
+el nombre**.
+
+**No se arregla aquí, y no por pereza: no hay de dónde sacar el nombre.** `users` tiene
+`username` y ninguna columna de nombre —comprobado en `information_schema`—, así que el arreglo
+es elegir qué se enseña cuando no hay ficha, y eso es producto: *«ADRIANA GÓMEZ»* y
+*«secretaria2»* no se leen igual en una pantalla que dice quién cerró el paso. **Espera a
+Joseth.** Mientras tanto el test lo fija **en el estado en que está**, con la línea que hay que
+cambiar señalada — para que el día que se arregle salga en rojo en vez de pasar inadvertido.
+
+---
+
 ## 8. Lo que mueve, contado y no supuesto
 
 **Cuatro instantáneas**, y el diff de las cuatro se miró entero en vez de regenerar y pasar:
@@ -408,14 +488,49 @@ de `app2`, así que es una elección suya y no un hueco—.
 > *Conectar el aviso a una bandeja que no tiene pantalla sería avisar de algo que no se puede ir a
 > mirar.* El orden barato es el contrario: primero la pantalla, y el aviso cuando haya push.
 
-**No se escribe nada de esto hasta que Joseth elija**, porque las tres salidas cuestan cosas
-distintas y ninguna es obviamente la suya:
+Se le pusieron las tres salidas delante —tema de persona, correo, o contador en la bandeja— y
+**eligió una cuarta que ninguna de las tres había mirado**, el 20 sep 2026:
 
-| | qué cuesta | qué deja |
+> *«actualmente los tesoreros tienen cuenta administradora, al entrar les aparece que hay cambios
+> solicitados por algunas personas, tal vez podamos reutilizar eso y agregar esta notificación ahí
+> para que le llegue ahí cuando recargue la página y apruebe.»*
+
+**Y es mejor que las tres, porque no necesita push ni correo ni pantalla nueva.** Eso que él
+describe existe y tiene nombre: **`GET ChangesAsked/to-me`**, que pinta
+`app2/paginas/panel/peticiones` y que **ya es un agregador heterogéneo** —cambios pedidos por
+alumnos, solicitudes de asignatura de los docentes, historial de sesiones, intentos de login
+fallidos, publicaciones, eventos y el horario de hoy—. Una colilla pendiente sería **un bloque
+más** en una respuesta que ya junta siete cosas que no se parecen entre sí.
+
+### Pero medido antes de prometerlo, otra vez — y aparecieron dos cosas
+
+**1 · `getToMe` tiene cinco ramas por `tipo`, y una de ellas no devuelve ninguna bandeja.**
+
+| rama | qué recibe | cuántos |
 |---|---|---|
-| **Tema nuevo de persona** (`p_` + HMAC del `user_id`) | el plugin en `myvc_flutter`, la suscripción, y un tipo de tema que hoy no existe | el aviso que él describe, en el teléfono |
-| **Correo al tesorero** | esta API sólo manda correo en `LoginController`, y `tools/correo-de-los-colegios.sh` dice que **hay instalaciones que no pueden mandarlo** | llega sin app, pero no en todos los colegios |
-| **Un contador en la bandeja** | nada nuevo: la ruta ya existe | no es un aviso, es que se vea al entrar — y necesita la pantalla igual |
+| `Usuario` **y** `is_superuser` | la bandeja entera | **11** |
+| `Profesor` | la de su grupo, si es titular | 53 |
+| `Usuario` **sin** superusuario | sólo `publicaciones` y `eventos` — **ninguna petición** | **11** |
+
+O sea que *«los tesoreros tienen cuenta administradora»* **no basta**: de las 22 cuentas de tipo
+`Usuario`, **la mitad no ve hoy ninguna bandeja**. El bloque tiene que colgar del criterio que ya
+decide quién aprueba —`Autoriza::puedeAprobarColilla`— **y no de la rama del `switch`**, o el
+tesorero que no sea superusuario no lo vería nunca y nadie sabría por qué.
+
+**2 · Y un tesorero con «cuenta administradora» NO puede ser nombrado tesorero.** `years.tesorero_id`
+es un `profesores.id`, y **0 de las 22 cuentas de tipo `Usuario` tienen ficha en `profesores`**
+—las 47 que la tienen son docentes—. Así que la columna sólo admite a un docente, y el flujo de
+hoy funciona **por el respaldo** (`esAdministrativo`), no por ella. Con `tesorero_id` en NULL en
+los 9 años vivos, eso significa que quien aprueba hoy es **secretaría o superusuario**, que es
+exactamente lo que él llama «cuenta administradora». *La pieza no está rota; está apoyada en el
+respaldo, y eso conviene saberlo antes de construir encima.*
+
+### Lo que costaría, para que se decida con el precio delante
+
+`ChangeAskedController` es legado de 1.400 líneas con tabuladores, y `GET ChangesAsked/to-me`
+**lo leen los tres clientes**: añadir una clave a su respuesta es un cambio de contrato, aunque
+sea aditivo. No entra en esta tanda, que ya está cerrada; **es la primera de la siguiente**, y con
+esto medido ya no hay nada que investigar para escribirla.
 
 | | quién |
 |---|---|

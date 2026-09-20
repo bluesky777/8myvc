@@ -210,6 +210,84 @@ class ElPortalDeLaFamiliaTest extends CasoDeContrato
             'La observación del personal viajó al portal de la familia.');
     }
 
+    /**
+     * **`recorrido` y `mi-recorrido` se diferencian en tres caracteres, y el error
+     * que importa NO hace ruido.**
+     *
+     * Lo levantó `myvc-flutter-1a` al leer las dos seguidas, y medido desde aquí el
+     * riesgo resultó estar **en la dirección contraria a la que él temía**:
+     *
+     * ```
+     * familia  -> requisitos/recorrido      403 SIEMPRE            se ve
+     * personal -> requisitos/mi-recorrido   200 SIEMPRE, con dos   no se ve
+     *                                       campos de menos
+     * ```
+     *
+     * `ExigirBoletinPropio` **deja pasar de largo a todo el personal** —a propósito,
+     * para que secretaría pueda enseñarle el recorrido a una madre por teléfono—, así
+     * que una pantalla del personal mal cableada a `mi-recorrido` **no falla nunca**:
+     * devuelve la vista de la familia, sin la observación y sin quién cerró el paso.
+     * *El síntoma no es un error, son dos campos que faltan.*
+     *
+     * > **Y `descripcion` SÍ viaja en las dos, que es la mitad que casi se fija al
+     * > revés.** La propuesta que llegó era un test de que `mi-recorrido` no trae
+     * > `descripcion` — y la trae: es la del **requisito**, que es pública. La que no
+     * > viaja es `ra.descripcion`, que sale con el alias `observacion`. Dos columnas
+     * > que se llaman igual en dos tablas, y el test las habría confundido.
+     */
+    public function test_el_personal_entra_en_mi_recorrido_y_pierde_dos_campos_sin_enterarse(): void
+    {
+        $alumno = $this->unAlumnoConAcudiente();
+        $this->unPaso('Documentos', 1);
+
+        $this->withToken($this->tokenLlano())->putJson('/api/estaciones/1/marcar', [
+            'alumno_id' => $alumno['alumno_id'],
+            'resultado' => 'cumple',
+            'observacion' => 'Trajo el registro civil en fotocopia',
+        ])->assertStatus(200);
+
+        $delPersonal = $this->withToken($this->tokenLlano())
+            ->getJson('/api/requisitos/recorrido/'.$alumno['alumno_id'])
+            ->assertStatus(200);
+
+        $this->assertSame('Trajo el registro civil en fotocopia', $delPersonal->json('pasos.0.observacion'),
+            'El recorrido del personal dejó de traer la observación, que es para lo que existe.');
+        $this->assertNotNull($delPersonal->json('pasos.0.cerrado_por'),
+            'El recorrido del personal dejó de decir quién cerró el paso.');
+
+        // **Y aquí se fija un defecto vivo, NO el comportamiento que uno querría.**
+        // `cerrado_por_nombres` sale de `profesores`, y **0 de las 20 cuentas de tipo
+        // `Usuario` de esta base tienen ficha ahí** (0 de 22 en la copia de
+        // desarrollo): o sea que cuando cierra el paso un administrativo —que es
+        // quien atiende la ventanilla— el id viaja y **el nombre sale vacío**. Es la
+        // trampa que el `CLAUDE.md` ya tiene escrita, cometida otra vez. Se fija en
+        // rojo el día que se arregle, y entonces esta línea se cambia a `assertNotNull`
+        // con la decisión de Joseth delante: `users` sólo tiene `username`, así que
+        // **de dónde sale el nombre de un administrativo es una pregunta abierta**.
+        $this->assertNull($delPersonal->json('pasos.0.cerrado_por_nombres'),
+            'Ya sale el nombre del administrativo que cerró el paso: arregla esta línea, '
+            .'que fijaba el defecto.');
+
+        // **La misma cuenta, la ruta de al lado**: esto es lo que se lleva una
+        // pantalla mal cableada, y es un 200.
+        $conLaDeLaFamilia = $this->withToken($this->tokenLlano())
+            ->getJson('/api/requisitos/mi-recorrido/'.$alumno['alumno_id'])
+            ->assertStatus(200);
+
+        $crudo = json_encode($conLaDeLaFamilia->json());
+
+        $this->assertStringNotContainsString('observacion', $crudo,
+            'La observación interna empezó a salir por la ruta de la familia.');
+        $this->assertStringNotContainsString('cerrado_por', $crudo,
+            'El nombre de quien cerró el paso empezó a salir por la ruta de la familia.');
+
+        // Y la otra mitad: `descripcion` es la del REQUISITO y sí viaja. Fijarla aquí
+        // es lo que impide «arreglar» la asimetría quitándole a la familia el texto
+        // que le dice qué le piden.
+        $this->assertArrayHasKey('descripcion', $conLaDeLaFamilia->json('pasos.0'),
+            'La familia dejó de ver qué le piden en cada paso.');
+    }
+
     /** Un alumno no puede mirar el recorrido de un compañero. */
     public function test_un_alumno_no_ve_el_recorrido_de_otro(): void
     {
