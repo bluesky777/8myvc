@@ -107,6 +107,44 @@
 > **NO es un paso de despliegue**: el `.env` no viaja en el despliegue, así que desplegar no
 > rompe el correo ni lo arregla.
 
+> ### CORRIDO EN EL SERVIDOR EL 20 SEP 2026, Y SALIERON DOS COSAS
+>
+> **Los diecisiete de `micolev1`: `sendmail` y `admin@micolevirtual.com`, los diecisiete.** El
+> arreglo del 3 sep sigue en pie diecisiete días después y nadie lo ha movido.
+>
+> **1. `lal.micolevirtual.com` sale en verde y NO es el `lal` que falta.** Esa carpeta existe en
+> `micolev1` desde el 30 ago —es el document root que se preparó para el traslado— así que el
+> bucle la barrió y la arregló el 3 sep con las demás. Pero el subdominio no resuelve y ahí no
+> entra nadie: **el `lal` vivo se sirve desde `lalvirtual.edu.co`, cuenta `micolevi`, y además en
+> otro servidor** (`mi3-ss54`, no `mi3-ss55`). Sin la fila de NO MEDIDO del final, «17 ok» se lee
+> como «lal incluido» — que es exactamente para lo que está esa fila.
+>
+> **2. El `.env` vivo de `lal` es de OTRA GENERACIÓN, y es una tercera forma.** No es el
+> andamiaje del docker ni el bloque arreglado:
+>
+> ```env
+> MAIL_DRIVER=smtp            # <- Laravel <=6. Se renombró a MAIL_MAILER en la 7: NO LO LEE NADIE
+> MAIL_HOST=smtp.gmail.com
+> MAIL_PORT=587
+> MAIL_USERNAME=davidguerrero777@gmail.com
+> MAIL_PASSWORD=null          # <- la CADENA null: se autentica SIN contraseña
+> MAIL_ENCRYPTION=tls
+> ```
+>
+> Y **sin `MAIL_FROM_ADDRESS`**, que es lo que lo tumba primero: no es `null` como en los otros
+> dieciséis, es que **la línea no está**, así que `config/mail.php` cae a su defecto
+> —`hello@example.com`— y el correo *saldría* con ese remitente si el resto funcionara. **Es una
+> forma de fallar peor que la de los dieciséis**: aquélla se detenía antes de intentarlo; ésta
+> parece configurada.
+>
+> *La tesis del [29](29-los-env-no-son-uniformes.md) aguanta una vuelta más: no hay dos formas de
+> `.env`, hay tres, y la tercera es la instalación que ningún censo ha mirado nunca.*
+>
+> **El guion aprendió las dos** en el mismo commit: el transporte **efectivo** —sin `MAIL_MAILER`
+> el defecto es `smtp`, no «el valor por defecto», que no dice nada—, `MAIL_PASSWORD=null` en la
+> otra punta del mismo defecto que el remitente, y el fósil `MAIL_DRIVER`, que se avisa **gane el
+> veredicto que gane**: es la línea que hace leer un `.env` como configurado cuando no lo está.
+
 > ## ✅ DEL PAPEL AL ALUMNO — LAS CUATRO QUE CIERRAN EL FORMULARIO, ROUTER EN 619 (20 sep 2026)
 >
 > **Encargo de Joseth**: *«terminemos lo del formulario de inscripción… lo del código único que no

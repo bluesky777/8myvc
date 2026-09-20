@@ -259,6 +259,17 @@ for d in "${carpetas[@]}"; do
 
     mailer=$(valor_de MAIL_MAILER "$d/.env") || mailer=''
     tiene_mailer=0; existe_var MAIL_MAILER "$d/.env" && tiene_mailer=1
+    # `MAIL_DRIVER` es el nombre que tenía esta variable hasta Laravel 6. Se
+    # renombró a `MAIL_MAILER` en la 7 y este código sólo lee el nuevo, así que
+    # un .env que traiga el viejo **no está configurando nada**: parece puesto y
+    # no lo está. Medido: cero usos de MAIL_DRIVER en app/, config/, routes/ y
+    # bootstrap/.
+    tiene_driver_viejo=0; existe_var MAIL_DRIVER "$d/.env" && tiene_driver_viejo=1
+    # El transporte que usa Laravel de verdad: `config/mail.php` resuelve
+    # `env('MAIL_MAILER', 'smtp')`, así que sin la línea el transporte es `smtp`
+    # —con el MAIL_HOST que haya— y NO «el valor por defecto», que no dice nada.
+    efectivo="$mailer"
+    [ "$tiene_mailer" -eq 0 ] || [ -z "$mailer" ] && efectivo='smtp'
     host=$(valor_de MAIL_HOST "$d/.env") || host=''
     remitente=$(valor_de MAIL_FROM_ADDRESS "$d/.env") || remitente=''
     tiene_remitente=0; existe_var MAIL_FROM_ADDRESS "$d/.env" && tiene_remitente=1
@@ -279,18 +290,24 @@ for d in "${carpetas[@]}"; do
 
     # 2. El transporte.
     if [ "$estado" = 'OK' ]; then
-        if [ "$tiene_mailer" -eq 0 ] || [ -z "$mailer" ]; then
-            estado='REVISAR'; motivo='MAIL_MAILER ausente o vacío: cae al valor por defecto de config/mail.php'
-        elif [ "$mailer" = 'log' ] || [ "$mailer" = 'array' ]; then
-            estado='CAÍDO'; motivo="MAIL_MAILER=$mailer: el correo no sale del servidor y no da ningún error"
-        elif [ "$mailer" = 'smtp' ]; then
+        via=''
+        [ "$tiene_mailer" -eq 0 ] && via=' (sin MAIL_MAILER: el defecto de config/mail.php)'
+        if [ "$efectivo" = 'log' ] || [ "$efectivo" = 'array' ]; then
+            estado='CAÍDO'; motivo="MAIL_MAILER=$efectivo: el correo no sale del servidor y no da ningún error"
+        elif [ "$efectivo" = 'smtp' ]; then
+            clave=$(valor_de MAIL_PASSWORD "$d/.env") || clave=''
             if [ -z "$host" ] || [ "$host" = 'mailhog' ]; then
-                estado='CAÍDO'; motivo="MAIL_MAILER=smtp con MAIL_HOST=${host:-(vacío)}: el andamiaje del docker, aquí no conecta"
+                estado='CAÍDO'; motivo="smtp$via con MAIL_HOST=${host:-(vacío)}: el andamiaje del docker, aquí no conecta"
+            elif [ "$clave" = 'null' ] || [ "$clave" = '(null)' ]; then
+                # Mismo defecto que MAIL_FROM_ADDRESS=null, en la otra punta: la
+                # CADENA `null` se lee como null de verdad, así que el AUTH sale
+                # sin contraseña y el servidor de correo lo rechaza.
+                estado='CAÍDO'; motivo="smtp$via contra $host con MAIL_PASSWORD=null: se autentica SIN contraseña"
             else
-                estado='REVISAR'; motivo="MAIL_MAILER=smtp contra $host: no es lo decidido (sendmail), pero puede funcionar"
+                estado='REVISAR'; motivo="smtp$via contra $host: no es lo decidido (sendmail), pero puede funcionar"
             fi
-        elif [ "$mailer" != "$MAILER_BUENO" ]; then
-            estado='REVISAR'; motivo="MAIL_MAILER=$mailer, que no es $MAILER_BUENO ni smtp"
+        elif [ "$efectivo" != "$MAILER_BUENO" ]; then
+            estado='REVISAR'; motivo="MAIL_MAILER=$efectivo, que no es $MAILER_BUENO ni smtp"
         fi
     fi
 
@@ -314,6 +331,12 @@ for d in "${carpetas[@]}"; do
         esac
     fi
 
+    if [ "$tiene_driver_viejo" -eq 1 ] && [ "$tiene_mailer" -eq 0 ]; then
+        aviso_driver="$nombre — MAIL_DRIVER sin MAIL_MAILER: se renombró en Laravel 7 y este código no lee el viejo"
+    else
+        aviso_driver=''
+    fi
+
     case "$estado" in
         'OK')
             detalle="$mailer · $remitente"
@@ -332,6 +355,11 @@ for d in "${carpetas[@]}"; do
             pendientes+=("$nombre — $motivo")
             ;;
     esac
+
+    if [ -n "$aviso_driver" ]; then
+        printf '%-34s             OJO: MAIL_DRIVER es de Laravel <=6 y AQUÍ NO LO LEE NADIE\n' ''
+        pendientes+=("$aviso_driver")
+    fi
 done
 
 # ─── La número dieciocho ──────────────────────────────────────────────────────
