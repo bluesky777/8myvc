@@ -170,6 +170,26 @@ class AutopruebasDeLasHerramientasTest extends TestCase
             // pantalla —una rejilla vacía—. Un veredicto que confundiera dos de ésas daría
             // por desplegado un colegio al que no le llegó el módulo.
             'comprobar-el-horario.php' => ['php', 'tools/comprobar-el-horario.php --control'],
+
+            // La que ESCRIBE, y por eso entra aquí y no en la lista de las que sólo
+            // miden: `columnas-en-los-modelos.php --escribir` reemplaza el bloque de
+            // `@property` de cada modelo desde el volcado **congelado**, así que una
+            // columna que entró por migración —y que alguien tuvo que anotar a mano,
+            // porque el volcado no la tiene— se la llevaba por delante. Medido el 4
+            // sep 2026 regenerando los 54 ficheros de modelo sobre copias: 2 se
+            // perdían y 0 entraban (`Subunidad.rubrica_id`, `Profesor.tono`).
+            //
+            // **Y no lo delataba nada, ni podía.** Ninguna suite ejecuta `tools/`;
+            // borrar una `@property` no rompe ningún test, sólo hace que larastan deje
+            // de saber que la columna existe. El error sale semanas después, en otro
+            // fichero, como un nivel 7 que alguien «arregla» volviendo a anotarla —
+            // dentro del bloque, para que la próxima corrida la borre otra vez.
+            //
+            // El control fija las SEIS formas, no un número del árbol: cuántas se
+            // perderían hoy cambia con cada migración, y un control anclado en esa
+            // cifra se reescribe con la que salga en vez de con la que debía salir.
+            // Se ejerció contra la herramienta vieja antes de darlo por bueno: sale 1.
+            'columnas-en-los-modelos.php' => ['php', 'tools/columnas-en-los-modelos.php --control'],
         ];
     }
 
