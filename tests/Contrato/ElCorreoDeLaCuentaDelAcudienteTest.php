@@ -25,10 +25,15 @@ use Illuminate\Support\Facades\DB;
  *
  * La segunda es la que hay que defender con un test, porque la salida barata era
  * copiar entera la red de `AlumnosController:496` y `ProfesoresController:248`,
- * que en ese caso ponen `username@myvc.com`. Eso hace que el reseteo encuentre la
+ * que en ese caso ponían `username@myvc.com`. Eso hace que el reseteo encuentre la
  * cuenta, mande el enlace a un buzón de nadie y conteste «Enviado»: cambia «no
  * llega» por «no llega y además creemos que sí». Ya le pasa a 16 cuentas vivas,
  * 11 de ellas de profesores.
+ *
+ * **Y ese día la decisión se extendió a los otros dos**: Joseth quitó el invento en
+ * `AlumnosController` y `ProfesoresController` también, así que hoy no lo fabrica
+ * ningún camino. Este test sigue haciendo falta —es el que impide que vuelva por
+ * aquí— y el de los otros dos vive en `SinCorreoNoSeInventaNingunoTest`.
  */
 class ElCorreoDeLaCuentaDelAcudienteTest extends CasoDeContrato
 {

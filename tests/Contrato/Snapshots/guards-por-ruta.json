@@ -126,6 +126,7 @@
         "GET api/profesores/show/{id}",
         "GET api/profesores/todos",
         "GET api/profesores/trashed",
+        "GET api/requisitos/recorrido/{alumno_id}",
         "GET api/roles",
         "GET api/roles/rolesconpermisos",
         "GET api/rubricas",

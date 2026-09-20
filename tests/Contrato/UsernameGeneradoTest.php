@@ -141,8 +141,15 @@ class UsernameGeneradoTest extends CasoDeContrato
      *
      * No es un problema de acceso —`users.username` es `utf8mb4_unicode_ci`, así
      * que `JoseAndres` y `JoséAndrés` son el mismo valor para MySQL— sino de que
-     * un identificador acaba en sitios que no son MySQL: el correo autogenerado
-     * de la §9 es `username@myvc.com`, y con tilde `filter_var` lo rechaza.
+     * un identificador acaba en sitios que no son MySQL.
+     *
+     * **El ejemplo con el que se escribió este test ya no existe**: era el correo
+     * autogenerado de la §9, `username@myvc.com`, que con tilde rechazaba
+     * `filter_var` — y ese invento se quitó el 20 sep 2026 por decisión de Joseth
+     * (`SinCorreoNoSeInventaNingunoTest`). El test se queda porque el username sigue
+     * viajando fuera de MySQL; lo que caducó es el ejemplo, no el motivo. *Se dice en
+     * vez de borrarlo: un docblock que describe un mecanismo muerto es peor que uno
+     * que no explica nada.*
      */
     public function test_las_tildes_se_transliteran(): void
     {

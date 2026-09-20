@@ -18,6 +18,123 @@ class RequisitosController extends Controller {
 	use ResuelveElUsuario;
 
 
+	/**
+	 * **EL RECORRIDO DE UN ALUMNO EL DÍA DE MATRÍCULAS.**
+	 *
+	 * Fase 1 del proceso de admisión, autorizada por Joseth el 20 sep 2026. Contesta
+	 * la pregunta que hoy depende de que quien atiende mire bien la hoja:
+	 * **¿puede atenderlo, o hay que devolverlo, y a dónde?**
+	 *
+	 * Su frase es el requisito literal: *«si una estación busca al estudiante y ve
+	 * que el requisito 2 no está marcado y esta es la estación 4, entonces le dice
+	 * que se devuelva a la estación 3»*. Es la pantalla 09 de
+	 * `myvc_front/PANTALLAS-MATRICULA.md`, y es la que más tiempo ahorra del día.
+	 *
+	 * ## LO QUE FRENA LO DICE `bloquea`, ESTACIÓN POR ESTACIÓN
+	 *
+	 * Y esa granularidad no es un lujo: sale de que *«falta»* significa **dos cosas
+	 * distintas según la estación** —o la familia no entregó, o nadie lo marcó—.
+	 * Donde el dato es fiable el colegio enciende `bloquea` y frena de verdad; donde
+	 * nadie marca lo deja apagado y **sale igualmente en `pendientes`, informando**.
+	 *
+	 * Un bloqueo global habría mandado de vuelta a familias que sí entregaron, **el
+	 * primer día y en la cola**. Por eso `devolver_a` mira **sólo** los que bloquean,
+	 * y `pendientes` los devuelve todos.
+	 *
+	 * ## NO ESCRIBE NADA, y por eso es un GET
+	 *
+	 * Mirar el recorrido de alguien no puede cambiarlo. La estación cierra su paso
+	 * con `postAlumno`, que es donde queda su nombre y su hora.
+	 *
+	 * ## El año es el de la SESIÓN, no el de la URL
+	 *
+	 * Los requisitos son por año (`requisitos_matricula.year_id`) y quien atiende una
+	 * estación está trabajando el día de matrículas de su año. Aceptar un año por
+	 * parámetro dejaría que una estación cerrara el recorrido de una campaña vieja
+	 * sin darse cuenta.
+	 */
+	public function getRecorrido($alumno_id)
+	{
+		$user = $this->user;
+
+		if (! is_numeric($alumno_id)) {
+			abort(422, 'El alumno no es válido.');
+		}
+
+		$alumno = DB::selectOne('SELECT a.id, a.nombres, a.apellidos, a.documento
+			FROM alumnos a WHERE a.id=? AND a.deleted_at IS NULL', [(int) $alumno_id]);
+
+		if (! $alumno) {
+			abort(404, 'Ese alumno no existe.');
+		}
+
+		// `LEFT JOIN` y no `INNER`: **un requisito que nadie ha tocado todavía no
+		// tiene fila en `requisitos_alumno`**, y es justo el que hay que enseñar.
+		// Con `INNER` el recorrido de quien acaba de llegar saldría vacío, que es el
+		// caso más común de la mañana.
+		$pasos = DB::select('SELECT r.id, r.orden AS estacion, r.requisito, r.descripcion,
+				r.bloquea,
+				ra.id AS marca_id, ra.estado, ra.descripcion AS observacion,
+				ra.cerrado_por, ra.cerrado_at,
+				p.nombres AS cerrado_por_nombres, p.apellidos AS cerrado_por_apellidos
+			FROM requisitos_matricula r
+			LEFT JOIN requisitos_alumno ra ON ra.requisito_id=r.id AND ra.alumno_id=?
+			LEFT JOIN users u ON u.id=ra.cerrado_por AND u.deleted_at IS NULL
+			-- **`profesores.user_id`, NO `users.profesor_id`**, y no es indiferente:
+			-- las dos columnas existen y **la segunda está VACÍA**. Medido en la base
+			-- de tests: 0 filas de `users` con `profesor_id`, 47 de `profesores` con
+			-- `user_id`. Escrito al revés, esto no habría devuelto un nombre jamás y
+			-- el renglón «cerrado por» habría salido en blanco en los diecisiete sin
+			-- que nada fallara — `profesores.tono` visto antes de cometerlo.
+			LEFT JOIN profesores p ON p.user_id=u.id AND p.deleted_at IS NULL
+			WHERE r.year_id=? AND r.deleted_at IS NULL
+			ORDER BY r.orden, r.id', [(int) $alumno->id, $user->year_id]);
+
+		$pendientes = [];
+		$devolver_a = null;
+
+		foreach ($pasos as $paso) {
+			// **«Cumplido» es cualquier estado que NO sea el de partida.** El seed
+			// trae `falta` y el legacy escribe lo que la pantalla mande, así que una
+			// lista blanca de estados buenos se quedaría corta en silencio el día que
+			// un colegio escriba «Entregado» con mayúscula. Lo que sí es seguro es
+			// que `falta` —y una fila que no existe— significan que no está.
+			$paso->cumplido = $paso->marca_id !== null
+				&& mb_strtolower(trim((string) $paso->estado)) !== 'falta';
+
+			$paso->bloquea = (bool) $paso->bloquea;
+
+			if ($paso->cumplido) {
+				continue;
+			}
+
+			$pendientes[] = [
+				'estacion' => (int) $paso->estacion,
+				'requisito' => $paso->requisito,
+				'bloquea' => $paso->bloquea,
+			];
+
+			// El primero que bloquea es a donde se devuelve: ir al último sería
+			// mandarla al final de un recorrido que todavía no ha hecho.
+			if ($paso->bloquea && $devolver_a === null) {
+				$devolver_a = ['estacion' => (int) $paso->estacion, 'requisito' => $paso->requisito];
+			}
+		}
+
+		return [
+			'alumno' => $alumno,
+			'year_id' => (int) $user->year_id,
+			'pasos' => $pasos,
+			'pendientes' => $pendientes,
+			// **Las dos viajan, y no es redundancia**: `puede_continuar` es lo que
+			// decide el botón, y `devolver_a` es lo que hay que decirle a la familia.
+			// Una pantalla que sólo tuviera la primera diría «no» sin saber a dónde
+			// mandarla, que es exactamente el trabajo que esto viene a quitar.
+			'puede_continuar' => $devolver_a === null,
+			'devolver_a' => $devolver_a,
+		];
+	}
+
 	public function putIndex()
 	{
         
@@ -41,9 +158,17 @@ class RequisitosController extends Controller {
         $year_id    = Request::input('year_id');
         $now 		= Carbon::now('America/Bogota');
         
-        $consulta = 'INSERT INTO requisitos_matricula(requisito, descripcion, updated_by, created_at, updated_at, year_id) 
-            VALUES(?,?,?,?,?,?)';
-        DB::insert($consulta, [$requ, $descrip, $this->user->user_id, $now, $now, $year_id]);
+        // `orden` ES el número de estación que va impreso en la cartulina —decidido
+        // por Joseth el 20 sep 2026—, y `bloquea` es si esa estación es «obligatoria
+        // antes de continuar» u «opcional». Los dos son opcionales aquí: una llamada
+        // de la pantalla vieja sigue creando un requisito que no frena a nadie, que
+        // es exactamente el comportamiento de antes.
+        $orden   = (int) (Request::input('orden') ?? 0);
+        $bloquea = Request::boolean('bloquea') ? 1 : 0;
+
+        $consulta = 'INSERT INTO requisitos_matricula(requisito, descripcion, orden, bloquea, updated_by, created_at, updated_at, year_id) 
+            VALUES(?,?,?,?,?,?,?,?)';
+        DB::insert($consulta, [$requ, $descrip, $orden, $bloquea, $this->user->user_id, $now, $now, $year_id]);
         
         $consulta = 'SELECT * FROM requisitos_matricula WHERE id=?';
         $requisito = DB::select($consulta, [ DB::getPdo()->lastInsertId() ] )[0];
@@ -60,8 +185,39 @@ class RequisitosController extends Controller {
 		$descrip    = Request::input('descripcion');
 		$now 		= Carbon::now('America/Bogota');
 		
-		$consulta = 'UPDATE requisitos_matricula SET requisito=?, descripcion=?, updated_by=?, updated_at=? WHERE id=?';
-		DB::update($consulta, [$requ, $descrip, $this->user->user_id, $now, $id]);
+		// **`orden` y `bloquea` sólo se escriben si VIENEN**, y esto no es simetría con
+		// `postAlumno`: es lo que impide que la pantalla vieja los apague sin querer.
+		//
+		// Esa pantalla está desplegada en los dieciséis colegios y manda `requisito` y
+		// `descripcion` y nada más. Escritos incondicionalmente, cada vez que alguien
+		// corrigiera una tilde en el nombre de un paso **le pondría `orden=0` y
+		// `bloquea=0`** — o sea, desharía el recorrido del día de matrículas al
+		// editar un texto, sin error y sin que nadie lo note hasta la cola.
+		//
+		// Es el mismo caso que el `valor` del formulario de inscripción
+		// ([41 §5.ter](../../../docs/migracion/41-el-formulario-de-inscripcion.md)),
+		// donde la pantalla vieja «no revienta: apaga el cobro sin querer». Ahí se
+		// avisó; aquí se impide.
+		$sets    = ['requisito=?', 'descripcion=?'];
+		$valores = [$requ, $descrip];
+
+		if (Request::has('orden')) {
+			$sets[]    = 'orden=?';
+			$valores[] = (int) Request::input('orden');
+		}
+
+		if (Request::has('bloquea')) {
+			$sets[]    = 'bloquea=?';
+			$valores[] = Request::boolean('bloquea') ? 1 : 0;
+		}
+
+		$sets[]    = 'updated_by=?';
+		$valores[] = $this->user->user_id;
+		$sets[]    = 'updated_at=?';
+		$valores[] = $now;
+		$valores[] = $id;
+
+		DB::update('UPDATE requisitos_matricula SET '.implode(', ', $sets).' WHERE id=?', $valores);
 		
 		return 'Actualizado';
 	}
@@ -111,6 +267,26 @@ class RequisitosController extends Controller {
 		// moveria lo que ven las pantallas vivas de los dieciseis colegios.
 		if (count($sets) === 0) {
 			return 'Actualizado';
+		}
+
+		// **La firma de quien CIERRA, que no es `updated_by`.** Decidido por Joseth el
+		// 20 sep 2026: «cualquiera del personal puede cerrar, pero queda con su
+		// nombre y hora».
+		//
+		// `updated_by` cambia cada vez que alguien toca la fila —corregir una
+		// observación, una tilde, desmarcar— así que al final del día dice **quién
+		// pasó por aquí el último**, no quién chuleó. Son dos preguntas distintas y
+		// la del día de matrículas es la segunda.
+		//
+		// Sólo se escribe cuando el estado deja de ser «falta» **y no estaba cerrado
+		// ya**: reabrir y volver a cerrar deja la firma de quien lo cerró de verdad,
+		// y tocar la observación de algo ya cerrado no reescribe su hora.
+		if (Request::has('estado')
+			&& mb_strtolower(trim((string) Request::input('estado'))) !== 'falta') {
+			$sets[]    = 'cerrado_por=COALESCE(cerrado_por,?)';
+			$valores[] = $this->user->user_id;
+			$sets[]    = 'cerrado_at=COALESCE(cerrado_at,?)';
+			$valores[] = $now;
 		}
 
 		$sets[]    = 'updated_by=?';

@@ -271,6 +271,102 @@ class LaFamiliaPreguntaTest extends CasoDeContrato
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // 6 · PREGUNTAR NO PUEDE GASTAR SUBIDAS
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * **Refrescar «¿ya me aprobaron?» no puede dejar a la familia sin poder subir
+     * el recibo.**
+     *
+     * Lo encontró `8myvc-dd` revisando esta ruta, y no es un número mal puesto: es
+     * cómo Laravel construye la clave de un limitador con nombre.
+     * `ThrottleRequests::handleRequestUsingNamedLimiter` hace
+     *
+     *     'key' => md5($limiterName.$limit->key)
+     *
+     * **sin el verbo y sin la ruta.** Como el `GET` y el `POST` comparten
+     * `throttle:colilla` y los mismos `by('ip:…')` y `by('cod:…')`, **son un solo
+     * cubo de diez por hora para las dos**.
+     *
+     * Y el reparto sale justo al revés de lo que conviene: **preguntar es la acción
+     * barata que una familia repite** —refrescando— y **subir es la cara y rara**.
+     *
+     * ## Lo que lo hace peor que un tope estrecho: rompe la promesa de esta ruta
+     *
+     * `puede_enviar_otro` diría **`true`** —y sería cierto, el tope de tres por orden
+     * está libre— y el `POST` rebotaría igual, con el **429 genérico de Laravel** en
+     * vez del mensaje que explica qué pasa. **La familia lee «puede mandar otro» y
+     * recibe «demasiados intentos».**
+     */
+    public function test_preguntar_muchas_veces_no_gasta_las_subidas(): void
+    {
+        $codigo = $this->unCodigoAcunado();
+
+        // Once consultas: una familia refrescando. El tope de `colilla` son diez.
+        for ($i = 0; $i < 11; $i++) {
+            $this->getJson(self::RUTA.'/'.$codigo)->assertStatus(200);
+        }
+
+        // Y ahora sube su recibo POR PRIMERA VEZ.
+        $r = $this->postJson(self::RUTA.'/'.$codigo, ['referencia' => 'REC-200']);
+
+        $this->assertSame(200, $r->status(),
+            'Preguntar gastó el saldo de subir: la familia refrescó la pantalla y ahora no puede '
+            .'mandar su comprobante. El limitador de la lectura y el de la escritura son el mismo '
+            .'cubo, porque la clave de un limitador con nombre no lleva el verbo ni la ruta.');
+
+        $this->assertSame(1, (int) DB::selectOne('SELECT COUNT(*) c FROM colillas_inscripcion')->c);
+    }
+
+    /**
+     * Y el contrario, que es la mitad que no se puede perder al arreglarlo: **el
+     * limitador de SUBIR sigue en diez por hora**. Aflojar el de la lectura no puede
+     * aflojar el de la escritura, que es el que protege el disco.
+     *
+     * ## Este test estuvo escrito de forma que NO medía eso, y se vio
+     *
+     * La primera versión subía dos comprobantes a la **misma orden** y esperaba 429
+     * en el segundo. Eso pasa siempre — pero **por el tope de «una pendiente por
+     * orden», no por el limitador** —, así que pasaba **también con el `POST` mal
+     * configurado**: durante un control lo dejé apuntando por error al limitador de
+     * la lectura, de sesenta, y este test siguió en verde.
+     *
+     * Es el detector contando bien un síntoma **sin estar contando la causa**. Para
+     * medir el limitador de verdad hay que gastarlo **por IP**, que es lo único que
+     * el tope por orden no tapa: once órdenes distintas, una subida en cada una.
+     */
+    public function test_subir_sigue_topado_en_diez_por_hora(): void
+    {
+        // Once códigos distintos: así el tope de «una pendiente por orden» nunca
+        // entra en juego y lo único que puede frenar es el limitador por IP.
+        $codigos = array_column($this->withToken($this->tokenLlano())
+            ->postJson('/api/informes/formularios-inscripcion', ['modo' => 'nuevos', 'cantidad' => 11])
+            ->assertStatus(200)->json('formularios'), 'codigo');
+
+        for ($i = 0; $i < 10; $i++) {
+            $this->postJson(self::RUTA.'/'.$codigos[$i], ['referencia' => 'REC-3'.$i])
+                ->assertStatus(200);
+        }
+
+        $this->postJson(self::RUTA.'/'.$codigos[10], ['referencia' => 'REC-310'])
+            ->assertStatus(429);
+
+        $this->assertSame(10, (int) DB::selectOne('SELECT COUNT(*) c FROM colillas_inscripcion')->c,
+            'El limitador de subir dejó pasar más de diez por hora desde la misma IP.');
+    }
+
+    /** Y el tope por orden, que es el que de verdad protege el disco, sigue en pie. */
+    public function test_una_sola_pendiente_por_orden(): void
+    {
+        $codigo = $this->unCodigoAcunado();
+
+        $this->postJson(self::RUTA.'/'.$codigo, ['referencia' => 'REC-201'])->assertStatus(200);
+        $this->postJson(self::RUTA.'/'.$codigo, ['referencia' => 'REC-202'])->assertStatus(429);
+
+        $this->assertSame(1, (int) DB::selectOne('SELECT COUNT(*) c FROM colillas_inscripcion')->c);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
 
     private function unCodigoAcunado(): string
     {

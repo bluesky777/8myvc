@@ -14,6 +14,7 @@ use App\Models\Parentesco;
 use App\Models\Role;
 use App\Models\Year;
 use App\Support\Autoriza;
+use App\Support\CorreoDeLaCuenta;
 use App\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -397,13 +398,15 @@ where id in (
             //
             // Se copia la ficha cuando no viene `email2`, y **si no hay ninguno de los
             // dos se deja vacío**. `AlumnosController:496` y `ProfesoresController:248`
-            // sí inventan `username@myvc.com` en ese caso y **aquí no se hace**: eso
+            // inventaban `username@myvc.com` en ese caso y aquí no se hizo nunca —y desde
+            // el 20 sep 2026 ya no lo inventa ninguno de los tres, decidido por Joseth
+            // ese mismo día al ver lo que costaba—: eso
             // llena la columna de buzones de nadie, y entonces el método encuentra la
             // cuenta, manda el enlace y contesta «Enviado» — cambia «no llega» por «no
             // llega y además creemos que sí». Medido: 16 cuentas vivas ya lo tienen,
             // 11 de ellas profesores. Decisión de Joseth, 20 sep 2026.
-            $correo_cuenta = trim((string) (Request::input('email2') ?: Request::input('email')));
-            $usuario->email = $correo_cuenta !== '' ? $correo_cuenta : null;
+            $usuario->email = CorreoDeLaCuenta::oNada(Request::input('email2'))
+                ?? CorreoDeLaCuenta::oNada(Request::input('email'));
             $usuario->periodo_id = 1;
             $usuario->sexo = 'M';
             $usuario->tipo = 'Acudiente';
@@ -450,8 +453,7 @@ where id in (
         // Se lee de la base y no de `$acu`, que viene del cliente: de ahí sólo
         // hace falta el id.
         $ficha = DB::select('SELECT email FROM acudientes WHERE id = ? AND deleted_at IS NULL', [$acu['id']]);
-        $correo_ficha = count($ficha) > 0 ? trim((string) $ficha[0]->email) : '';
-        $usu->email = $correo_ficha !== '' ? $correo_ficha : null;
+        $usu->email = count($ficha) > 0 ? CorreoDeLaCuenta::oNada($ficha[0]->email) : null;
 
         $usu->save();
 

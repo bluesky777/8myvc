@@ -193,6 +193,23 @@ Route::put('prematriculas/alumnos-grado-anterior', [PrematriculasController::cla
 // Ninguno de sus seis métodos comprueba nada: el único intento estaba en el
 // constructor y no se ejecutaba. Un alumno podía borrar requisitos de matrícula.
 Route::put('requisitos', [RequisitosController::class, 'putIndex'])->middleware('auth.personal');
+// EL RECORRIDO DE UN ALUMNO EL DÍA DE MATRÍCULAS. Fase 1 del proceso de admisión,
+// autorizada por Joseth el 20 sep 2026; decisiones en `docs/migracion/44`.
+//
+// Contesta lo que hoy depende de que quien atiende mire bien la hoja: **¿puede
+// atenderlo, o hay que devolverlo, y a dónde?** Es su frase literal — «si una
+// estación ve que el requisito 2 no está marcado y esta es la estación 4, le dice
+// que se devuelva a la estación 3».
+//
+// GET porque NO ESCRIBE NADA: mirar el recorrido de alguien no puede cambiarlo. La
+// estación cierra su paso con `requisitos/alumno`, que es donde queda su nombre y su
+// hora.
+//
+// `auth.personal` y nada dentro, a propósito: el día de matrículas atienden docentes
+// de cualquier asignatura, y exigir un rol dejaría fuera justo a quien está en la
+// estación. Joseth lo decidió así el 20 sep — «cualquiera puede cerrar, pero queda
+// con su nombre y hora».
+Route::get('requisitos/recorrido/{alumno_id}', [RequisitosController::class, 'getRecorrido'])->middleware('auth.personal');
 Route::post('requisitos/alumno', [RequisitosController::class, 'postAlumno'])->middleware('auth.personal');
 Route::put('requisitos/listado-observaciones', [RequisitosController::class, 'putListadoObservaciones'])->middleware('auth.personal');
 Route::post('requisitos/store', [RequisitosController::class, 'postStore'])->middleware('auth.personal');

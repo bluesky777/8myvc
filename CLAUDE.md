@@ -8,12 +8,21 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**622 rutas** (contadas con `route:list --json` el **20 sep 2026 en `.worktrees/imp`, rama
-`feat/avisos-de-la-importacion` — *SIN FUNDIR: hay que recontarlas en el árbol principal el día que
-entren***). Las dos que suben sobre las 620 son las de la **Fase 2 de la importación dinámica**
-—`GET importar/alumnos/pendiente/{year}`, que dice si hay una importación a medias, y **`POST
+**623 rutas** (contadas con `route:list --json` el **20 sep 2026 en `.worktrees/imp` DESPUÉS de
+traer `main`** — *SIN FUNDIR: hay que recontarlas en el árbol principal el día que entren*). Las dos
+que suben sobre las 621 son las de la **Fase 2 de la importación dinámica** —`GET
+importar/alumnos/pendiente/{year}`, que dice si hay una importación a medias, y **`POST
 importar/alumnos/ensayo/{year}`, que contesta qué va a pasar sin escribir una sola fila**—, las dos
 con `auth.personal`, el mismo guard que la subida.
+
+> **Y aquí las dos ramas del día se cruzaron en TRES sitios y ninguna podía verlo.** Esta cifra se
+> escribió **622** mientras `main` estaba en 620; entre medias entró `GET
+> requisitos/recorrido/{alumno_id}` y dejó `main` en 621, así que **622 era cierto en su árbol y
+> falso en cuanto salió de él**. Lo mismo con el número de documento —las dos sesiones estrenaron
+> un **44** el mismo día— y con la migración, donde las dos eligieron el mismo minuto
+> (`2026_09_20_300000`). *Tres números elegidos mirando el árbol propio, y los tres describían un
+> árbol que ya no existía al fundir.* Se corrigen mirando `main`, no discutiendo cuál tenía razón:
+> el documento pasa a **45** y la migración a `…_400000`.
 
 > **Mueven TRES instantáneas y ni una más, y la que NO se mueve explica la regla.** `importar` ya
 > tenía **cuatro hermanas con guard** —o sea ≥ 2— así que el candado de familia ya la miraba y
@@ -34,6 +43,25 @@ antes en `.worktrees/es`. La que subía sobre las 619 era **`GET colillas-inscri
 **decimosexta pública y la primera de LECTURA** de todo el módulo del formulario: hasta ella las
 tres públicas eran las tres de escritura, así que la familia mandaba su comprobante y no podía
 saber si se lo aprobaron ni por qué.
+
+El número anterior era **621**, contado con `route:list --json` el **20 sep 2026 en el ÁRBOL
+PRINCIPAL, sobre `main` y después de fundir** (`939ec20`) — y coincidieron con las 621 contadas
+antes en `.worktrees/est`. La que subía sobre las 620 era **`GET requisitos/recorrido/{alumno_id}`**,
+la **fase 1 del proceso de admisión**: el recorrido del día de matrículas, que contesta *«¿puede
+atenderlo, o hay que devolverlo, y a dónde?»* — hoy eso depende de que quien atiende mire bien la
+hoja.
+
+> **Y la fase 1 entra con TRES columnas donde la propuesta pedía diez, y ninguna de las siete que
+> faltan se cae por recorte: cada una la cerró una respuesta de Joseth.** `estacion_nro` no, porque
+> el número impreso **es** `requisitos_matricula.orden`, que ya existía; `rol_id` no, porque cierra
+> cualquiera del personal; `obligatorio` no, porque describió **un** interruptor y no dos. *Una
+> columna sin pantalla no la escribe nadie — es `profesores.tono`, y van cinco en un mes.*
+
+El número anterior era **620**, contado en el ÁRBOL PRINCIPAL sobre `main` tras fundir (`b8b3853`) — y coincidieron con las 620 contadas antes en
+`.worktrees/es`, que es la única forma de saber que coincidía. La que sube sobre las
+619 es **`GET colillas-inscripcion/{codigo}`**, la **decimosexta pública y la primera de LECTURA**
+de todo el módulo del formulario: hasta ella las tres públicas eran las tres de escritura, así que
+la familia mandaba su comprobante y no podía saber si se lo aprobaron ni por qué.
 
 > **Mueve los CINCO sitios de la regla y ni uno más, y las dos que NO mueve explican dónde
 > ponerla.** `guards-por-ruta.json` lista las que **llevan** guard, y ésta no lleva; y
@@ -638,6 +666,8 @@ leyendo el código. Cada una lleva su uso en la cabecera.
 | `deriva-del-horario.php` | si las siete columnas de día siguen cuadrando con la versión oficial — **sin versión publicada sale `2`, NO MEDIDO**, porque ahí un `0` diría lo mismo que un año perfecto |
 | `ensayo-de-la-tanda.sh` | si la tanda de migraciones corre entera sobre una copia de un colegio de verdad y cuánto tarda — y **audita la comprobación de `DESPLIEGUE.md`**, que la saca del documento con `grep` en vez de copiarla |
 | `comprobar-el-horario.php` | si el módulo de horario **llegó** a un colegio: `200` con `total: 0` no es lo mismo que `404` ni que `500`, y desde la pantalla los tres son una rejilla vacía |
+| `imports-de-facades.php` | qué `use` resuelven por el array `aliases` en vez de por el nombre completo — **`--dry-run` NO es opcional: sin él ESCRIBE** |
+| `requisitos-de-matricula.php` | cómo usa un colegio **de verdad** los requisitos: cuántos pasos, en qué orden, con qué dueño y cuántos se cierran — **imprime el nombre de la base en cada bloque**, porque en desarrollo sale 1 paso y 0 cerrados y eso contesta bien a otra pregunta |
 | `lo-que-reparte-una-columna.py` | qué instantáneas se mueven el día que una tabla gane una columna — **cobertura, no exposición**: son los ficheros que hay que regenerar, no las respuestas que ganan la columna |
 | `ensayo-del-alter-en-maria.sh` | si el `ALTER` de la casilla vacía bloquea el guardado de notas en **MariaDB**, que es lo que corre producción — **la señal no es que la escritura falle, es la LATENCIA**, así que trae su propio control que sí bloquea (`COPY, LOCK=SHARED`) |
 | `correo-de-los-colegios.sh` | qué instalaciones no pueden mandar correo, leído de su `.env` — **la caché de configuración manda sobre el fichero**, y la instalación viva de `lal` queda fuera del bucle: sale `2`, nunca verde |
@@ -779,6 +809,31 @@ en vez de una llamada. Ese criterio ha encontrado todo lo que se ha encontrado.
 
 Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tests.md`.
 
+> **Y un candado que mintió durante meses, corregido el 20 sep 2026: el orden de
+> registro de las rutas.** Laravel sirve **la primera que casa**, así que un comodín
+> declarado antes que una ruta literal se la traga —`…/{lote}` comiéndose `…/campos`,
+> `…/{codigo}` comiéndose `…/pendientes`—, y eso **no cambia el conjunto de rutas ni
+> la acción declarada de ninguna**: las dos siguen ahí. Sólo cambia cuál gana.
+>
+> `RutasTest` decía en su docblock que cubría exactamente esto —*«reordenar puede
+> tapar `puestos/detailed` con `puestos/{id}`… lo que se guarda aquí es, para cada URI
+> literal, QUÉ acción la atiende»*— **y no lo cubría**: la instantánea guarda la acción
+> **declarada**, y reordenar deja `rutas.json` byte a byte igual. Comprobado
+> reproduciendo los dos casos reales: el test viejo **se queda verde** en los dos.
+>
+> Los dos pasaron con ese test en verde y se cazaron **a mano, uno por uno**. Ahora los
+> caza `test_ninguna_ruta_literal_la_atiende_un_comodin`, que no lee lo declarado: **le
+> pregunta al router** con `getRoutes()->match()`, que es lo que hará el servidor.
+>
+> **La lección no es del router, es del candado**: *un detector puede contar bien un
+> síntoma sin estar contando la causa* — y éste llevaba **el nombre de la causa escrito
+> en el docblock**, que es justo lo que hizo que nadie fuera a mirar. Cuando un test
+> dice que protege algo, la forma de saberlo es **romper ese algo y verlo en rojo**, no
+> leer su docblock.
+>
+> Y `route:list` tampoco lo delata: **ordena alfabéticamente y no por orden de
+> registro**, así que la forma natural de comprobarlo miente.
+
 ### Calidad
 
 - **Pint** solo sobre lo que escribió la migración (ver `composer.json`).
@@ -895,6 +950,51 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
   > es un adorno del número: aquí es lo único que distingue «deuda conocida» de «algo se
   > rompió».*
   >
+  > ### ⚠️ PINT DEJA `use Log;` EN LOS CONTROLADORES VIEJOS, Y ESO PONE LA SUITE EN ROJO
+  >
+  > **Visto TRES veces, en tres ficheros y por tres sesiones distintas**, así que ya no es el
+  > descuido de nadie: es lo que hace Pint con estos ficheros.
+  >
+  > ```
+  > 19 sep 2026   UnidadesController   el Pint de la P6            3ce3056
+  > 19 sep 2026   ImporterFixer        el mismo día, otro fichero  e4686ba
+  > 20 sep 2026   AlumnosController    el Pint de los perfiles     2503b27
+  > ```
+  >
+  > Lo que pasa es esto: el fichero viejo usa `Log::info(...)` sin importar nada —resolvía por el
+  > array `aliases` de `config/app.php`—, Pint ordena los `use` y **añade `use Log;`**, que sigue
+  > resolviendo por el alias en vez de por el nombre completo. **No rompe en ejecución**, así que
+  > el fichero funciona; lo que se pone rojo es `AliasDeFacadesTest`, y **en la testsuite `Unit`**,
+  > que es justo la que no corre quien publica con `--testsuite=Contrato`.
+  >
+  > **Después de pintar un controlador viejo, una orden:**
+  >
+  > ```bash
+  > php tools/imports-de-facades.php --dry-run      # dice qué resolvería por el alias
+  > php tools/imports-de-facades.php                # ⚠️ SIN EL FLAG, ESCRIBE
+  > ```
+  >
+  > **`--dry-run` no es opcional y el nombre de la herramienta no lo sugiere**: sin él no es un
+  > informe, es una reparación, y en un árbol compartido eso le deja a otro un fichero cambiado que
+  > no tocó. Lo descubrió `8myvc-9a` el 20 sep corriéndola para *ver el alcance* y encontrándose el
+  > fichero ya arreglado.
+
+  > ### Y LA FAMILIA ENTERA: UN TEST QUE LEE UN FICHERO COMO FUENTE SE ROMPE AL FORMATEARLO
+  >
+  > El caso de arriba es uno de dos vistos el mismo día. El otro:
+  > **`PoblacionDePerfilesTest` buscaba `/\n\tpublic function/` — con un TABULADOR**, así que
+  > pintar `PerfilesController` lo puso rojo diciendo que habían cambiado los métodos que nombran
+  > grupos. **No cambió ninguno**: cambió la indentación.
+  >
+  > *Un test que mira el código como texto mide el formato aunque crea que mide el código.*
+  >
+  > **La orden, que es lo único que hay que recordar de esto** — antes de pintar un fichero,
+  > mirar quién lo lee como fuente:
+  >
+  > ```bash
+  > grep -rl "<NombreDelFichero>" tests/
+  > ```
+
   > **La confusión cara es la segunda**, no la tercera: quien corre `composer run pint`
   > *para comprobar* **reformatea ficheros sin pedirlo**. En un árbol que comparten
   > varias sesiones eso no rompe nada por sí solo —formatear no estaña— pero **le deja a

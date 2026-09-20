@@ -1,75 +1,76 @@
-<?php namespace App\Http\Controllers;
+<?php
 
+namespace App\Http\Controllers;
 
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Request;
-
-use App\User;
+use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Models\Profesor;
-use App\Support\Autoriza;
-use App\Support\CamposQueVinieron;
 use App\Models\Role;
 use App\Models\Year;
-use Illuminate\Support\Facades\Hash;
+use App\Support\Autoriza;
+use App\Support\CamposQueVinieron;
+use App\Support\CorreoDeLaCuenta;
+use App\User;
 use Carbon\Carbon;
-use App\Http\Controllers\Concerns\ResuelveElUsuario;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Request;
 
+class ProfesoresController extends Controller
+{
+    use ResuelveElUsuario;
 
-class ProfesoresController extends Controller {
-	use ResuelveElUsuario;
+    /**
+     * La ficha del personal del colegio — **la lee quien lo administra, no cualquiera**.
+     *
+     * Iba con `auth.personal` y nada más, así que **un docente cualquiera se llevaba
+     * la hoja de vida de los 47 empleados**: `num_doc`, `fecha_nac`, `direccion`,
+     * `barrio`, `celular`, `username` y el `is_superuser` de cada uno —que además
+     * dice a quién apuntar—. No parecido a lo del administrador: **las mismas 28
+     * claves y los mismos 47 registros**. Medido con un token de Profesor de verdad,
+     * no leído: 35 documentos de identidad, 41 fechas de nacimiento, 11 domicilios.
+     *
+     * **Y la pantalla no existe para ese rol**, que es lo que lo mantenía invisible:
+     * el menú del docente no ofrece «Profesores» en ninguno de los dos fronts. La
+     * abría el endpoint, que no miraba quién preguntaba — esconder un botón no niega
+     * nada. Lo encontró `myvc-front-6b` poniendo dos roles uno al lado del otro.
+     *
+     * **Por qué se cierra la puerta y no se recorta la respuesta**, al revés que en
+     * `Profesor::contratos()` (05 §14.4): aquélla la consumen once sitios de tres
+     * clientes, así que quitarle campos no rompía a nadie y cerrarla sí. Ésta la
+     * consumen **tres pantallas y las tres son de administración** —`ProfesoresCtrl`
+     * en `myvc_front`, y `profesores/` y `profesores/editar/{id}` en `app2`—, y una
+     * respuesta recortada llegaría justo a la pantalla de EDITAR la ficha. Medido en
+     * los cuatro clientes: `myvc_flutter` y `myvc_front_2` no la llaman.
+     *
+     * **El criterio es el que ya gobierna la escritura de este mismo controlador**
+     * —`putUpdate`, `putGuardarValor` y los tres borrados exigen superusuario— y el
+     * que gobierna la pantalla en los dos fronts: la vieja pide `can_work_like_admin`,
+     * que **no existe en la tabla `permissions`**, así que allí sólo entra un
+     * superusuario; `app2` pide rol `Admin` o `Secretario`.
+     *
+     * **Y aquí hay una coincidencia que no es un criterio, y conviene no leerla como
+     * tal:** `esAdministrativo` es `is_superuser || Role::isSecretario` — **el rol
+     * `Admin` NO está dentro**. Coincide con lo que abre `app2` sólo porque en la base
+     * medida los diez `Admin` son **exactamente** los diez `is_superuser` (cero `Admin`
+     * sin superusuario). Un colegio que le ponga el rol `Admin` a alguien que no lo sea
+     * los separa, y esa persona **pierde la pantalla**. Es una base de quince, así que
+     * se comprueba en el despliegue antes de que llegue: paso 0 de `docs/DESPLIEGUE.md`.
+     *
+     * No se ensancha `esAdministrativo` para taparlo porque lo leen seis sitios más
+     * —las masivas de `cambiar-usuarios/*` entre ellas—: ensanchar el criterio aquí
+     * repartiría permisos que nadie pidió en cinco puertas que no son ésta.
+     *
+     * Se deja más ancho que la escritura a propósito: una secretaria puede necesitar
+     * consultar la ficha del personal sin poder editarla.
+     *
+     * Ver 05 §243.
+     */
+    public function getIndex()
+    {
+        Autoriza::exigir(Autoriza::esAdministrativo($this->user),
+            'No tienes permiso para ver la ficha del personal del colegio.');
 
-	/**
-	 * La ficha del personal del colegio — **la lee quien lo administra, no cualquiera**.
-	 *
-	 * Iba con `auth.personal` y nada más, así que **un docente cualquiera se llevaba
-	 * la hoja de vida de los 47 empleados**: `num_doc`, `fecha_nac`, `direccion`,
-	 * `barrio`, `celular`, `username` y el `is_superuser` de cada uno —que además
-	 * dice a quién apuntar—. No parecido a lo del administrador: **las mismas 28
-	 * claves y los mismos 47 registros**. Medido con un token de Profesor de verdad,
-	 * no leído: 35 documentos de identidad, 41 fechas de nacimiento, 11 domicilios.
-	 *
-	 * **Y la pantalla no existe para ese rol**, que es lo que lo mantenía invisible:
-	 * el menú del docente no ofrece «Profesores» en ninguno de los dos fronts. La
-	 * abría el endpoint, que no miraba quién preguntaba — esconder un botón no niega
-	 * nada. Lo encontró `myvc-front-6b` poniendo dos roles uno al lado del otro.
-	 *
-	 * **Por qué se cierra la puerta y no se recorta la respuesta**, al revés que en
-	 * `Profesor::contratos()` (05 §14.4): aquélla la consumen once sitios de tres
-	 * clientes, así que quitarle campos no rompía a nadie y cerrarla sí. Ésta la
-	 * consumen **tres pantallas y las tres son de administración** —`ProfesoresCtrl`
-	 * en `myvc_front`, y `profesores/` y `profesores/editar/{id}` en `app2`—, y una
-	 * respuesta recortada llegaría justo a la pantalla de EDITAR la ficha. Medido en
-	 * los cuatro clientes: `myvc_flutter` y `myvc_front_2` no la llaman.
-	 *
-	 * **El criterio es el que ya gobierna la escritura de este mismo controlador**
-	 * —`putUpdate`, `putGuardarValor` y los tres borrados exigen superusuario— y el
-	 * que gobierna la pantalla en los dos fronts: la vieja pide `can_work_like_admin`,
-	 * que **no existe en la tabla `permissions`**, así que allí sólo entra un
-	 * superusuario; `app2` pide rol `Admin` o `Secretario`.
-	 *
-	 * **Y aquí hay una coincidencia que no es un criterio, y conviene no leerla como
-	 * tal:** `esAdministrativo` es `is_superuser || Role::isSecretario` — **el rol
-	 * `Admin` NO está dentro**. Coincide con lo que abre `app2` sólo porque en la base
-	 * medida los diez `Admin` son **exactamente** los diez `is_superuser` (cero `Admin`
-	 * sin superusuario). Un colegio que le ponga el rol `Admin` a alguien que no lo sea
-	 * los separa, y esa persona **pierde la pantalla**. Es una base de quince, así que
-	 * se comprueba en el despliegue antes de que llegue: paso 0 de `docs/DESPLIEGUE.md`.
-	 *
-	 * No se ensancha `esAdministrativo` para taparlo porque lo leen seis sitios más
-	 * —las masivas de `cambiar-usuarios/*` entre ellas—: ensanchar el criterio aquí
-	 * repartiría permisos que nadie pidió en cinco puertas que no son ésta.
-	 *
-	 * Se deja más ancho que la escritura a propósito: una secretaria puede necesitar
-	 * consultar la ficha del personal sin poder editarla.
-	 *
-	 * Ver 05 §243.
-	 */
-	public function getIndex()
-	{
-		Autoriza::exigir(Autoriza::esAdministrativo($this->user),
-			'No tienes permiso para ver la ficha del personal del colegio.');
-
-		$consulta = 'SELECT p.id, p.nombres, p.apellidos, p.sexo, p.foto_id, p.tipo_doc,
+        $consulta = 'SELECT p.id, p.nombres, p.apellidos, p.sexo, p.foto_id, p.tipo_doc,
 					p.num_doc, p.ciudad_doc, p.fecha_nac, p.ciudad_nac, p.titulo,
 					p.estado_civil, p.barrio, p.direccion, p.telefono, p.celular,
 					p.facebook, p.email, p.tipo_profesor, p.user_id, u.username,
@@ -83,14 +84,14 @@ class ProfesoresController extends Controller {
 				where p.deleted_at is null
 				order by p.nombres, p.apellidos';
 
-		$profesores = DB::select($consulta, array(':year_id'=>$this->user->year_id));
-		return $profesores;
-	}
+        $profesores = DB::select($consulta, [':year_id' => $this->user->year_id]);
 
+        return $profesores;
+    }
 
-	public function getTodos()
-	{
-		$consulta = 'SELECT p.id as profesor_id, p.nombres, p.apellidos, concat(p.nombres, " ", p.apellidos) as nombre_completo, p.sexo, p.foto_id, p.tipo_doc,
+    public function getTodos()
+    {
+        $consulta = 'SELECT p.id as profesor_id, p.nombres, p.apellidos, concat(p.nombres, " ", p.apellidos) as nombre_completo, p.sexo, p.foto_id, p.tipo_doc,
 					p.num_doc, p.ciudad_doc, p.fecha_nac, p.ciudad_nac, p.titulo,
 					p.estado_civil, p.barrio, p.direccion, p.telefono, p.celular,
 					p.facebook, p.email, p.tipo_profesor, p.user_id, u.username,
@@ -104,16 +105,16 @@ class ProfesoresController extends Controller {
 				where p.deleted_at is null
 				order by p.nombres, p.apellidos';
 
-		$profesores = DB::select($consulta);
-		return $profesores;
-	}
+        $profesores = DB::select($consulta);
 
+        return $profesores;
+    }
 
-	public function putListado()
-	{	
-		$year 			= Year::datos_basicos($this->user->year_id);
-		
-		$consulta = 'SELECT p.*, c.id as contrato_id, ci.ciudad as ciudad_nac_nombre, ci.departamento as depart_nac_nombre, 
+    public function putListado()
+    {
+        $year = Year::datos_basicos($this->user->year_id);
+
+        $consulta = 'SELECT p.*, c.id as contrato_id, ci.ciudad as ciudad_nac_nombre, ci.departamento as depart_nac_nombre, 
 				ci2.ciudad as ciudad_doc_nombre, ci2.departamento as depart_doc_nombre, t.tipo as tipo_doc_nombre, t.abrev, u.username 
 			FROM profesores p 
 			INNER JOIN contratos c ON c.profesor_id=p.id and c.deleted_at is null 
@@ -122,575 +123,587 @@ class ProfesoresController extends Controller {
 			LEFT JOIN tipos_documentos t ON t.id=p.tipo_doc and t.deleted_at is null 
 			LEFT JOIN users u ON u.id=p.user_id and u.deleted_at is null 
 			WHERE p.deleted_at is null and c.year_id=?';
-			
-		$profesores = DB::select($consulta, [$this->user->year_id]);
-		
-		for ($i=0; $i < count($profesores); $i++) { 
-			$grupos = DB::select('SELECT g.abrev, g.id, g.orden FROM grupos g WHERE g.deleted_at is null and g.titular_id=? and year_id=?', [$profesores[$i]->id, $this->user->year_id]);
-			$profesores[$i]->grupos = '';
-			
-			$cant_g = count($grupos);
-			
-			for ($j=0; $j < $cant_g; $j++) { 
-				$profesores[$i]->grupos .= $grupos[$j]->abrev;
-				
-				if (! isset($profesores[$i]->orden_grupo)) {
-					$profesores[$i]->orden_grupo = $grupos[$j]->orden;
-				}
-				
-				if ($j < ($cant_g-1)) {
-					$profesores[$i]->grupos .= ',';
-				}
-			}
-				
-		}
-			
-		return [ 'year'=>$year, 'profesores'=>$profesores];
-		
-	}
 
-	public function postStore()
-	{
+        $profesores = DB::select($consulta, [$this->user->year_id]);
 
-	
-		$this->sanarInputProfesor();
+        for ($i = 0; $i < count($profesores); $i++) {
+            $grupos = DB::select('SELECT g.abrev, g.id, g.orden FROM grupos g WHERE g.deleted_at is null and g.titular_id=? and year_id=?', [$profesores[$i]->id, $this->user->year_id]);
+            $profesores[$i]->grupos = '';
 
-		$profesor = new Profesor;
-		$profesor->nombres		=	Request::input('nombres');
-		$profesor->apellidos	=	Request::input('apellidos');
-		$profesor->sexo			=	Request::input('sexo');
-		$profesor->tipo_doc		=	Request::input('tipo_doc');
-		$profesor->num_doc		=	Request::input('num_doc');
-		$profesor->ciudad_doc	=	Request::input('ciudad_doc');
-		$profesor->fecha_nac	=	Request::input('fecha_nac');
-		$profesor->ciudad_nac	=	Request::input('ciudad_nac');
-		$profesor->titulo		=	Request::input('titulo');
-		$profesor->estado_civil	=	Request::input('estado_civil');
-		$profesor->barrio		=	Request::input('barrio');
-		$profesor->direccion	=	Request::input('direccion');
-		$profesor->telefono		=	Request::input('telefono');
-		$profesor->celular		=	Request::input('celular');
-		$profesor->facebook		=	Request::input('facebook');
-		$profesor->email		=	Request::input('email');
-		$profesor->tipo_profesor	=	Request::input('tipo_profesor'); // Catedrático o Tiempo completo
-		$profesor->save();
-		
+            $cant_g = count($grupos);
 
-		$this->sanarInputUser();
+            for ($j = 0; $j < $cant_g; $j++) {
+                $profesores[$i]->grupos .= $grupos[$j]->abrev;
 
-		$this->checkOrChangeUsername($profesor->user_id);
+                if (! isset($profesores[$i]->orden_grupo)) {
+                    $profesores[$i]->orden_grupo = $grupos[$j]->orden;
+                }
 
-		$usuario = new User;
-		$usuario->username		=	Request::input('username');
-		$usuario->password		=	Hash::make(Request::input('password', '123456'));
-		$usuario->email			=	Request::input('email2');
-		$usuario->is_superuser	=	Autoriza::concederSuperusuario($this->user, Request::input('is_superuser'));
-		$usuario->is_active		=	Request::input('is_active', 1);
-		$usuario->tipo			=	'Profesor';
-		$usuario->save();
+                if ($j < ($cant_g - 1)) {
+                    $profesores[$i]->grupos .= ',';
+                }
+            }
 
+        }
 
-		$profesor->user_id = $usuario->id;
-		
-		$role = Role::where('name', 'Profesor')->get();
-		$usuario->roles()->attach($role[0]['id']);
+        return ['year' => $year, 'profesores' => $profesores];
 
-		$profesor->save();
+    }
 
-		$profesor->user = $usuario;
-		/*
-		if (Request::input('grupo')['id']) {
-			$grupo_id = Request::input('grupo')['id'];
+    public function postStore()
+    {
 
-			$matricula = new Matricula;
-			$matricula->alumno_id	=	$profesor->id;
-			$matricula->grupo_id	=	$grupo_id;
-			$matricula->matriculado	=	true;
-			$matricula->save();
+        $this->sanarInputProfesor();
 
-			$grupo = Grupo::find($matricula->grupo_id);
-			$profesor->grupo = $grupo;
-		}
-		*/
+        $profesor = new Profesor;
+        $profesor->nombres = Request::input('nombres');
+        $profesor->apellidos = Request::input('apellidos');
+        $profesor->sexo = Request::input('sexo');
+        $profesor->tipo_doc = Request::input('tipo_doc');
+        $profesor->num_doc = Request::input('num_doc');
+        $profesor->ciudad_doc = Request::input('ciudad_doc');
+        $profesor->fecha_nac = Request::input('fecha_nac');
+        $profesor->ciudad_nac = Request::input('ciudad_nac');
+        $profesor->titulo = Request::input('titulo');
+        $profesor->estado_civil = Request::input('estado_civil');
+        $profesor->barrio = Request::input('barrio');
+        $profesor->direccion = Request::input('direccion');
+        $profesor->telefono = Request::input('telefono');
+        $profesor->celular = Request::input('celular');
+        $profesor->facebook = Request::input('facebook');
+        $profesor->email = Request::input('email');
+        $profesor->tipo_profesor = Request::input('tipo_profesor'); // Catedrático o Tiempo completo
+        $profesor->save();
 
-		return $profesor;
-		
-	}
+        $this->sanarInputUser();
 
-	public function sanarInputUser()
-	{
-		/*
-		//separamos el nombre de la img y la extensión
-		$info = explode(".", $file->getClientOriginalName());
-		$primer = $info[0];
-		*/
-		
-		if (!Request::input('username')) {
-			$dirtyName = Request::input('nombres');
-			$name = preg_replace('/\s+/', '', $dirtyName);
-			Request::merge(array('username' => $name));
-		}
+        $this->checkOrChangeUsername($profesor->user_id);
 
-		// **`email1` no existe. Cero apariciones en los cuatro clientes**
-		// —comprobado el 24 ago 2026 en `myvc_front`, `myvc_front-fase11`,
-		// `myvc_front_2` y `myvc_flutter`—, así que esta rama corría SIEMPRE y
-		// **pisaba el `email2` que el cliente sí manda** con el correo de la ficha
-		// o con `usuario@myvc.com`.
-		//
-		// Y era invisible desde arriba: el escritor guarda ese campo con
-		// `$vinieron->trae('email2')`, que contesta *«¿vino la clave?»* —sí, vino—
-		// y no *«¿es éste el valor que vino?»*. La guarda estaba puesta y el valor
-		// llegaba pisado igual.
-		//
-		// La condición correcta es la que el `email1` quería decir: **derivar un
-		// correo sólo si no hay ninguno**. Cambia una palabra y la rama pasa de
-		// muerta a útil, en vez de quitarla y perder el defecto del alta.
-		if (!Request::input('email2')) {
+        $usuario = new User;
+        $usuario->username = Request::input('username');
+        $usuario->password = Hash::make(Request::input('password', '123456'));
+        $usuario->email = CorreoDeLaCuenta::oNada(Request::input('email2'));
+        $usuario->is_superuser = Autoriza::concederSuperusuario($this->user, Request::input('is_superuser'));
+        $usuario->is_active = Request::input('is_active', 1);
+        $usuario->tipo = 'Profesor';
+        $usuario->save();
 
-			if (Request::input('email')) {
-				Request::merge(array('email2' => Request::input('email') ));
-			}else{
-				$email = Request::input('username') . '@myvc.com';
-				Request::merge(array('email2' => $email));
-			}
-		}
+        $profesor->user_id = $usuario->id;
 
-		if (!Request::input('is_superuser')) {
+        $role = Role::where('name', 'Profesor')->get();
+        $usuario->roles()->attach($role[0]['id']);
 
-			Request::merge(array('is_superuser' => false));
-			
-		}
+        $profesor->save();
 
-		if (Request::input('password')) {
-			if (Request::input('password') == Request::input('password2')) {
-				Request::merge(array('nuevo_password' => Request::input('password')));
-			}
-			
-			
-		}
-	}
+        $profesor->user = $usuario;
+        /*
+        if (Request::input('grupo')['id']) {
+            $grupo_id = Request::input('grupo')['id'];
 
-	/*************************************************************
-	 * Guardar por VALOR
-	 *************************************************************/
-	/**
-	 * Guardar una propiedad suelta de un profesor.
-	 *
-	 * El `if` envolvía TODO el cuerpo y no tenía `else`: quien no fuera
-	 * superusuario recibía `['Guardado.']` **sin que se hubiera guardado nada**.
-	 * Una respuesta que dice que sí cuando fue que no es peor que un error, porque
-	 * el que la lee deja de mirar. Ver 05 §37.
-	 *
-	 * Y de las propiedades que acepta solo actúa sobre `is_active`; con cualquier
-	 * otra responde igual y tampoco escribe. Eso se deja como está —es la forma
-	 * del método, no un permiso— pero queda dicho.
-	 */
-	public function putGuardarValor()
-	{
-		Autoriza::exigir(Autoriza::esSuperusuario($this->user),
-			'No tienes permiso para cambiar los datos de un profesor.');
-		
-		if($this->user->is_superuser){
-			$valor 		= Request::input('valor');
-			$user_id 	= Request::input('user_id');
-			$persona_id 	= Request::input('persona_id');
-			$propiedad 	= Request::input('propiedad');
-			$now 		= Carbon::now('America/Bogota');
+            $matricula = new Matricula;
+            $matricula->alumno_id	=	$profesor->id;
+            $matricula->grupo_id	=	$grupo_id;
+            $matricula->matriculado	=	true;
+            $matricula->save();
 
-			if(Request::input('propiedad') == 'is_active'){
-				$consulta 	= 'UPDATE users SET '.$propiedad.'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:user_id';
-				$datos 		= [ ':valor' => $valor, ':modificador' => $this->user->user_id, ':fecha' => $now, ':user_id' => $user_id ];
-				$res 		= DB::update($consulta, $datos);
-			}
-		}
-		return ['Guardado.'];
-	}
+            $grupo = Grupo::find($matricula->grupo_id);
+            $profesor->grupo = $grupo;
+        }
+        */
 
+        return $profesor;
 
-	public function sanarInputProfesor(){
-		if (is_array( Request::input('tipo_sangre') )){
-			if (!array_key_exists('sangre', Request::input('tipo_sangre'))) {
-				Request::merge(array('tipo_sangre' => array('sangre'=>'')));
-			}
-		}else{
-			Request::merge(array('tipo_sangre' => array('sangre'=>'')));
-		}
+    }
 
-		if (Request::input('estado_civil')) {
-			if (isset(Request::input('estado_civil')['estado_civil'])) {
-				Request::merge(array('estado_civil' => Request::input('estado_civil')['estado_civil'] ) );
-			}
-		}else{
-			Request::merge(array('estado_civil' => null) );
-		}
+    public function sanarInputUser()
+    {
+        /*
+        //separamos el nombre de la img y la extensión
+        $info = explode(".", $file->getClientOriginalName());
+        $primer = $info[0];
+        */
 
+        if (! Request::input('username')) {
+            $dirtyName = Request::input('nombres');
+            $name = preg_replace('/\s+/', '', $dirtyName);
+            Request::merge(['username' => $name]);
+        }
 
-		if (Request::has('ciudad_nac') && Request::input('ciudad_nac') != null) {
-			Request::merge( ['ciudad_nac' => Request::input('ciudad_nac')['id'] ? Request::input('ciudad_nac')['id'] : null ] );
-		}else{
-			Request::merge(array('ciudad_nac' => null) );
-		}
+        // **`email1` no existe. Cero apariciones en los cuatro clientes**
+        // —comprobado el 24 ago 2026 en `myvc_front`, `myvc_front-fase11`,
+        // `myvc_front_2` y `myvc_flutter`—, así que esta rama corría SIEMPRE y
+        // **pisaba el `email2` que el cliente sí manda** con el correo de la ficha
+        // o con `usuario@myvc.com`.
+        //
+        // Y era invisible desde arriba: el escritor guarda ese campo con
+        // `$vinieron->trae('email2')`, que contesta *«¿vino la clave?»* —sí, vino—
+        // y no *«¿es éste el valor que vino?»*. La guarda estaba puesta y el valor
+        // llegaba pisado igual.
+        //
+        // La condición correcta es la que el `email1` quería decir: **derivar un
+        // correo sólo si no hay ninguno**. Cambia una palabra y la rama pasa de
+        // muerta a útil, en vez de quitarla y perder el defecto del alta.
+        // **Y el `else` que derivaba `username@myvc.com` se quitó el 20 sep 2026**,
+        // decidido por Joseth: al crear a nadie se le inventa un correo, y quien no
+        // tiene se queda sin él. El comentario de arriba defendía ese defecto
+        // —«cuenta nueva sin correo»— y lo que se midió ese día es que el defecto
+        // hacía daño, no bien.
+        //
+        // `users.email` es por donde busca la recuperación de contraseña
+        // (`LoginController:240-266`, cuatro consultas y las cuatro sobre esa
+        // columna). Un buzón que no existe hace que el método **encuentre** la
+        // cuenta, mande el enlace y conteste «Enviado»: cambia «no llega» por «no
+        // llega y además creemos que sí». Medido en el docker: **30 cuentas vivas
+        // con `@myvc.com`, 16 de ellas activas** —11 profesores, 2 alumnos, 3 sin
+        // ficha—, o sea que de los 12 profesores que el reseteo alcanza, **11 no
+        // pueden recuperar nada**. Alcanzable no es recuperable.
+        //
+        // **Esas 30 se quedan como están**, decidido el mismo día y con los números
+        // delante: está sabido, no es un olvido.
+        //
+        // Y esto cambia también la EDICIÓN, a sabiendas: si una pantalla manda la
+        // clave `email2` vacía, antes se fabricaba uno y **se escribía encima del que
+        // hubiera** —`$vinieron->trae('email2')` contesta que sí, porque la clave
+        // vino—. Ahora ese caso guarda vacío, o sea que vaciar el campo se respeta.
+        //
+        // **Y no se deriva de cualquier cosa**: el alta de la aplicación vieja manda el
+        // literal `'@gmail.com'` cuando no se teclea correo, que es una cadena no vacía
+        // y por tanto pasaba este `if`. `CorreoDeLaCuenta` dice qué puede vivir en
+        // `users.email` y por qué esa columna tiene regla y la ficha no.
+        if (! Request::input('email2') && CorreoDeLaCuenta::oNada(Request::input('email')) !== null) {
+            Request::merge(['email2' => CorreoDeLaCuenta::oNada(Request::input('email'))]);
+        }
 
-		if (Request::input('ciudad_doc') && Request::input('ciudad_doc') != null) {
-			Request::merge( ['ciudad_doc' => Request::input('ciudad_doc')['id'] ? Request::input('ciudad_doc')['id'] : null ] );
-		}else{
-			Request::merge(array('ciudad_doc' => null) );
-		}
+        if (! Request::input('is_superuser')) {
 
-	if (Request::input('tipo_doc') && Request::input('tipo_doc') != null) {
-		if (is_array(Request::input('tipo_doc'))) {
-			Request::merge( ['tipo_doc' => Request::input('tipo_doc')['id'] ? Request::input('tipo_doc')['id'] : null ] );
-		} else {
-			Request::merge( ['tipo_doc' => Request::input('tipo_doc') ] );
-		}
-	}else{
-		Request::merge(array('tipo_doc' => null) );
-	}
+            Request::merge(['is_superuser' => false]);
 
-		if (Request::input('foto') && Request::input('foto') != null) {
-			Request::merge( ['foto_id' => Request::input('foto')['id'] ? Request::input('foto')['id'] : null ] );
-		}else{
-			Request::merge(array('foto_id' => null) );
-		}
-	}
+        }
 
+        if (Request::input('password')) {
+            if (Request::input('password') == Request::input('password2')) {
+                Request::merge(['nuevo_password' => Request::input('password')]);
+            }
 
+        }
+    }
 
-	/**
-	 * La ficha de un profesor. Un id que no está daba 500 — §98.
-	 *
-	 * `Profesor::detallado()` termina en `return $profesor[0]` sobre el resultado
-	 * de un `DB::select`, y sin filas eso es clave indefinida: **error fatal en
-	 * PHP 8**. No hace falta un id inventado para verlo, basta uno que esté en la
-	 * papelera, porque esa consulta filtra `deleted_at is null`. Se comprueba
-	 * aquí y no dentro del modelo porque `detallado()` la llaman **otros cinco
-	 * sitios**, cuatro de ellos en controladores de otros lotes: cambiarla les
-	 * cambiaría la respuesta a los cinco de una vez, y eso no es de esta noche.
-	 * Queda anotado para quien los tenga.
-	 */
-	public function getShow($id)
-	{
-		$existe = DB::selectOne('SELECT id FROM profesores WHERE id = ? AND deleted_at IS NULL', [$id]);
+    /*************************************************************
+     * Guardar por VALOR
+     *************************************************************/
+    /**
+     * Guardar una propiedad suelta de un profesor.
+     *
+     * El `if` envolvía TODO el cuerpo y no tenía `else`: quien no fuera
+     * superusuario recibía `['Guardado.']` **sin que se hubiera guardado nada**.
+     * Una respuesta que dice que sí cuando fue que no es peor que un error, porque
+     * el que la lee deja de mirar. Ver 05 §37.
+     *
+     * Y de las propiedades que acepta solo actúa sobre `is_active`; con cualquier
+     * otra responde igual y tampoco escribe. Eso se deja como está —es la forma
+     * del método, no un permiso— pero queda dicho.
+     */
+    public function putGuardarValor()
+    {
+        Autoriza::exigir(Autoriza::esSuperusuario($this->user),
+            'No tienes permiso para cambiar los datos de un profesor.');
 
-		if ($existe === null) {
-			abort(404, 'Ese profesor no existe o está en la papelera.');
-		}
+        if ($this->user->is_superuser) {
+            $valor = Request::input('valor');
+            $user_id = Request::input('user_id');
+            $persona_id = Request::input('persona_id');
+            $propiedad = Request::input('propiedad');
+            $now = Carbon::now('America/Bogota');
 
-		$profesor = Profesor::detallado($id);
-		return array( $profesor );
-	}
+            if (Request::input('propiedad') == 'is_active') {
+                $consulta = 'UPDATE users SET '.$propiedad.'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:user_id';
+                $datos = [':valor' => $valor, ':modificador' => $this->user->user_id, ':fecha' => $now, ':user_id' => $user_id];
+                $res = DB::update($consulta, $datos);
+            }
+        }
 
+        return ['Guardado.'];
+    }
 
+    public function sanarInputProfesor()
+    {
+        if (is_array(Request::input('tipo_sangre'))) {
+            if (! array_key_exists('sangre', Request::input('tipo_sangre'))) {
+                Request::merge(['tipo_sangre' => ['sangre' => '']]);
+            }
+        } else {
+            Request::merge(['tipo_sangre' => ['sangre' => '']]);
+        }
 
-	/**
-	 * Igual que `putGuardarValor`: el `if` abarcaba el método entero y no había
-	 * `else`, así que un profesor que editaba a otro recibía **200 con el cuerpo
-	 * vacío** y creía que se había guardado. Ver 05 §37.
-	 */
-	public function putUpdate($id)
-	{
-		Autoriza::exigir(Autoriza::esSuperusuario($this->user),
-			'No tienes permiso para editar a un profesor.');
-		
-		if ($this->user->is_superuser) {
-			// ANTES del primer `sanar*`: los dos hacen `Request::merge()`, así que a
-			// partir de aquí `Request::has()` ya no distingue lo que mandó el cliente
-			// de lo que se rellenó solo. Ver App\Support\CamposQueVinieron y 05 §68.
-			$vinieron = CamposQueVinieron::capturar();
+        if (Request::input('estado_civil')) {
+            if (isset(Request::input('estado_civil')['estado_civil'])) {
+                Request::merge(['estado_civil' => Request::input('estado_civil')['estado_civil']]);
+            }
+        } else {
+            Request::merge(['estado_civil' => null]);
+        }
 
-			$this->sanarInputUser();
-			$this->sanarInputProfesor();
+        if (Request::has('ciudad_nac') && Request::input('ciudad_nac') != null) {
+            Request::merge(['ciudad_nac' => Request::input('ciudad_nac')['id'] ? Request::input('ciudad_nac')['id'] : null]);
+        } else {
+            Request::merge(['ciudad_nac' => null]);
+        }
 
-			
-			$profesor = Profesor::findOrFail($id);
-			try {
-				// Las diecisiete columnas de la ficha, con la clave —o las dos claves—
-				// con las que puede llegar cada una. Van en una tabla y no en
-				// diecisiete `if` porque lo que hay que poder leer de un vistazo es
-				// que **la regla es la misma para las diecisiete**: si el cliente no
-				// mandó la clave, la columna no se toca. §153.
-				//
-				// Y aquí hace falta `CamposQueVinieron` y NO el defecto de
-				// `Request::input()`, que es lo que se usó en `perfiles/update` y en
-				// `grupos/update`. El discriminador está medido:
-				// `sanarInputProfesor()` corre unas líneas más arriba y hace
-				// `Request::merge(['ciudad_nac' => null])` —y lo mismo con
-				// `ciudad_doc`, `tipo_doc`, `estado_civil` y `foto_id`— cuando la
-				// clave no viene. O sea que a esta altura **la clave existe y vale
-				// null**, y un defecto no se dispara nunca: `input('ciudad_nac', $x)`
-				// devolvería el null recién metido. Copiar aquí la solución de
-				// `perfiles` habría dado un arreglo en verde que no arregla nada.
-				$deLaFicha = [
-					'nombres'		=> ['nombres_profesor', 'nombres'],
-					'apellidos'		=> ['apellidos_profesor', 'apellidos'],
-					'sexo'			=> ['sexo'],
-					'tipo_doc'		=> ['tipo_doc'],
-					'num_doc'		=> ['num_doc'],
-					'ciudad_doc'	=> ['ciudad_doc'],
-					'fecha_nac'		=> ['fecha_nac'],
-					'ciudad_nac'	=> ['ciudad_nac'],
-					'titulo'		=> ['titulo'],
-					'estado_civil'	=> ['estado_civil'],
-					'barrio'		=> ['barrio'],
-					'direccion'		=> ['direccion'],
-					'telefono'		=> ['telefono'],
-					'celular'		=> ['celular'],
-					'facebook'		=> ['facebook'],
-					'email'			=> ['email_usu'],
-					'tipo_profesor'	=> ['tipo_profesor'], // Catedrático o Tiempo completo
-				];
+        if (Request::input('ciudad_doc') && Request::input('ciudad_doc') != null) {
+            Request::merge(['ciudad_doc' => Request::input('ciudad_doc')['id'] ? Request::input('ciudad_doc')['id'] : null]);
+        } else {
+            Request::merge(['ciudad_doc' => null]);
+        }
 
-				foreach ($deLaFicha as $columna => $claves) {
-					foreach ($claves as $clave) {
-						if ($vinieron->trae($clave)) {
-							$profesor->setAttribute($columna, Request::input($clave));
-							break;
-						}
-					}
-				}
+        if (Request::input('tipo_doc') && Request::input('tipo_doc') != null) {
+            if (is_array(Request::input('tipo_doc'))) {
+                Request::merge(['tipo_doc' => Request::input('tipo_doc')['id'] ? Request::input('tipo_doc')['id'] : null]);
+            } else {
+                Request::merge(['tipo_doc' => Request::input('tipo_doc')]);
+            }
+        } else {
+            Request::merge(['tipo_doc' => null]);
+        }
 
-				$profesor->save();
+        if (Request::input('foto') && Request::input('foto') != null) {
+            Request::merge(['foto_id' => Request::input('foto')['id'] ? Request::input('foto')['id'] : null]);
+        } else {
+            Request::merge(['foto_id' => null]);
+        }
+    }
 
-				// **`Request::input('username')` en la condición era siempre cierto**, y
-				// eso escondía las dos escrituras de abajo: `sanarInputUser()` acaba de
-				// FABRICAR `username` a partir de `nombres` si no venía, así que la
-				// rejilla que sólo corrige un teléfono entraba aquí igual. Ahora la
-				// puerta es tener cuenta, y cada campo se guarda por su cuenta —que es
-				// lo que ya hacían `is_active` y `email2` desde la §68.
-				if ($profesor->user_id) {
+    /**
+     * La ficha de un profesor. Un id que no está daba 500 — §98.
+     *
+     * `Profesor::detallado()` termina en `return $profesor[0]` sobre el resultado
+     * de un `DB::select`, y sin filas eso es clave indefinida: **error fatal en
+     * PHP 8**. No hace falta un id inventado para verlo, basta uno que esté en la
+     * papelera, porque esa consulta filtra `deleted_at is null`. Se comprueba
+     * aquí y no dentro del modelo porque `detallado()` la llaman **otros cinco
+     * sitios**, cuatro de ellos en controladores de otros lotes: cambiarla les
+     * cambiaría la respuesta a los cinco de una vez, y eso no es de esta noche.
+     * Queda anotado para quien los tenga.
+     */
+    public function getShow($id)
+    {
+        $existe = DB::selectOne('SELECT id FROM profesores WHERE id = ? AND deleted_at IS NULL', [$id]);
 
-					$usuario = User::find($profesor->user_id);
+        if ($existe === null) {
+            abort(404, 'Ese profesor no existe o está en la papelera.');
+        }
 
-					// **Renombraba al docente al corregirle el teléfono.** El
-					// `username` fabricado se escribía encima del real: `ZZTestFirma`
-					// pasaba a `ZZTest`, o sea el nombre sin espacios. Con
-					// `users.username` UNIQUE eso deja a alguien fuera del sistema, que
-					// es exactamente lo que cierra la §11 por la otra puerta —allí era
-					// QUIÉN puede renombrar; aquí es que se renombra sin que nadie lo
-					// pida—. Medido por `myvc-front-89` contra el docker, tres pasadas.
-					//
-					// `checkOrChangeUsername` sólo tiene sentido si de verdad se va a
-					// cambiar: busca colisiones del nombre que se va a escribir.
-					if ($vinieron->trae('username')) {
-						$this->checkOrChangeUsername($profesor->user_id);
-						$usuario->username = Request::input('username');
-					}
+        $profesor = Profesor::detallado($id);
 
-					// **Y lo degradaba.** `sanarInputUser()` mete `is_superuser = false`
-					// cuando no viene, y la rejilla no lo manda: un superusuario perdía
-					// el privilegio cada vez que alguien le tocaba la ficha. La guarda
-					// de `Autoriza::concederSuperusuario` estaba bien puesta —un permiso
-					// no se concede a sí mismo— pero no protege de esto: aquí no se
-					// concedía de más, se quitaba sin pedirlo.
-					if ($vinieron->trae('is_superuser')) {
-						$usuario->is_superuser = Autoriza::concederSuperusuario($this->user, Request::input('is_superuser'));
-					}
+        return [$profesor];
+    }
 
-					// Esta cuenta YA EXISTE, así que lo que el cuerpo no trae no se toca.
-					// Escribir el valor por defecto aquí es lo que reactivaba cuentas
-					// cerradas: la pantalla de edición no tiene la casilla de «Activo»
-					// —el interruptor de las rejillas llama a `guardar-valor`, otra
-					// ruta— y cada guardado deshacía el interruptor. 05 §68.1.
-					//
-					// El `(int)` es la conclusión del nivel 3 de larastan: en un
-					// `tinyint(1)` se escribe 0 o 1, no un booleano de PHP, o el mismo
-					// campo sale de dos tipos según por dónde se lea.
-					if ($vinieron->trae('is_active')) {
-						$usuario->is_active	=	(int) Request::boolean('is_active');
-					}
+    /**
+     * Igual que `putGuardarValor`: el `if` abarcaba el método entero y no había
+     * `else`, así que un profesor que editaba a otro recibía **200 con el cuerpo
+     * vacío** y creía que se había guardado. Ver 05 §37.
+     */
+    public function putUpdate($id)
+    {
+        Autoriza::exigir(Autoriza::esSuperusuario($this->user),
+            'No tienes permiso para editar a un profesor.');
 
-					// Y el correo, por lo mismo y con un agravante: `sanarInputUser`
-					// **regenera** `email2` cuando no viene `email1` —que no lo manda
-					// ningún cliente—, así que sin esta guarda el correo de la CUENTA
-					// se sustituía por el de la persona, o por `usuario@myvc.com`.
-					// Son dos columnas de dos tablas. 05 §68.3.
-					if ($vinieron->trae('email2')) {
-						$usuario->email		=	Request::input('email2');
-					}
+        if ($this->user->is_superuser) {
+            // ANTES del primer `sanar*`: los dos hacen `Request::merge()`, así que a
+            // partir de aquí `Request::has()` ya no distingue lo que mandó el cliente
+            // de lo que se rellenó solo. Ver App\Support\CamposQueVinieron y 05 §68.
+            $vinieron = CamposQueVinieron::capturar();
 
-					if (Request::input('nuevo_password')){
-						$usuario->password = Hash::make(Request::input('nuevo_password'));
-					}
+            $this->sanarInputUser();
+            $this->sanarInputProfesor();
 
-					$usuario->save();
+            $profesor = Profesor::findOrFail($id);
+            try {
+                // Las diecisiete columnas de la ficha, con la clave —o las dos claves—
+                // con las que puede llegar cada una. Van en una tabla y no en
+                // diecisiete `if` porque lo que hay que poder leer de un vistazo es
+                // que **la regla es la misma para las diecisiete**: si el cliente no
+                // mandó la clave, la columna no se toca. §153.
+                //
+                // Y aquí hace falta `CamposQueVinieron` y NO el defecto de
+                // `Request::input()`, que es lo que se usó en `perfiles/update` y en
+                // `grupos/update`. El discriminador está medido:
+                // `sanarInputProfesor()` corre unas líneas más arriba y hace
+                // `Request::merge(['ciudad_nac' => null])` —y lo mismo con
+                // `ciudad_doc`, `tipo_doc`, `estado_civil` y `foto_id`— cuando la
+                // clave no viene. O sea que a esta altura **la clave existe y vale
+                // null**, y un defecto no se dispara nunca: `input('ciudad_nac', $x)`
+                // devolvería el null recién metido. Copiar aquí la solución de
+                // `perfiles` habría dado un arreglo en verde que no arregla nada.
+                $deLaFicha = [
+                    'nombres' => ['nombres_profesor', 'nombres'],
+                    'apellidos' => ['apellidos_profesor', 'apellidos'],
+                    'sexo' => ['sexo'],
+                    'tipo_doc' => ['tipo_doc'],
+                    'num_doc' => ['num_doc'],
+                    'ciudad_doc' => ['ciudad_doc'],
+                    'fecha_nac' => ['fecha_nac'],
+                    'ciudad_nac' => ['ciudad_nac'],
+                    'titulo' => ['titulo'],
+                    'estado_civil' => ['estado_civil'],
+                    'barrio' => ['barrio'],
+                    'direccion' => ['direccion'],
+                    'telefono' => ['telefono'],
+                    'celular' => ['celular'],
+                    'facebook' => ['facebook'],
+                    'email' => ['email_usu'],
+                    'tipo_profesor' => ['tipo_profesor'], // Catedrático o Tiempo completo
+                ];
 
-					$profesor->user_id = $usuario->id;
-					
-					$profesor->save();
+                foreach ($deLaFicha as $columna => $claves) {
+                    foreach ($claves as $clave) {
+                        if ($vinieron->trae($clave)) {
+                            $profesor->setAttribute($columna, Request::input($clave));
+                            break;
+                        }
+                    }
+                }
 
-					$profesor->user = $usuario;
-				// El `!$profesor->user_id` que había aquí sobra desde que la puerta de
-				// arriba es sólo `if ($profesor->user_id)`: estar en el `else` ya lo
-				// dice. Lo señaló larastan («Negated boolean expression is always
-				// true»), que es la clase de sobra que aparece justo cuando se
-				// simplifica una condición y nadie mira la de al lado.
-				//
-				// Aquí sí se crea la cuenta —`new User`—, así que `sanarInputUser` y
-				// los valores fabricados son lo correcto: una cuenta que NACE con un
-				// username derivado del nombre y sin superusuario está bien. Es el
-				// discriminador que la propia `CamposQueVinieron` documenta:
-				// `new User` contra `User::find()`.
-				} else if (Request::input('username')) {
-					
-					$this->sanarInputUser();
-					$this->checkOrChangeUsername($profesor->user_id);
+                $profesor->save();
 
-					$usuario = new User;
-					$usuario->username		=	Request::input('username');
-					$usuario->password		=	Hash::make(Request::input('password', '123456'));
-					$usuario->email			=	Request::input('email2');
-					$usuario->is_superuser	=	Autoriza::concederSuperusuario($this->user, Request::input('is_superuser'));
-					$usuario->is_active		=	Request::input('is_active', 1);
-					$usuario->save();
+                // **`Request::input('username')` en la condición era siempre cierto**, y
+                // eso escondía las dos escrituras de abajo: `sanarInputUser()` acaba de
+                // FABRICAR `username` a partir de `nombres` si no venía, así que la
+                // rejilla que sólo corrige un teléfono entraba aquí igual. Ahora la
+                // puerta es tener cuenta, y cada campo se guarda por su cuenta —que es
+                // lo que ya hacían `is_active` y `email2` desde la §68.
+                if ($profesor->user_id) {
 
+                    $usuario = User::find($profesor->user_id);
 
-					$profesor->user_id = $usuario->id;
-					
-					$profesor->save();
+                    // **Renombraba al docente al corregirle el teléfono.** El
+                    // `username` fabricado se escribía encima del real: `ZZTestFirma`
+                    // pasaba a `ZZTest`, o sea el nombre sin espacios. Con
+                    // `users.username` UNIQUE eso deja a alguien fuera del sistema, que
+                    // es exactamente lo que cierra la §11 por la otra puerta —allí era
+                    // QUIÉN puede renombrar; aquí es que se renombra sin que nadie lo
+                    // pida—. Medido por `myvc-front-89` contra el docker, tres pasadas.
+                    //
+                    // `checkOrChangeUsername` sólo tiene sentido si de verdad se va a
+                    // cambiar: busca colisiones del nombre que se va a escribir.
+                    if ($vinieron->trae('username')) {
+                        $this->checkOrChangeUsername($profesor->user_id);
+                        $usuario->username = Request::input('username');
+                    }
 
-					$profesor->user = $usuario;
-				}
+                    // **Y lo degradaba.** `sanarInputUser()` mete `is_superuser = false`
+                    // cuando no viene, y la rejilla no lo manda: un superusuario perdía
+                    // el privilegio cada vez que alguien le tocaba la ficha. La guarda
+                    // de `Autoriza::concederSuperusuario` estaba bien puesta —un permiso
+                    // no se concede a sí mismo— pero no protege de esto: aquí no se
+                    // concedía de más, se quitaba sin pedirlo.
+                    if ($vinieron->trae('is_superuser')) {
+                        $usuario->is_superuser = Autoriza::concederSuperusuario($this->user, Request::input('is_superuser'));
+                    }
 
-				return $profesor;
-			} catch (\Exception $e) {
-				abort(422, 'Datos incorrectos');
-			}
-		}
-	}
+                    // Esta cuenta YA EXISTE, así que lo que el cuerpo no trae no se toca.
+                    // Escribir el valor por defecto aquí es lo que reactivaba cuentas
+                    // cerradas: la pantalla de edición no tiene la casilla de «Activo»
+                    // —el interruptor de las rejillas llama a `guardar-valor`, otra
+                    // ruta— y cada guardado deshacía el interruptor. 05 §68.1.
+                    //
+                    // El `(int)` es la conclusión del nivel 3 de larastan: en un
+                    // `tinyint(1)` se escribe 0 o 1, no un booleano de PHP, o el mismo
+                    // campo sale de dos tipos según por dónde se lea.
+                    if ($vinieron->trae('is_active')) {
+                        $usuario->is_active = (int) Request::boolean('is_active');
+                    }
 
+                    // Y el correo, por lo mismo y con un agravante: `sanarInputUser`
+                    // **regenera** `email2` cuando no viene `email1` —que no lo manda
+                    // ningún cliente—, así que sin esta guarda el correo de la CUENTA
+                    // se sustituía por el de la persona, o por `usuario@myvc.com`.
+                    // Son dos columnas de dos tablas. 05 §68.3.
+                    if ($vinieron->trae('email2')) {
+                        $usuario->email = CorreoDeLaCuenta::oNada(Request::input('email2'));
+                    }
 
-	public function checkOrChangeUsername($user_id){
+                    if (Request::input('nuevo_password')) {
+                        $usuario->password = Hash::make(Request::input('nuevo_password'));
+                    }
 
-		$user = User::where('username', Request::input('username'))->first();
-		//mientras el user exista iteramos y aumentamos i
-		if ($user) {
+                    $usuario->save();
 
-			if ($user->id == $user_id) {
-				return;
-			}
-			
-			$username = $user->username;
-			$i = 0;
-			while(sizeof((array)User::where('username', $username)->first()) > 0 ){
-				$i++;
-				$username = $user->username.$i;
-			}
-			Request::merge(array('username' => $username));
-		}
-		
-	}
+                    $profesor->user_id = $usuario->id;
 
+                    $profesor->save();
 
+                    $profesor->user = $usuario;
+                    // El `!$profesor->user_id` que había aquí sobra desde que la puerta de
+                    // arriba es sólo `if ($profesor->user_id)`: estar en el `else` ya lo
+                    // dice. Lo señaló larastan («Negated boolean expression is always
+                    // true»), que es la clase de sobra que aparece justo cuando se
+                    // simplifica una condición y nadie mira la de al lado.
+                    //
+                    // Aquí sí se crea la cuenta —`new User`—, así que `sanarInputUser` y
+                    // los valores fabricados son lo correcto: una cuenta que NACE con un
+                    // username derivado del nombre y sin superusuario está bien. Es el
+                    // discriminador que la propia `CamposQueVinieron` documenta:
+                    // `new User` contra `User::find()`.
+                } elseif (Request::input('username')) {
 
-	public function getConyears()
-	{
-		$consulta = 'SELECT p.id, p.nombres, p.apellidos, p.sexo,
+                    $this->sanarInputUser();
+                    $this->checkOrChangeUsername($profesor->user_id);
+
+                    $usuario = new User;
+                    $usuario->username = Request::input('username');
+                    $usuario->password = Hash::make(Request::input('password', '123456'));
+                    $usuario->email = CorreoDeLaCuenta::oNada(Request::input('email2'));
+                    $usuario->is_superuser = Autoriza::concederSuperusuario($this->user, Request::input('is_superuser'));
+                    $usuario->is_active = Request::input('is_active', 1);
+                    $usuario->save();
+
+                    $profesor->user_id = $usuario->id;
+
+                    $profesor->save();
+
+                    $profesor->user = $usuario;
+                }
+
+                return $profesor;
+            } catch (\Exception $e) {
+                abort(422, 'Datos incorrectos');
+            }
+        }
+    }
+
+    public function checkOrChangeUsername($user_id)
+    {
+
+        $user = User::where('username', Request::input('username'))->first();
+        // mientras el user exista iteramos y aumentamos i
+        if ($user) {
+
+            if ($user->id == $user_id) {
+                return;
+            }
+
+            $username = $user->username;
+            $i = 0;
+            while (count((array) User::where('username', $username)->first()) > 0) {
+                $i++;
+                $username = $user->username.$i;
+            }
+            Request::merge(['username' => $username]);
+        }
+
+    }
+
+    public function getConyears()
+    {
+        $consulta = 'SELECT p.id, p.nombres, p.apellidos, p.sexo,
 						p.foto_id, p.titulo, p.facebook, p.email, p.tipo_profesor, p.user_id,
 						IFNULL(i.nombre, IF(p.sexo="F","default_female.png", "default_male.png")) as foto_nombre
 					from profesores p
 					LEFT JOIN images i on i.id=p.foto_id and i.deleted_at is null
 					where p.deleted_at is null';
 
-		$profesores = DB::select($consulta);
+        $profesores = DB::select($consulta);
 
-		foreach ($profesores as $profesor) {
-			$profesor->years = Year::de_un_profesor($profesor->id);
-		}
-		return $profesores;
-	}
+        foreach ($profesores as $profesor) {
+            $profesor->years = Year::de_un_profesor($profesor->id);
+        }
 
+        return $profesores;
+    }
 
-	/**
-	 * Mandar un profesor a la papelera. Hasta hoy no pedía nada — §97.
-	 *
-	 * Las otras tres operaciones de esta misma ficha piden superusuario, y cada
-	 * una lo pide desde una revisión distinta: editar desde la §37, restaurar
-	 * desde la §76 y borrar definitivamente desde la §28.4. **La que la mete en
-	 * la papelera se quedó con `auth.personal` a secas**, o sea cualquiera de los
-	 * 51 profesores de la copia de producción. Un test por ruta daba cuatro
-	 * verdes; poner las cuatro en la misma tabla es lo que lo enseñó.
-	 *
-	 * Y no es una puerta pequeña por ser blanda: el profesor desaparece del
-	 * listado y de las rejillas, **pero `grupos.titular_id` sigue apuntándole**,
-	 * así que el grupo sigue enseñando de titular a alguien que ya no está.
-	 *
-	 * Se ancla a `esSuperusuario` y no a `esAdministrativo` por la regla que dejó
-	 * escrita `Autoriza`: **crear un rol no regala permisos**. El `Secretario`
-	 * existe desde el 21 ago y no lo tiene nadie, y lo que Joseth describió de él
-	 * —la estructura del colegio, y docente normal en su aula— no nombra dar de
-	 * baja a un compañero. Con esto **nadie pierde un botón que hoy vea**: la
-	 * pantalla que lleva la X vive en un menú que el front enseña con
-	 * `hasRoleOrPerm(['admin', 'secretario'])`, y los diez `Admin` son
-	 * exactamente los diez `is_superuser` (§28.4). Subirlo a `esAdministrativo`
-	 * es una palabra el día que se decida; está anotado.
-	 */
-	public function deleteDestroy($id)
-	{
-		Autoriza::exigir(Autoriza::esSuperusuario($this->user),
-			'No tienes permiso para enviar profesores a la papelera.');
+    /**
+     * Mandar un profesor a la papelera. Hasta hoy no pedía nada — §97.
+     *
+     * Las otras tres operaciones de esta misma ficha piden superusuario, y cada
+     * una lo pide desde una revisión distinta: editar desde la §37, restaurar
+     * desde la §76 y borrar definitivamente desde la §28.4. **La que la mete en
+     * la papelera se quedó con `auth.personal` a secas**, o sea cualquiera de los
+     * 51 profesores de la copia de producción. Un test por ruta daba cuatro
+     * verdes; poner las cuatro en la misma tabla es lo que lo enseñó.
+     *
+     * Y no es una puerta pequeña por ser blanda: el profesor desaparece del
+     * listado y de las rejillas, **pero `grupos.titular_id` sigue apuntándole**,
+     * así que el grupo sigue enseñando de titular a alguien que ya no está.
+     *
+     * Se ancla a `esSuperusuario` y no a `esAdministrativo` por la regla que dejó
+     * escrita `Autoriza`: **crear un rol no regala permisos**. El `Secretario`
+     * existe desde el 21 ago y no lo tiene nadie, y lo que Joseth describió de él
+     * —la estructura del colegio, y docente normal en su aula— no nombra dar de
+     * baja a un compañero. Con esto **nadie pierde un botón que hoy vea**: la
+     * pantalla que lleva la X vive en un menú que el front enseña con
+     * `hasRoleOrPerm(['admin', 'secretario'])`, y los diez `Admin` son
+     * exactamente los diez `is_superuser` (§28.4). Subirlo a `esAdministrativo`
+     * es una palabra el día que se decida; está anotado.
+     */
+    public function deleteDestroy($id)
+    {
+        Autoriza::exigir(Autoriza::esSuperusuario($this->user),
+            'No tienes permiso para enviar profesores a la papelera.');
 
-		$profesor = Profesor::find($id);
-		if ($profesor) {
-			$profesor->delete();
-		}else{
-			return abort(400, 'Profesor no existe o está en Papelera.');
-		}
-		return $profesor;
-	
-	}	
+        $profesor = Profesor::find($id);
+        if ($profesor) {
+            $profesor->delete();
+        } else {
+            return abort(400, 'Profesor no existe o está en Papelera.');
+        }
 
-	public function deleteForcedelete($id)
-	{
-		// Autenticado por el constructor, pero sin ninguna autorización: cualquier
-		// usuario con token podía borrar un profesor definitivamente, y con él
-		// 31 tablas en cascada.
-		// Superusuario: 31 tablas en cascada, siete saltos. Igual que las otras
-		// dos de papelera, y por la misma razón.
-		Autoriza::exigir(Autoriza::esSuperusuario($this->user),
-			'No tienes permiso para eliminar profesores definitivamente.');
+        return $profesor;
 
-		$profesor = Profesor::onlyTrashed()->findOrFail($id);
-		
-		$profesor->forceDelete();
-		return $profesor;
-	
-	}
+    }
 
-	/*
-	 * Restaurar pide lo mismo que borrar definitivamente, y hasta el 22 ago 2026
-	 * no pedía nada.
-	 *
-	 * Cada operación de la papelera es una pareja, y el 21 ago se cerró **una
-	 * mitad de cada una**: `forcedelete` quedó anclado a superusuario y `restore`,
-	 * en el mismo controlador, se quedó como estaba — bastaba `auth.personal`, o
-	 * sea cualquiera de los 51 profesores. La cabecera de `Autoriza` nombra los
-	 * cinco sitios de los que venía aquello: grupos, perfiles, profesores, years y
-	 * editnota. Son los mismos cinco.
-	 *
-	 * El criterio es el del gemelo destructivo y no uno nuevo, a propósito: la
-	 * regla de `Autoriza` es que crear un rol no regale permisos, y
-	 * `esAdministrativo` incluiría al `Secretario` del día que exista sin que
-	 * nadie lo haya pedido. Hoy los dos criterios son las mismas diez personas
-	 * —`is_superuser` y el rol `Admin` coinciden fila por fila, §28.4— y la
-	 * pantalla de papelera del front ya se enseña sólo con `hasRoleOrPerm('admin')`,
-	 * así que **nadie pierde un botón que hoy vea**. Subirlo a `esAdministrativo`
-	 * es una palabra el día que se decida; está anotado en 09 §5.
-	 */
-	public function putRestore($id)
-	{
-		Autoriza::exigir(Autoriza::esSuperusuario($this->user),
-			'No tienes permiso para restaurar profesores.');
+    public function deleteForcedelete($id)
+    {
+        // Autenticado por el constructor, pero sin ninguna autorización: cualquier
+        // usuario con token podía borrar un profesor definitivamente, y con él
+        // 31 tablas en cascada.
+        // Superusuario: 31 tablas en cascada, siete saltos. Igual que las otras
+        // dos de papelera, y por la misma razón.
+        Autoriza::exigir(Autoriza::esSuperusuario($this->user),
+            'No tienes permiso para eliminar profesores definitivamente.');
 
-		$profesor = Profesor::onlyTrashed()->findOrFail($id);
+        $profesor = Profesor::onlyTrashed()->findOrFail($id);
 
-		$profesor->restore();
-		return $profesor;
-	}
+        $profesor->forceDelete();
 
+        return $profesor;
 
-	public function getTrashed()
-	{
-		$consulta = 'SELECT m2.matricula_id, a.id as alumno_id, a.no_matricula, a.nombres, a.apellidos, a.sexo, a.user_id, 
+    }
+
+    /*
+     * Restaurar pide lo mismo que borrar definitivamente, y hasta el 22 ago 2026
+     * no pedía nada.
+     *
+     * Cada operación de la papelera es una pareja, y el 21 ago se cerró **una
+     * mitad de cada una**: `forcedelete` quedó anclado a superusuario y `restore`,
+     * en el mismo controlador, se quedó como estaba — bastaba `auth.personal`, o
+     * sea cualquiera de los 51 profesores. La cabecera de `Autoriza` nombra los
+     * cinco sitios de los que venía aquello: grupos, perfiles, profesores, years y
+     * editnota. Son los mismos cinco.
+     *
+     * El criterio es el del gemelo destructivo y no uno nuevo, a propósito: la
+     * regla de `Autoriza` es que crear un rol no regale permisos, y
+     * `esAdministrativo` incluiría al `Secretario` del día que exista sin que
+     * nadie lo haya pedido. Hoy los dos criterios son las mismas diez personas
+     * —`is_superuser` y el rol `Admin` coinciden fila por fila, §28.4— y la
+     * pantalla de papelera del front ya se enseña sólo con `hasRoleOrPerm('admin')`,
+     * así que **nadie pierde un botón que hoy vea**. Subirlo a `esAdministrativo`
+     * es una palabra el día que se decida; está anotado en 09 §5.
+     */
+    public function putRestore($id)
+    {
+        Autoriza::exigir(Autoriza::esSuperusuario($this->user),
+            'No tienes permiso para restaurar profesores.');
+
+        $profesor = Profesor::onlyTrashed()->findOrFail($id);
+
+        $profesor->restore();
+
+        return $profesor;
+    }
+
+    public function getTrashed()
+    {
+        $consulta = 'SELECT m2.matricula_id, a.id as alumno_id, a.no_matricula, a.nombres, a.apellidos, a.sexo, a.user_id, 
 				a.fecha_nac, a.ciudad_nac, a.celular, a.direccion, a.religion,
 				m2.year_id, m2.grupo_id, m2.nombregrupo, m2.abrevgrupo, IFNULL(m2.actual, -1) as currentyear,
 				u.username, u.is_superuser, u.is_active
@@ -707,7 +720,6 @@ class ProfesoresController extends Controller {
 			left join users u on u.id=a.user_id where a.deleted_at is not null
 			order by p.nombres, p.apellidos';
 
-		return DB::select($consulta);
-	}
-
+        return DB::select($consulta);
+    }
 }

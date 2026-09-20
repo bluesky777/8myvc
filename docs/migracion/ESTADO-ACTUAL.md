@@ -73,10 +73,18 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
-> ## ✅ LA IMPORTACIÓN DINÁMICA — LAS TRES PIEZAS DE LA FASE 2, ROUTER EN 622 (20 sep 2026)
+> ## ✅ LA IMPORTACIÓN DINÁMICA — LAS TRES PIEZAS DE LA FASE 2, ROUTER EN 623 (20 sep 2026)
 >
-> **SIN FUNDIR: hay que recontar las rutas en el árbol principal el día que entren.** 622 contadas
-> con `route:list --json` en `.worktrees/imp`, rama `feat/avisos-de-la-importacion`.
+> **SIN FUNDIR: hay que recontar las rutas en el árbol principal el día que entren.** 623 contadas
+> con `route:list --json` en `.worktrees/imp` **después de traer `main`**.
+>
+> > **Esta casilla decía 622 y era cierta cuando se escribió.** `main` estaba en 620; mientras esto
+> > se construía entró `GET requisitos/recorrido/{alumno_id}` —la casilla de abajo— y lo dejó en
+> > 621. *El número no envejeció: describía otro árbol desde el momento en que salió del suyo.* Y
+> > con él se cruzaron otros dos: las dos sesiones estrenaron un **doc 44** el mismo día y
+> > eligieron el **mismo minuto** para su migración. Los tres se corrigen mirando `main` — el
+> > documento pasa a **45**, la migración a `…_400000`— y ninguno lo habría evitado trabajar con
+> > más cuidado: sólo mirar después.
 >
 > El plan vivía fuera del repo *«mientras fuera un plan»*; la Fase 1 entró el 19 sep, así que se
 > mudó con número: **[`45-la-importacion-dinamica.md`](45-la-importacion-dinamica.md)**. En
@@ -157,6 +165,210 @@
 >   importador todavía no cambia su comportamiento con ella**. Es el siguiente paso y **no estaba en
 >   el alcance del 20 sep** — se dice para que nadie lo dé por hecho leyendo que «las respuestas ya
 >   viajan».
+
+> ## ⚠️ YO CONTÉ DIEZ SITIOS Y ERAN CATORCE — Y EL QUE FALTABA ERA EL PEOR (20 sep 2026)
+
+> **Lo levantó `myvc-front-2e` verificando nuestro código en vez de creérselo.** Yo dije que
+> la regla de `CorreoDeLaCuenta` cubría «los diez sitios que escriben `users.email`». Eran
+> más, y **mi diez era lo que había cambiado, no lo que existe**.
+>
+> **El motivo de que faltaran cuatro es el censo**: lo saqué de un `grep` de
+> `$usuario->email = `, y **ninguno de los cuatro está escrito así**. Tres son `UPDATE users
+> SET email=?` crudos y el cuarto es un `switch` genérico por nombre de columna. *Un detector
+> que enumera las formas que ya imaginaste es ciego a la que no.*
+>
+> ### El que faltaba y más importaba
+>
+> **`perfiles/guardar-mi-email-restore`** hace un `UPDATE` crudo con
+> `Request::input('email_restore')`. Es **literalmente el correo de recuperación que se pone
+> el propio usuario**: el sitio donde la regla más importa de toda la API, porque quien se lo
+> pone cree que lo tiene puesto y lo que queda en la columna no sirve para recuperar nada. Con
+> él, `putCambiarpassword` y `putCambiaremailrestore`, y `GuardarAlumno` `case 'email'` —la
+> rejilla genérica de alumnos—.
+>
+> **Ahí la regla va dentro de un `if ($propiedad === 'email')`** y no envolviendo `$valor`,
+> porque ese bloque lo comparten `username` e `is_active`: envolverlo habría dejado en null
+> **todos los usernames**.
+>
+> ### Y la mitad que NO se toca, comprobada una por una
+>
+> `PerfilesController` escribe además `$perfil->email` en cuatro sitios donde `$perfil` es un
+> `Profesor`, un `Alumno` o un `Acudiente` — o sea **la ficha**. Se miró de dónde sale cada
+> `$perfil` antes de decidir, en vez de tratar todos los `->email` igual: eso es justo lo que
+> me hizo contar diez. **Son 18 puntos de paso por la regla.**
+>
+> ### Y el Pint destapó un test que no medía lo que decía
+>
+> `PoblacionDePerfilesTest::test_son_ocho_los_metodos_que_nombran_grupos` se puso rojo al
+> formatear, diciendo que habían cambiado los métodos que nombran `grupos`. **No cambió
+> ninguno**: el test lee el fuente y buscaba `/\n\tpublic function/` **con un tabulador**, así
+> que al pasar Pint los tabuladores a espacios dejó de casar con nada. *Un rojo que se archiva
+> como ruido y no lo es: señalaba un sitio real por un motivo falso.* Barrido el resto de tests
+> que leen código fuente — sólo había otro con ese patrón y ya aceptaba espacios.
+
+> ## ✅ EL SEGUNDO CORREO FABRICADO: `'@gmail.com'`, CUARENTA VECES MÁS GRANDE (20 sep 2026)
+
+> **Quitar el `else` no cerró el grifo entero**, y lo levantó `myvc-front-2e`. Hay un segundo
+> invento y **pasa por la rama que dejamos en pie**: el alta de la aplicación **vieja** manda
+> `email: '@gmail.com'` —el literal, sin nada delante— cuando no se teclea correo, y como es
+> una cadena no vacía pasaba el `if (Request::input('email'))`.
+>
+> | | |
+> |---|---|
+> | Cuentas vivas con el literal | **678**, todas activas |
+> | Alumnos que la recuperación alcanza | 853 |
+> | …de ésos, con el literal | **655** |
+> | …de ésos, con un correo de verdad | **196** |
+>
+> **655 frente a 16**: el mismo daño que `@myvc.com` y cuarenta veces mayor. Y corrige el dato
+> que llegó esa mañana —*«los alumnos están sanos, 851 de 853»*—, que sólo filtraba
+> `@myvc.com`. Tercera vez en el día que una cifra es cierta y la frase de al lado no.
+>
+> ### Lo decidido, y son dos cosas distintas
+>
+> **El grifo se cierra desde el backend** (`b130194`): `app/Support/CorreoDeLaCuenta` dice qué
+> puede vivir en `users.email`, y una cadena que empieza por `@` no. **`app/` no se toca por
+> decisión de Joseth**, así que esa pantalla va a seguir mandándolo — por eso la regla vive
+> **donde el dato entra** y no en quien lo manda.
+>
+> **Las 678 ya escritas se quedan**, como las 30 de `@myvc.com`, decidido con los dos órdenes
+> de magnitud delante. *Sabido y decidido, no pendiente.*
+>
+> **Y la ficha lo conserva.** Sólo tiene regla la columna que es la llave del reseteo;
+> `alumnos.email` es un dato de contacto que el colegio mira en pantalla.
+>
+> ### Lo que este arreglo enseña y no estaba escrito en ningún sitio
+>
+> **`AlumnosController::postStore` escribe `users.email` desde `email` y NO desde `email2`**,
+> o sea que se salta entera la red de `sanarInputUser`. Un guardián puesto sólo en la
+> derivación —que es donde lo habría puesto cualquiera, porque es donde estaba el `else`— **no
+> habría tocado el alta de alumnos, que es justo donde nacen los 655.** Por eso la regla va en
+> los diez sitios que escriben esa columna desde entrada del cliente y no en uno.
+>
+> **El test se comprobó desarmando la regla**, no leyéndolo: con el `str_starts_with` fuera se
+> pone rojo ése y sólo ése. Es la tercera vez hoy que un test se valida rompiendo el código a
+> propósito, y las tres veces hizo falta.
+
+> ## ✅ A NADIE SE LE INVENTA UN CORREO (20 sep 2026) — Y EL PINT SE LO LLEVÓ OTRA SESIÓN
+
+> **Decisión de Joseth, confirmada directamente a esta sesión**: al crear a cualquiera
+> —docente, alumno, acudiente— **no se le fabrica un correo**. Quitado el `else` de los dos
+> `sanarInputUser` (`ProfesoresController`, `AlumnosController`), que eran los dos únicos
+> sitios del backend que construían `username@myvc.com`. Commit `4c82661`.
+>
+> **Las 30 cuentas que ya lo tienen se quedan** —16 activas: 11 profesores, 2 alumnos, 3 sin
+> ficha—, decidido el mismo día con esos números delante. *Está sabido y decidido, no
+> pendiente*, y se escribe así a propósito para que dentro de un año no parezca un olvido.
+>
+> **Y cambia la EDICIÓN además del alta, a sabiendas**: si una pantalla mandaba `email2`
+> vacío, se fabricaba uno y **se escribía encima del que hubiera**. Ahora vaciar el campo se
+> respeta.
+>
+> ### El test se comprobó volviendo a poner el `else`, y las dos primeras versiones no medían nada
+>
+> | versión | por dónde iba | con el `else` puesto |
+> |---|---|---|
+> | 1ª | `guardar-valor` | **verde** — ni siquiera llama a `sanarInputUser` |
+> | 2ª | `update/{id}` | **verde** — lo llama, pero sólo escribe si la clave `email2` vino |
+> | buena | `profesores/store` | **roja**, que es lo que hacía falta |
+>
+> *Un test verde que pasaría igual sin el arreglo es peor que no tenerlo, porque hace
+> archivar el asunto.* Con el `else` restaurado los tres se ponen rojos; sin él, los tres
+> verdes.
+>
+> ### El Pint acabó dentro del commit de otra sesión, y no se rehace
+>
+> Dejé los dos controladores reformateados en el árbol principal mientras corría la suite, y
+> **`2503b27` —una casilla de documentación de otra sesión— se los llevó**, junto con la
+> línea de `composer.json`. Es literalmente el aviso de `CLAUDE.md`: *«formatear no estaña,
+> pero le deja a otro cambios que no hizo, y el siguiente que commitee ahí se los lleva»*.
+>
+> **No se rehace la historia**: el contenido está bien, `pint:test` da PASS con 465 y `main`
+> es compartido. Lo que se perdió es el porqué, así que va aquí — **el coste del reformateo
+> se midió antes y con la orden buena**, el merge-base y no `git diff main..<rama>`, que
+> mezcla «la rama cambió el fichero» con «la rama va por detrás»:
+>
+> ```bash
+> for b in $(git for-each-ref --format='%(refname:short)' refs/heads/); do
+>   base=$(git merge-base main "$b") || continue
+>   git diff --name-only "$base".."$b" -- <el fichero> | grep -q . && echo "$b"
+> done
+> ```
+>
+> **Ninguna rama viva toca ninguno de los dos**, así que reformatearlos no le costó nada a
+> nadie. *La lección no es «no formatees»: es que lo que dejes sin commitear en el árbol
+> principal deja de ser tuyo en cuanto otro haga `add`.*
+
+> ## ✅ EL CORREO DE LA CUENTA DEL ACUDIENTE — DECIDIDO Y HECHO (20 sep 2026)
+
+> **Las tres decisiones de Joseth sobre la casilla de abajo, tomadas con las poblaciones
+> delante y construidas el mismo día.** Commits `4b82d8e` (comportamiento) y `69d08fa`
+> (Pint, aparte). Coordinado con `myvc-front-2e`, que hizo su mitad y la probó en Chrome.
+>
+> | Decisión | Qué se hizo |
+> |---|---|
+> | **D1** · `AcudientesController` copia la ficha a la cuenta | …y **NO inventa nada** cuando no hay correo. Es la mitad buena de la red de `AlumnosController:496`; la que pone `username@myvc.com` se descartó a propósito |
+> | **D2** · la rejilla puede editarlo | `case 'email2'` en `valorAcudiente` |
+> | **D3** · migrar lo ya escrito | `2026_09_20_200000`, sólo donde la cuenta está vacía |
+> | *(no autorizado)* | vaciar los 16 `@myvc.com` y el `@gmail.com` de 678 alumnos **no se toca** |
+>
+> **Acudientes recuperables: de 0 a 91.** La migración dio **91 copiados de 100 candidatos y
+> 9 saltados por colisión** — y no 94/6 como se había calculado antes de correrla: seis
+> chocaban con una cuenta que ya existía **y tres entre ellos mismos**, dos acudientes con el
+> mismo correo de ficha. *Por eso la comprobación va DENTRO del bucle; preguntarlo una vez
+> antes no habría visto esos tres.*
+>
+> ### Lo que salió al construirlo y no estaba en la casilla
+>
+> **`postCrearUsuario` era el agujero mayor y nadie lo había mirado.** Es el otro camino que
+> crea cuenta —a un acudiente que ya tiene ficha— y **no ponía correo nunca, ni el que la
+> ficha ya tenía escrito**. La migración arregla los que hay; esto arregla el grifo.
+>
+> **Y una línea que el front necesitaba para que D2 sirviera de algo**: `u.email as email2`
+> en las **seis** consultas de acudientes. Ninguna devolvía el correo de la cuenta, así que
+> la rejilla no podía pintarlo **y la rama de escritura no la podía llamar nadie**. No
+> amplía la exposición: `ac.email` —la misma dirección en los 91— ya viajaba en las seis.
+>
+> ### Dos cosas que se comprobaron para NO hacer trabajo
+>
+> **El recorte del valor ya está hecho y es global**: `TrimStrings` está en la pila de
+> `Kernel.php:22` y sólo excluye contraseñas y el `.myvch` del horario, así que un correo con
+> un espacio delante llega recortado **también por la rama `default`**, la de la ficha. No
+> hace falta tocar nada ahí.
+>
+> **85 acudientes no tienen cuenta** (1.085 vivos, 1.000 con `user_id`), y para ésos la rama
+> `email2` contesta **404** por `FilaQueSeVaAEscribir::exigir`. Se deja así: el front no
+> ofrece la celda cuando la fila no tiene cuenta.
+>
+> ### Lo que sigue abierto, y es de Joseth
+>
+> Los **9 correos que la migración saltó** —personas distintas compartiendo dirección,
+> normalmente una familia— se deciden uno a uno. Y los **909 acudientes que siguen sin correo
+> de cuenta** no los arregla ningún commit: es dato que hay que pedir.
+> ## ✅ UN CANDADO QUE DECÍA CUBRIR EL ORDEN DE LAS RUTAS Y NO LO CUBRÍA (20 sep 2026, EN `main`)
+>
+> Laravel sirve **la primera ruta que casa**, así que un comodín declarado antes que una literal
+> se la traga. Ha pasado **dos veces en la misma familia**: `…/{lote}` comiéndose `…/campos`, y
+> `…/{codigo}` comiéndose `…/pendientes` —ésta contestaba `getEstado` a quien pedía la bandeja del
+> tesorero—. Las dos se cazaron **a mano, una por una, cuando alguien las vio**.
+>
+> **`RutasTest` decía en su docblock que cubría exactamente esto, y no lo cubría.** La instantánea
+> guarda la acción **declarada** de cada URI, y reordenar no la mueve: `rutas.json` queda byte a
+> byte igual. Reproducidos los dos casos reales, **el test viejo se queda verde en los dos**.
+>
+> Lo cierra `RutasTest::test_ninguna_ruta_literal_la_atiende_un_comodin`, que no lee lo declarado:
+> recorre el router y **le pregunta a `getRoutes()->match()` quién atiende cada ruta literal**, que
+> es lo que hará el servidor. Cubre las **620** de hoy y las de mañana sin que nadie se acuerde.
+> Control visto en rojo con los dos casos históricos; hoy el router está limpio.
+>
+> **La lección no es del router, es del candado**: *un detector puede contar bien un síntoma sin
+> estar contando la causa* — y éste llevaba **el nombre de la causa escrito en el docblock**, que
+> es justo lo que hizo que nadie fuera a mirar. Cuando un test dice que protege algo, la forma de
+> saberlo es **romper ese algo y verlo en rojo**, no leer su docblock. (Y `route:list` tampoco lo
+> delata: ordena alfabéticamente, no por orden de registro.)
+>
+> Salió de una revisión de pasada de `8myvc-b2`, que lo vio, no lo escribió por estar cerrándose y
+> lo dejó dicho. **Un hallazgo que se escribe en vez de llevárselo no se pierde.**
 
 > ## ❗ LA RECUPERACIÓN DE CONTRASEÑA ALCANZA A **CERO** ACUDIENTES (20 sep 2026)
 
@@ -340,6 +552,28 @@
 > otra punta del mismo defecto que el remitente, y el fósil `MAIL_DRIVER`, que se avisa **gane el
 > veredicto que gane**: es la línea que hace leer un `.env` como configurado cuando no lo está.
 
+> ## 🔜 LA FASE 1 (EL DÍA DE MATRÍCULAS): DOS DECISIONES DE JOSETH, Y LO QUE FALTA (20 sep 2026)
+>
+> Documento nuevo: [`44-el-dia-de-matriculas.md`](44-el-dia-de-matriculas.md). **No hay una línea
+> de código y no se propone escribirla** hasta tener el dato de `lal` (§4 de ese documento).
+>
+> **Decidido por Joseth el 20 sep**: las estaciones son **las que el colegio quiera** —editor de
+> pasos, no plantilla— y cada una es **«obligatoria antes de continuar» u «opcional»**.
+>
+> > **Esa segunda decisión COLAPSA algo que la propuesta separaba, y va dicho sin re-litigarlo.**
+> > `PANTALLAS-MATRICULA.md` §3 distinguía *obligatorio* (hay que cumplirlo para matricular) de
+> > *bloqueante* (impide pasar al siguiente). Joseth describió **una sola**: bloqueante o nada. Es
+> > más simple —una columna y un interruptor— y **lo que se pierde es el caso «hay que hacerlo,
+> > pero no aquí ni ahora»**: la entrevista de orientación, que es obligatoria y no debería frenar
+> > la cola. Se construye con un interruptor, que es lo decidido; queda escrito para que el día que
+> > un colegio pida «que no frene pero que no se me olvide», la respuesta sea revisar esta decisión
+> > con el caso delante y no un parche.
+>
+> **La pregunta que decide si hay migración o ninguna**: ¿el número de estación **es**
+> `requisitos_matricula.orden`, o son dos cosas? El relato admite las dos lecturas —*«el requisito
+> 2… la estación 4»*— y **lo contesta el dato de `lal`, no discutirlo**. Una columna añadida sin
+> saberlo es `profesores.tono` otra vez.
+
 > ## ⚠️ ANTES DE LA FASE 1 DEL PROCESO: `requisitos_matricula` ESTÁ VACÍA **AQUÍ**, NO EN LOS DIECISÉIS
 >
 > **Medido el 20 sep 2026 en la copia de desarrollo (UN colegio), y el denominador es la mitad del
@@ -368,8 +602,117 @@
 > exactamente la lectura falsa de las dos — y la que hace tirar trabajo bueno. Es la regla de
 > *«ninguna herramienta imprime OK sin decir su población»* aplicada a una consulta a mano.
 >
-> **Lo que hace falta antes de escribir la fase 1** es correr esas cuatro consultas **en un colegio
-> que la use**, que sólo puede hacer quien tenga acceso a producción.
+> ### ✅ JOSETH NOMBRÓ EL COLEGIO EL 20 SEP: **`lalvirtual`**, Y LA MEDICIÓN QUEDA LISTA
+>
+> **`tools/requisitos-de-matricula.php`**, escrita ese día. No es un `SELECT` suelto: contesta las
+> cinco preguntas que la fase 1 necesita —cuántos pasos, si el `orden` se usa, si alguien es dueño,
+> qué proporción se cierra de verdad y cuándo fue la última vez— y **dice el nombre de la base en
+> cada bloque**, que es lo único que impide volver a leer un cero sin su población.
+>
+> ```bash
+> php tools/requisitos-de-matricula.php micolev1_lal_db      # o la base de lal donde viva
+> php tools/requisitos-de-matricula.php --csv BASE [BASE…]   # para pegarlo aquí
+> ```
+>
+> **No se pudo correr desde el repositorio**: el docker sólo tiene `simonbolivar`, y la base de
+> `lal` vive en el servidor. Probada contra los cuatro caminos —el colegio que no lo usa, una base
+> que no existe (**`NO MEDIDO`, nunca `0`**), el CSV y un argumento con forma rara—, y larastan en
+> `[OK]`.
+>
+> **Lo que NO contesta, dicho para que nadie lo suponga**: cuántas estaciones tiene un día de
+> matrículas —eso va en cartulinas, no en la base—, si un paso bloquea al siguiente, y si «falta»
+> significa que no se entregó o que nadie lo marcó. **Esas tres deciden la mitad de la fase 1 y
+> sólo las sabe el colegio.**
+
+> ## ✅ LA FASE 1 DEL PROCESO: EL DÍA DE MATRÍCULAS, ROUTER EN 621 (20 sep 2026, `939ec20`)
+>
+> **Cuatro decisiones de Joseth, cada una con las opciones delante.** Documento:
+> [`44-el-dia-de-matriculas.md`](44-el-dia-de-matriculas.md).
+>
+>     GET requisitos/recorrido/{alumno_id}    auth.personal    NO escribe
+>
+> | | |
+> |---|---|
+> | estaciones | **las que el colegio quiera** — editor de pasos, no plantilla |
+> | frenar | cada una es **«obligatoria antes de continuar» u «opcional»** |
+> | el número impreso | **ES `requisitos_matricula.orden`**, que ya existía |
+> | quién cierra | **cualquiera del personal, con su nombre y su hora** |
+>
+> **Tres columnas donde la propuesta pedía diez**, y ninguna de las siete que faltan se cae por
+> recorte: cada una la cerró una respuesta. *Una columna sin pantalla es `profesores.tono`, y van
+> cinco en un mes.*
+>
+> ### La respuesta que parecía la más floja es la que hace esto desplegable
+>
+> *«¿«falta» significa que la familia no entregó, o que nadie lo marcó?»* — **«las dos cosas, según
+> la estación»**. Eso convierte `bloquea` de lujo en necesidad: **el bloqueo no se puede encender de
+> golpe**. Donde el dato es fiable frena; donde nadie marca, informa y deja pasar. Un bloqueo global
+> habría mandado de vuelta a familias que sí entregaron, **el primer día y en la cola**.
+>
+> ### Un fallo visto antes de cometerlo, y uno cometido
+>
+> **Visto**: el `JOIN` natural para el nombre de quien cierra es `users.profesor_id`. Medido: **0
+> filas** con esa columna, **47** con `profesores.user_id`. Al revés, el renglón habría salido en
+> blanco en los diecisiete sin que nada fallara.
+>
+> **Cometido, y es mío**: `git add -A` en el árbol principal se llevó en `2503b27` **el Pint sin
+> commitear de otra sesión** —`AlumnosController` y `ProfesoresController`, 3.600 líneas—. Rompí la
+> regla que yo mismo tengo escrita: *respaldar sí, commitear no*. No se deshizo —`main` ya había
+> avanzado por encima— y el rojo que introdujo está arreglado en `1b2368d`.
+>
+> > **Y cazarlo enseñó algo**: `git diff main..<rama>` dijo que el fichero era mío **y mentía**,
+> > porque mezcla *«mi rama lo cambió»* con *«main lo cambió mientras yo iba por detrás»*. Es la
+> > trampa que este documento ya tenía escrita para contar ramas. Quien lo contestó fue `git blame`.
+>
+> | | |
+> |---|---|
+> | `php artisan test` | **2.475 passed, 1 skipped**, sobre `1b2368d` con `main` dentro |
+> | `route:list --json` | **621** en el árbol principal tras fundir (`939ec20`) |
+> | `imports-de-facades.php --dry-run` | **0 de 698** — no queda ningún `use` por alias |
+>
+> ### Lo que falta, y no es código
+>
+> Correr `tools/requisitos-de-matricula.php` en `lal`: **ya no bloquea** —Joseth contestó a mano las
+> tres preguntas que dependían de ella— pero dice **qué encuentra un colegio el día que despliegue
+> esto**. Y las pantallas, que son de `myvc_front`.
+
+> ## ✅ EL LIMITADOR: PREGUNTAR YA NO GASTA SUBIDAS (20 sep 2026, `f400145`)
+>
+> **Lo encontró `8myvc-dd` revisando `GET colillas-inscripcion/{codigo}` unas horas después de
+> fundirlo**, y la causa no era un número mal puesto: la clave de un limitador con nombre es
+> `md5($limiterName.$limit->key)` —`ThrottleRequests::handleRequestUsingNamedLimiter`, comprobado
+> en el fuente— **sin el verbo y sin la ruta**. Con el mismo `throttle:colilla` y los mismos
+> `by()`, el `GET` y el `POST` eran **un solo cubo de diez por hora**.
+>
+> **Y el síntoma llegaba antes de lo previsto.** El informe decía que fallaría el `POST` tras diez
+> consultas; reproducido, **falla la undécima CONSULTA**: la familia ni siquiera podía preguntar
+> once veces. Arreglado con `throttle:consulta-inscripcion` (60/h por IP **y** por código).
+>
+> > **Y un test mío que NO medía lo que decía, del mismo género.** `test_subir_sigue_topado` subía
+> > dos comprobantes **a la misma orden** y esperaba 429 — pero eso pasa por el tope de «una
+> > pendiente por orden», no por el limitador. Se destapó porque un `sed` pisó la línea del `POST`
+> > y lo dejó con el limitador generoso, **y el test siguió en verde**. Reescrito para gastarlo
+> > **por IP**, que es lo único que ese tope no tapa.
+>
+> **La cifra del correo, corregida en mis cuatro sitios y en dos capas.** La primera la levantó
+> `8myvc-9a`: el 9,2 % es `acudientes.email` y todo busca por `users.email` —eran **0**, su arreglo
+> los dejó en **91**—. **La segunda es de fondo: ninguna de las dos cuenta a esta gente.** Son
+> acudientes de **matriculados**, y quien paga un formulario es la familia de un **aspirante**, que
+> no tiene fila en `users` ni en `acudientes`. Medido: **este flujo no le pide el correo y ninguna
+> de sus tres tablas tiene esa columna.** Para él el correo **no es un canal**.
+>
+> | | |
+> |---|---|
+> | `php artisan test` (las tres testsuites) | **2.459 passed, 1 skipped**, sobre `2454459` con `main` dentro |
+> | `composer run pint:test` | **PASS**, 462 ficheros |
+> | `route:list --json` | **620**, árbol principal sobre `main` tras fundir (`f400145`) |
+>
+> ### PENDIENTE QUE SALE DE AQUÍ, escrito sin hacer
+>
+> **Dos veces en la misma familia ya no es casualidad**: `…/campos` tragada por `{lote}` el 19 sep
+> y `…/pendientes` tragada por `{codigo}` el 20. Un test **genérico** que recorra el router y
+> compruebe con `getRoutes()->match()` que cada URI literal la atiende **su** acción cazaría la
+> familia entera y las futuras. **Es idea de `8myvc-dd`.**
 
 > ## ✅ LA FAMILIA PREGUNTA — LA 16ª PÚBLICA Y LA PRIMERA DE LECTURA, ROUTER EN 620 (20 sep 2026)
 >
@@ -388,9 +731,18 @@
 > motivo ya se guardaba desde el 19 sep, y **sólo lo veía el personal**.
 >
 > **No espera al correo, y ése es el punto**: el aviso que debía cerrarlo va por correo, que está
-> en rojo desde el 2 sep y **falla callado**, y sólo el **9,2 %** de los acudientes tiene uno. Esto
-> es *pull* en vez de *push*: la familia entra con el código que lleva impreso el papel. *Arreglar
-> el correo sigue haciendo falta; lo que ya no hace falta es esperarlo.*
+> en rojo desde el 2 sep y **falla callado**. Esto es *pull* en vez de *push*: la familia entra con
+> el código que lleva impreso el papel. *Arreglar el correo sigue haciendo falta; lo que ya no hace
+> falta es esperarlo.*
+>
+> > **Y aquí se citaba el 9,2 % de acudientes con correo, que está mal DOS veces.** La primera la
+> > levantó `8myvc-9a`: ese 9,2 % es `acudientes.email` y todo lo que manda correo busca por
+> > `users.email` —eran **0**, y su arreglo los dejó en **91**—. **La segunda es la de fondo y es
+> > mía: ninguna de las dos cifras cuenta a esta gente.** Las dos son acudientes de alumnos **ya
+> > matriculados**, y quien paga un formulario es la familia de un **aspirante**, que no tiene fila
+> > en `users` ni en `acudientes`. Medido: **este flujo no le pide el correo en ningún momento y
+> > ninguna de sus tres tablas tiene esa columna.** Para él el correo **no es un canal**, y esta
+> > ruta no es la mejor opción: es **la única**. Detalle en el [`41 §10`](41-el-formulario-de-inscripcion.md).
 >
 > ### Lo que devuelve lo decide que sea pública, no que le sirva a la familia
 >
