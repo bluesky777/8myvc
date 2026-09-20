@@ -73,6 +73,53 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## ✅ EL CORREO DE LA CUENTA DEL ACUDIENTE — DECIDIDO Y HECHO (20 sep 2026)
+
+> **Las tres decisiones de Joseth sobre la casilla de abajo, tomadas con las poblaciones
+> delante y construidas el mismo día.** Commits `4b82d8e` (comportamiento) y `69d08fa`
+> (Pint, aparte). Coordinado con `myvc-front-2e`, que hizo su mitad y la probó en Chrome.
+>
+> | Decisión | Qué se hizo |
+> |---|---|
+> | **D1** · `AcudientesController` copia la ficha a la cuenta | …y **NO inventa nada** cuando no hay correo. Es la mitad buena de la red de `AlumnosController:496`; la que pone `username@myvc.com` se descartó a propósito |
+> | **D2** · la rejilla puede editarlo | `case 'email2'` en `valorAcudiente` |
+> | **D3** · migrar lo ya escrito | `2026_09_20_200000`, sólo donde la cuenta está vacía |
+> | *(no autorizado)* | vaciar los 16 `@myvc.com` y el `@gmail.com` de 678 alumnos **no se toca** |
+>
+> **Acudientes recuperables: de 0 a 91.** La migración dio **91 copiados de 100 candidatos y
+> 9 saltados por colisión** — y no 94/6 como se había calculado antes de correrla: seis
+> chocaban con una cuenta que ya existía **y tres entre ellos mismos**, dos acudientes con el
+> mismo correo de ficha. *Por eso la comprobación va DENTRO del bucle; preguntarlo una vez
+> antes no habría visto esos tres.*
+>
+> ### Lo que salió al construirlo y no estaba en la casilla
+>
+> **`postCrearUsuario` era el agujero mayor y nadie lo había mirado.** Es el otro camino que
+> crea cuenta —a un acudiente que ya tiene ficha— y **no ponía correo nunca, ni el que la
+> ficha ya tenía escrito**. La migración arregla los que hay; esto arregla el grifo.
+>
+> **Y una línea que el front necesitaba para que D2 sirviera de algo**: `u.email as email2`
+> en las **seis** consultas de acudientes. Ninguna devolvía el correo de la cuenta, así que
+> la rejilla no podía pintarlo **y la rama de escritura no la podía llamar nadie**. No
+> amplía la exposición: `ac.email` —la misma dirección en los 91— ya viajaba en las seis.
+>
+> ### Dos cosas que se comprobaron para NO hacer trabajo
+>
+> **El recorte del valor ya está hecho y es global**: `TrimStrings` está en la pila de
+> `Kernel.php:22` y sólo excluye contraseñas y el `.myvch` del horario, así que un correo con
+> un espacio delante llega recortado **también por la rama `default`**, la de la ficha. No
+> hace falta tocar nada ahí.
+>
+> **85 acudientes no tienen cuenta** (1.085 vivos, 1.000 con `user_id`), y para ésos la rama
+> `email2` contesta **404** por `FilaQueSeVaAEscribir::exigir`. Se deja así: el front no
+> ofrece la celda cuando la fila no tiene cuenta.
+>
+> ### Lo que sigue abierto, y es de Joseth
+>
+> Los **9 correos que la migración saltó** —personas distintas compartiendo dirección,
+> normalmente una familia— se deciden uno a uno. Y los **909 acudientes que siguen sin correo
+> de cuenta** no los arregla ningún commit: es dato que hay que pedir.
+
 > ## ❗ LA RECUPERACIÓN DE CONTRASEÑA ALCANZA A **CERO** ACUDIENTES (20 sep 2026)
 
 > **Lo levantó `myvc-front-2e` corrigiendo una cifra mía, y está reproducido aquí antes de
