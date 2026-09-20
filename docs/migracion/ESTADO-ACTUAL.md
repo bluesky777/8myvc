@@ -73,6 +73,56 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## ✅ A NADIE SE LE INVENTA UN CORREO (20 sep 2026) — Y EL PINT SE LO LLEVÓ OTRA SESIÓN
+
+> **Decisión de Joseth, confirmada directamente a esta sesión**: al crear a cualquiera
+> —docente, alumno, acudiente— **no se le fabrica un correo**. Quitado el `else` de los dos
+> `sanarInputUser` (`ProfesoresController`, `AlumnosController`), que eran los dos únicos
+> sitios del backend que construían `username@myvc.com`. Commit `4c82661`.
+>
+> **Las 30 cuentas que ya lo tienen se quedan** —16 activas: 11 profesores, 2 alumnos, 3 sin
+> ficha—, decidido el mismo día con esos números delante. *Está sabido y decidido, no
+> pendiente*, y se escribe así a propósito para que dentro de un año no parezca un olvido.
+>
+> **Y cambia la EDICIÓN además del alta, a sabiendas**: si una pantalla mandaba `email2`
+> vacío, se fabricaba uno y **se escribía encima del que hubiera**. Ahora vaciar el campo se
+> respeta.
+>
+> ### El test se comprobó volviendo a poner el `else`, y las dos primeras versiones no medían nada
+>
+> | versión | por dónde iba | con el `else` puesto |
+> |---|---|---|
+> | 1ª | `guardar-valor` | **verde** — ni siquiera llama a `sanarInputUser` |
+> | 2ª | `update/{id}` | **verde** — lo llama, pero sólo escribe si la clave `email2` vino |
+> | buena | `profesores/store` | **roja**, que es lo que hacía falta |
+>
+> *Un test verde que pasaría igual sin el arreglo es peor que no tenerlo, porque hace
+> archivar el asunto.* Con el `else` restaurado los tres se ponen rojos; sin él, los tres
+> verdes.
+>
+> ### El Pint acabó dentro del commit de otra sesión, y no se rehace
+>
+> Dejé los dos controladores reformateados en el árbol principal mientras corría la suite, y
+> **`2503b27` —una casilla de documentación de otra sesión— se los llevó**, junto con la
+> línea de `composer.json`. Es literalmente el aviso de `CLAUDE.md`: *«formatear no estaña,
+> pero le deja a otro cambios que no hizo, y el siguiente que commitee ahí se los lleva»*.
+>
+> **No se rehace la historia**: el contenido está bien, `pint:test` da PASS con 465 y `main`
+> es compartido. Lo que se perdió es el porqué, así que va aquí — **el coste del reformateo
+> se midió antes y con la orden buena**, el merge-base y no `git diff main..<rama>`, que
+> mezcla «la rama cambió el fichero» con «la rama va por detrás»:
+>
+> ```bash
+> for b in $(git for-each-ref --format='%(refname:short)' refs/heads/); do
+>   base=$(git merge-base main "$b") || continue
+>   git diff --name-only "$base".."$b" -- <el fichero> | grep -q . && echo "$b"
+> done
+> ```
+>
+> **Ninguna rama viva toca ninguno de los dos**, así que reformatearlos no le costó nada a
+> nadie. *La lección no es «no formatees»: es que lo que dejes sin commitear en el árbol
+> principal deja de ser tuyo en cuanto otro haga `add`.*
+
 > ## ✅ EL CORREO DE LA CUENTA DEL ACUDIENTE — DECIDIDO Y HECHO (20 sep 2026)
 
 > **Las tres decisiones de Joseth sobre la casilla de abajo, tomadas con las poblaciones
