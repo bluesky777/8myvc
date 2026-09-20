@@ -46,8 +46,39 @@ class CalendarioInternoTest extends CasoDeContrato
      *
      * @return list<int>
      */
-    private function eventosInternos(int $cuantos = 3): array
+    /**
+     * El año lectivo que resuelve un token — **no el del reloj**.
+     *
+     * Hace falta desde el 20 sep 2026, que es cuando el calendario pasó a
+     * leerse **por año**. Se le pregunta al contexto y no a `users.periodo_id`,
+     * porque entrar mueve a la persona al periodo actual: en el seed la fila
+     * dice 2021 y el token resuelve 2025.
+     */
+    private function anioDelToken(string $token): int
     {
+        $r = $this->postJson('/api/login', [], ['Authorization' => 'Bearer '.$token]);
+        $r->assertStatus(200);
+
+        return (int) $r->json('year');
+    }
+
+    /**
+     * Tres eventos internos **dentro del año de ese token**.
+     *
+     * **Nacían con `start => now()`, y eso dejó de servir el 20 sep 2026**: el
+     * calendario se lee por año lectivo y el reloj real va por 2026 mientras el
+     * seed vive en 2025, así que los tres caían fuera y **ninguna de las cinco
+     * pruebas de esta clase medía ya lo que dice**.
+     *
+     * Las dos que exigen ver los internos se pusieron rojas y avisaron. **Las
+     * tres que exigen NO verlos siguieron verdes y ésas son las peligrosas**:
+     * pasaban porque los eventos estaban fuera del año, o sea que habrían
+     * pasado igual **con el filtro de `solo_profes` quitado** — justo el agujero
+     * que esta clase existe para cazar.
+     */
+    private function eventosInternos(string $token, int $cuantos = 3): array
+    {
+        $anio = $this->anioDelToken($token);
         $ids = [];
 
         for ($i = 0; $i < $cuantos; $i++) {
@@ -55,7 +86,7 @@ class CalendarioInternoTest extends CasoDeContrato
                 'title' => 'Reunión interna de prueba '.$i,
                 'solo_profes' => 1,
                 'allDay' => 1,
-                'start' => now(),
+                'start' => $anio.'-07-0'.($i + 1).' 08:00:00',
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -83,8 +114,8 @@ class CalendarioInternoTest extends CasoDeContrato
      */
     public function test_un_alumno_no_ve_los_internos_diciendo_que_es_profesor(): void
     {
-        $internos = $this->eventosInternos();
         $token = $this->tokenDe($this->usuarioDeTipo('Alumno')->username);
+        $internos = $this->eventosInternos($token);
 
         $sinBandera = $this->idsQueVe($token, []);
 
@@ -114,8 +145,8 @@ class CalendarioInternoTest extends CasoDeContrato
      */
     public function test_un_profesor_ve_los_internos_sin_mandar_nada(): void
     {
-        $internos = $this->eventosInternos();
         $token = $this->tokenDe($this->usuarioDeTipo('Profesor')->username);
+        $internos = $this->eventosInternos($token);
 
         $ve = $this->idsQueVe($token, []);
 
@@ -146,8 +177,6 @@ class CalendarioInternoTest extends CasoDeContrato
      */
     public function test_un_administrativo_sin_superusuario_no_ve_los_internos(): void
     {
-        $internos = $this->eventosInternos();
-
         $usuario = DB::selectOne('SELECT u.username FROM users u
             INNER JOIN periodos p ON p.id = u.periodo_id
             WHERE u.tipo = "Usuario" AND u.is_superuser = 0 AND u.is_active = 1
@@ -156,6 +185,7 @@ class CalendarioInternoTest extends CasoDeContrato
         $this->assertNotNull($usuario, 'El seed necesita un administrativo sin superusuario.');
 
         $token = $this->tokenDe($usuario->username);
+        $internos = $this->eventosInternos($token);
 
         $ve = $this->idsQueVe($token, []);
 
@@ -178,14 +208,15 @@ class CalendarioInternoTest extends CasoDeContrato
      */
     public function test_un_superusuario_ve_los_internos(): void
     {
-        $internos = $this->eventosInternos();
-
         $super = DB::selectOne('SELECT username FROM users
             WHERE is_superuser = 1 AND is_active = 1 AND deleted_at IS NULL ORDER BY id LIMIT 1');
 
         $this->assertNotNull($super, 'El seed necesita un superusuario.');
 
-        $ve = $this->idsQueVe($this->tokenDe($super->username), []);
+        $token = $this->tokenDe($super->username);
+        $internos = $this->eventosInternos($token);
+
+        $ve = $this->idsQueVe($token, []);
 
         $this->assertSame($internos, array_values(array_intersect($internos, $ve)),
             'El superusuario dejó de ver los internos: el criterio se estrechó a sólo los de tipo Profesor.');
@@ -196,8 +227,8 @@ class CalendarioInternoTest extends CasoDeContrato
      */
     public function test_un_acudiente_no_ve_los_internos(): void
     {
-        $internos = $this->eventosInternos();
         $token = $this->tokenDe($this->usuarioDeTipo('Acudiente')->username);
+        $internos = $this->eventosInternos($token);
 
         $ve = $this->idsQueVe($token, ['is_prof_admin' => 'true']);
 

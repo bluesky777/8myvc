@@ -120,6 +120,68 @@
 > *Y una que sale de paso: para profesores la recuperación alcanza a **12**, no a 34, porque
 > exige `is_active=1` y veintidós cuentas con correo no lo están.*
 
+> ## ✅ EL CALENDARIO SE LEE POR AÑO — SEIS CONSULTAS EN UNA (20 sep 2026, SIN FUNDIR)
+>
+> **Decidido por Joseth el 20 sep con las tres opciones delante y sabiendo lo que apaga.**
+> En `.worktrees/cal`, rama `fix/el-calendario-del-anio`. **No mueve ninguna ruta.**
+>
+> **Lo medido**: `calendario` tiene **593 filas visibles, de 2019 a 2025, y ni una de 2026** —
+> nadie la ha curado—. Las seis consultas que la leían **no filtraban ni por año ni por
+> fecha**: 128 KB en `ChangesAsked/to-me` y **215,5 KB** en `calendario/this-year`, que con
+> `SELECT *` mandaba más que su hermana con los mismos datos. Ahora las seis pasan por
+> `App\Support\EventosDelAnio`.
+>
+> **⚠️ Lo que esto apaga, y se verá antes que el ahorro**: en un colegio cuyo año en curso sea
+> 2026, **el calendario del panel sale vacío**. No es una avería: es que no hay ni un evento de
+> 2026 cargado. Quien lo vea **no tiene que revertir esto, tiene que cargar el año.**
+>
+> ### Tres cosas que salieron por el camino
+>
+> **1 · El `SELECT *` ya lo había arreglado otra tanda, y sus diecisiete columnas NO se
+> tocan.** `feat/calendario` las nombró a propósito —son las que tenía la tabla antes de su
+> migración, para que esa respuesta no moviera ni una clave—. `EventosDelAnio` comparte **la
+> regla del año y no las columnas**: `to-me` sigue con diez y `this-year` con diecisiete.
+> Estrecharlas de paso habría deshecho una decisión ajena sin discutirla.
+>
+> **2 · El solape, y no `YEAR(start)`.** Un evento del 20 de diciembre al 15 de enero
+> pertenece a los dos años; con `YEAR(start)` desaparece del año en que la gente lo vive. Es
+> además la forma que ya usaba `eventosManualesDelRango`, así que **las dos maneras de leer el
+> calendario por fin coinciden** — antes el panel cargaba una lista al entrar y otra distinta
+> al pulsar «Actualizar».
+>
+> **3 · El año sale del TOKEN, no del reloj ni de `users.periodo_id`.** Entrar mueve a la
+> persona al periodo actual: en el seed la fila del primer profesor dice **2021** y su token
+> resuelve **2025**. Escribir un test contra el año de la fila lo pone rojo con el código
+> bien, y el síntoma engaña —parece que el filtro no filtra—. Se le pregunta a
+> `POST /api/login`, que es de donde lo saca el propio controlador.
+>
+> ### Y lo que este cambio estuvo a punto de desarmar sin avisar
+>
+> **`CalendarioInternoTest` creaba sus eventos con `start => now()`**, o sea 2026, mientras el
+> seed vive en 2025. Con el filtro, los tres caían fuera del año:
+>
+> - las **dos** pruebas que exigen **ver** los internos se pusieron **rojas** y avisaron;
+> - las **tres** que exigen **NO** verlos **siguieron verdes** — y ésas son las peligrosas:
+>   pasaban porque los eventos estaban fuera del año, o sea que **habrían pasado igual con el
+>   filtro de `solo_profes` quitado**, que es justo el agujero que esa clase existe para cazar.
+>
+> Arreglado haciendo que los eventos nazcan **dentro del año del token**. Control: quitando
+> `solo_profes = 0` ahora caen las tres; antes del arreglo no caía ninguna.
+>
+> ### Dos instantáneas se estrechan, y no es el contrato
+>
+> `muestreo-ChangesAsked-to-me` y `muestreo-calendario-this-year` pasan de `'end' =>
+> 'null|string'` a `'end' => 'null'`. **La muestra encogió**: en las filas del año en curso del
+> seed ningún evento tiene `end`. El día que haya uno de varios días volverán a `null|string`
+> y **eso no será una regresión**.
+>
+> ### Estado
+>
+> `ElCalendarioEsDelAnioTest` **4 passed**, `CalendarioInternoTest` **5 passed**,
+> `MuestreoDeLecturas*` **77 passed**, y el bloque ancho
+> (`--filter='Calendario|Muestreo|Muro|Login|ChangeAsked|Panel'`) **159 passed** — todo con
+> `--testsuite=Contrato` en `.worktrees/cal` con `DB_TEST_DATABASE=simonbolivar_testing_cal`.
+> `pint:test` **PASS, 458 ficheros**.
 > ## 🔧 `tools/correo-de-los-colegios.sh` — QUÉ INSTALACIONES NO PUEDEN MANDAR CORREO (20 sep 2026)
 
 > **Pedido por Joseth**: un guion para subir al shared host que diga **qué subdominios siguen sin

@@ -8,14 +8,14 @@
         "cumple_profe_id": "int|null",
         "deleted_at": "null",
         "deleted_by": "null",
-        "end": "null|string",
+        "end": "null",
         "id": "int",
         "solo_profes": "int",
         "start": "string",
         "title": "string",
         "type": "null",
         "updated_at": "string",
-        "updated_by": "int|null",
+        "updated_by": "null",
         "url": "null"
     }
 ]
