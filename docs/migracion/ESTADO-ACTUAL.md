@@ -73,6 +73,46 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## ⚠️ YO CONTÉ DIEZ SITIOS Y ERAN CATORCE — Y EL QUE FALTABA ERA EL PEOR (20 sep 2026)
+
+> **Lo levantó `myvc-front-2e` verificando nuestro código en vez de creérselo.** Yo dije que
+> la regla de `CorreoDeLaCuenta` cubría «los diez sitios que escriben `users.email`». Eran
+> más, y **mi diez era lo que había cambiado, no lo que existe**.
+>
+> **El motivo de que faltaran cuatro es el censo**: lo saqué de un `grep` de
+> `$usuario->email = `, y **ninguno de los cuatro está escrito así**. Tres son `UPDATE users
+> SET email=?` crudos y el cuarto es un `switch` genérico por nombre de columna. *Un detector
+> que enumera las formas que ya imaginaste es ciego a la que no.*
+>
+> ### El que faltaba y más importaba
+>
+> **`perfiles/guardar-mi-email-restore`** hace un `UPDATE` crudo con
+> `Request::input('email_restore')`. Es **literalmente el correo de recuperación que se pone
+> el propio usuario**: el sitio donde la regla más importa de toda la API, porque quien se lo
+> pone cree que lo tiene puesto y lo que queda en la columna no sirve para recuperar nada. Con
+> él, `putCambiarpassword` y `putCambiaremailrestore`, y `GuardarAlumno` `case 'email'` —la
+> rejilla genérica de alumnos—.
+>
+> **Ahí la regla va dentro de un `if ($propiedad === 'email')`** y no envolviendo `$valor`,
+> porque ese bloque lo comparten `username` e `is_active`: envolverlo habría dejado en null
+> **todos los usernames**.
+>
+> ### Y la mitad que NO se toca, comprobada una por una
+>
+> `PerfilesController` escribe además `$perfil->email` en cuatro sitios donde `$perfil` es un
+> `Profesor`, un `Alumno` o un `Acudiente` — o sea **la ficha**. Se miró de dónde sale cada
+> `$perfil` antes de decidir, en vez de tratar todos los `->email` igual: eso es justo lo que
+> me hizo contar diez. **Son 18 puntos de paso por la regla.**
+>
+> ### Y el Pint destapó un test que no medía lo que decía
+>
+> `PoblacionDePerfilesTest::test_son_ocho_los_metodos_que_nombran_grupos` se puso rojo al
+> formatear, diciendo que habían cambiado los métodos que nombran `grupos`. **No cambió
+> ninguno**: el test lee el fuente y buscaba `/\n\tpublic function/` **con un tabulador**, así
+> que al pasar Pint los tabuladores a espacios dejó de casar con nada. *Un rojo que se archiva
+> como ruido y no lo es: señalaba un sitio real por un motivo falso.* Barrido el resto de tests
+> que leen código fuente — sólo había otro con ese patrón y ya aceptaba espacios.
+
 > ## ✅ EL SEGUNDO CORREO FABRICADO: `'@gmail.com'`, CUARENTA VECES MÁS GRANDE (20 sep 2026)
 
 > **Quitar el `else` no cerró el grifo entero**, y lo levantó `myvc-front-2e`. Hay un segundo
