@@ -58,4 +58,5 @@ Route::middleware('auth.token')->group(function () {
     require __DIR__.'/api/horario.php';
     require __DIR__.'/api/plantilla.php';
     require __DIR__.'/api/desempenos.php';
+    require __DIR__.'/api/estaciones.php';
 });
