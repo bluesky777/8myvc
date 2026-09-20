@@ -73,50 +73,90 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
-> ## 🚧 LA IMPORTACIÓN DINÁMICA DE ALUMNOS — FASE 2 EN CURSO, Y EL PLAN YA TIENE NÚMERO (20 sep 2026)
+> ## ✅ LA IMPORTACIÓN DINÁMICA — LAS TRES PIEZAS DE LA FASE 2, ROUTER EN 622 (20 sep 2026)
 >
-> El plan vivía en `myvc-ia-prototipo/docs/plan-importacion.md` *«mientras fuera un plan»*, con la
-> orden de mudarse el día que la Fase 1 arrancara. Arrancó el 19 sep y está en `main` (`f0d0313`),
-> así que se movió: **[`44-la-importacion-dinamica.md`](44-la-importacion-dinamica.md)**. El
-> análisis que lo sustenta —967 líneas medidas contra la base real— **se queda en el prototipo**:
-> aquí viven las decisiones, allí la medición.
+> **SIN FUNDIR: hay que recontar las rutas en el árbol principal el día que entren.** 622 contadas
+> con `route:list --json` en `.worktrees/imp`, rama `feat/avisos-de-la-importacion`.
 >
-> | Fase | Estado |
+> El plan vivía fuera del repo *«mientras fuera un plan»*; la Fase 1 entró el 19 sep, así que se
+> mudó con número: **[`44-la-importacion-dinamica.md`](44-la-importacion-dinamica.md)**. En
+> `myvc-ia-prototipo` queda un puntero y ninguna copia — dos copias de un plan divergen y las dos
+> se leen como ciertas.
+>
+> | | |
 > |---|---|
-> | **1 — los arreglos, sin IA** | ✅ fundida el 19 sep: la tilde, el estado truncado y el defecto que ya distingue «no reconocí» de «no venía nada» |
-> | **2 — las pantallas, primero SIN IA** | 🚧 la lleva `myvc-front-41` desde hoy |
-> | **3 — el traductor con IA, en la pasarela** | ⬜ después de la 2 |
+> | **Fase 1** — los arreglos, sin IA | ✅ fundida el 19 sep |
+> | **Fase 2** — las pantallas | 🚧 mocks publicados por `myvc-front-41`; **el backend entero, en esta rama** |
+> | **Fase 3** — el traductor con IA | ⬜ después de la 2 |
 >
-> **Dos decisiones nuevas, D5 y D6.** Los mocks son **HTML estático suelto** en
-> `myvc-ia-prototipo/mocks/importacion/`, fuera de `myvc_front` y de `myvc_front_2` —dibujar dentro
-> de un front obliga a elegir repo antes de saber qué se dibuja—, y **D2 se dibuja en sus dos
-> variantes** (el `.xlsx` corregido contra la pantalla que aprueba el mapa) porque **la segunda no
-> existía cuando se formuló la pregunta: la trajo la propia Fase 2**.
+> ### Las tres piezas, y lo que costó cada una
 >
-> ### Lo medido hoy, que es lo que decide el contrato
+> 1. **La respuesta de la subida pasa a JSON** — 0 rutas. **Y arregla un fallo vivo**: medido, `POST
+>    importar/algo` devolvía `'Importados.'` en `text/html`, y como `app2` sube con `responseType`
+>    por defecto `'json'`, **Angular convertía en error una importación que había funcionado**. Lo
+>    predijo el front leyendo su propio código; lo confirmó un test contra el docker.
+> 2. **Lo que recuerda entre tandas** — 1 migración + `GET importar/alumnos/pendiente/{year}`. Los
+>    avisos **acumulan** (son historia) y las respuestas **pisan** (son instrucción vigente); un
+>    `null` no borra. Las respuestas viajan en el cuerpo de la subida, no en ruta propia, y eso
+>    ahorró la segunda ruta que el alcance parecía pedir.
+> 3. **El ensayo** — `POST importar/alumnos/ensayo/{year}`. Dice **qué va a pasar** sin escribir una
+>    fila: hojas, columnas con su `si_falta`, valores no reconocidos agrupados, truncados con su
+>    consecuencia, el plan fila a fila, los posibles repetidos de D4, los duplicados del propio
+>    libro con cuál ganaría, totales y catálogos del colegio.
 >
-> `ImporterFixer::$avisos` se llena desde la Fase 1 **y muere en memoria**: `postAlgo` termina con
-> `return 'Importados.';` pase lo que pase, así que la pantalla de la Fase 2 no tiene de dónde leer.
-> Antes de tocar el cuerpo de una ruta viva, quién lo lee:
+> ### Lo que este trabajo destapó y no buscaba nadie
 >
-> ```bash
-> grep -rn "importar/algo" myvc_front myvc_front_2 myvc_flutter --include="*.ts" --include="*.dart"
-> ```
+> **El `UPDATE` del importador escribe `nro_sisben` DOS VECES en el mismo `SET`** —una en la lista
+> fija y otra en el fragmento que arma `verificar()`— **y gana la segunda**, así que un «No aplica»
+> de la hoja acaba en `NULL`. El ensayo prometía el valor crudo y **habría mentido en las 37 filas**
+> del seed. No lo vio ninguna lectura del código: lo cazó el test que ensaya, importa y **compara
+> contra la base**. *Un ensayo que promete distinto de lo que hace es peor que no tenerlo.*
 >
-> **Cuatro llamadores en dos repos —`myvc_flutter` no la llama— y NINGUNO lee el cuerpo cuando la
-> importación va bien.** Los dos de AngularJS lo guardan en `file.result` y ninguna plantilla lo
-> pinta; los dos de `app2` lo ignoran. Sí lo pintan **en la rama de fallo**, que no se toca. Las dos
-> formas de entregar los avisos —ampliar la respuesta, o persistirlos y añadir una ruta— están con
-> su precio en la §5.2 del 44.
+> Y una distinción para quien pinte la pantalla: **«sin cambios» significa que ningún DATO cambia,
+> no que la fila no se toque** — el `UPDATE` corre igual y mueve `updated_at`, medido en las 37.
 >
-> ### Lo que espera, y una instrucción con su caducidad
+> ### Dos premisas que caducaron, y las destapó tener un consumidor de verdad
 >
-> - **D2 la decide Joseth mirando los mocks**, no antes.
-> - **El contrato de avisos NO se escribe hasta que llegue
->   `mocks/importacion/lo-que-necesita-cada-pantalla.md`**, la lista campo a campo que está
->   haciendo la sesión del front. *Caduca en cuanto ese fichero exista* — diseñarlo antes es
->   diseñarlo dos veces. Si la forma elegida resulta ser la de persistir, **es una ruta nueva
->   (620 → 621) y la autoriza Joseth con el precio delante**.
+> **La hora de `importaciones` dejó de ser invisible.** Esa tabla escribe en UTC y está declarada
+> como excepción en `RelojUnicoTest` porque *«nunca sale por pantalla»*. La Fase 2 **es** esa
+> pantalla: «empezada a las 9:41» habría dicho las 14:41. Se arregla **convirtiendo al leer** —no al
+> escribir, que dejaría dos relojes en la misma columna— y el contador de `PERMITIDOS` sube de 8 a
+> 10 con el motivo. *La decisión de mover la tabla entera sigue siendo de quien lleve las
+> importaciones, y ya no la fuerza ninguna pantalla.*
+>
+> **Y el 422 del fichero ilegible filtraba la ruta del despliegue**: el mensaje de PhpSpreadsheet
+> trae `zip:///app/…/storage/…` dentro, así que la respuesta puesta **para no filtrar el `.env` por
+> un 500** filtraba el camino del servidor por su cuenta. **Lo cazó el test escrito para ese mismo
+> 422.**
+>
+> ### Lo que NO hizo falta, y baja el precio que se había estimado
+>
+> La escritura del escenario 6 —cambiar documento y tipo, el caso RC→TI— **ya existe**:
+> `PUT alumnos/guardar-valor` escribe cualquier columna por `ColumnaSegura`, y el front la usa en
+> siete sitios. **Con un aviso**: no comprueba que el documento nuevo no exista ya, así que antes de
+> ofrecer «es el mismo» hay que llamar a `PUT alumnos/documento-check`.
+>
+> ### Instantáneas: TRES, y el diff se miró en vez de regenerar y pasar
+>
+> `rutas.json`, `guards-por-ruta.json` y `guard-por-familia.json` —`importar` pasa de **4/4 a 6/6**
+> con guard—. **`familias-que-nunca-entran-en-el-candado.json` NO se mueve**: esa familia ya tenía
+> cuatro hermanas con guard, o sea ≥ 2, así que el candado de familia ya la miraba. Nada más se
+> movió en el diff.
+>
+> ### D2, CERRADA el 20 sep: **(B) y (A) detrás**
+>
+> Se aprueba **el mapa** —≈13 renglones— y el `.xlsx` corregido se puede bajar igual **después**.
+> Joseth lo decidió con los mocks delante, y el argumento que lo cerró **no es el de la IA**: la
+> pantalla del mapa **hay que construirla de todos modos** para que la importación mejore sin
+> comprar nada; la IA sólo añade un botón que la rellena. `myvc-front-41` ya la está empezando en
+> `app2` contra este contrato.
+>
+> ### Lo que sigue abierto
+>
+> - **Aplicar lo que la pantalla decide**: hoy `respuestas` se guarda y se devuelve, pero **el
+>   importador todavía no cambia su comportamiento con ella**. Es el siguiente paso y **no estaba en
+>   el alcance del 20 sep** — se dice para que nadie lo dé por hecho leyendo que «las respuestas ya
+>   viajan».
 
 > ## ❗ LA RECUPERACIÓN DE CONTRASEÑA ALCANZA A **CERO** ACUDIENTES (20 sep 2026)
 

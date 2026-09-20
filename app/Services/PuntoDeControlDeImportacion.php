@@ -247,13 +247,25 @@ class PuntoDeControlDeImportacion
      * `estado <> 'completada'` es el mismo criterio con el que `abrir()` decide
      * reanudar, y tiene que seguir siéndolo: si esto enseñara una importación
      * que aquél no va a reanudar, el botón «seguir donde se quedó» mentiría.
+     *
+     * **`empezada_por` cae al `username` cuando no hay ficha de profesor, y eso
+     * no es una red por si acaso: es el caso NORMAL.** Medido el 20 sep 2026 en
+     * la copia de desarrollo: de las **22 cuentas de tipo `Usuario`** —los
+     * administrativos, que son quienes importan alumnos— **ninguna** tiene ficha
+     * en `profesores`; las 47 que la tienen son docentes. O sea que unir sólo
+     * contra `profesores` habría dejado el nombre vacío **justo para todos los
+     * que usan esta pantalla**, y la cabecera diría «empezada el 14 de enero a
+     * las 9:41 por» y nada.
      */
     public static function pendienteDe(string $tipo, int $year): ?object
     {
         return DB::selectOne(
             'SELECT i.id, i.archivo, i.huella, i.year, i.avance, i.filas, i.estado, i.error,
                     i.avisos, i.respuestas, i.inicio, i.fin, i.created_by,
-                    TRIM(CONCAT(COALESCE(p.nombres, ""), " ", COALESCE(p.apellidos, ""))) AS empezada_por
+                    COALESCE(
+                        NULLIF(TRIM(CONCAT(COALESCE(p.nombres, ""), " ", COALESCE(p.apellidos, ""))), ""),
+                        u.username
+                    ) AS empezada_por
              FROM importaciones i
              LEFT JOIN users u ON u.id = i.created_by
              LEFT JOIN profesores p ON p.user_id = u.id AND p.deleted_at IS NULL

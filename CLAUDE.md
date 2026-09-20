@@ -1,7 +1,3 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 `8myvc` es la API del sistema escolar MyVc: Laravel 13 + PHP 8.4, ~37.000 líneas
 en `app/`, **118 ficheros de controlador — 121 clases** (recontados el 13 sep 2026 al
 entrar `CompetenciasController` y `DesempenosController`; el 5 sep eran 115 y 118 al entrar
@@ -12,12 +8,32 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**620 rutas** (contadas con `route:list --json` el **20 sep 2026 en el ÁRBOL PRINCIPAL, sobre
-`main` y después de fundir** (`b8b3853`) — y coincidieron con las 620 contadas antes en
-`.worktrees/es`, que es la única forma de saber que coincidía. La que sube sobre las
-619 es **`GET colillas-inscripcion/{codigo}`**, la **decimosexta pública y la primera de LECTURA**
-de todo el módulo del formulario: hasta ella las tres públicas eran las tres de escritura, así que
-la familia mandaba su comprobante y no podía saber si se lo aprobaron ni por qué.
+**622 rutas** (contadas con `route:list --json` el **20 sep 2026 en `.worktrees/imp`, rama
+`feat/avisos-de-la-importacion` — *SIN FUNDIR: hay que recontarlas en el árbol principal el día que
+entren***). Las dos que suben sobre las 620 son las de la **Fase 2 de la importación dinámica**
+—`GET importar/alumnos/pendiente/{year}`, que dice si hay una importación a medias, y **`POST
+importar/alumnos/ensayo/{year}`, que contesta qué va a pasar sin escribir una sola fila**—, las dos
+con `auth.personal`, el mismo guard que la subida.
+
+> **Mueven TRES instantáneas y ni una más, y la que NO se mueve explica la regla.** `importar` ya
+> tenía **cuatro hermanas con guard** —o sea ≥ 2— así que el candado de familia ya la miraba y
+> `familias-que-nunca-entran-en-el-candado.json` no se toca; en `guard-por-familia.json` pasa de
+> **4/4 a 6/6**. *El diff de las tres se miró entero en vez de regenerar y pasar: no se movió nada
+> que no fueran estas dos líneas.*
+
+> **Y el ensayo trae la regla que este repo lleva meses escribiendo, aplicada a una respuesta que
+> no escribe nada: lo que promete tiene que ser lo que pasa.** Lo fija un test que ensaya, importa
+> y **compara contra la base** — y ya cazó uno: el `UPDATE` del importador escribe `nro_sisben`
+> **dos veces en el mismo `SET`** y gana la segunda, así que un «No aplica» de la hoja acaba en
+> `NULL`. El ensayo prometía el valor crudo y **habría mentido en las 37 filas** del seed. *Eso no
+> lo ve ninguna lectura del código: sólo lo ve mirar el resultado.*
+
+El número anterior era **620**, contado con `route:list --json` el **20 sep 2026 en el ÁRBOL
+PRINCIPAL, sobre `main` y después de fundir** (`b8b3853`) — y coincidieron con las 620 contadas
+antes en `.worktrees/es`. La que subía sobre las 619 era **`GET colillas-inscripcion/{codigo}`**, la
+**decimosexta pública y la primera de LECTURA** de todo el módulo del formulario: hasta ella las
+tres públicas eran las tres de escritura, así que la familia mandaba su comprobante y no podía
+saber si se lo aprobaron ni por qué.
 
 > **Mueve los CINCO sitios de la regla y ni uno más, y las dos que NO mueve explican dónde
 > ponerla.** `guards-por-ruta.json` lista las que **llevan** guard, y ésta no lleva; y
@@ -360,9 +376,24 @@ sigue siendo información sobre personas.
 > ```sql
 > SELECT COUNT(*) FROM users WHERE deleted_at IS NULL;                    -- 2.358
 > SELECT COUNT(*) FROM users WHERE deleted_at IS NULL
->        AND tipo NOT IN ('Alumno','Acudiente');                          -- 74
+>        AND tipo NOT IN ('Alumno','Acudiente');                          -- 74  (75 el 20 sep)
 > SELECT COUNT(*) FROM users WHERE deleted_at IS NULL AND is_superuser=1; -- 11
 > ```
+>
+> > **La segunda da 75 el 20 sep 2026**, remedida de camino al construir la Fase 2 de la
+> > importación. Una cuenta de personal más en una semana: la cifra no envejeció mal, se movió. El
+> > argumento sigue igual de válido y por eso se anota al lado en vez de reescribir el párrafo.
+> >
+> > **Y de esa misma medición sale un reparto que no estaba escrito y muerde en otro sitio: de las
+> > 22 cuentas de tipo `Usuario` —los administrativos— NINGUNA tiene ficha en `profesores`.** Las
+> > 47 que la tienen son docentes. Cualquier consulta que saque el nombre de una persona uniendo
+> > sólo contra `profesores` **deja sin nombre justo a secretaría**, que es quien usa media
+> > aplicación. Costó un campo vacío en `GET importar/alumnos/pendiente/{year}` el mismo día:
+> >
+> > ```sql
+> > SELECT COUNT(*) FROM users u INNER JOIN profesores p ON p.user_id = u.id
+> >  AND p.deleted_at IS NULL WHERE u.deleted_at IS NULL AND u.tipo = 'Usuario';   -- 0 de 22
+> > ```
 >
 > **Son de UN colegio**, el de la copia de desarrollo, no de los dieciséis. Y `esAdministrativo`
 > es `is_superuser || isSecretario`: hoy coincide con los 11 **porque el rol `Secretario` no tiene

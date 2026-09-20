@@ -70,7 +70,13 @@ class RespuestaDeLaImportacionTest extends CasoDeContrato
             ->assertStatus(200)
             ->json('hechos');
 
-        foreach (['filas', 'creados', 'actualizados', 'reencontrados', 'usuarios_creados', 'matriculas_creadas', 'saltadas'] as $clave) {
+        // `ya_estaban_hechas` se llamaba `saltadas` hasta el 20 sep, y se
+        // renombró porque el ensayo tiene un `se_saltan` que cuenta OTRA COSA
+        // —las filas sin primer nombre, que no se escriben nunca— y el informe
+        // final resta los dos conjuntos. Ver el test de la comparación en
+        // `EnsayoDeLaImportacionTest`.
+        foreach (['filas', 'creados', 'actualizados', 'reencontrados', 'usuarios_creados',
+            'matriculas_creadas', 'ya_estaban_hechas', 'sin_primer_nombre'] as $clave) {
             $this->assertArrayHasKey($clave, $hechos);
         }
 

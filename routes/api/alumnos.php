@@ -89,6 +89,13 @@ Route::get('importar/modificar/{year}', [ImportarController::class, 'getModifica
 // alfabéticamente y NO por orden de registro.
 Route::get('importar/alumnos/pendiente/{year}', [ImportarController::class, 'getPendiente'])->middleware('auth.personal');
 
+// EL ENSAYO: qué va a pasar si se sube esta hoja, sin escribir una sola fila.
+// Es la ruta que da sentido a «diciéndole qué va a pasar», y hasta hoy la única
+// forma de saber qué hacía una importación era hacerla. Mismo guard que la
+// subida y ningún permiso dentro: darle menos alcance que a `importar/algo`
+// empujaría a la gente a subir para enterarse, que es lo que viene a evitar.
+Route::post('importar/alumnos/ensayo/{year}', [ImportarController::class, 'postEnsayo'])->middleware('auth.personal');
+
 // FoliosController
 // Un `UPDATE matriculas` sobre todas las del año actual sin número de folio, sin
 // mirar el token ni una vez —el método no llama a `fromToken()`—. En el seed

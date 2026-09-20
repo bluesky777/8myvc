@@ -3,6 +3,8 @@
 namespace Tests\Contrato;
 
 use App\Services\PuntoDeControlDeImportacion;
+use App\Support\Reloj;
+use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -193,6 +195,72 @@ class LoQueLaImportacionRecuerdaTest extends CasoDeContrato
         $fila = DB::selectOne('SELECT respuestas FROM importaciones WHERE id = ?', [$id]);
 
         $this->assertSame(['mapa' => ['a' => 1]], json_decode((string) $fila->respuestas, true));
+    }
+
+    /**
+     * La hora que sale es la del COLEGIO, aunque la tabla esté en UTC.
+     *
+     * `importaciones` escribe con `now()` —UTC— y está declarado como excepción
+     * en `RelojUnicoTest` con el motivo de que «nunca sale por pantalla». Esta
+     * ruta existe precisamente para que salga: la pantalla dice «empezada el 14
+     * de enero a las 9:41». Con la hora cruda diría las 14:41.
+     *
+     * Se convierte **al leer** y no al escribir a propósito: cambiar la
+     * escritura dejaría esa columna con dos relojes en su historia y filas que
+     * nadie podría distinguir, que es la enfermedad que la fase 1 del reloj vino
+     * a curar.
+     */
+    public function test_la_hora_que_sale_es_la_del_colegio(): void
+    {
+        [$token, $year] = $this->personalYSuYear();
+        $archivo = $this->exportacionDeAlumnos($token);
+
+        $id = $this->puntoDeControlAMedias($archivo, $year, ['5' => 2]);
+
+        $enLaBase = DB::selectOne('SELECT inicio FROM importaciones WHERE id = ?', [$id])->inicio;
+
+        $devuelta = $this->get("/api/importar/alumnos/pendiente/{$year}", ['Authorization' => 'Bearer '.$token])
+            ->assertStatus(200)
+            ->json('pendiente.inicio');
+
+        $this->assertSame(
+            Carbon::parse($enLaBase, 'UTC')->setTimezone(Reloj::ZONA)->format('Y-m-d H:i:s'),
+            $devuelta,
+            'La pantalla enseñaría la hora cinco horas movida.'
+        );
+
+        $this->assertNotSame($enLaBase, $devuelta,
+            'Si coincidieran, o la conversión no ocurre o la base ya no está en UTC — y las dos hay que mirarlas.');
+    }
+
+    /**
+     * `empezada_por` trae un nombre aunque quien la empezó no tenga ficha de
+     * profesor — que es el caso NORMAL, no el raro.
+     *
+     * Medido el 20 sep 2026 en la copia de desarrollo: de las 22 cuentas de tipo
+     * `Usuario` —los administrativos, que son quienes importan alumnos—
+     * **ninguna** tiene ficha en `profesores`. Unir sólo contra esa tabla dejaba
+     * la cabecera diciendo «empezada el 14 de enero a las 9:41 por» y nada,
+     * justo para todos los que usan esta pantalla.
+     */
+    public function test_dice_quien_la_empezo_aunque_no_sea_docente(): void
+    {
+        [$token, $year] = $this->personalYSuYear();
+        $usuario = $this->usuarioDeTipo('Usuario');
+        $archivo = $this->exportacionDeAlumnos($token);
+
+        $id = $this->puntoDeControlAMedias($archivo, $year, ['5' => 2]);
+        // `usuarioDeTipo` devuelve la fila de `users`, así que es `id` y no
+        // `user_id` — ése es el nombre en el objeto del contexto, no aquí.
+        DB::update('UPDATE importaciones SET created_by = ? WHERE id = ?', [$usuario->id, $id]);
+
+        $pendiente = $this->get("/api/importar/alumnos/pendiente/{$year}", ['Authorization' => 'Bearer '.$token])
+            ->assertStatus(200)
+            ->json('pendiente');
+
+        $this->assertNotNull($pendiente['empezada_por'],
+            'Sin nombre, la cabecera dice «empezada el 14 de enero a las 9:41 por» y nada.');
+        $this->assertNotSame('', trim((string) $pendiente['empezada_por']));
     }
 
     /** El guard de la ruta nueva, que es el mismo de la subida. */
