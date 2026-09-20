@@ -550,6 +550,125 @@ docker exec 8myvc-app-1 php artisan test --testsuite=Contrato  # solo contrato (
 docker exec 8myvc-app-1 php artisan test --filter=NotasTest    # una clase
 ```
 
+> **Y CUÁNTO TARDA, porque la duración es el único delator de una suite que
+> midió mal.** Escrito el 21 sep 2026 después de perder una suite entera entre
+> dos sesiones:
+>
+> | orden | cuánto tarda, sana | en qué condiciones se midió |
+> |---|---|---|
+> | `php artisan test --testsuite=Contrato` | **840–1.050 s** (841, 930, 1.000, 1.044 — cuatro, la noche del 20 sep) | base propia, **contenedor compartido con otras sesiones trabajando** |
+> | `php artisan test` (las tres testsuites) | *sin medir* | — |
+> | `--filter=<una clase de contrato>` | **10–40 s** | lo mismo |
+>
+> **Y la duración se publica CON SU ORDEN Y CON SU CONDICIÓN, por lo mismo que el
+> conteo.** «La suite» son dos órdenes distintas —`--testsuite=Contrato` y
+> `php artisan test`, que corre las tres— y por tanto dos duraciones: quien corra
+> la completa y vea 1.300 s creería que tiene contención sin tenerla. Es
+> exactamente el caso de las cuentas de tests que está tres párrafos más abajo,
+> aplicado al reloj en vez de al número.
+>
+> **La condición no es un adorno: las cuatro medidas de arriba se tomaron con
+> otras sesiones activas en el contenedor.** Sin deadlock —cada una con su base—
+> pero compitiendo por CPU, así que **son un techo y no una línea base**. *Una
+> duración medida con otra suite encima no sirve para detectar que hay otra suite
+> encima*, y por eso la fila de referencia hay que tomarla en un contenedor
+> quieto el día que haya uno.
+>
+> **Son DOS enfermedades y el mismo delator, y la segunda no deja ningún rastro
+> en la salida:**
+>
+> 1. **La suite MUERTA** —le podan el árbol debajo y se queda sin `vendor/`—
+>    termina **sin línea `Tests:`**, así que a un `grep '⨯'` le salen **0 rojos**
+>    y al proceso de fondo **exit 0**. Verde perfecto, y no midió nada. Se caza
+>    porque *falta* la línea.
+> 2. **La suite CONTAMINADA** —dos corriendo contra la misma base de tests— sí
+>    tiene su línea `Tests:`, **en verde**, y lo único raro es que tardó de más:
+>    unos tests filtrados que se despachan en 20 s tardaron **319 s** medidos ese
+>    día. Ahí no falta nada en la salida: hay que saber cuánto debería haber
+>    tardado, y por eso está la tabla de arriba.
+>
+> El deadlock de dos suites sobre una base **se lee como un fallo real en un test
+> que no tiene nada que ver con lo que estás tocando**, y la reacción natural es
+> ir a mirar ese test. La salida es `DB_TEST_DATABASE=simonbolivar_testing_<sufijo>`.
+>
+> > **Y PARAR UNA SUITE NO ES MATARLA, que es de donde sale la mitad de los casos
+> > de arriba.** Matar el `docker exec` —o la tarea de fondo que lo lanzó— deja
+> > vivo el `php` de dentro. Se comprueba, y el `kill` va **al phpunit Y a su
+> > padre**:
+> >
+> > ```bash
+> > docker exec 8myvc-app-1 sh -c "ps -eo args | grep [p]hpunit"   # ANTES de lanzar otra
+> > ```
+> >
+> > **Las dos enfermedades juntas, vividas el 21 sep 2026 por quien acababa de
+> > escribir este bloque:** una suite «parada» media hora antes seguía corriendo,
+> > se lanzó otra encima contra su misma base, y el resultado fue **exit 0**,
+> > **sin línea `Tests:`** y con **cinco rojos** repartidos por cuatro clases que
+> > no tenían nada que ver con el cambio. *Mirando el exit code: verde. Mirando
+> > los rojos: cuatro investigaciones falsas. La única señal correcta era la que
+> > faltaba.*
+> >
+> > La comprobación va **antes de lanzar**, no cuando el resultado sale raro.
+> > Después sirve para diagnosticar; antes es lo único que lo evita.
+> >
+> > **Y el detalle que lo hace útil: le pasó a quien acababa de escribir este
+> > bloque, con la regla ya en el fichero.** Eso no es un descuido, es la forma
+> > normal en que fallan estas cosas — *un aviso escrito no protege solo; sólo
+> > protege el día que alguien hace lo que dice*, que es lo que este fichero
+> > lleva repitiendo con el contador de rutas y con las cifras de tests. Aquí
+> > está la tercera, y costó cuatro investigaciones falsas que un `ps` habría
+> > ahorrado.
+>
+> > **Y para una suite que TODAVÍA ESTÁ CORRIENDO, la duración no sirve: sirve la
+> > CPU del HIJO.** La tabla de arriba se lee cuando ya terminó; esto se lee en
+> > una sola muestra:
+> >
+> > ```bash
+> > docker exec 8myvc-app-1 sh -c "ps ax -o pid,ppid,etime,time,stat,args | grep -E '[p]hpunit|[a]rtisan test'"
+> > ```
+> >
+> > **Se mira el `phpunit`, NUNCA el `artisan test` que lo lanzó.** El padre
+> > arranca al hijo y se queda esperando, así que sale con **2 segundos de CPU en
+> > dieciocho minutos** y parece muerto — el 21 sep 2026 una sesión estuvo a punto
+> > de matar la corrida de otra por eso. Aplicada al padre, esta regla marca como
+> > envenenado a **todo padre sano**.
+> >
+> > | CPU ÷ reloj, en el hijo | estado | qué es |
+> > |---|---|---|
+> > | **~0 %** | `S` | **atascado** esperando un lock o una base ocupada |
+> > | **30–35 %** | `R` | **trabajando con normalidad** |
+> >
+> > **Y ahí se acaba lo que esta ratio sabe: NO dice si hay contención.** Se
+> > escribió creyendo que sí —«31% es que somos cinco peleándonos»— y es falso,
+> > medido el 21 sep: el contenedor tiene **10 núcleos y ninguna cuota**
+> > (`nproc` 10, `cpu.max` = `max 100000`) y la carga estaba en **210% de 1000%**,
+> > con cinco suites a la vez. **Con diez núcleos y cinco procesos de un solo hilo
+> > no puede haber contención de CPU**: a cada uno le sobra un núcleo. Ese 30–35%
+> > es lo que da esta suite **aunque corra sola**, porque se pasa el tiempo
+> > esperando a MySQL —se la pilló dormida en `folio_wait_bit_common`—, no
+> > calculando.
+> >
+> > **Consecuencia para la línea base, que es lo que casi se escribe mal:** un
+> > umbral de *«~100% en `R` → el contenedor es suyo»* **no llega nunca**, así que
+> > la fila que lo esperase quedaría abierta para siempre. La condición que sí es
+> > comprobable de un vistazo es **que no haya otra**:
+> >
+> > ```bash
+> > docker exec 8myvc-app-1 sh -c "ps -eo args | grep [p]hpunit"   # una sola línea
+> > ```
+> >
+> > > **Y para mirar la carga, `/proc` y no `docker stats`.** `docker stats
+> > > --no-stream` **no es una medición aquí: es una muestra**, y en este
+> > > contenedor salta. Medido el 21 sep entre dos sesiones: el `app` dio **982%**
+> > > y después 374 / 298 / 261; la base dio **11,59%** y después 161 / 173 / 191
+> > > / 236 / 242. Con la primera de cada par se escribió *«el contenedor está
+> > > saturado»* y *«la base no hace nada»*, y las dos eran falsas.
+> > >
+> > > Lo que aguanta es `/proc` —CPU acumulada, `stat`, `wchan`— porque son
+> > > **contadores y no instantáneas**: se leen una vez y describen toda la vida
+> > > del proceso. Si hace falta `docker stats`, **cinco muestras y el rango**,
+> > > nunca una.
+
 > **Y una cifra de pruebas se publica CON LA ORDEN QUE LA PRODUJO, nunca con la
 > palabra «suite».** Costó una fusión parada el 7 sep 2026: una sesión citó
 > **2.078** y otra **1.948** sobre el mismo trabajo, las dos correctas y las dos
