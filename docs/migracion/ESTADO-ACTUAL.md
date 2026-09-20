@@ -97,10 +97,21 @@
 >
 > **2 · El contrato pedía tres claves y la app lee CINCO** (`MuroApi.dart`, `cuerpo['...']`).
 > Faltaban **`horario_version_id`** —que existe por decisión de Joseth del 2 sep para que
-> `horario_hoy: []` deje de significar dos cosas; entregar sin ella habría **reestrenado en
-> la ruta nueva** el fallo por el que la app decía «Hoy no tienes clases» a todos los
-> docentes todos los días— y **`ausencias_periodo`**, la asistencia del propio alumno. Es
-> *«un encargo correcto deja atrás lo que no nombra»* otra vez.
+> `horario_hoy: []` deje de significar dos cosas— y **`ausencias_periodo`**, la asistencia
+> del propio alumno. Es *«un encargo correcto deja atrás lo que no nombra»* otra vez.
+>
+> > **Y el modo de fallo que yo escribí para la primera estaba DEL REVÉS.** Dije que sin ella
+> > volvía el mensaje falso de agosto —«Hoy no tienes clases» a todo el mundo—; lo corrigió
+> > `myvc_flutter-c2` y se comprobó en su fuente: `HorarioDeHoy.tomar` hace
+> > `_clases = versionOficial == null ? null : clasesDeHoy`, así que sin la clave `seSabe`
+> > vale **`false`** y la app **no dice nada** — `MuroScreen` esconde el bloque y el filtro
+> > «sólo las de hoy» de `NotasScreen` se apaga. **Omitirla apaga la función en silencio en
+> > vez de mentir**, que es más barato y exactamente igual de invisible.
+> >
+> > La conclusión no se movió —la clave viaja, y el test la exige— pero el argumento escrito
+> > sí, y la diferencia importa: es lo que hay que buscar el día que alguien la quite. Estaba
+> > mal en el controlador, en el test y en el mensaje del commit `eb13d8e`, que no se puede
+> > reescribir; corregido en los dos primeros.
 >
 > **3 · El calendario no tiene ni una fila de 2026.** Las 593 van de 2019 a 2025 y 86 son
 > anteriores a 2024: **nadie ha curado esa tabla**. Filtrar por año lo dejaría hoy vacío en el

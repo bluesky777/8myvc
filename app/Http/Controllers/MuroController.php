@@ -49,12 +49,22 @@ use Illuminate\Support\Facades\DB;
  * `ausencias_periodo`. Las dos que faltaban no son adorno:
  *
  * - **`horario_version_id`** existe por una decisión de Joseth del 2 sep para
- *   que `horario_hoy: []` deje de significar dos cosas. Sin él, «este colegio
- *   no ha publicado horario» y «hoy no tienes clases» vuelven a ser
- *   indistinguibles — que es el fallo por el que la app llevaba meses diciendo
- *   «Hoy no tienes clases» a todos los docentes de los dieciséis, todos los
- *   días. Entregar `muro/app` sin esta clave habría reestrenado ese fallo en la
- *   ruta nueva.
+ *   que `horario_hoy: []` deje de significar dos cosas.
+ *
+ *   **Y el fallo que evita NO es el mensaje falso de agosto, que es lo que este
+ *   comentario decía hasta que `myvc_flutter-c2` lo corrigió el 19 sep.**
+ *   `HorarioDeHoy.tomar` hace `_clases = versionOficial == null ? null :
+ *   clasesDeHoy`, así que con la clave ausente `seSabe` vale **`false`** y la app
+ *   **no dice nada**: `MuroScreen` esconde el bloque del horario y el filtro
+ *   «sólo las de hoy» de `NotasScreen` se queda apagado. O sea que omitirla
+ *   **apaga la función en silencio** en vez de mentir.
+ *
+ *   Es un fallo más barato que el de agosto y exactamente igual de invisible —y
+ *   ese comportamiento es deliberado del lado de la app: una clave ausente cuenta
+ *   como `null` porque *«un servidor que todavía no tiene ese commit desplegado es
+ *   exactamente un servidor del que no se sabe si hay horario»*—. La conclusión no
+ *   se mueve: la clave viaja. Lo que se mueve es qué se rompe sin ella, y eso
+ *   importa porque es lo que hay que buscar el día que alguien la quite.
  * - **`ausencias_periodo`** en la raíz es la asistencia del **propio alumno**
  *   (para un acudiente va colgada de cada acudido). Sin ella, `asistenciaPropia`
  *   vuelve a ser una lista vacía.

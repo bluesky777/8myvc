@@ -18,11 +18,12 @@ use PHPUnit\Framework\Attributes\Test;
  * deshace sin que nada se rompa: la app seguiría funcionando, sólo que cara.
  *
  * **2. Que `horario_version_id` se caiga y quede `horario_hoy` solo.** Es el
- * fallo más caro de los cinco y el más fácil de cometer, porque **la respuesta
- * sigue siendo válida**: con la clave ausente, la app no distingue «este
- * colegio no ha publicado horario» de «hoy no tienes clases» y vuelve a
- * decirle «Hoy no tienes clases» a todos los docentes de los dieciséis, todos
- * los días. Por eso el caso comprueba que viajan **las dos**, no que viaje una.
+ * más fácil de cometer de los cinco, porque **la respuesta sigue siendo
+ * válida**: con la clave ausente `HorarioDeHoy.tomar` deja `_clases` en `null`,
+ * `seSabe` vale `false`, y la app **esconde el bloque del horario y apaga el
+ * filtro «sólo las de hoy»**. No miente: **se apaga en silencio**, que es lo
+ * que hace que nadie lo reporte. Por eso el caso comprueba que viajan **las
+ * dos**, no que viaje una.
  *
  * **3. Que se cuelen columnas del acudido.** La consulta vieja trae treinta y
  * tantas —documento, eps, tipo de sangre, dirección, teléfono— y la app lee
@@ -178,8 +179,9 @@ class MuroParaLaAppTest extends CasoDeContrato
 
         $this->assertArrayHasKey('horario_hoy', $cuerpo);
         $this->assertArrayHasKey('horario_version_id', $cuerpo,
-            'Falta el puntero de la versión oficial. Sin él, `horario_hoy: []` vuelve a significar dos '.
-            'cosas y la app le dice «Hoy no tienes clases» a todo el mundo todos los días.');
+            'Falta el puntero de la versión oficial. Sin él la app deja `seSabe` en false y '.
+            '**esconde el horario entero**: no enseña «hoy no tienes clases», no enseña nada. '.
+            'Se apaga en silencio, y por eso no lo reporta nadie.');
     }
 
     #[Test]
