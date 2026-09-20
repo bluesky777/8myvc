@@ -198,7 +198,13 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
             'grupo_id' => $grupo->id ?? null,
             'encabezados' => $encabezados,
             'faltan' => $this->faltan($encabezados),
-            'sobran' => $this->sobran($encabezados),
+
+            // `sobran` son las que NO LEE NADIE. Las de acudiente van aparte
+            // porque el importador sí las escribe aunque el ensayo no las mire:
+            // juntarlas hacía que la pantalla dijera «se ignoran» de columnas
+            // que crean personas.
+            'sobran' => $this->loQueNoSeEstudia($encabezados)['sobran'],
+            'de_acudiente_no_estudiadas' => $this->loQueNoSeEstudia($encabezados)['de_acudiente'],
         ];
 
         // Una hoja que no es de ningún grupo del año no se estudia fila a fila:
@@ -698,9 +704,34 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
         return array_values(array_diff(array_keys(self::COLUMNAS), $encabezados));
     }
 
-    private function sobran(array $encabezados): array
+    /**
+     * Las columnas del fichero que este ensayo no estudia, **partidas en dos
+     * porque no son lo mismo**.
+     *
+     * Hasta hoy salían todas juntas en `sobran`, y la pantalla las enseñaba bajo
+     * «no las usa MyVc y se ignoran». **Para las 34 de acudiente eso es falso:
+     * el importador SÍ las lee y escribe acudientes y parentescos con ellas.**
+     * Decir que se ignoran cuando van a crear personas es exactamente la clase
+     * de frase tranquilizadora y falsa que este módulo existe para quitar.
+     *
+     * Lo vio la sesión del front conduciendo la pantalla contra el docker, que
+     * es donde se ve lo que una respuesta *parece decir*.
+     *
+     * @return array{sobran: array<int, string>, de_acudiente: array<int, string>}
+     */
+    private function loQueNoSeEstudia(array $encabezados): array
     {
-        return array_values(array_diff($encabezados, array_keys(self::COLUMNAS)));
+        $fuera = array_values(array_diff($encabezados, array_keys(self::COLUMNAS)));
+
+        $deAcudiente = array_values(array_filter(
+            $fuera,
+            fn ($c) => str_contains((string) $c, 'acud1') || str_contains((string) $c, 'acud2')
+        ));
+
+        return [
+            'sobran' => array_values(array_diff($fuera, $deAcudiente)),
+            'de_acudiente' => $deAcudiente,
+        ];
     }
 
     private function conTodasLasClaves(array $fila): array
