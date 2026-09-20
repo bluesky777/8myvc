@@ -748,6 +748,31 @@ en vez de una llamada. Ese criterio ha encontrado todo lo que se ha encontrado.
 
 Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tests.md`.
 
+> **Y un candado que mintió durante meses, corregido el 20 sep 2026: el orden de
+> registro de las rutas.** Laravel sirve **la primera que casa**, así que un comodín
+> declarado antes que una ruta literal se la traga —`…/{lote}` comiéndose `…/campos`,
+> `…/{codigo}` comiéndose `…/pendientes`—, y eso **no cambia el conjunto de rutas ni
+> la acción declarada de ninguna**: las dos siguen ahí. Sólo cambia cuál gana.
+>
+> `RutasTest` decía en su docblock que cubría exactamente esto —*«reordenar puede
+> tapar `puestos/detailed` con `puestos/{id}`… lo que se guarda aquí es, para cada URI
+> literal, QUÉ acción la atiende»*— **y no lo cubría**: la instantánea guarda la acción
+> **declarada**, y reordenar deja `rutas.json` byte a byte igual. Comprobado
+> reproduciendo los dos casos reales: el test viejo **se queda verde** en los dos.
+>
+> Los dos pasaron con ese test en verde y se cazaron **a mano, uno por uno**. Ahora los
+> caza `test_ninguna_ruta_literal_la_atiende_un_comodin`, que no lee lo declarado: **le
+> pregunta al router** con `getRoutes()->match()`, que es lo que hará el servidor.
+>
+> **La lección no es del router, es del candado**: *un detector puede contar bien un
+> síntoma sin estar contando la causa* — y éste llevaba **el nombre de la causa escrito
+> en el docblock**, que es justo lo que hizo que nadie fuera a mirar. Cuando un test
+> dice que protege algo, la forma de saberlo es **romper ese algo y verlo en rojo**, no
+> leer su docblock.
+>
+> Y `route:list` tampoco lo delata: **ordena alfabéticamente y no por orden de
+> registro**, así que la forma natural de comprobarlo miente.
+
 ### Calidad
 
 - **Pint** solo sobre lo que escribió la migración (ver `composer.json`).

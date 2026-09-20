@@ -119,6 +119,30 @@
 > Los **9 correos que la migración saltó** —personas distintas compartiendo dirección,
 > normalmente una familia— se deciden uno a uno. Y los **909 acudientes que siguen sin correo
 > de cuenta** no los arregla ningún commit: es dato que hay que pedir.
+> ## ✅ UN CANDADO QUE DECÍA CUBRIR EL ORDEN DE LAS RUTAS Y NO LO CUBRÍA (20 sep 2026, EN `main`)
+>
+> Laravel sirve **la primera ruta que casa**, así que un comodín declarado antes que una literal
+> se la traga. Ha pasado **dos veces en la misma familia**: `…/{lote}` comiéndose `…/campos`, y
+> `…/{codigo}` comiéndose `…/pendientes` —ésta contestaba `getEstado` a quien pedía la bandeja del
+> tesorero—. Las dos se cazaron **a mano, una por una, cuando alguien las vio**.
+>
+> **`RutasTest` decía en su docblock que cubría exactamente esto, y no lo cubría.** La instantánea
+> guarda la acción **declarada** de cada URI, y reordenar no la mueve: `rutas.json` queda byte a
+> byte igual. Reproducidos los dos casos reales, **el test viejo se queda verde en los dos**.
+>
+> Lo cierra `RutasTest::test_ninguna_ruta_literal_la_atiende_un_comodin`, que no lee lo declarado:
+> recorre el router y **le pregunta a `getRoutes()->match()` quién atiende cada ruta literal**, que
+> es lo que hará el servidor. Cubre las **620** de hoy y las de mañana sin que nadie se acuerde.
+> Control visto en rojo con los dos casos históricos; hoy el router está limpio.
+>
+> **La lección no es del router, es del candado**: *un detector puede contar bien un síntoma sin
+> estar contando la causa* — y éste llevaba **el nombre de la causa escrito en el docblock**, que
+> es justo lo que hizo que nadie fuera a mirar. Cuando un test dice que protege algo, la forma de
+> saberlo es **romper ese algo y verlo en rojo**, no leer su docblock. (Y `route:list` tampoco lo
+> delata: ordena alfabéticamente, no por orden de registro.)
+>
+> Salió de una revisión de pasada de `8myvc-b2`, que lo vio, no lo escribió por estar cerrándose y
+> lo dejó dicho. **Un hallazgo que se escribe en vez de llevárselo no se pierde.**
 
 > ## ❗ LA RECUPERACIÓN DE CONTRASEÑA ALCANZA A **CERO** ACUDIENTES (20 sep 2026)
 

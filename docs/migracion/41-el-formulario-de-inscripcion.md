@@ -735,8 +735,27 @@ alfabéticamente y no por orden de registro, así que la forma natural de compro
 
 Es exactamente la trampa que este documento ya tenía escrita para `…/campos` antes que `…/{lote}`,
 cometida en la familia de al lado y al día siguiente. *Un aviso escrito no protege solo; sólo
-protege el día que alguien hace lo que dice.* Ahora lo fija un test que pide
-`…/pendientes` **sin token** y exige **401**: si se la tragara `getEstado`, daría 422.
+protege el día que alguien hace lo que dice.* Lo fija un test que pide `…/pendientes` **sin token**
+y exige **401**: si se la tragara `getEstado`, daría 422.
+
+#### Y dos veces en la misma familia ya no es casualidad: el candado ahora es genérico
+
+Los dos casos se arreglaron **a mano y por separado**, cada uno cuando alguien lo vio. Desde el
+20 sep 2026 los caza `RutasTest::test_ninguna_ruta_literal_la_atiende_un_comodin`, que recorre el
+router entero y, para cada ruta literal, **le pregunta a `getRoutes()->match()` quién la atiende de
+verdad** en vez de leer lo declarado. Protege las 6xx de hoy y las que se escriban mañana sin que
+nadie se acuerde.
+
+**Lo que destapó de camino es peor que las dos rutas**: `RutasTest` ya decía en su docblock que
+cubría esto —*«reordenar puede tapar `puestos/detailed` con `puestos/{id}`… lo que se guarda aquí
+es, para cada URI literal, QUÉ acción la atiende»*— **y no lo cubría**. La instantánea guarda la
+acción **declarada**, y reordenar deja `rutas.json` byte a byte igual. Reproducidos los dos casos
+reales, el test viejo **se queda verde en los dos**; el nuevo cae nombrando quién se come a quién.
+
+O sea que estos dos incidentes no ocurrieron *a pesar* del candado: ocurrieron **con el candado en
+verde y con el nombre de la causa escrito en su docblock**, que es exactamente lo que hizo que
+nadie fuera a mirar si lo hacía. *Cuando un test dice que protege algo, la forma de saberlo es
+romper ese algo y verlo en rojo.*
 
 ### Los cinco sitios que movió, que son los cinco de la regla
 
