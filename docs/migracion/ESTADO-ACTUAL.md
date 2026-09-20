@@ -144,6 +144,153 @@
 > > «datos» en el nombre — ninguno era un proveedor. *Un detector que casa por el nombre cuenta
 > > nombres.* Es la tercera vez en la misma sesión: antes fue leer «suite desnuda» de `ps`,
 > > donde `docker exec -e` no escribe.
+> ## ✅ LA PARCIAL Y LA COBERTURA, EN EL SEGUNDO CALCULADOR — FASE 1.bis DEL 43 (20 sep 2026)
+>
+> **FUNDIDA el 20 sep 2026.** Escrita en `.worktrees/pla` con base `simonbolivar_testing_pla`;
+> el árbol principal ya publica la parcial y la cobertura en los cinco lectores.
+>
+> > **Esta casilla decía «SIN FUNDIR: mientras esta línea diga «sin fundir», el árbol principal
+> > no tiene nada de esto» — y ésa es la frase que la salvó.** Se sustituyó **en el mismo commit
+> > que la fusión**, que es lo que pedía. Van cuatro veces seguidas que esa condición de
+> > caducidad hace su trabajo, y es la segunda en que quien la escribió y quien la cumple son
+> > sesiones distintas: *una cifra sin su condición de caducidad al lado se lee como cierta para
+> > siempre.*
+>
+> La fase 1 le dio `parcial` y `cobertura` a `DefinitivasDeAsignatura`, **que es el que escribe**.
+> La planilla no pasa por ahí: pasa por `App\Models\Asignatura::calculoAlumnoNotas`, un segundo
+> calculador entero y paralelo, en PHP. Hasta hoy los dos números existían y **no los veía nadie**.
+> Ahora ese método devuelve además **`nota_parcial`** y **`cobertura`**, y **cinco de sus seis
+> lectores las publican**. El detalle entero está en la
+> [§Fase 1.bis del 43](43-lo-que-todavia-no-se-ha-calificado.md).
+>
+> | | |
+> |---|---|
+> | Ficheros | `app/Models/Asignatura.php`, `app/Models/Nota.php`, `PlanillasController`, `DetallesController`, `EditnotaController`, `Informes/NotasPerdidasController`, `Informes/PlanillasAusenciasController`, `tests/Contrato/LaParcialEnLaPlanillaTest.php`, `tests/Contrato/Concerns/LaPlanillaDelLienzo.php`, `tests/Contrato/LaParcialYLaCoberturaTest.php`, docs 43 y éste |
+> | Rutas · columnas · migraciones · clientes | **0 · 0 · 0 · 0** |
+> | Instantáneas movidas | **2 de 129**, CONTADO con la suite entera y no previsto — `muestreo-notas-perdidas-show-profesor` y `muestreo-planillas-ausencias-show-profesor`, las dos únicas de los seis lectores. **El diff de cada una es +2 líneas y nada más**: `nota_asignatura` queda intacta, que es la prueba de que la acumulada no se movió |
+> | `composer.json` | **no se tocó** (ver «lo que queda abierto», punto 3) |
+>
+> ### Los seis lectores, censados — y cuál NO los gana
+>
+> | lector | ruta | ¿los publica? |
+> |---|---|---|
+> | `PlanillasController::getShowProfesor` | `GET planillas/show-profesor/{id}` | **sí**, por periodo |
+> | `Informes\NotasPerdidasController::getShowProfesor` | `GET notas-perdidas/show-profesor/{id}` | **sí**, por periodo |
+> | `Informes\PlanillasAusenciasController::getShowProfesor` | `GET planillas-ausencias/show-profesor/{id}` | **sí**, por periodo |
+> | `DetallesController::putGruposPeriodos` | `PUT detalles/grupos-periodos` | **sí**, sin una línea |
+> | `EditnotaController::allNotasAlumno` | `PUT editnota/detailed-notas/{grupo}` | **sí**, sin una línea |
+> | `Nota::alumnoAsignaturasPeriodosDetailed` | `GET boletines{,2,3}/detailed-notas-year/…` | **no** |
+>
+> Los tres primeros son **el mismo método byte a byte** en tres controladores: dejar dos iguales
+> y uno distinto es un renglón que el siguiente no puede leer como decisión.
+>
+> **El sexto no, y ahí esta rama se queda corta respecto a su encargo** —que decía «la planilla
+> **y los boletines**»—: ese método **no publica ninguna definitiva por periodo**, promedia los
+> cuatro y saca `nota_asignatura_year`, así que el único sitio donde cabrían sería *«la parcial
+> del año»*, **que no está definida en ninguna parte**. No es la media de las cuatro —cada una
+> tiene su propio denominador— y mezclaría los cerrados con el abierto, diluyendo justo la señal.
+> *Quedarse corto se cuenta.* **Y el boletín de un periodo no pasa por ninguno de los dos**: va por
+> un TERCER camino, `Unidad::deAsignaturaCalculada` más `notas_finales`.
+>
+> > **Y hay un SÉPTIMO calculador que el censo del 43 no tenía**:
+> > `EditnotaController::notasDeLaAsignatura` (`:111` y `:118`) lleva la misma cuenta **escrita en
+> > línea**, no llama a `calculoAlumnoNotas` y sirve `PUT editnota/alum-asignatura`. No gana los dos
+> > números: unificarla mueve `editnota-alum-asignatura.json`. Queda dicho para que el siguiente
+> > censo dé siete y no seis.
+>
+> ### El hallazgo: los dos calculadores YA discrepaban, y en la acumulada
+>
+> `calculoAlumnoNotas` **nunca ha pasado por `RepartoDeLaNota`**: pesa `s.porcentaje` crudo,
+> porque es lo que le traen `Unidad::deAsignatura` y `Subunidad::deUnidad`. En modo `promedio` el
+> servicio pesa `1/n`. Medido sobre `simonbolivar`, año 2026 —el único de la copia en `promedio`,
+> con sus cuatro periodos abiertos—: **14 pares de 99 dan distinto, y el peor 42,3 puntos sobre
+> una escala de 0 a 50.** No lo trae esta rama: **estaba**.
+>
+> **Por eso el divisor de la parcial sale de los mismos dos números que la acumulada y NO de
+> `RepartoDeLaNota`.** Sacarlo de allí habría arreglado el divisor y dejado el cociente midiendo
+> dos repartos distintos — y, peor, **habría hecho creer que el problema estaba resuelto**: una
+> parcial impecable al lado de una acumulada que sigue discrepando de la que se guarda.
+>
+> ### Un caso pasó en verde sin probar nada, otra vez, y otra vez lo delató mutar el código
+>
+> Con las nueve pruebas en verde se mutó `if ($nota->nota !== null)` a `if ($nota->nota > 0)` —o
+> sea, *«el 0 del docente cuenta como sin calificar»*, que es **el bug de origen del 43 reintroducido
+> en el divisor**— y **los nueve casos siguieron pasando**. El lienzo no tenía ninguna casilla
+> calificada con 0: las dos que valen 0 son `null`, así que las dos escrituras daban idénticos los
+> tres números. Se añadió `test_un_cero_tecleado_si_cuenta_en_el_divisor` —son **3.940** ceros
+> tecleados en la copia— y con él las cuatro mutaciones probadas ponen en rojo **1, 5, 1 y 3** casos.
+>
+> ### La cobertura llega al cliente como `int` en los extremos, y yo había escrito lo contrario
+>
+> El código castea a `(float)`, y **eso no fija el tipo en el JSON**: sin
+> `JSON_PRESERVE_ZERO_FRACTION`, `json_encode(0.0)` sale `0` y `json_encode(1.0)` sale `1`. La
+> instantánea regenerada lo dice: `cobertura` es **`int|null`** —en el seed sólo salen 0 y 1— y
+> `nota_parcial` es `float|int|null`. **Es lo que le pasa a `nota_asignatura` desde siempre**
+> (`float|int`), así que no es nuevo; pero el comentario del método decía que el cast servía para
+> eso y **era falso**. Corregido. *Una instantánea contestó una pregunta que yo no le había hecho.*
+>
+> ### Coste: cero, y medido con los contadores porque el reloj no puede
+>
+> Asignatura 432 periodo 10 —la más cargada de la copia: 986 notas, 45 alumnos, 22 subunidades—,
+> cargada como la cargan los seis lectores, 5 vueltas por pasada, cuatro pasadas alternando el
+> fichero viejo y el nuevo:
+>
+> | | `Handler_read_key` | `Handler_read_next` | reloj (mediana de 4) |
+> |---|---:|---:|---:|
+> | antes | 16.630 | 3.827.505 | 4.762 ms |
+> | después | **16.630** | **3.827.505** | 5.187 ms |
+>
+> **Idénticos en las ocho corridas: cero trabajo de base añadido**, porque lo que se añade es
+> aritmética dentro de bucles que ya existían. **El reloj no mide esto**: la dispersión del *mismo*
+> código entre pasadas es del 11 % y la del nuevo del 31 %, o sea un orden de magnitud más que el
+> efecto. El techo del trabajo añadido, medido aparte: **4.950 casillas en 0,679 ms**, el **0,014 %**
+> de una pasada.
+>
+> > **Y el banco midió el árbol equivocado en su primera versión.** Arrancaba Laravel con
+> > `require __DIR__.'/../../../vendor/autoload.php'` desde `.worktrees/pla/tools/`, o sea **el
+> > `vendor/` del principal**, y `autoload_psr4.php` resuelve su `$baseDir` a `/app`: las tres
+> > primeras pasadas compararon el código nuevo **contra sí mismo**. Lo delató que el guion imprime
+> > la parcial del último alumno y salía `NO EXISTE` también en la columna «después». *Un banco que
+> > sólo imprime milisegundos no puede avisar de que midió otra cosa.* Es la trampa que la cabecera
+> > de `tools/worktree-de-sesion.sh` lleva escrita, cometida desde un guion suelto.
+>
+> ### Estado — las cifras con la orden que las produjo
+>
+> | | |
+> |---|---|
+> | `Tests: 1 skipped, 2352 passed (22966 assertions)` · 1.136 s | `php artisan test --testsuite=Contrato` en `.worktrees/pla` con `DB_TEST_DATABASE=simonbolivar_testing_pla`, **después** de regenerar las dos instantáneas |
+> | `LaParcialEnLaPlanillaTest`: **10 passed (51 assertions)** · `LaParcialYLaCoberturaTest`: **10 passed** | `--filter="LaParcialEnLaPlanillaTest|LaParcialYLaCoberturaTest" --testsuite=Contrato` |
+> | `PASS 477 files` | `composer run pint:test` |
+> | `[OK] No errors` · 699 ficheros | `composer run stan` (nivel 7), con `COMPOSER_PROCESS_TIMEOUT=0` |
+>
+> > **Se contó DOS veces y la primera se perdió entera.** La pasada de antes de regenerar dio
+> > `2 failed, 1 skipped, 2350 passed` en 1.349 s —los dos rojos eran las dos instantáneas— y la
+> > de después **2352 passed en 1.136 s**. Cuadra con 2350 + 2, pero **no se escribió sumando**:
+> > se volvió a correr, que es la regla de la casa.
+> >
+> > Y antes de esas dos hubo una que **no dejó ninguna cifra**: el `docker exec` murió con
+> > `context canceled` (exit 144) **y el `php` de dentro del contenedor siguió vivo**, con el
+> > fichero de salida en **0 bytes**. Es la trampa de *«matar el `docker exec` no mata el `php`»*
+> > vista desde el otro lado: no es que la suite siguiera corriendo de más, es que **midió
+> > veintidós minutos y no se lo dijo a nadie**. Las dos buenas se lanzaron con
+> > `docker exec -d … > /tmp/pla-suite.log`, detached y escribiendo dentro del contenedor, para
+> > que una desconexión del host no se lleve la medición.
+>
+> ### Lo que queda abierto
+>
+> 1. **Decisión de Joseth: unificar los dos calculadores.** Está medido que hoy discrepan en
+>    `promedio` (14/99, hasta 42,3 puntos) y que la discrepancia es **de la acumulada**, o sea del
+>    número impreso. Lo que **no** está medido es cuántos números se mueven en los dieciséis colegios
+>    y **cuál de los dos es el que hay que conservar**. Eso es una decisión, no un arreglo.
+> 2. **Los boletines siguen sin los dos números**, por el motivo de arriba. Si la fase 2 los quiere
+>    ahí, lo primero que hay que decidir es qué significa «la parcial» de un año.
+> 3. **`composer.json` no se tocó, y es una decisión con precio.** Cinco de los siete ficheros
+>    tocados —`Asignatura`, `PlanillasController`, `DetallesController`, `EditnotaController` y los
+>    dos de `Informes/`— **no están en la lista curada de Pint** y van con tabuladores. Meterlos hoy
+>    reformatea ficheros de 300 a 900 líneas que tocan otras ramas vivas, y **el precio se le pone
+>    delante a Joseth antes**, no después. `app/Models/Nota.php` sí está en la lista y su cambio va
+>    con espacios: `pint:test` pasa.
+> 4. Fases 2, 3 y 4 del [43](43-lo-que-todavia-no-se-ha-calificado.md), sin empezar.
 
 > ## ✅ LA IMPORTACIÓN DINÁMICA — LAS TRES PIEZAS DE LA FASE 2, ROUTER EN 623 (20 sep 2026)
 >

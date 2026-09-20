@@ -2,10 +2,10 @@
 
 namespace Tests\Contrato;
 
-use App\Services\BoletinIndependiente;
 use App\Services\DefinitivasDeAsignatura;
 use App\Support\RepartoDeLaNota;
 use Illuminate\Support\Facades\DB;
+use Tests\Contrato\Concerns\LaPlanillaDelLienzo;
 
 /**
  * **Fase 1 de [43](../../docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md):
@@ -67,26 +67,27 @@ use Illuminate\Support\Facades\DB;
  * > de esta fase no es equivocar la parcial, es **guardarla donde va la otra**. Ahí
  * > el número escrito tiene que seguir siendo 16,66.
  *
- * ## Lo que este fichero NO prueba, porque la fase 1 no llega ahí
+ * ## Lo que este fichero NO prueba, y dónde se prueba desde el 20 sep 2026
  *
- * **La planilla y los boletines no pasan por `DefinitivasDeAsignatura`.** Pasan por
+ * **La planilla no pasa por `DefinitivasDeAsignatura`.** Pasa por
  * `App\Models\Asignatura::calculoAlumnoNotas`, que es un **segundo calculador de la
- * definitiva entero y paralelo, en PHP, sin denominador**, con seis lectores
- * —`PlanillasController`, `DetallesController`, `EditnotaController`,
- * `Informes\NotasPerdidasController`, `Informes\PlanillasAusenciasController` y
- * `Nota::alumnoAsignaturas`—. Es el que produce `nota_asignatura`. O sea que **la
- * parcial y la cobertura no llegan a la planilla con esta fase**, y eso es una
- * decisión que hay que tomar, no un descuido de estos casos.
+ * definitiva entero y paralelo, en PHP**, con seis lectores. Es el que produce
+ * `nota_asignatura`. Que ése dé los mismos tres números es la **fase 1.bis** y vive en
+ * {@see LaParcialEnLaPlanillaTest}, sobre **este mismo montaje** — por eso el lienzo se
+ * sacó a {@see LaPlanillaDelLienzo} y no se copió.
+ *
+ * **A los boletines sigue sin llegar**, y el porqué está en la §Fase 1.bis del 43: el
+ * único de los seis lectores que los alcanza publica una media del año y no una
+ * definitiva por periodo.
  */
 class LaParcialYLaCoberturaTest extends CasoDeContrato
 {
-    /** Los cuatro indicadores de la unidad 1, con su nota — `null` es sin calificar. */
-    private const UNIDAD_1 = [
-        ['porcentaje' => 30, 'nota' => 48],
-        ['porcentaje' => 20, 'nota' => 47],
-        ['porcentaje' => 25, 'nota' => null],
-        ['porcentaje' => 25, 'nota' => null],
-    ];
+    // El montaje vive en el trait desde la **fase 1.bis** del 43, y no por limpieza: el
+    // segundo calculador —`Asignatura::calculoAlumnoNotas`, el de la planilla— tiene
+    // que dar estos mismos números, y eso sólo se puede comprobar pasándole **la
+    // misma** planilla. Dos montajes parecidos seguirían verdes por separado el día
+    // que uno de los dos cambiara un porcentaje.
+    use LaPlanillaDelLienzo;
 
     /**
      * La parcial es la nota de lo evaluado, y la acumulada sigue siendo la de hoy.
@@ -407,118 +408,5 @@ class LaParcialYLaCoberturaTest extends CasoDeContrato
         }
 
         $this->fail('El alumno '.$alumnoId.' no salió en el cálculo de la asignatura.');
-    }
-
-    /**
-     * Una subunidad con su nota para un alumno. Devuelve el id de la nota.
-     *
-     * `nota` viaja tal cual: `null` es **sin calificar**, que desde la fase 0 es lo
-     * que la base sabe decir.
-     */
-    private function casilla(int $unidadId, int $porcentaje, ?int $nota, int $alumnoId): int
-    {
-        $subunidadId = DB::table('subunidades')->insertGetId([
-            'unidad_id' => $unidadId,
-            'definicion' => 'INDICADOR AL '.$porcentaje.' %',
-            'porcentaje' => $porcentaje,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        return (int) DB::table('notas')->insertGetId([
-            'subunidad_id' => $subunidadId,
-            'alumno_id' => $alumnoId,
-            'nota' => $nota,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-    }
-
-    /**
-     * La planilla del lienzo del doc 43, montada sobre una asignatura **vacía**.
-     *
-     * **La asignatura se elige sin una sola unidad en ese periodo, y se comprueba.**
-     * Sin eso, unas unidades del seed entrarían en las mismas sumas y todos los
-     * números de arriba dejarían de ser los del lienzo — en silencio, porque el
-     * cálculo seguiría siendo correcto.
-     *
-     * Las notas se crean **sólo para el primer alumno**: el segundo es el caso del
-     * alumno sin casillas, que a mitad de periodo es la mayoría.
-     *
-     * @return array<string, mixed>
-     */
-    private function laPlanillaDelLienzo(): array
-    {
-        // El alcance del boletín independiente se resuelve una vez y se cachea; sin
-        // olvidarlo, un caso anterior de la misma tanda decide por éste.
-        BoletinIndependiente::olvidar();
-
-        $donde = DB::selectOne(
-            'SELECT a.id AS asignatura_id, a.grupo_id, p.id AS periodo_id, g.year_id
-               FROM asignaturas a
-               INNER JOIN grupos g ON g.id = a.grupo_id AND g.deleted_at IS NULL
-               INNER JOIN periodos p ON p.year_id = g.year_id AND p.deleted_at IS NULL
-              WHERE a.deleted_at IS NULL
-                AND (SELECT COUNT(DISTINCT m.alumno_id) FROM matriculas m
-                      WHERE m.grupo_id = a.grupo_id AND m.deleted_at IS NULL) >= 2
-                AND NOT EXISTS (SELECT 1 FROM unidades u
-                                 WHERE u.asignatura_id = a.id AND u.periodo_id = p.id
-                                   AND u.deleted_at IS NULL)
-              ORDER BY a.id, p.id LIMIT 1'
-        );
-
-        $this->assertNotNull($donde,
-            'El seed no tiene una asignatura con dos matriculados y sin unidades en algún '
-            .'periodo: sin un par limpio, las sumas de este fichero no son las del lienzo.');
-
-        $alumnos = DB::select(
-            'SELECT DISTINCT m.alumno_id FROM matriculas m
-              WHERE m.grupo_id = ? AND m.deleted_at IS NULL ORDER BY m.alumno_id LIMIT 2',
-            [$donde->grupo_id]
-        );
-
-        $alumno = (int) $alumnos[0]->alumno_id;
-
-        // El reparto se deja explícito en `porcentaje` aunque sea el defecto: el caso
-        // del modo promedio lo cambia, y un defecto heredado no se puede afirmar.
-        DB::table('years')->where('id', $donde->year_id)
-            ->update(['reparto_subunidades' => RepartoDeLaNota::PORCENTAJE]);
-
-        $unidad1 = (int) DB::table('unidades')->insertGetId([
-            'asignatura_id' => $donde->asignatura_id,
-            'periodo_id' => $donde->periodo_id,
-            'definicion' => 'UNIDAD 1 DEL LIENZO',
-            'porcentaje' => 70,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        $notas = [];
-
-        foreach (self::UNIDAD_1 as $indicador) {
-            $notas[] = $this->casilla($unidad1, $indicador['porcentaje'], $indicador['nota'], $alumno);
-        }
-
-        $unidad2 = (int) DB::table('unidades')->insertGetId([
-            'asignatura_id' => $donde->asignatura_id,
-            'periodo_id' => $donde->periodo_id,
-            'definicion' => 'UNIDAD 2 DEL LIENZO',
-            'porcentaje' => 30,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        $notas[] = $this->casilla($unidad2, 100, null, $alumno);
-
-        return [
-            'asignatura' => (int) $donde->asignatura_id,
-            'periodo' => (int) $donde->periodo_id,
-            'year' => (int) $donde->year_id,
-            'unidad_1' => $unidad1,
-            'unidad_2' => $unidad2,
-            'alumno' => $alumno,
-            'alumno_sin_notas' => (int) $alumnos[1]->alumno_id,
-            'notas' => $notas,
-        ];
     }
 }

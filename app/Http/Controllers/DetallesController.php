@@ -121,6 +121,12 @@ class DetallesController extends Controller {
 									$unidad->subunidades = Subunidad::deUnidad($unidad->unidad_id);
 								}
 
+								// Gana `nota_parcial` y `cobertura` **sin una línea de más**: aquí
+								// `$asignatura` se devuelve entera, así que los dos números que pone
+								// `calculoAlumnoNotas` viajan solos (fase 1.bis del 43). Es el detalle del
+								// alumno periodo a periodo, o sea el mismo falso rojo de la planilla.
+								// `null` en cualquiera de las dos **no es un 0**, y `cobertura` es un
+								// factor de 0 a 1.
 								Asignatura::calculoAlumnoNotas($asignatura, $alumno_id);
 								$sumatoria_asignaturas_per += $asignatura->nota_asignatura; // Para sacar promedio del periodo
 								
