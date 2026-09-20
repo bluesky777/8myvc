@@ -578,7 +578,14 @@ class FormulariosInscripcionController extends Controller
         // El `JOIN` vivo, que es de donde sale la verdad. `LEFT JOIN … IS NULL` y no
         // un `NOT EXISTS` porque la misma consulta tiene que servir para contar y
         // para listar, y así las dos miran exactamente lo mismo.
-        $sinVolver = DB::select('SELECT o.codigo, o.estado, o.valor, o.updated_at AS pagado_at,
+        // **`actualizado_at` y NO `pagado_at`, que es como se llamaba y era mentira.**
+        // `updated_at` es la última modificación de la fila, no la fecha del pago:
+        // corregir el código de un formulario ya pagado la mueve, y la lista de
+        // llamadas diría que pagó hoy. Es **el mismo pecado que `vendida_at`** dos
+        // métodos más arriba, cometido al escribir esta consulta y cazado releyéndola.
+        // La fecha del pago de verdad está en `colillas.resuelta_at` y
+        // `pagos.verificado_at`, y las dos las devuelve el `GET` por código.
+        $sinVolver = DB::select('SELECT o.codigo, o.estado, o.valor, o.updated_at AS actualizado_at,
                 a.id AS alumno_id, a.nombres, a.apellidos, a.documento,
                 a.telefono, a.celular, a.email
             FROM ordenes_inscripcion o
@@ -1467,6 +1474,14 @@ class FormulariosInscripcionController extends Controller
     {
         $ids = array_values(array_filter(array_map(fn ($f) => $f->alumno_id, $filas)));
 
+        // La clave se pone **antes** de salir por el atajo: una respuesta en la que
+        // `acudiente` a veces está y a veces no obliga al front a comprobarlo en cada
+        // fila, y la vez que se le olvide lo descubre en producción. La forma de la
+        // respuesta no puede depender de si había datos.
+        foreach ($filas as $fila) {
+            $fila->acudiente = null;
+        }
+
         if (count($ids) === 0) {
             return $filas;
         }
@@ -1491,7 +1506,9 @@ class FormulariosInscripcionController extends Controller
         }
 
         foreach ($filas as $fila) {
-            $fila->acudiente = $primero[$fila->alumno_id] ?? null;
+            if ($fila->alumno_id !== null && isset($primero[$fila->alumno_id])) {
+                $fila->acudiente = $primero[$fila->alumno_id];
+            }
         }
 
         return $filas;

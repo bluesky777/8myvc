@@ -443,7 +443,19 @@ class DelPapelAlAlumnoTest extends CasoDeContrato
 
         $this->assertGreaterThanOrEqual(30000, $r->json('resumen.recaudado'));
         $this->assertArrayHasKey('celular', $r->json('sin_volver.0'));
-        $this->assertArrayHasKey('acudiente', $r->json('sin_volver.0'));
+
+        // **`acudiente` en TODAS las filas, aunque sea `null`.** Una clave que a
+        // veces está obliga al front a comprobarla fila a fila, y la vez que se le
+        // olvide lo descubre en producción — así que la forma de la respuesta no
+        // puede depender de si había datos.
+        foreach ($r->json('sin_volver') as $fila) {
+            $this->assertArrayHasKey('acudiente', $fila);
+        }
+
+        // Y el nombre de esta clave es lo que la salva de ser `vendida_at` otra vez:
+        // es la última modificación de la fila, no la fecha del pago.
+        $this->assertArrayHasKey('actualizado_at', $r->json('sin_volver.0'));
+        $this->assertArrayNotHasKey('pagado_at', $r->json('sin_volver.0'));
     }
 
     /** Un estado con cero tiene que salir, o la pantalla no distingue «ninguno» de «no me lo mandaron». */

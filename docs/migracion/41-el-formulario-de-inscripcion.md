@@ -582,7 +582,22 @@ leer por lote**.
 > Lo fija `test_el_informe_cuenta_los_matriculados_contra_matriculas_y_no_contra_el_estado`,
 > **visto en rojo** con la versión que cuenta la columna.
 
-### Y un hallazgo de nombre: `vendida_at` NO es la fecha de venta
+### Y el mismo pecado, cometido por mí dos métodos más abajo
+
+La lista de «compró y no volvió» llevaba una columna llamada **`pagado_at`** que era
+`o.updated_at`. **No es la fecha del pago**: es la última modificación de la fila, así que
+corregir el código de un formulario ya pagado la mueve y la lista de llamadas diría que pagó hoy.
+
+Es exactamente lo que el apartado siguiente denuncia de `vendida_at`, escrito **el mismo día y en
+el mismo fichero**, y no lo cazó ningún test —el nombre de una clave no lo comprueba nadie— sino
+releer la consulta. Se llama **`actualizado_at`**, que es lo que es, y la fecha del pago de verdad
+sale de `colillas.resuelta_at` y `pagos.verificado_at`, que el `GET` por código ya devuelve.
+
+*Un nombre que miente no falla: pasa la suite, pasa larastan y llega a la pantalla.* Por eso el
+test fija ahora las dos cosas —que `actualizado_at` está y que `pagado_at` **no**—, que es lo
+único que convierte esta nota en un candado.
+
+### Un hallazgo de nombre en la dirección contraria: `vendida_at` NO es la fecha de venta
 
 `vendida_por` y `vendida_at` se escriben **al acuñar**, o sea al imprimir. **Cincuenta
 formularios en blanco no son cincuenta ventas**, así que un informe que sumara sobre esa fecha

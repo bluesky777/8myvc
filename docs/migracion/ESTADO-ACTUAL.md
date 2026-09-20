@@ -149,7 +149,18 @@
 >    mismo: lo comparten quince llamadas y ensancharlo ensancharía esta puerta sin que nadie lo
 >    decidiera.
 >
-> ### Y un hallazgo de nombre: `vendida_at` NO es la fecha de venta
+> ### DOS hallazgos de nombre, y el segundo lo cometí yo el mismo día
+>
+> **`pagado_at`, en la lista de «compró y no volvió», era `updated_at`** — o sea la última
+> modificación de la fila, no la fecha del pago: corregir el código de un formulario ya pagado la
+> movería y la lista diría que pagó hoy. **Es el mismo pecado que `vendida_at`, escrito en el
+> mismo fichero y el mismo día que lo denuncié**, y no lo cazó ningún test —el nombre de una
+> clave no lo comprueba nadie— sino releer la consulta antes de darla por buena. Se llama
+> `actualizado_at`, y el test fija ahora que `pagado_at` **no** está.
+>
+> *Un nombre que miente no falla: pasa la suite, pasa larastan y llega a la pantalla.*
+>
+> ### Y el primero, que es el de la tanda anterior: `vendida_at` NO es la fecha de venta
 >
 > Se escribe **al acuñar**, o sea al imprimir. Cincuenta formularios en blanco no son cincuenta
 > ventas, así que un informe que sumara sobre esa fecha contaría como recaudado todo lo que salió
