@@ -419,12 +419,55 @@ números.
 
 ---
 
-## 6. Lo que sigue abierto
+## 5.5 Que el importador obedezca — 21 sep 2026
 
-- **Aplicar lo que la pantalla decide.** El ensayo dice qué va a pasar y la subida acepta
-  instrucciones, pero **hoy nadie las interpreta todavía**: `respuestas` se guarda y se devuelve, y
-  el importador aún no cambia su comportamiento con ella. Es el siguiente paso y no estaba en el
-  alcance del 20 sep.
+Autorizado por Joseth el 21 sep. Es el paso que convierte el ensayo en una herramienta: hasta aquí
+el coordinador **veía** qué iba a pasar y no podía cambiarlo.
+
+**El ciclo entero, y lo fija un test que hace los cuatro pasos:** el ensayo avisa de lo que no
+entiende → la persona decide → **el ensayo refleja la corrección** → la importación la escribe.
+
+### Las equivalencias viven en `ImporterFixer`, y ahí está toda la garantía
+
+Por esa clase pasan **los dos caminos**. Si se aplicaran en el controlador, la pantalla enseñaría un
+plan **sin** las correcciones que la persona acaba de escribir y el resultado sería otro — el mismo
+fallo que este módulo persigue, con un paso más de disimulo. De ahí salió además que
+`estado_matricula` tuviera que pasar por el traductor, cosa que no hacía: lo leía el importador
+directamente, así que una equivalencia puesta allí la habría visto la subida y **no** el ensayo.
+
+### La forma la dibujó el front, y sus cuatro decisiones se adoptaron
+
+| | |
+|---|---|
+| **La llave es `(columna, valor_original)`, nunca la fila** | Es el punto de todo esto: **una decisión y no ochocientas**. Con la fila como llave volverían las 800 con otro nombre |
+| **`decision` siempre explícita, `a_revisar` incluido** | Ninguna ausencia significa nada: «no se ha decidido» tiene que distinguirse de «se decidió dejarlo». Es el `tipo_doc = 3` de la Fase 1, una capa más arriba |
+| **`vacios` aparte de `vocabularios`** | «No lo entendí» y «no venía nada» son dos cosas, y la respuesta puede ser distinta |
+| **`huella` dentro de las respuestas** | El que más valía — ver abajo |
+
+**`a_revisar` no aplica nada y el aviso sigue**: es una decisión, no un olvido. Convertirlo en el
+valor por defecto sería decidir por alguien y no decirlo.
+
+### La huella cierra el agujero que este módulo llevaba rodeando
+
+Alguien aprueba trece decisiones, **cambia una celda** y sube. Las respuestas siguen encajando
+—casan por nombre de columna, no por contenido— y se aplicarían a un libro que nadie revisó: **los
+números saldrían igual, sólo que serían otros.** Con la huella dentro, eso es un **422** en las dos
+rutas. Sin huella se aceptan, porque exigirla rompería a quien mande instrucciones a mano y lo que
+se busca es cazar el cambio silencioso, no imponer un formato.
+
+### Y lo que NO se aplica se declara, con el motivo
+
+`vacios`, `repetidos`, `duplicados` y `hojas` se aceptan, se guardan y **no se interpretan
+todavía** — y la respuesta lo dice en `no_aplicadas` con su motivo. Aceptar una sección y callarlo
+sería el mismo silencio que esto empezó quitando: la pantalla prometería algo que no ocurre.
+
+Dos números distintos y los dos hacen falta: **`vocabularios_decididos`** —cuántas aprobó la
+persona— y **`veces_que_se_usaron`** —cuántas fichas cambiaron—. Aprobar una equivalencia cuyo valor
+no está en el fichero no es un fallo, pero tampoco es haberla aplicado.
+
+---
+
+## 6. Lo que sigue abierto
 - **La Fase 3** entera, que va después de la 2.
 - Si las **asignaturas por grupo** entran detrás de esto, **con un aviso**: `POST
   asignaturas/copiar` inserta sin comprobar si el destino ya las tiene, así que un modelo que la

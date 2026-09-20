@@ -551,6 +551,64 @@ class EnsayoDeLaImportacionTest extends CasoDeContrato
         }
     }
 
+    /**
+     * EL ENSAYO DICE SI LA IMPORTACIÓN VA A FALLAR ENTERA, no sólo qué hoja no
+     * casa.
+     *
+     * Es la respuesta más importante que puede dar, y no la daba: el dato
+     * estaba —`coincide_con: null`— pero **no la consecuencia**. Conduciendo, la
+     * pantalla del front pintó esa hoja como «Vacía · no se importa»,
+     * inofensiva, dejó pulsar «Importar 32 alumnos» y la subida contestó 500.
+     * Mi dato era correcto y la lectura que inducía, falsa — el mismo animal que
+     * el `acudientes_tocados: 0`.
+     */
+    public function test_dice_si_la_importacion_va_a_fallar_entera(): void
+    {
+        [$token, $year] = $this->personalYSuYear();
+        $archivo = $this->conLaPrimeraHojaRenombrada($this->exportacionDeAlumnos($token), 'NOEXISTE');
+
+        $r = $this->ensayar($archivo, $token, $year)->assertStatus(200);
+
+        $this->assertFalse($r->json('puede_importarse'),
+            'Una hoja que no es de ningún grupo detiene la importación, y hay que decirlo ANTES de pulsar.');
+
+        $bloqueo = $r->json('bloqueos')[0];
+
+        $this->assertSame('hoja_sin_grupo', $bloqueo['tipo']);
+        $this->assertSame('NOEXISTE', $bloqueo['hoja']);
+        $this->assertStringContainsString('ya habrán quedado escritas', $bloqueo['motivo'],
+            'Lo que hace falta no es «esta hoja no casa», es que la importación para y deja lo anterior dentro.');
+    }
+
+    /** Y con el libro bueno dice que sí, o el campo de arriba no distinguiría nada. */
+    public function test_con_el_libro_bueno_dice_que_puede_importarse(): void
+    {
+        [$token, $year] = $this->personalYSuYear();
+
+        $this->ensayar($this->exportacionDeAlumnos($token), $token, $year)
+            ->assertStatus(200)
+            ->assertJson(['puede_importarse' => true, 'bloqueos' => []]);
+    }
+
+    /**
+     * Y UNA HOJA VACÍA CON EL NOMBRE MALO DETIENE IGUAL.
+     *
+     * Es lo que hizo fallar a la pantalla: un `filas > 0` daba por hecho que una
+     * hoja sin alumnos no puede hacer daño. El importador resuelve la pestaña
+     * contra `grupos` **antes** de mirar si trae filas, así que «no tiene
+     * alumnos» no la hace inofensiva.
+     */
+    public function test_una_hoja_vacia_con_nombre_malo_tambien_bloquea(): void
+    {
+        [$token, $year] = $this->personalYSuYear();
+        $archivo = $this->conUnaHojaVaciaLlamada($this->exportacionDeAlumnos($token), 'NOEXISTE');
+
+        $r = $this->ensayar($archivo, $token, $year)->assertStatus(200);
+
+        $this->assertFalse($r->json('puede_importarse'));
+        $this->assertContains('NOEXISTE', array_column($r->json('bloqueos'), 'hoja'));
+    }
+
     /** El guard, que es el mismo de la subida. */
     public function test_sin_token_no_contesta(): void
     {
@@ -675,6 +733,15 @@ class EnsayoDeLaImportacionTest extends CasoDeContrato
         $hoja = $libro->getSheet(0);
 
         $hoja->setCellValue($this->columnasDe($hoja)['tipo_de_documento'].'3', null);
+
+        return $this->guardar($libro);
+    }
+
+    /** Añade una pestaña sin una sola fila, con el nombre que se le diga. */
+    private function conUnaHojaVaciaLlamada(string $archivo, string $nombre): string
+    {
+        $libro = IOFactory::load($archivo);
+        $libro->createSheet()->setTitle($nombre);
 
         return $this->guardar($libro);
     }

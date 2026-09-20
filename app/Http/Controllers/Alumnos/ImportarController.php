@@ -10,6 +10,7 @@ use App\Models\Matricula;
 use App\Models\Role;
 use App\Services\EnsayoDeLaImportacion;
 use App\Services\PuntoDeControlDeImportacion;
+use App\Services\RespuestasDeLaImportacion;
 use App\Support\Reloj;
 use App\Support\SafeUpload;
 use App\User;
@@ -601,6 +602,23 @@ class ImportarController extends Controller
     {
         if (Request::hasFile('file')) {
             $archivo = request()->file('file');
+            $huella = hash_file('sha256', $archivo->getRealPath());
+
+            $respuestas = new RespuestasDeLaImportacion($this->respuestasDelCuerpo() ?? []);
+
+            // UNAS RESPUESTAS DE OTRO FICHERO NO SE APLICAN A ÉSTE.
+            //
+            // Es el agujero que este módulo lleva rodeando: alguien aprueba
+            // trece decisiones, cambia una celda y sube. Las respuestas siguen
+            // encajando —casan por nombre de columna, no por contenido— y se
+            // aplicarían a un libro que nadie revisó. **Los números saldrían
+            // igual, sólo que serían otros.**
+            if ($respuestas->sonDeOtroFichero($huella)) {
+                return response()->json([
+                    'ok' => false,
+                    'msg' => 'Las instrucciones que llegaron son de otro archivo. Vuelve a revisarlo antes de importar.',
+                ], 422);
+            }
 
             // La huella es del CONTENIDO del archivo, no de su nombre: la
             // secretaría sube tres veces `alumnos.xlsx` y son tres archivos
@@ -608,7 +626,7 @@ class ImportarController extends Controller
             // significado que el código pueda comprobar.
             $punto = PuntoDeControlDeImportacion::abrir(
                 'alumnos',
-                hash_file('sha256', $archivo->getRealPath()),
+                $huella,
                 (int) $year,
                 SafeUpload::nombreParaGuardar($archivo),
                 $this->user->user_id
@@ -621,7 +639,7 @@ class ImportarController extends Controller
             // en el que esto se corta a la mitad.
             $punto->guardarRespuestas($this->respuestasDelCuerpo());
 
-            $fixer = new ImporterFixer;
+            $fixer = new ImporterFixer($respuestas->equivalencias());
             $Import = new ExcelUtils($year, $fixer, $punto);
 
             // El error se guarda y se vuelve a lanzar: el 500 que ve el cliente
@@ -671,6 +689,14 @@ class ImportarController extends Controller
                 'filas_del_archivo' => $punto->filas(),
                 'hechos' => $Import->hechos,
                 'avisos' => $fixer->avisos,
+
+                // Qué se hizo con lo que la persona decidió. Sin esto, una
+                // respuesta ignorada en silencio no la vería nadie — y el
+                // informe final no podría cerrar la frase «se aplicaron las 13
+                // que aprobaste».
+                'respuestas' => $respuestas->hayAlguna()
+                    ? $respuestas->resumen($fixer->equivalenciasUsadas)
+                    : null,
             ]);
         }
 
@@ -704,7 +730,22 @@ class ImportarController extends Controller
             return response()->json(['ok' => false, 'msg' => 'No se encontró archivo.'], 422);
         }
 
-        $fixer = new ImporterFixer;
+        $huella = hash_file('sha256', request()->file('file')->getRealPath());
+        $respuestas = new RespuestasDeLaImportacion($this->respuestasDelCuerpo() ?? []);
+
+        // El ensayo acepta las mismas instrucciones que la subida, y ésa es la
+        // pieza que hace verdad a las demás: corregir, volver a ensayar, ver el
+        // plan CORREGIDO y subir. Sin esta vuelta, lo que se enseña es el plan
+        // de antes de las correcciones, y la promesa se rompe justo donde más
+        // duele.
+        if ($respuestas->sonDeOtroFichero($huella)) {
+            return response()->json([
+                'ok' => false,
+                'msg' => 'Las instrucciones que llegaron son de otro archivo.',
+            ], 422);
+        }
+
+        $fixer = new ImporterFixer($respuestas->equivalencias());
         $ensayo = new EnsayoDeLaImportacion((int) $year, $fixer);
 
         // UN FICHERO QUE NO SE PUEDE LEER CONTESTA 422 EN JSON, NO UN 500 EN
@@ -740,6 +781,19 @@ class ImportarController extends Controller
         $plan = $ensayo->plan;
         $cuenta = fn (string $accion) => count(array_filter($plan, fn ($f) => $f['accion'] === $accion));
 
+        $bloqueos = [];
+
+        foreach ($ensayo->hojas as $hoja) {
+            if ($hoja['coincide_con'] === null) {
+                $bloqueos[] = [
+                    'tipo' => 'hoja_sin_grupo',
+                    'hoja' => $hoja['nombre'],
+                    'motivo' => "La pestaña «{$hoja['nombre']}» no es ningún grupo del año, y el importador se "
+                              .'detiene al llegar a ella. Las hojas anteriores ya habrán quedado escritas.',
+                ];
+            }
+        }
+
         return response()->json([
             'ok' => true,
             'year' => (int) $year,
@@ -757,7 +811,14 @@ class ImportarController extends Controller
             // era de otro fichero» antes de que alguien pulse. Es el mismo sha256
             // del contenido con el que `PuntoDeControlDeImportacion` reconoce «el
             // mismo archivo», así que los dos hablan de lo mismo.
-            'huella' => hash_file('sha256', request()->file('file')->getRealPath()),
+            'huella' => $huella,
+
+            // Lo mismo que devuelve la subida, para que la pantalla pueda
+            // enseñar el plan CON las correcciones aplicadas y decir cuántas
+            // entraron.
+            'respuestas' => $respuestas->hayAlguna()
+                ? $respuestas->resumen($fixer->equivalenciasUsadas)
+                : null,
 
             // Va en la respuesta y no sólo en la documentación porque es lo que
             // la pantalla le promete a quien pulsa. Si algún día dejara de ser
@@ -765,6 +826,24 @@ class ImportarController extends Controller
             'escribe' => false,
 
             'hojas' => $ensayo->hojas,
+
+            // SI ESTA IMPORTACIÓN VA A FALLAR ENTERA, Y POR QUÉ.
+            //
+            // Es la respuesta más importante que puede dar un ensayo y hasta hoy
+            // no la daba: el dato estaba —`coincide_con: null`— pero **no la
+            // consecuencia**, y la pantalla del front pintó esa hoja como
+            // «Vacía · no se importa», inofensiva, dejó pulsar «Importar 32
+            // alumnos» y la subida contestó 500.
+            //
+            // Mi respuesta era correcta y la lectura que inducía, falsa. Es el
+            // mismo animal que el `acudientes_tocados: 0`.
+            //
+            // Y una hoja VACÍA con el nombre malo detiene igual: el importador
+            // resuelve la pestaña contra `grupos` **antes** de mirar si trae
+            // filas (`ExcelUtils::array()`), así que «no tiene alumnos» no la
+            // hace inofensiva.
+            'puede_importarse' => $bloqueos === [],
+            'bloqueos' => $bloqueos,
             'grupos_del_year' => $this->gruposDelYear((int) $year),
             'columnas_destino' => $this->columnasDestino(),
             'catalogos' => $this->catalogos(),
