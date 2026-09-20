@@ -493,14 +493,30 @@ class AlumnosController extends Controller {
 		// **sólo si no hay ninguno**. Cambia una palabra, y el defecto del alta
 		// —cuenta nueva sin correo— se conserva. Ver 05 §173.2 y
 		// noche-2026-08-24/profes-1.md.
-		if (!Request::input('email2')) {
-
-			if (Request::input('email')) {
-				Request::merge(array('email2' => Request::input('email') ));
-			}else{
-				$email = Request::input('username') . '@myvc.com';
-				Request::merge(array('email2' => $email));
-			}
+		// **Y el `else` que derivaba `username@myvc.com` se quitó el 20 sep 2026**,
+		// decidido por Joseth: al crear a nadie se le inventa un correo, y quien no
+		// tiene se queda sin él. El comentario de arriba defendía ese defecto
+		// —«cuenta nueva sin correo»— y lo que se midió ese día es que el defecto
+		// hacía daño, no bien.
+		//
+		// `users.email` es por donde busca la recuperación de contraseña
+		// (`LoginController:240-266`, cuatro consultas y las cuatro sobre esa
+		// columna). Un buzón que no existe hace que el método **encuentre** la
+		// cuenta, mande el enlace y conteste «Enviado»: cambia «no llega» por «no
+		// llega y además creemos que sí». Medido en el docker: **30 cuentas vivas
+		// con `@myvc.com`, 16 de ellas activas** —11 profesores, 2 alumnos, 3 sin
+		// ficha—, o sea que de los 12 profesores que el reseteo alcanza, **11 no
+		// pueden recuperar nada**. Alcanzable no es recuperable.
+		//
+		// **Esas 30 se quedan como están**, decidido el mismo día y con los números
+		// delante: está sabido, no es un olvido.
+		//
+		// Y esto cambia también la EDICIÓN, a sabiendas: si una pantalla manda la
+		// clave `email2` vacía, antes se fabricaba uno y **se escribía encima del que
+		// hubiera** —`$vinieron->trae('email2')` contesta que sí, porque la clave
+		// vino—. Ahora ese caso guarda vacío, o sea que vaciar el campo se respeta.
+		if (!Request::input('email2') && Request::input('email')) {
+			Request::merge(array('email2' => Request::input('email') ));
 		}
 	}
 

@@ -397,7 +397,9 @@ where id in (
             //
             // Se copia la ficha cuando no viene `email2`, y **si no hay ninguno de los
             // dos se deja vacío**. `AlumnosController:496` y `ProfesoresController:248`
-            // sí inventan `username@myvc.com` en ese caso y **aquí no se hace**: eso
+            // inventaban `username@myvc.com` en ese caso y aquí no se hizo nunca —y desde
+            // el 20 sep 2026 ya no lo inventa ninguno de los tres, decidido por Joseth
+            // ese mismo día al ver lo que costaba—: eso
             // llena la columna de buzones de nadie, y entonces el método encuentra la
             // cuenta, manda el enlace y contesta «Enviado» — cambia «no llega» por «no
             // llega y además creemos que sí». Medido: 16 cuentas vivas ya lo tienen,
