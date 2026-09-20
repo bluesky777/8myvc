@@ -30,7 +30,7 @@ class AcudientesController extends Controller {
 	use ResuelveElUsuario;
 
 	public $consulta_pariente = 'SELECT ac.id, ac.nombres, ac.apellidos, ac.sexo, ac.fecha_nac, ac.ciudad_nac, ac.telefono, pa.parentesco, pa.id as parentesco_id, ac.user_id, 
-							ac.celular, ac.ocupacion, ac.email, ac.barrio, ac.direccion, ac.tipo_doc, ac.documento, ac.created_by, ac.updated_by, ac.created_at, ac.updated_at, 
+							ac.celular, ac.ocupacion, ac.email, u.email as email2, ac.barrio, ac.direccion, ac.tipo_doc, ac.documento, ac.created_by, ac.updated_by, ac.created_at, ac.updated_at, 
 							ac.foto_id, IFNULL(i.nombre, IF(ac.sexo="F","default_female.png", "default_male.png")) as foto_nombre, 
 							u.username, u.is_active
 						FROM parentescos pa
@@ -100,6 +100,19 @@ class AcudientesController extends Controller {
 	// Modulo de acudientes con sub filas de acudidos
 	public function putDatos()
 	{
+		// `u.email as email2` --el correo de la CUENTA-- viaja en las seis consultas
+		// de acudientes desde el 20 sep 2026, y no es un extra: sin él la rejilla no
+		// puede pintar quién puede recuperar su contraseña y quién no, que es
+		// exactamente lo que se arregló ese día. `ac.email` es la ficha y ya venía;
+		// son dos correos distintos y los dos se editan (`valorAcudiente`).
+		//
+		// El nombre sale de cómo ya se ESCRIBE (`postCrear`, `ProfesoresController:186`),
+		// así que entra y sale igual. Pedido por `myvc-front-2e`, que lo tiene
+		// declarado en `datos/acudientes.ts:154` desde antes.
+		//
+		// No amplía a quién se le enseña nada: `ac.email` —la misma dirección en los
+		// 91 que la tienen— ya viajaba en estas seis respuestas.
+
 		
 		$grupo_actual 	= Request::input('grupo_actual');
 
@@ -128,7 +141,7 @@ where id in (
 
 		// , pa.id as parentesco_id lo quité para no duplicar
 		$consulta = 'SELECT distinct(ac.id), ac.id, pa.id as pariente_id, ac.nombres, ac.apellidos, ac.sexo, ac.fecha_nac, ac.ciudad_nac, c1.ciudad as ciudad_nac_nombre, ac.ciudad_doc, c2.ciudad as ciudad_doc_nombre, c2.departamento as departamento_doc_nombre, ac.telefono, pa.parentesco, pa.observaciones, ac.user_id, 
-						ac.celular, ac.ocupacion, ac.email, ac.barrio, ac.direccion, ac.tipo_doc, t1.tipo as tipo_doc_nombre, ac.documento, ac.created_by, ac.updated_by, ac.created_at, ac.updated_at, 
+						ac.celular, ac.ocupacion, ac.email, u.email as email2, ac.barrio, ac.direccion, ac.tipo_doc, t1.tipo as tipo_doc_nombre, ac.documento, ac.created_by, ac.updated_by, ac.created_at, ac.updated_at, 
 						ac.foto_id, IFNULL(i.nombre, IF(ac.sexo="F","default_female.png", "default_male.png")) as foto_nombre, 
 						u.username, u.is_active, ac.is_acudiente, IF(ac.is_acudiente, "SI", "NO") as es_acudiente
 					FROM parentescos pa
@@ -186,7 +199,7 @@ where id in (
 		}
 
 		$consulta = 'SELECT ac.id, ac.nombres, ac.apellidos, ac.sexo, ac.fecha_nac, ac.ciudad_nac, c1.ciudad as ciudad_nac_nombre, ac.ciudad_doc, c2.ciudad as ciudad_doc_nombre, c2.departamento as departamento_doc_nombre, ac.telefono, pa.parentesco, pa.observaciones, pa.id as parentesco_id, ac.user_id, 
-						ac.celular, ac.ocupacion, ac.email, ac.barrio, ac.direccion, ac.tipo_doc, t1.tipo as tipo_doc_nombre, ac.documento, ac.created_by, ac.updated_by, ac.created_at, ac.updated_at, 
+						ac.celular, ac.ocupacion, ac.email, u.email as email2, ac.barrio, ac.direccion, ac.tipo_doc, t1.tipo as tipo_doc_nombre, ac.documento, ac.created_by, ac.updated_by, ac.created_at, ac.updated_at, 
 						ac.foto_id, IFNULL(i.nombre, IF(ac.sexo="F","default_female.png", "default_male.png")) as foto_nombre, 
 						u.username, u.is_active, ac.is_acudiente, IF(ac.is_acudiente, "SI", "NO") as es_acudiente
 					FROM parentescos pa
@@ -211,7 +224,7 @@ where id in (
 		
 
 		$consulta = 'SELECT ac.id, ac.nombres, ac.apellidos, ac.sexo, ac.fecha_nac, ac.ciudad_nac, c1.ciudad as ciudad_nac_nombre, ac.ciudad_doc, c2.ciudad as ciudad_doc_nombre, c2.departamento as departamento_doc_nombre, ac.telefono, ac.user_id, 
-						ac.celular, ac.ocupacion, ac.email, ac.barrio, ac.direccion, ac.tipo_doc, t1.tipo as tipo_doc_nombre, ac.documento, ac.created_by, ac.updated_by, ac.created_at, ac.updated_at, 
+						ac.celular, ac.ocupacion, ac.email, u.email as email2, ac.barrio, ac.direccion, ac.tipo_doc, t1.tipo as tipo_doc_nombre, ac.documento, ac.created_by, ac.updated_by, ac.created_at, ac.updated_at, 
 						ac.foto_id, IFNULL(i.nombre, IF(ac.sexo="F","default_female.png", "default_male.png")) as foto_nombre, 
 						u.username, u.is_active, ac.is_acudiente, IF(ac.is_acudiente, "SI", "NO") as es_acudiente
 					FROM acudientes ac 
@@ -300,7 +313,7 @@ where id in (
 		$termino 	= Request::input('termino');
 
 		$consulta = 'SELECT ac.id, ac.nombres, ac.apellidos, count(p.id) as cant_acudidos, ac.sexo, ac.fecha_nac, ac.ciudad_nac, ac.telefono, ac.user_id, 
-							ac.celular, ac.ocupacion, ac.email, ac.barrio, ac.direccion, ac.tipo_doc, ac.documento, ac.created_by, ac.updated_by, ac.created_at, ac.updated_at, 
+							ac.celular, ac.ocupacion, ac.email, u.email as email2, ac.barrio, ac.direccion, ac.tipo_doc, ac.documento, ac.created_by, ac.updated_by, ac.created_at, ac.updated_at, 
 							ac.foto_id, IFNULL(i.nombre, IF(ac.sexo="F","default_female.png", "default_male.png")) as foto_nombre, 
 							u.username, u.is_active
 						FROM acudientes ac 
@@ -319,7 +332,7 @@ where id in (
 	public function putUltimos()
 	{
 		$consulta = 'SELECT ac.id, ac.nombres, ac.apellidos, count(p.id) as cant_acudidos, ac.sexo, ac.fecha_nac, ac.ciudad_nac, ac.telefono, ac.user_id, 
-							ac.celular, ac.ocupacion, ac.email, ac.barrio, ac.direccion, ac.tipo_doc, ac.documento, ac.created_by, ac.updated_by, ac.created_at, ac.updated_at, 
+							ac.celular, ac.ocupacion, ac.email, u.email as email2, ac.barrio, ac.direccion, ac.tipo_doc, ac.documento, ac.created_by, ac.updated_by, ac.created_at, ac.updated_at, 
 							ac.foto_id, IFNULL(i.nombre, IF(ac.sexo="F","default_female.png", "default_male.png")) as foto_nombre, 
 							u.username, u.is_active
 						FROM acudientes ac 
@@ -397,7 +410,26 @@ where id in (
 			$usuario = new User;
 			$usuario->username		=	$uname;
 			$usuario->password		=	Hash::make(Request::input('password', '123456'));
-			$usuario->email				=	Request::input('email2');
+			// La CUENTA y la FICHA son dos correos distintos, y la recuperación de
+			// contraseña sólo mira el de la cuenta: `LoginController:240-266` busca
+			// cuatro veces por `users.email` y **no consulta `acudientes.email`
+			// nunca**. El front sólo manda `email` —la ficha—, así que esta cuenta
+			// nacía sin correo y su dueño no podía recuperar la contraseña.
+			//
+			// Medido en el docker el 20 sep 2026: de 1.085 acudientes vivos, 100
+			// tienen correo de ficha y **0 de cuenta**. Los mil piden el reseteo y la
+			// pantalla contesta «Enviado» igual, porque el método responde lo mismo
+			// exista o no el correo — a propósito, para no filtrar cuáles existen.
+			//
+			// Se copia la ficha cuando no viene `email2`, y **si no hay ninguno de los
+			// dos se deja vacío**. `AlumnosController:496` y `ProfesoresController:248`
+			// sí inventan `username@myvc.com` en ese caso y **aquí no se hace**: eso
+			// llena la columna de buzones de nadie, y entonces el método encuentra la
+			// cuenta, manda el enlace y contesta «Enviado» — cambia «no llega» por «no
+			// llega y además creemos que sí». Medido: 16 cuentas vivas ya lo tienen,
+			// 11 de ellas profesores. Decisión de Joseth, 20 sep 2026.
+			$correo_cuenta			=	trim((string) (Request::input('email2') ?: Request::input('email')));
+			$usuario->email				=	$correo_cuenta !== '' ? $correo_cuenta : null;
 			$usuario->periodo_id	=	1;
 			$usuario->sexo				=	'M';
 			$usuario->tipo				=	'Acudiente';
@@ -437,6 +469,18 @@ where id in (
 		$usu->tipo 					= 'Acudiente';
 		$usu->periodo_id 		= 1;
 		$usu->created_by 		= $this->user->user_id;
+
+		// Misma regla que `postCrear`, y aquí el agujero era mayor: este camino
+		// —crear la cuenta de un acudiente que ya tenía ficha— **no ponía correo
+		// nunca**, ni siquiera el que el acudiente ya tenía escrito. O sea que
+		// dejaba irrecuperables incluso a los 100 que sí lo tienen.
+		//
+		// Se lee de la base y no de `$acu`, que viene del cliente: de ahí sólo
+		// hace falta el id.
+		$ficha 							= DB::select('SELECT email FROM acudientes WHERE id = ? AND deleted_at IS NULL', [ $acu['id'] ]);
+		$correo_ficha 			= count($ficha) > 0 ? trim((string) $ficha[0]->email) : '';
+		$usu->email 				= $correo_ficha !== '' ? $correo_ficha : null;
+
 		$usu->save();
 
 		DB::update('UPDATE acudientes SET user_id=?, updated_by=?, updated_at=? WHERE id=?', [

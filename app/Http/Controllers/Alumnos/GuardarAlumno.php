@@ -161,6 +161,22 @@ class GuardarAlumno {
 				$datos 		= [ ':valor' => $valor, ':modificador' => $user_id, ':fecha' => $now, ':user_id' => $user_acud_id ];
 				break;
 			
+			case 'email2':
+				// El correo de la CUENTA, que es por donde busca la recuperación de
+				// contraseña (`LoginController:240-266`, cuatro consultas y las cuatro
+				// sobre `users.email`). Sin esta rama caía en el `default`, que hace
+				// `UPDATE acudientes SET …` pasando por `ColumnaSegura::exigir()`: como
+				// `acudientes` **no tiene ninguna columna `email2`**, no guardaba en el
+				// sitio equivocado — reventaba. Comprobado en `information_schema` el
+				// 20 sep 2026.
+				//
+				// `email` a secas sigue cayendo en el `default` y escribe la ficha, que
+				// es lo correcto: son dos correos distintos y los dos se editan.
+				FilaQueSeVaAEscribir::exigir('users', 'id', $user_acud_id, 'Esa cuenta de usuario');
+				$consulta 	= 'UPDATE users SET email=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:user_id';
+				$datos 		= [ ':valor' => trim((string) $valor) !== '' ? trim((string) $valor) : null, ':modificador' => $user_id, ':fecha' => $now, ':user_id' => $user_acud_id ];
+				break;
+
 			case 'parentesco':
 				FilaQueSeVaAEscribir::exigir('parentescos', 'id', $parentesco_id, 'Ese parentesco');
 				$consulta 	= 'UPDATE parentescos SET parentesco=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:parentesco_id';
