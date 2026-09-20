@@ -5229,6 +5229,268 @@ sesión, también con su permiso
 > alguien mire un sábado, «mañana» tiene que salir vacío y el domingo lleno — con los dos
 > lados, porque un vacío solo es indistinguible de un endpoint roto.
 
+**3 sep 2026 — CORS SE QUEDA EN `*` POR DECISIÓN, Y EL FRENTE DE LOS `.env` CIERRA CON OCHO PENDIENTES ESCRITOS** ·
+misma rama `docs/appkey-compartida-fortul-lal` · **FUNDIDA el 19 sep 2026** (decía «NO FUSIONADA, NO EMPUJADA», y lo fue dos semanas) · sólo
+documentación · [`29`](29-los-env-no-son-uniformes.md) §5 y **§8 nuevo**,
+[`DESPLIEGUE-REFERENCIA.md`](../DESPLIEGUE-REFERENCIA.md) · decidido por Joseth
+
+> **`CORS_ALLOWED_ORIGINS` deja de ser un `PENDIENTE`: se queda en `*`.** Estaba definida en
+> **1 de 17**, y la lectura fácil era «llevan dieciséis meses sin aplicar el arreglo del PR #3».
+> **La decisión de Joseth es que `*` es el valor bueno**, porque *cada colegio recibe conexiones
+> de aplicaciones externas* y una lista blanca no describe a los clientes reales de esta API.
+>
+> **Y se comprobó antes de darlo por bueno, que es lo que hacía falta:** `supports_credentials`
+> es **`false`** (`config/cors.php:71`) y el token viaja en `Authorization: Bearer`
+> (`Sesion.php:412`), **no en cookie**. El navegador no manda credenciales a otro origen y el
+> JavaScript tiene que adjuntar el token a mano, así que una página cualquiera puede *llamar* a
+> la API pero **sigue necesitando un token**, y el token vive en el almacenamiento del cliente
+> legítimo, que es por origen. ***`*` abre la puerta; no reparte llaves.***
+>
+> > **Lo que obligaría a volver aquí, y por eso queda escrito**: poner `supports_credentials`
+> > en `true` —el navegador **rechaza** esa combinación con `*`— o mover la sesión a cookie.
+> > **Las dos son un cambio de una línea en `config/`**, o sea que este razonamiento descansa
+> > en dos valores que hoy no vigila nadie.
+>
+> **`FRONTEND_URL`, también 1 de 17, no es lo mismo y no se cierra:** es el respaldo de la URL
+> de retorno del reseteo, y si falta y el cliente no manda una `ruta` del mismo host, el método
+> hace `abort(422)`. Hoy no afecta a nadie **y el motivo correcto no es que todos compartan
+> host** —la app Flutter no lo hace— **sino que la app Flutter no tiene recuperación de
+> contraseña**. El día que se la añadan: **422 en dieciséis**. Estaba escrito como hipótesis en
+> el [04](04-auditoria-autenticacion.md); ahora está contado.
+>
+> ### EL BARRIDO DE LAS SIETE VARIABLES ESTÁ COMPLETO, Y CINCO DIERON HALLAZGO
+>
+> El §7 proponía un bucle de siete variables sobre los diecisiete y decía que era «lo único que
+> separa *no se sabe* de *está bien*». **Corrido entero**: `APP_KEY` compartida entre dos
+> colegios, el correo sin configurar en dieciséis, `APP_DEBUG` encendido en cinco,
+> `CORS_ALLOWED_ORIGINS` en uno —y era la decisión correcta— y `FRONTEND_URL` en uno. **Y una
+> octava que nadie pidió: cinco juegos de claves distintos entre diecisiete**, que es la fila
+> que sostiene el título del documento.
+>
+> ### LOS OCHO PENDIENTES, EN EL §8 DEL 29, CON SU CONSECUENCIA Y DE QUIÉN SON
+>
+> Ninguno bloquea nada hoy; están escritos para no tener que volver a descubrirlos. Los tres
+> primeros por consecuencia: **(1)** la instalación viva de `lal` en la cuenta vieja, que el
+> censo **no alcanza** —es la número dieciocho y su correo sigue como estaban los otros—;
+> **(2)** de diecisiete envíos volvieron **cuatro** rebotes, y un límite por hora convertiría
+> una tanda de recuperaciones en correo perdido **sin ningún error**; **(3)** el logo del correo
+> sale de `lalvirtual.edu.co`, así que **el correo de los dieciséis depende de que un colegio
+> conserve su dominio**.
+>
+> **Y la limpieza de variables muertas va la última a propósito** —`JWT_*` en 16 de 17,
+> `AWS_*`, `PUSHER_*`, `MEMCACHED_*`, `REDIS_*`—: es segura y **no arregla nada**. *Borrar
+> líneas que no hacen nada no mejora ningún comportamiento, y tocar diecisiete `.env` sí tiene
+> riesgo.*
+
+
+**Anterior: 3 sep 2026 — `APP_DEBUG=true` EN CINCO COLEGIOS, Y EL ARREGLO DE CORS SIN APLICAR EN DIECISÉIS** ·
+misma rama `docs/appkey-compartida-fortul-lal` · **FUNDIDA el 19 sep 2026** (decía «NO FUSIONADA, NO EMPUJADA», y lo fue dos semanas) · sólo
+documentación · [`29`](29-los-env-no-son-uniformes.md) §5 y §6 · **censado y corregido en el
+servidor por Joseth**, escrito por esta sesión
+
+> **El pendiente más viejo de la lista ya está medido, y estaba encendido.** `01:395` decía
+> «**Verificar producción**» y `09:1159` «comprobarlo colegio a colegio» desde el principio,
+> porque hacía falta la sesión del servidor. Censado: **`APP_DEBUG=true` en 5 de 17** —
+> `caz-zaragoza`, `coabsaravena`, `coal`, `inseaq`, `maranathaarauca`—. **Ya no**: puestos a
+> `false` con respaldo fuera del docroot y `config:clear && config:cache`, los cinco `OK`.
+>
+> **No era teórico**: el cuerpo de cualquier 500 lleva `Host`, `Port` y `Database`, y hay **doce
+> rutas públicas sin token**, entre ellas `PUT login/crear-prematricula` —viva, con
+> `withoutMiddleware('auth.token')`—, que es la que la casilla 1bis describe llegando a un 500.
+>
+> **Y `CORS_ALLOWED_ORIGINS` está en 1 de 17** (`FRONTEND_URL`, también en 1). Ausente,
+> `config/cors.php` cae a `['*']`: **el punto 2 del PR #3 no hace nada en dieciséis**. Es la
+> tercera vez esta noche que un `PENDIENTE` resulta estar sin aplicar en casi todos —correo,
+> CORS— y **la primera que se cuenta**. *Éste no se cierra con un bucle: el valor es el dominio
+> de cada colegio, así que es una decisión de Joseth antes que un script.*
+>
+> ### LA FILA QUE SOSTIENE EL TÍTULO DEL DOCUMENTO
+>
+> **Los diecisiete tienen CINCO juegos de claves distintos** (6 · 8 · 1 · 1 · 1). No divergen
+> sólo en valores: divergen en **qué líneas existen**. `JWT_SECRET` está en **16 de 17** y es
+> peso muerto —`tymon/jwt-auth` se quitó al saltar a Laravel 10, no hay `config/jwt.php`, el
+> paquete no está en `composer.json`, `composer.lock` ni `vendor/`, y `jwt:secret` no existe—.
+> `FCM_CREDENCIALES` y los cuatro `SESION_*_TTL`: **0 de 17**.
+>
+> ### DOS SOSPECHAS MÍAS QUE LA MEDICIÓN TUMBÓ
+>
+> 1. **`APP_ENV=local` en quince asusta y no hace nada.** Sólo `demo` y `eal` están en
+>    `production`. Pero **el código no consulta `APP_ENV` ni una vez** —cero usos de
+>    `App::environment()`, `app()->environment()` y `config('app.env')` en `app/`, `config/`,
+>    `bootstrap/` y `routes/`, contados—. Lo que sí cambia: **artisan no pide confirmación**
+>    para comandos destructivos, así que un `migrate:fresh` correría sin preguntar en quince.
+>    *Riesgo operativo, no de exposición, y conviene no venderlo como lo segundo.*
+> 2. **El «`\r` de Windows» no existía.** Tres censos salieron con `FILESYSTEM_DRIVER=local`
+>    pegado a `QUEUE_CONNECTION=sync` sin espacio, y la hipótesis razonable era un CRLF, que
+>    metería el `\r` dentro del valor. `cat -A` sobre los cuatro: `FILESYSTEM_DRIVER=local$`,
+>    fin de línea limpio. **Era el terminal comiéndose un espacio al ajustar la línea.**
+>    *El primer intento de medirlo además estaba mal escrito —`grep -c` imprime `0` **y** sale
+>    con código 1, así que el `|| echo 0` añadía un segundo cero y `[` reventaba con
+>    `"0\n0"`—: los diecisiete errores insinuaban la respuesta buena por el motivo equivocado.*
+>
+> ### Y UN FALLO MÍO EDITANDO, QUE ES EL DEL PROPIO DOCUMENTO
+>
+> Reescribir el §5 entero **huerfanó una subsección de `myvc-horarios-42`** —la de cómo NO medir
+> CORS, con lo del `Origin` como *forbidden header name*—: mi reemplazo cortó en el primer `---`
+> y dejó sus 31 líneas colgando **bajo el §6**, en la sección equivocada. **No da error y el
+> fichero se lee casi bien.** Devuelta a su sitio y comprobada contra `main`: **31 líneas y 31,
+> diff vacío, ni una perdida.** *Es exactamente la familia que este documento persigue, cometida
+> dentro del documento que la persigue.*
+
+
+**Anterior: 3 sep 2026 — EL CORREO ESTABA CAÍDO EN LOS DIECISÉIS COLEGIOS REALES, Y EL ÚNICO CONFIGURADO ERA `demo`** ·
+misma rama `docs/appkey-compartida-fortul-lal` · **FUNDIDA el 19 sep 2026** (decía «NO FUSIONADA, NO EMPUJADA», y lo fue dos semanas) · sólo
+documentación · [`29`](29-los-env-no-son-uniformes.md) §3 · **censado, arreglado y
+verificado en el servidor por Joseth**, escrito por esta sesión
+
+> **El §3 del 29 decía «en cuántos de los dieciséis se aplicó no lo sabe nadie». Ya se sabe:
+> en UNO, y era `demo`.** El censo de los cuatro `MAIL_*` sobre las diecisiete carpetas dio
+> **dieciséis idénticos** —`smtp` + `mailhog` + `MAIL_FROM_ADDRESS=null` +
+> `MAIL_FROM_NAME="${APP_NAME}"`, el andamiaje de desarrollo intacto— y **uno distinto**,
+> `demo`, con el `sendmail` del PR #3 y el remitente del dominio que no existe.
+>
+> **No era un riesgo, era una función caída.** `null` hace que Laravel rechace el envío antes
+> de intentarlo, así que **el reseteo de contraseña devolvía 500 en los dieciséis colegios
+> reales** desde que se cambió `mail()` por `Mail`. Nadie lo vio porque el reseteo se usa menos
+> de una vez al día y el síntoma es correo que no llega. *`cads-itagui` no era una excepción:
+> era la única muestra que alguien había mirado.*
+>
+> ### Y EL DOCUMENTO SE CORRIGE EN SU PROPIA TESIS
+>
+> Se titula «los `.env` no son uniformes», y para `APP_KEY` lo eran de menos (§1). **Para
+> `MAIL_*` salió lo contrario: dieciséis idénticos.** El daño no lo hizo la divergencia sino
+> que **toda la documentación daba por aplicado un cambio que no estaba en ningún sitio**, y un
+> `PENDIENTE` se leyó meses como «pendiente en alguno». *«Cada uno tiene lo suyo» y «todos
+> tienen lo mismo» son **igual de indistinguibles** desde el repositorio; lo único que las
+> separa es el bucle.*
+>
+> ### EL ARREGLO
+>
+> Los cuatro campos en los diecisiete, con respaldo de cada `.env` **fuera del docroot** y
+> `config:clear && config:cache` detrás: **17 tocados, 0 saltados**, y el `diff` de los dos
+> censos mueve las diecisiete líneas.
+>
+> **Y llegó.** `correo:probar` contra un buzón real, 3 sep 2026: el correo **sale, se releva y
+> se entrega**. Es lo único que ningún paso anterior demostraba —todos probaban que la
+> configuración era correcta, no que el mensaje llegara—.
+>
+> **La primera pasada rebotó, y el rebote enseñó más que un envío bueno.** Fue a un marcador de
+> posición que resultó ser **un dominio real con MX** (`550 5.1.1`, usuario desconocido), y sus
+> cabeceras traían `X-Postfix-Sender: admin@micolevirtual.com` —el arreglo llegó al envío, no
+> sólo al fichero— y `Reporting-MTA: relay.mailchannels.net`. **Eso último corrige el
+> razonamiento del SPF de esta misma noche**: el servidor **no envía directo**, sino que releva
+> por MailChannels, que el SPF autoriza por `include`. La IP que envía **nunca** es la del
+> servidor, así que excluir `lal` por estar en `.70` no tenía fundamento. *Era correcto para un
+> modelo de envío que este servidor no usa, y sólo se vio leyendo las cabeceras de un mensaje
+> real.*
+>
+> **Y una cuenta que no cuadra:** de los diecisiete envíos volvieron **cuatro** rebotes, no
+> diecisiete. Cola, límite de MailChannels o no salieron: **no se sabe**, y la diferencia
+> importa, porque un límite por hora convertiría una tanda de recuperaciones en correo perdido
+> sin ningún error.
+>
+> ### TRES COSAS QUE SE MIDIERON POR EL CAMINO Y CORRIGEN LO ESCRITO
+>
+> 1. **`MAIL_FROM_NAME="${APP_NAME}"` no estaba roto.** Llegó de otra sesión como «hereda
+>    *Laravel*»; el Dotenv de Laravel **sí interpola** —comprobado ejecutándolo—, así que
+>    resolvía al `APP_NAME` de cada colegio. Una variable **sin definir** sí se queda literal, y
+>    ésa es la forma en que este campo sí podría fallar.
+> 2. **Excluir `lal` del script era un error mío.** Lo excluí por SPF razonando sobre dónde
+>    *sirve* `lal` (`.70`), pero **la carpeta que el script toca está en `micolev1`, que es
+>    `.72`**, donde el remitente sí está autorizado. *El razonamiento del SPF era correcto y se
+>    aplicó al servidor equivocado.*
+> 3. **Los respaldos iban dentro de una carpeta servida por web.** El docroot es la carpeta del
+>    colegio, así que `8myvc/` cuelga dentro. Se comprobó que `.env` **no** se descarga —devuelve
+>    la página del front, mientras `composer.json` sí se sirve—, pero **eso no dice nada de un
+>    `.env.bak-*`**, y averiguarlo exigía crear uno, que es el riesgo. Los respaldos se movieron
+>    a `~/respaldos-env/`, fuera de todo docroot, con permisos 700.
+>
+> > **Y un aviso sobre medir con códigos de estado**, que casi produce un «está bloqueado,
+> > tranquilo» falso: la primera prueba dio **403** y la segunda dio **200 para todo**, incluida
+> > una ruta inexistente. Ese servidor **contesta 200 a cualquier cosa** con la página del
+> > front. Hubo que comparar **el contenido**, no el código. *Un 403 y un 404 pueden significar
+> > lo mismo que un 200 si no se mira lo que viene dentro.*
+
+
+**Anterior: 3 sep 2026 — `APP_KEY` COMPARTIDA ENTRE `fortul` Y `lal`: LA PREMISA ERA FALSA, Y LA CAUSA ESTABA ESCRITA EN NUESTRO PROPIO PROCEDIMIENTO** ·
+rama `docs/appkey-compartida-fortul-lal` · **FUNDIDA el 19 sep 2026** (decía «NO FUSIONADA, NO EMPUJADA», y lo fue dos semanas) · sólo documentación:
+**cero código, cero rutas, cero tests** — 566 sin moverse ·
+[`29-los-env-no-son-uniformes.md`](29-los-env-no-son-uniformes.md) §1,
+[`TRASLADO-LAL.md`](../TRASLADO-LAL.md) paso E, [`05`](05-codigo-muerto-y-roto.md) ·
+**medido por Joseth en el servidor**, escrito por esta sesión
+
+> **El §1 del 29 deja de ser una pregunta.** Se escribió el 2 sep como «nadie las ha
+> comparado» y la respuesta llegó al día siguiente: sobre las **diecisiete** carpetas,
+> **`fortul` y `lal` tienen el mismo `APP_KEY`** (`42bb720f546f`); los otros quince, distintos.
+>
+> **Y no se llamó hallazgo hasta descartar las lecturas benignas**, porque un hash repetido
+> también sale de dos colegios *sin* clave, que sería otro problema: sin línea `APP_KEY` da
+> `d41d8cd98f00`, `APP_KEY=` vacía da `adef725c7222`, truncada `75f9a7bb3d5c`, el
+> `SomeRandomString` del andamiaje `1dbf3bbd1d09`. **Ninguno es el que salió.** Clave real.
+>
+> ### LA CAUSA, QUE ES LO QUE DE VERDAD SE ARREGLA
+>
+> No fue un descuido: **el procedimiento lo mandaba hacer así**. El paso E de `TRASLADO-LAL.md`
+> —como nació `lal` el 30 ago— decía *«nano .env — **SOLO** `DB_DATABASE`, `DB_USERNAME`,
+> `DB_PASSWORD`»*. El `git clone` **no trae `.env`**, así que el fichero salió de una copia de
+> otro colegio y **todo lo que ese paso no nombraba se heredó**. `fortul` fue el donante.
+> **Y `key:generate` no aparecía en ningún procedimiento del repositorio** —comprobado con
+> `grep` sobre `docs/` y `CLAUDE.md`: sus cinco menciones estaban todas en textos que *suponían*
+> que se corría—. La premisa «`key:generate` hace uno por instalación» describía **un paso que
+> nadie tenía escrito**. Añadido al paso E, que es el arreglo que impide el próximo.
+>
+> ### EL RADIO, ACOTADO ANTES DE ALARMAR A NADIE — Y LA PRIMERA LECTURA ERA PEOR QUE LA VERDAD
+>
+> La sospecha era que `APP_KEY` firmara los tokens, y entonces **un token de un colegio valdría
+> en otro hoy**. **No los firma**, y se midió en vez de suponerse: `APP_KEY` se lee en
+> **exactamente dos sitios** (`config/app.php:136` y `config/notificaciones.php:38`); en `app/`
+> hay **cero** usos de `Crypt::`, `encrypt(`, `decrypt(`, `signedRoute`, `hasValidSignature` y
+> `temporarySignedRoute`; y **el token no es una firma, es una fila** —`findToken()` busca un
+> hash **en la base de ese colegio**—. **Nadie estuvo expuesto.** Lo que hacía era bloquear el
+> push, y ahí el solape no habría sido raro sino **casi total en los ids bajos**, porque cada
+> base tiene su autoincremento y el `alumno_id` 345 existe en los dos.
+>
+> ### EL ARREGLO, Y POR QUÉ SÓLO SE TOCÓ UNO
+>
+> **Se rotó `lal`, no `fortul`.** `lal` **todavía no sirve desde `micolev1`** —sigue en la
+> cuenta vieja y su subdominio ni resuelve—, así que esa carpeta es una copia preparada y
+> rotarla no le tocó a nadie; `fortul` está vivo y se quedó igual. Era doblemente gratis:
+> **al completar el traslado, la clave de `lal` iba a cambiar de todos modos.**
+>
+> **Verificado con la población delante y comparando los dos censos, no con un vacío a pelo**:
+> población **17**, repetidos **0**, y **17 hashes distintos de 17** —que es más fuerte que «sin
+> repetidos»—; **cambió exactamente una fila**, `lal` de `42bb720f546f` a `136f77f109de`.
+> *Esa última cifra es la mitad importante:* «ya no hay repetidos» lo cumpliría igual un `.env`
+> roto por el camino o un bucle que dejara de ver carpetas. `fortul` conserva la suya y los
+> otros quince están donde estaban.
+>
+> ### TRES COSAS QUE QUEDAN ESCRITAS Y NO SON DE ESTE ARREGLO
+>
+> 1. **Rotar `APP_KEY` con el push encendido re-apunta todos los temas** y los teléfonos
+>    siguen escuchando el nombre viejo: los avisos dejan de llegar **sin un solo error**. Toda
+>    rotación futura va **antes** de encender Firebase, o con resuscripción de la app.
+> 2. **El censo NO cubre la instalación viva de `lal`**, que está en la otra cuenta: barre
+>    `/home/micolev1/*`. Hay **una instalación dieciocho fuera del censo** y su clave sigue sin
+>    medir. Hoy no cambia nada; el día que se diga «están todas comprobadas», esa no lo está.
+> 3. **Las otras seis variables del §7 siguen sin mirarse.** Que la primera que se miró diera
+>    positivo no las rompe: las deja igual de sin medir, sólo que ahora «se creó copiando»
+>    produce colisiones **medidas** y no teóricas.
+>
+> ### Y DOS LECCIONES DEL DETECTOR, QUE SON LA FAMILIA DE SIEMPRE
+>
+> **Un `uniq -d` a secas dice QUE hay un repetido y no dice ni cuál ni cuántos.** La primera
+> salida fue exactamente eso, y no se pudo escribir nada hasta la segunda pasada con el nombre
+> al lado y la población al final. **Y una salida vacía sin población no distingue «miré
+> diecisiete y ninguno» de «el bucle no miró nada»** — por eso la verificación del arreglo se
+> pidió con `tee` y `wc -l`, no como un vacío a pelo.
+>
+> > **Sobre la corrección de nombres de arriba, y va aquí porque me alcanza:** esas entradas me
+> > llaman **`8myvc-d5`** —por el sufijo de mi worktree—, pero mi propio `ListAgents` me nombra
+> > **`8myvc-1f`**. No sé cuál es el bueno y **por eso esta entrada no firma con ninguno**: dice
+> > quién midió (Joseth, en el servidor) y quién escribió (esta sesión). *Es el mismo fallo que
+> > se acaba de corregir arriba: un nombre copiado de buena fe que resuelve a otro sitio.*
+
+
 **Anterior: 3 sep 2026, madrugada — DOS COSAS QUE ENCONTRÓ EL CLIENTE MIDIENDO CONTRA NUESTRO DOCKER,
 Y UNA DE ELLAS ERA UN ERROR MÍO** · `HorarioController`, `HorarioSubidaTest` y
 `HorarioAceptoPerderTest` · **566 rutas, sin moverse** · suite entera

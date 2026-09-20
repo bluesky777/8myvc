@@ -12380,6 +12380,16 @@ despliegue.
 > crean— sus temas colisionarían. **Eso no lo introduce esta función**: el tema de alumno
 > depende del mismo secreto desde el primer día. Lo que cambia es que ahora el fallo sería el
 > mismo en los dos sitios y no sólo en uno.
+>
+> > **PASÓ. Medido el 3 sep 2026: `lal` y `fortul` tenían el mismo `APP_KEY`.** Y pasó **por
+> > el camino que esta misma nota nombró** —un `.env` copiado al crear uno nuevo—: el paso E
+> > de [`TRASLADO-LAL.md`](../TRASLADO-LAL.md) mandaba editar «**SOLO** `DB_DATABASE`,
+> > `DB_USERNAME`, `DB_PASSWORD`», así que `lal` heredó la clave de `fortul` el 30 ago. Nadie
+> > quedó expuesto porque el push no está encendido; se rotó la de `lal` y se añadió
+> > `key:generate` al procedimiento, que es lo que faltaba. *La hipótesis estaba escrita con
+> > su mecanismo exacto y aun así nadie la comprobó durante cuatro días: **escribir el camino
+> > por el que algo fallaría no es lo mismo que recorrerlo**.* Censo, causa y radio en
+> > [`29-los-env-no-son-uniformes.md`](29-los-env-no-son-uniformes.md) §1.
 
 ### Lo que cambia de forma en la respuesta, y hay que decirlo entero
 
