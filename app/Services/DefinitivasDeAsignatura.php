@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\CierreDeLoNoCalificado;
 use App\Support\RepartoDeLaNota;
 use Illuminate\Support\Facades\DB;
 
@@ -553,6 +554,22 @@ class DefinitivasDeAsignatura
      *     parcial    = Σ aporte(n) ÷ Σ peso(n)        CALIFICADAS     ← «cómo va en lo que se le ha evaluado»
      *     cobertura  = Σ peso(n) calificadas ÷ Σ peso(n) todas        ← «cuánto del plan se ha evaluado»
      *
+     * ### La ÚNICA excepción, y es la fase 4: el periodo cerrado con `fuera`
+     *
+     * *«`nota` no cambia ni un decimal»* vale para los dieciséis colegios y para todos
+     * sus periodos **mientras nadie elija otra cosa**. Un rector puede elegir que al
+     * cerrar *«lo no calificado quede fuera de la cuenta»* (D3 del 43), y entonces —y
+     * sólo entonces, y sólo en ese periodo, y sólo desde que se cerró— `nota` pasa a
+     * ser **la misma expresión que `parcial`**.
+     *
+     * Y tiene que serlo: la definitiva **no normaliza**, así que `SUM(peso × NULL)` y
+     * `SUM(peso × 0)` dan el mismo número. Sin esta rama, *«pasa a cero»* y *«queda
+     * fuera de la cuenta»* imprimirían exactamente lo mismo y D3 sería un adorno.
+     *
+     * Lo decide `periodos.cierre_sin_calificar`, que **sólo escribe el cierre** — no la
+     * elección vigente del rector—, para que ningún cambio de opinión mueva un boletín
+     * ya impreso. {@see CierreDeLoNoCalificado}.
+     *
      * **`Σ aporte` no hace falta filtrarlo y eso no es un descuido que se tolere: es
      * la fase 0 haciendo su trabajo.** Desde que `notas.nota` es anulable,
      * `peso × NULL` vale `NULL` y `SUM` se salta la fila sin que nadie se lo pida, así
@@ -627,6 +644,32 @@ class DefinitivasDeAsignatura
         // son porque las dos se construyen con este fragmento.
         $peso = RepartoDeLaNota::pesoDeLaNota($modo);
 
+        // **La única línea de la fase 4 que toca el cálculo, y sólo se enciende cuando
+        // un rector lo pide.** `false` es el estado de los 36 periodos de la copia de
+        // desarrollo y el de los dieciséis colegios el día del despliegue, y con `false`
+        // la consulta de abajo es **byte por byte la de ayer**.
+        //
+        // Se pregunta por el PERIODO y no por el año, y eso es la regla dura del
+        // encargo hecha mecanismo: lo que gobierna es `periodos.cierre_sin_calificar`
+        // —lo que se aplicó el día que se cerró—, no la elección vigente del rector.
+        // Con la elección, un cambio de opinión en octubre movería las definitivas de
+        // los periodos que ya están cerrados e impresos; con la congelada **no hay
+        // ninguna secuencia de pulsaciones que los alcance**. El porqué entero vive en
+        // {@see CierreDeLoNoCalificado}.
+        $normaliza = CierreDeLoNoCalificado::normalizaLaDefinitiva($periodoId);
+
+        // **La definitiva de un periodo cerrado con `fuera` ES la parcial**, literalmente
+        // la misma expresión que la columna de al lado — no una fórmula gemela. Escribirla
+        // dos veces sería la decimoséptima copia del reparto, que es justo lo que
+        // `RepartoDeLaNota` existe para no tener.
+        //
+        // El `COALESCE(..., 0)` de fuera no cambia: sin nada evaluado la división da
+        // `NULL` y la definitiva vuelve a ser 0, que es la regla 1 —*«un 0 aquí significa
+        // sin notas, no sacó cero»*— intacta.
+        $definitivaCalculada = $normaliza
+            ? 'c.suma / NULLIF(c.peso_evaluado, 0)'
+            : 'c.suma';
+
         // **El alcance del boletín independiente, BI-2.** Esta consulta resuelve el
         // grupo entero de una vez y no puede preguntar alumno por alumno, así que
         // usa la forma que `BoletinIndependiente` dejó para eso: el `LEFT JOIN` con
@@ -654,7 +697,7 @@ class DefinitivasDeAsignatura
         return DB::select(
             'SELECT m.alumno_id,
                     '.BoletinIndependiente::ALCANCE.' AS dueno,
-                    CAST(COALESCE(c.suma, 0) AS DECIMAL(7,4)) AS nota,
+                    CAST(COALESCE('.$definitivaCalculada.', 0) AS DECIMAL(7,4)) AS nota,
                     COALESCE(c.notas, 0) AS notas,
                     -- **Sin `CAST` y sin `ROUND`, a propósito.** `nota` se recorta a
                     -- DECIMAL(7,4) porque es lo que cabe en la columna donde se va a
@@ -1254,5 +1297,91 @@ class DefinitivasDeAsignatura
         }
 
         return $porDetras;
+    }
+
+    /**
+     * Rehace TODAS las definitivas automáticas de un periodo. Es la mitad cara de la
+     * fase 4 y **sólo la paga el colegio que elige `fuera`**.
+     *
+     * ## Por qué hace falta, y por qué aquí
+     *
+     * Con el periodo cerrado con `fuera`, `calcular()` normaliza —la definitiva pasa a
+     * ser la parcial—, pero `notas_finales` sigue guardando lo que se escribió la
+     * última vez, que es la acumulada. Y **nadie va a reescribirla después**: la
+     * decisión de Joseth del 17 sep dejó `ponerAlDiaUnInforme()` sin escribir en un
+     * periodo cerrado —*imprimir un histórico no debería reescribir definitivas de hace
+     * tres años*— y las notas ya no se pueden tocar, así que ningún recálculo por nota
+     * se dispara.
+     *
+     * O sea que **el cierre es la última escritura posible**, y por eso la decisión se
+     * aplica ahí y no en un recálculo perezoso. Vive en esta clase y no en el
+     * controlador porque es la clase que escribe `notas_finales`, y meter un séptimo
+     * escritor es exactamente lo que la [fase 3 del 10](../../docs/migracion/10-definitivas.md)
+     * vino a quitar.
+     *
+     * ## Lo que cuesta, MEDIDO — y por eso el defecto no es éste
+     *
+     * Medido el 20 sep 2026 sobre `simonbolivar`, periodo 2 de 2025 (79 asignaturas,
+     * 3.611 definitivas), **contra este código y no contra el de antes**: **7.779
+     * consultas**, 7.154 ms dentro de MySQL y **7,88 s de pared**.
+     *
+     * **De las tres, la que vale es la de consultas**: el reloj de este banco dio entre 7
+     * y 34 s para la misma operación según lo que hubiera corriendo al lado —esa tarde
+     * había cinco suites y el contenedor al 1.300 % de CPU—, y producción es CloudLinux
+     * con límites de I/O por cuenta, así que los segundos de allí serán otros. Lo que
+     * viaja es el orden de magnitud: **dos consultas por definitiva**.
+     *
+     * > **Y las 80 de diferencia con las 7.699 que daba antes de la fase 4 son exactamente
+     * > el precio de la fase, así que se dicen**: una consulta por asignatura, la de
+     * > `normalizaLaDefinitiva()` que `calcular()` hace ahora al principio. Es el 1 % y se
+     * > paga también en `porcentaje`, o sea en los dieciséis colegios con el defecto
+     * > puesto. *Un coste que no se mide se convierte en un argumento.*
+     *
+     * Es un acto de administración que ocurre **cuatro veces al año**, así que el precio
+     * es asumible; lo que no sería asumible es pagarlo sin haberlo elegido, y por eso el
+     * valor de fábrica de D3 es `cero`, que no llama a esto ni una vez.
+     *
+     * ## Si la petición se corta a la mitad, se reanuda — y eso no es un arreglo aparte
+     *
+     * El cierre **congela la marca antes de llamar aquí**, en su propia escritura. Desde
+     * ese instante `calcular()` ya dice la verdad para ese periodo, así que un corte
+     * deja definitivas a medio rehacer pero **ninguna mal calculada**: volver a pulsar
+     * «cerrar» sobre el periodo ya cerrado vuelve a entrar por aquí y termina el
+     * trabajo. Es la razón de que el cierre sea idempotente y no un no-op.
+     *
+     * @return array{asignaturas:int, escritas:int, respetadas:int}
+     */
+    public static function rehacerElPeriodo(int $periodoId, ?int $porUsuario = null): array
+    {
+        // Un cierre no es una petición de pantalla: reescribe varios miles de filas y
+        // el reloj lo gobierna el tamaño del colegio, no el código. Se pide el tiempo
+        // explícitamente en vez de confiar en el `max_execution_time` del hosting, que
+        // en cPanel son 30 s de serie. `function_exists` porque algunas
+        // configuraciones la tienen deshabilitada, y ahí lo correcto es seguir: el
+        // trabajo se reanuda pulsando otra vez.
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(0);
+        }
+
+        $escritas = 0;
+        $respetadas = 0;
+        $asignaturas = CierreDeLoNoCalificado::asignaturasConPlan($periodoId);
+
+        foreach ($asignaturas as $asignaturaId) {
+            // **Sin `$soloAlumno`: se rehace el grupo entero**, que es lo contrario de
+            // lo que hace el boletín individual. Allí acotar impide que un acudiente
+            // reescriba las definitivas de treinta alumnos; aquí reescribirlas todas es
+            // literalmente el encargo.
+            $resultado = self::recalcular($asignaturaId, $periodoId, $porUsuario);
+
+            $escritas += (int) ($resultado['escritas'] ?? 0);
+            $respetadas += (int) ($resultado['respetadas'] ?? 0);
+        }
+
+        return [
+            'asignaturas' => count($asignaturas),
+            'escritas' => $escritas,
+            'respetadas' => $respetadas,
+        ];
     }
 }

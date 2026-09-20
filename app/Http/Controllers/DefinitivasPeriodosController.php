@@ -20,6 +20,7 @@ use App\Http\Controllers\Alumnos\Solicitudes;
 use App\Services\Auditoria;
 use App\Services\BoletinIndependiente;
 use App\Services\DefinitivasDeAsignatura;
+use App\Support\CierreDeLoNoCalificado;
 use App\Support\EscalaDeNotas;
 use App\Support\PeriodoDeLaFila;
 use App\Support\NombreDelAlumno;
@@ -186,7 +187,40 @@ class DefinitivasPeriodosController extends Controller {
 		}else{
 			return abort(400, 'No tienes privilegios.');
 		}
-		
+
+		// **Este método es el SÉPTIMO calculador de la definitiva y no sabe de la fase
+		// 4, así que aquí se le cierra la puerta** (20 sep 2026, doc 43).
+		//
+		// Su consulta de abajo es `sum(nt.ValorNota)` a pelo: la acumulada, sin
+		// denominador. En un periodo que el colegio cerró con *«lo no calificado queda
+		// fuera de la cuenta»*, `DefinitivasDeAsignatura::calcular()` **divide entre el
+		// peso de lo evaluado** — así que pulsar este botón ahí **borraría las
+		// definitivas normalizadas y escribiría las otras**, en silencio y con 200.
+		// Sería la §3.4 del [10](../../docs/migracion/10-definitivas.md) otra vez: el
+		// mismo número producido por dos botones distintos, y el alumno cambiando de
+		// nota según cuál se pulse.
+		//
+		// **No se le enseña a normalizar**, y no es pereza: este método está condenado
+		// —es uno de los seis escritores que la fase 3 del 10 sustituye— y enseñarle la
+		// fórmula nueva sería la decimoséptima copia del reparto. Lo que se hace es
+		// impedir que deshaga una decisión que él no conoce. El 422 dice a dónde ir
+		// porque el camino existe: **volver a cerrar el periodo** rehace exactamente lo
+		// mismo que este botón pretendía, por el escritor que sí sabe.
+		//
+		// Es la regla de la casa aplicada entera: *al darle dueño a un número se
+		// repasan todos los caminos que lo escriben, no sólo el que se está tocando*.
+		// Los otros dos escritores paralelos —`NotaFinal::calcularAsignaturaPeriodo` y
+		// `Alumnos\Definitivas`— **no hacen falta cerrarlos y está comprobado**: el
+		// primero no lo llama nadie (lo dice su propio docblock desde BI-2) y el
+		// segundo está roto —usa `$alumno_id` sin definirla—, así que ninguno de los
+		// dos puede alcanzar una fila.
+		if (CierreDeLoNoCalificado::normalizaLaDefinitiva($periodo_id)) {
+			abort(422, 'Este periodo se cerró dejando fuera de la cuenta lo no calificado, '
+				.'y este recálculo no sabe hacer esa cuenta. Para rehacer sus definitivas, '
+				.'vuelva a cerrar el periodo.');
+		}
+
+
 		DB::delete('DELETE nf FROM notas_finales nf INNER JOIN asignaturas a ON a.id=nf.asignatura_id and a.grupo_id=? 
 					WHERE (nf.manual is null or nf.manual=0) and (nf.recuperada is null or nf.recuperada=0) and nf.periodo_id=?', 
 					[ $grupo_id, $periodo_id ]);

@@ -31,6 +31,30 @@ use App\User;
  * @property ?string $updated_at
  * --- fin de las columnas generadas ---
  *
+ * Y **cómo se cerró este periodo**, por migración
+ * (`2026_09_20_600000_el_cierre_y_lo_no_calificado`, fase 4 del doc 43, **D3**): qué se
+ * hizo con las casillas que nadie había calificado el día que se cerró.
+ *
+ * **Es la congelada, no la elegida.** La elección del rector vive en
+ * `years.cierre_sin_calificar` y **el cálculo no la lee nunca**: lee ésta. Sin esa
+ * separación, un rector que cambiara de opinión en octubre movería las definitivas de
+ * los periodos que ya tiene cerrados e impresos — y la regla es que un periodo cerrado
+ * no se mueve, por mecanismo y no porque alguien se acuerde.
+ *
+ * `NULL` es un estado y no un hueco: *«no se ha cerrado nunca por este camino»*. Son
+ * todos los periodos de los dieciséis colegios el día del despliegue, y con él el
+ * cálculo es byte por byte el de siempre. **Tampoco se rellena hacia atrás**: marcar un
+ * periodo de 2021 como `'cero'` afirmaría que alguien tomó esa decisión, y la tomó el
+ * `NOT NULL` de `notas.nota`.
+ *
+ * Sólo la escribe `PeriodosController::putToggleProfesPuedenEditarNotas` —el cierre— y
+ * sólo la lee `App\Support\CierreDeLoNoCalificado`, que es donde está el porqué entero.
+ * **No la escribe `putUpdate`** aunque el front mande el periodo entero: ese método
+ * asigna campo a campo y ésta no está en su lista, igual que `horario_version_id` en
+ * `years`.
+ *
+ * @property ?string $cierre_sin_calificar
+ *
  * Y los atributos que NO son columnas: el código se los cuelga al modelo en
  * tiempo de ejecución para armar la respuesta, que es un patrón repetido por
  * todo el proyecto. Eloquent los guarda entre los atributos y salen en el JSON,

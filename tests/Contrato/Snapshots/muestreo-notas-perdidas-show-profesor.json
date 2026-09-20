@@ -30,6 +30,7 @@
                     "periodos": [
                         {
                             "actual": "int",
+                            "cierre_sin_calificar": "null",
                             "cobertura": "int|null",
                             "created_at": "null|string",
                             "created_by": "null",
@@ -77,6 +78,7 @@
             "periodosProm": [
                 {
                     "actual": "int",
+                    "cierre_sin_calificar": "null",
                     "created_at": "null|string",
                     "created_by": "null",
                     "deleted_at": "null",
@@ -120,6 +122,7 @@
         "periodos": [
             {
                 "actual": "int",
+                "cierre_sin_calificar": "null",
                 "created_at": "null|string",
                 "created_by": "null",
                 "deleted_at": "null",

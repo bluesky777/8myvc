@@ -421,6 +421,50 @@ class Autoriza
     }
 
     /**
+     * Quién elige qué pasa al cerrar con las casillas que nadie calificó.
+     * `PUT years/cierre-sin-calificar`, columna `years.cierre_sin_calificar`
+     * (**D3** del [43](../../docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md),
+     * fase 4, 20 sep 2026).
+     *
+     * **Mismo conjunto que `puedeCambiarLaNotaNumerica`: superusuario, Secretario,
+     * Coord académico y Rector** — 12 personas de las 74 que tiene el personal en la
+     * copia de desarrollo. Y se escribe aquí con su propio nombre, no se llama a
+     * aquélla desde el controlador, por la regla de esta clase: *un criterio con
+     * nombre propio se puede mover sin perseguir sus copias*.
+     *
+     * ## Por qué el permiso va DENTRO y no se hereda de la familia
+     *
+     * Los doce interruptores de `years/*` van con `auth.personal` y nada dentro, salvo
+     * `toggle-mostrar-nota-numerica`. Éste va con el segundo grupo, y la razón no es
+     * simetría: es **de quién es el interés**.
+     *
+     * `auth.personal` deja pasar a las **74** cuentas de personal, de las que **53 son
+     * docentes**. Esta columna decide si a un alumno le cuentan como cero las casillas
+     * **que su profesor no calificó**. Puesta en `fuera`, la consecuencia de no haber
+     * calificado desaparece del boletín; puesta en `cero`, aparece entera. O sea que
+     * con el permiso de la familia **el docente que no calificó podría borrar la
+     * huella de no haber calificado**, y para el colegio entero, desde una pantalla de
+     * ajustes. Es el único de los doce interruptores del año en el que el que lo pulsa
+     * puede ser parte interesada.
+     *
+     * Y es el mismo criterio que decidió `toggle-mostrar-nota-numerica` el 17 sep:
+     * **aquí decide lo académico**, no la administración del colegio, y lo que se
+     * decide sale impreso en un papel firmado.
+     *
+     * ## Lo que NO se estrecha, y va escrito para que no se lea como un olvido
+     *
+     * **Cerrar el periodo sigue siendo de las 74.** `PUT
+     * periodos/toggle-profes-pueden-editar-notas` no se toca: lo llaman los tres
+     * clientes, es reversible y es el trabajo normal de secretaría. Lo que se estrecha
+     * es **elegir la política**, que es de todo el año y de todos los docentes a la
+     * vez; aplicarla es el cierre, y el cierre se queda donde estaba.
+     */
+    public static function puedeElegirQuePasaAlCerrar($user): bool
+    {
+        return self::puedeCambiarLaNotaNumerica($user);
+    }
+
+    /**
      * Quién ata el papel de inscripción a un alumno, y quién corrige su código.
      *
      * Decidido por Joseth el 20 sep 2026 con las dos poblaciones delante:

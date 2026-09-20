@@ -291,6 +291,107 @@
 >    delante a Joseth antes**, no después. `app/Models/Nota.php` sí está en la lista y su cambio va
 >    con espacios: `pint:test` pasa.
 > 4. Fases 2, 3 y 4 del [43](43-lo-que-todavia-no-se-ha-calificado.md), sin empezar.
+> ## 🚧 EL CIERRE Y LO NO CALIFICADO — FASE 4 DEL 43, **SIN FUNDIR** (20 sep 2026)
+>
+> **Rama `feat/el-cierre-y-lo-no-calificado`, árbol `.worktrees/cie`, base
+> `simonbolivar_testing_cie`.** Autorizada por Joseth el 20 sep. Es **D3**: al cerrar, qué pasa con
+> lo que nadie calificó lo elige cada rector — *pasa a cero*, *queda fuera de la cuenta* o *no dejar
+> cerrar*—, con **`cero` de fábrica**, que es el comportamiento de hoy.
+>
+> **Router en 625 contado con `route:list --json` en `.worktrees/cie`. SIN FUNDIR: hay que
+> recontarlas en el árbol principal el día que entren.** Las dos que suben sobre las 623 de `main`
+> son `PUT years/cierre-sin-calificar` —la elección, con permiso dentro— y
+> `GET periodos/sin-calificar/{periodo_id}` —el diálogo: cuántas casillas quedan, de quién son y qué
+> va a pasar con ellas—. **Cerrar no gasta ruta**: ya era
+> `periodos/toggle-profes-pueden-editar-notas`, y lo que cambia es que ahora aplica la decisión.
+>
+> **Tests: 2361 passed, 1 skipped, 23.181 aserciones (`--testsuite=Contrato`, en
+> `.worktrees/cie`)**, con las 23 instantáneas regeneradas dentro. Del fichero nuevo son **19
+> (`--filter=ElCierreYLoNoCalificadoTest`), 267 aserciones, y los DOS controles salieron en rojo**
+> —apagando la normalización caen 4, apagando la escritura de los ceros caen 2—, que es lo único
+> que distingue «el candado protege» de «no hay nada que proteger». `composer run stan`: **`[OK] No
+> errors`, 700 ficheros**. `composer run pint:test`: **`PASS`, 478**.
+>
+> **Las 23 instantáneas se miraron ENTERAS antes de darlas por buenas**, no se regeneraron y se
+> pasó: el diff completo son 46 renglones de `cierre_sin_calificar`, las dos rutas nuevas en
+> `rutas.json` y en `guards-por-ruta.json`, y `guard-por-familia.json` pasando de `years 23/21` a
+> `24/22` y de `periodos 12/10` a `13/11`. **Nada más se movió**, que es la prueba de que la
+> definitiva no cambió con el defecto puesto.
+>
+> **Y la corrida con `COBERTURA_RUTAS` va a `/tmp/rutas-tocadas-cie.txt`, no al nombre genérico**:
+> el propio registrador de `tests/TestCase.php` avisa de que *«lo vacía la corrida, y con varias
+> sesiones a la vez cada una quiere su nombre»*, y esta tarde ha habido **seis suites en el mismo
+> contenedor**. Con el nombre compartido, la última en arrancar le borra el mapa a las cinco.
+>
+> **El mapa está hecho y es completo**: `php artisan test` entero, **desprendido** (`docker exec
+> -d`, log dentro del contenedor) porque una corrida en primer plano se pierde entera si se cae el
+> cliente — **2.539 passed, 1 skipped, 53.679 aserciones, `EXIT_REAL=0`**, leído de la línea
+> `Tests:` y no del exit code. El fichero son **7.125 renglones y las 625 rutas del árbol**, o sea
+> que no le falta ninguna, y las dos nuevas las tocan **nueve tests de contrato de verdad** además
+> del barrido de 401 — que es la distinción para la que existe la columna del test. Copia en el
+> bloc de notas de la sesión por si el contenedor se reinicia.
+>
+> ### Las tres cosas que hay que saber antes de tocar esto
+>
+> 1. **Son DOS columnas y el plan decía una, y la de más es la regla dura hecha mecanismo.**
+>    `years.cierre_sin_calificar` es la elección del rector; `periodos.cierre_sin_calificar` es **lo
+>    que se aplicó al cerrar**, y es la única que lee el cálculo. Si leyera la elección, un rector
+>    que cambiara de opinión en octubre movería las definitivas de los periodos que ya tiene
+>    cerrados e impresos. Con la congelada **no hay pulsación que alcance un periodo cerrado**.
+>    `NULL` = «nunca se cerró por este camino» = los 36 periodos de la copia y los de los dieciséis.
+>
+> 2. **`fuera` MUEVE la definitiva, a propósito, y `cero` NO.** La definitiva no normaliza, así que
+>    `SUM(peso × NULL)` y `SUM(peso × 0)` dan lo mismo: sin normalizar, las dos salidas imprimirían
+>    el mismo boletín y D3 sería un adorno. Con el lienzo del 43: `cero` deja **16,66** y `fuera`
+>    deja **47,60**. Y `cero` sí tiene que **escribir** los ceros aunque no muevan la definitiva,
+>    porque lo que mueven es la cobertura (a 1) y la parcial — sin eso, un periodo cerrado se queda
+>    gris en el semáforo para siempre y la familia ve 47,60 donde el papel dice 16,66.
+>
+> 3. **El cierre es la ÚLTIMA escritura posible**, y no es una elección: `ponerAlDiaUnInforme()` no
+>    escribe en un periodo cerrado (Joseth, 17 sep) y las notas ya no se tocan, así que ningún
+>    recálculo posterior se dispara. Por eso `fuera` rehace las definitivas **dentro del cierre**:
+>    **7.779 consultas y 7,88 s** medidos sobre el periodo 2 de 2025 (3.611 definitivas) contra el
+>    código que se entrega. El reloj de ese banco dio entre 7 y 34 s para lo mismo según la carga —
+>    **la cifra que vale es la de consultas**. Si la petición se corta, la marca ya está congelada,
+>    así que volver a pulsar «cerrar» reanuda.
+>
+>    **Y el 1 % que cuesta la fase a los dieciséis, dicho aparte:** las 80 consultas de diferencia
+>    con las 7.699 de antes son **una por asignatura**, la que `calcular()` hace para preguntarle al
+>    periodo cómo se cerró — y se paga también con el defecto puesto.
+>
+> ### Lo que salió al medir y no estaba en el plan
+>
+> - **`cerrar con cero` es IRREVERSIBLE.** Escribe un 0 real, y desde ahí «nadie lo calificó» y
+>   «sacó cero» vuelven a ser indistinguibles. Reabrir y cerrar con `fuera` ya no devuelve 47,60.
+>   No se arregla —hacerlo reversible pediría la columna `calificada_at` que **D6 descartó**— y
+>   tiene test. La pantalla que pregunte «¿seguro?» tiene que poder decir por qué.
+> - **Había una puerta de atrás viva y está cerrada.** `definitivas_periodos/calcular-grupo-periodo`
+>   —que llaman los dos fronts— escribe `notas_finales` con **su propia consulta, la acumulada a
+>   pelo**: pulsarlo tras cerrar con `fuera` habría devuelto las definitivas a la otra fórmula en
+>   silencio y con 200. Ahora contesta 422 y dice a dónde ir. Los otros dos escritores de una
+>   definitiva automática **no tienen camino**: uno está muerto y el otro roto (comprobado).
+> - **La §Fase 1 decía que la planilla Y LOS BOLETINES no pasan por el servicio, y la segunda mitad
+>   es falsa.** El boletín lee `notas_finales` (`BoletinesController:335`), que es lo que el cierre
+>   reescribe, así que **el boletín sí queda bien**. Lo que se queda con el otro calculador es la
+>   planilla y cinco informes. Corregido en el 43.
+>
+> ### Lo que queda abierto, y es de Joseth
+>
+> - **La planilla de un periodo cerrado con `fuera` sigue pintando la acumulada**, porque la produce
+>   `Asignatura::calculoAlumnoNotas` —PHP, sin denominador, seis lectores— y no el servicio.
+>   Unificar los dos calculadores sigue sin medirse.
+> - **Las pantallas**: el diálogo de cierre y el selector de tres opciones los pinta `app2`.
+> - **Pint**: los cinco ficheros tocados que **no** están en la lista curada —`PeriodosController`,
+>   `YearsController`, `DefinitivasPeriodosController`, `Models/Year` y `Models/Periodo`— **no se
+>   han añadido**, a propósito. Formatearlos aquí enterraría el diff de la fase bajo cinco
+>   controladores reescritos, y `DefinitivasPeriodosController` ya lleva dentro el `use \Log;` que
+>   pone `AliasDeFacadesTest` en rojo. **Es la decisión que Joseth toma con el precio delante**, como
+>   la de `Profesor.php` el 19 sep. `pint:test` sigue verde porque sólo mira la lista curada.
+>
+> ### Lo que NO entra, y está decidido
+>
+> **D4, el estado NE por celda.** La §5 dice que no por ahora: con `fuera`, una casilla vacía ya
+> hace lo que haría NE. Sólo vuelve el día que un colegio elija «pasa a 0» **y quiera excepciones**.
 
 > ## ✅ LA IMPORTACIÓN DINÁMICA — LAS TRES PIEZAS DE LA FASE 2, ROUTER EN 623 (20 sep 2026)
 >

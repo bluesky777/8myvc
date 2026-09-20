@@ -101,6 +101,7 @@
                         ]
                     }
                 ],
+                "cierre_sin_calificar": "null",
                 "created_at": "null",
                 "created_by": "null",
                 "deleted_at": "null",

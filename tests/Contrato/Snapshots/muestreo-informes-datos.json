@@ -39,6 +39,7 @@
     "periodos_desactualizados": [
         {
             "actual": "int",
+            "cierre_sin_calificar": "null",
             "created_at": "string",
             "created_by": "null",
             "deleted_at": "null",
@@ -67,6 +68,7 @@
     "periodos_grupos": [
         {
             "actual": "int",
+            "cierre_sin_calificar": "null",
             "created_at": "null|string",
             "created_by": "null",
             "deleted_at": "null",

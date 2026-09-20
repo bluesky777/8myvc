@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\DB;
 use App\Services\BoletinIndependiente;
 use App\Services\DefinitivasDeAsignatura;
+use App\Support\CierreDeLoNoCalificado;
 use Illuminate\Support\Facades\Request;
 use Carbon\Carbon;
 
@@ -84,14 +85,252 @@ class PeriodosController extends Controller {
 		return 'Cambiado';
 	}
 
+	/**
+	 * Abrir y cerrar el periodo — y, desde el 20 sep 2026, **aplicar la decisión del
+	 * colegio sobre las casillas que nadie calificó**.
+	 *
+	 * Fase 4 de [43](../../docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md),
+	 * **D3**. Ésta es la ruta donde muere el hueco, y no una ruta nueva: *cerrar* ya
+	 * existía y ya es este interruptor. Lo que cambia es que ahora el cierre **hace
+	 * algo** con lo que queda vacío, en vez de dejarlo valiendo cero por accidente.
+	 *
+	 * ```
+	 * cero      las casillas vacías se escriben como 0 de verdad
+	 * fuera     se quedan vacías y la definitiva del periodo pasa a ser la parcial
+	 * bloquear  no se cierra: 422 diciendo cuántas faltan
+	 * ```
+	 *
+	 * ## El orden de las tres cosas no es arbitrario
+	 *
+	 * 1. **`bloquear` corta antes de escribir nada.** Un 422 después de haber cerrado
+	 *    sería el peor de los dos mundos: el periodo cerrado y el usuario creyendo que
+	 *    no.
+	 * 2. **La marca se congela en la misma escritura que el cierre.** Desde ese
+	 *    instante `calcular()` dice la verdad sobre este periodo, así que si lo de
+	 *    abajo se corta a la mitad no queda ninguna definitiva mal calculada — sólo
+	 *    alguna sin rehacer.
+	 * 3. **La consecuencia se aplica después.** Con `cero` es un `UPDATE` (0,49 s para
+	 *    20.655 filas, medido en la fase 0); con `fuera` son dos consultas por
+	 *    definitiva ({@see \App\Services\DefinitivasDeAsignatura::rehacerElPeriodo}).
+	 *
+	 * ## Un periodo YA cerrado no se mueve, y tampoco cuando se vuelve a pulsar
+	 *
+	 * La regla dura del encargo, hecha mecanismo y no norma. Hay tres casos y sólo dos
+	 * hacen algo:
+	 *
+	 * - **abierto -> cerrado**: se elige la política del año y se aplica. Es el cierre.
+	 * - **cerrado -> cerrado, con marca**: se **reanuda** lo que se empezó, con **la
+	 *   marca congelada y no con la elección vigente del rector**. Es lo que permite
+	 *   terminar un cierre que se cortó, y lo que impide que volver a pulsar cambie de
+	 *   política a media obra.
+	 * - **cerrado -> cerrado, sin marca**: **no se toca nada.** Son todos los periodos
+	 *   de los dieciséis colegios cerrados antes de que esto existiera. Ponerles ceros
+	 *   «porque de todas formas valían cero» movería `updated_by` y `updated_at` de un
+	 *   millón de filas de periodos cuyas definitivas están impresas y firmadas.
+	 *
+	 * Reabrir (`pueden = 1`) no borra la marca y no hace falta que la borre:
+	 * `normalizaLaDefinitiva()` exige **cerrado y** marcado, así que un periodo
+	 * reabierto vuelve solo al cálculo de siempre. Volver a cerrarlo vuelve a elegir.
+	 *
+	 * ## Sigue devolviendo TEXTO, y eso es contrato
+	 *
+	 * Los tres clientes la llaman y los dos fronts la tienen declarada como endpoint de
+	 * texto (`myvc_front/scripts/endpoints-de-texto.json`, `api.putTexto` en `app2`).
+	 * Devolver un objeto con el recuento habría sido más útil aquí dentro y **le habría
+	 * pintado un JSON crudo al usuario** en las tres pantallas. La cuenta va dentro de
+	 * la frase, que es donde el cliente ya sabe ponerla.
+	 */
 	public function putToggleProfesPuedenEditarNotas()
 	{
 		$periodo = Periodo::findOrFail(Request::input('periodo_id'));
+
+		// **Se lee con `(int)` y no con `(bool)`**, que es lo que hacen los doce
+		// interruptores del año. Aquí la diferencia importa: lo que decide esta rama
+		// tiene que ser **lo mismo que acaba guardado en la columna**, y lo que se
+		// guarda es `Request::input('pueden')` crudo sobre un `tinyint` —o sea la
+		// conversión de MySQL, que para `"false"` da 0—. Con `(bool)` la cadena
+		// `"false"` sería «abierto» aquí y 0 en la base: el periodo se cerraría **sin
+		// aplicar ninguna política**, que es el agujero exacto que esta fase viene a
+		// tapar, abierto por la lectura de un campo.
+		$quedaAbierto = (int) Request::input('pueden') === 1;
+
+		$estado = CierreDeLoNoCalificado::estadoDelPeriodo($periodo->id);
+		$cerrando = $estado['abierto'] && ! $quedaAbierto;
+		$reanudando = ! $estado['abierto'] && ! $quedaAbierto && $estado['congelado'] !== null;
+
+		$salida = null;
+
+		if ($cerrando) {
+			$salida = CierreDeLoNoCalificado::elegidoParaElPeriodo($periodo->id);
+		} elseif ($reanudando) {
+			$salida = $estado['congelado'];
+		}
+
+		// **El 422 va antes de tocar la fila**, que es la mitad de lo que hace útil a
+		// `bloquear`: el colegio que lo elige quiere que no se pueda cerrar, no que se
+		// cierre y le avisen. El mensaje lleva la cuenta dentro porque quien la reciba
+		// tiene que poder ir a buscarlas —el desglose está en
+		// `GET periodos/sin-calificar/{periodo_id}`—; un «no se puede cerrar» a secas
+		// manda a alguien a buscar un permiso que no falta.
+		if ($salida === CierreDeLoNoCalificado::BLOQUEAR) {
+			$faltan = CierreDeLoNoCalificado::cuantasSinCalificar((int) $periodo->id);
+
+			if ($faltan > 0) {
+				abort(422, 'No se puede cerrar el periodo: quedan '.$faltan
+					.' casillas sin calificar. El colegio eligió no dejar cerrar hasta '
+					.'que estén todas. Puede verlas en periodos/sin-calificar/'.$periodo->id.'.');
+			}
+
+			// Sin nada pendiente, `bloquear` ya consiguió lo que quería. Se congela
+			// como `cero` porque es lo que describe el resultado —no quedó ninguna
+			// fuera de la cuenta— y porque `bloquear` no es un estado en el que un
+			// periodo pueda quedarse: el `enum` de `periodos` tiene dos valores
+			// justamente para que eso no sea representable.
+			$salida = CierreDeLoNoCalificado::CERO;
+		}
+
 		$periodo->profes_pueden_editar_notas	=	Request::input('pueden');
+
+		if ($salida !== null) {
+			$periodo->cierre_sin_calificar = $salida;
+		}
+
 		$periodo->updated_by 					=	$this->user->user_id;
 		$periodo->save();
 
-		return 'Cambiado';
+		if ($salida === null) {
+			return 'Cambiado';
+		}
+
+		if ($salida === CierreDeLoNoCalificado::CERO) {
+			$puestas = CierreDeLoNoCalificado::pasarACero(
+				(int) $periodo->id, $this->user->user_id
+			);
+
+			// **Y la definitiva no se mueve ni un decimal al hacer esto**, que es lo
+			// que hay que saber antes de asustarse por el número: la definitiva no
+			// normaliza, así que `SUM(peso × NULL)` y `SUM(peso × 0)` son el mismo
+			// número. Lo que cambia —y es el punto entero— es que a partir de ahora la
+			// cobertura del periodo es del 100 %, la parcial coincide con lo que
+			// imprime el boletín y el semáforo deja de estar gris. *En un periodo
+			// cerrado, lo que ve la familia y lo que dice el papel vuelven a ser el
+			// mismo número.*
+			return 'Periodo cerrado. '.$puestas
+				.' casillas sin calificar pasaron a cero.';
+		}
+
+		$hecho = DefinitivasDeAsignatura::rehacerElPeriodo(
+			(int) $periodo->id, $this->user->user_id
+		);
+
+		return 'Periodo cerrado dejando fuera de la cuenta lo no calificado. '
+			.$hecho['escritas'].' definitivas rehechas en '.$hecho['asignaturas']
+			.' asignaturas'.($hecho['respetadas'] > 0
+				? ' ('.$hecho['respetadas'].' manuales o recuperadas sin tocar).'
+				: '.');
+	}
+
+	/**
+	 * Qué casillas de este periodo no ha calificado nadie. **El diálogo de cierre.**
+	 *
+	 * `GET periodos/sin-calificar/{periodo_id}`, fase 4 del
+	 * [43](../../docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md). Es la ruta
+	 * que contesta lo que el plan llama *«el diálogo de cierre pregunta qué son las
+	 * casillas que quedan»*: antes de cerrar hay que poder ver cuántas son, de quién
+	 * son y qué les va a pasar.
+	 *
+	 * ## Por qué hace falta una ruta y no valía ninguna de las 623
+	 *
+	 * Porque **nadie cuenta casillas vacías**. `Informes\NotasPerdidasController` cuenta
+	 * notas perdidas —que es lo contrario: una nota puesta y baja—, y la planilla las
+	 * enseña de una asignatura en una, que es justo lo que no sirve para decidir un
+	 * cierre. Lo que no existía es la pregunta al nivel del periodo.
+	 *
+	 * ## Y contesta también «qué va a pasar», que es la mitad que evita el susto
+	 *
+	 * `salida` es lo que aplicaría el cierre hoy y `descripcion` lo dice en castellano.
+	 * Sin eso, la misma pantalla con las mismas 19.735 casillas significa *«se van a
+	 * poner en cero»* en un colegio y *«no vas a poder cerrar»* en el de al lado, y no
+	 * hay forma de saber cuál. **Una decisión que no se ve antes de aplicarse la acaba
+	 * descubriendo quien pulsa.**
+	 *
+	 * Con el periodo **ya cerrado** devuelve lo que se aplicó (`congelado`) en vez de lo
+	 * que se aplicaría, porque en un periodo cerrado la pregunta ya tiene respuesta.
+	 *
+	 * ## `auth.personal` y nada dentro, y es una decisión
+	 *
+	 * Al contrario que `PUT years/cierre-sin-calificar`, que lleva permiso dentro. La
+	 * diferencia es que **esto se lee y aquello se decide**: quien cierra el periodo son
+	 * las 74 cuentas de personal, así que el diálogo que va justo antes del cierre tiene
+	 * que alcanzar a las mismas 74 — un diálogo más estrecho que el botón que precede
+	 * dejaría a secretaría cerrando a ciegas. Y un docente que quiera ver qué le falta
+	 * por calificar no está viendo nada que su propia planilla no le enseñe.
+	 *
+	 * Lo que sí hay que saber si algún día se estrecha: el desglose **nombra al docente
+	 * de cada asignatura**, así que dice de quién es el silencio. Eso es deliberado —es
+	 * el aviso que el colegio necesita a mitad de periodo y lo que hoy nadie dice—, pero
+	 * es también la única parte de esta respuesta que habla de personas.
+	 */
+	public function getSinCalificar($periodo_id)
+	{
+		$estado = CierreDeLoNoCalificado::estadoDelPeriodo($periodo_id);
+
+		// 404 y no una respuesta vacía: «ese periodo no existe» y «ese periodo lo tiene
+		// todo calificado» son dos hechos distintos, y con un `0` suelto se leen igual.
+		// Es la regla de la casa sobre las poblaciones — un «0 encontrados» no distingue
+		// *«revisé y no había»* de *«no revisé nada»*.
+		if (! $estado['existe']) {
+			abort(404, 'Ese periodo no existe.');
+		}
+
+		$periodoId = (int) $periodo_id;
+
+		$salida = $estado['abierto']
+			? CierreDeLoNoCalificado::elegidoParaElPeriodo($periodoId)
+			: $estado['congelado'];
+
+		return [
+			'periodo_id' => $periodoId,
+			'abierto' => $estado['abierto'],
+			'salida' => $salida,
+			'congelado' => $estado['congelado'],
+			'descripcion' => self::comoSeLee($salida, $estado['abierto']),
+			'casillas' => CierreDeLoNoCalificado::cuantasSinCalificar($periodoId),
+			'asignaturas' => CierreDeLoNoCalificado::porAsignatura($periodoId),
+		];
+	}
+
+	/**
+	 * La frase que acompaña a `salida`, para que la pantalla no tenga que inventarla.
+	 *
+	 * Vive aquí y no en el cliente porque son **cuatro** clientes y la frase describe
+	 * una decisión del backend: escrita en cada uno, el día que la decisión cambie de
+	 * matiz habría cuatro pantallas diciendo cuatro cosas. Es lo mismo que hace
+	 * `Autoriza::exigir` con los mensajes de permiso.
+	 */
+	private static function comoSeLee(?string $salida, bool $abierto): string
+	{
+		if ($salida === null) {
+			return $abierto
+				? 'Este periodo todavía no tiene elegido qué hacer con lo no calificado.'
+				: 'Este periodo se cerró antes de que existiera esta decisión: '
+					.'lo no calificado quedó valiendo cero.';
+		}
+
+		$frases = [
+			CierreDeLoNoCalificado::CERO => $abierto
+				? 'Al cerrar, lo que no se haya calificado pasará a cero.'
+				: 'Al cerrar, lo que no se había calificado pasó a cero.',
+			CierreDeLoNoCalificado::FUERA => $abierto
+				? 'Al cerrar, lo que no se haya calificado quedará fuera de la cuenta: '
+					.'la definitiva se calculará sobre lo evaluado.'
+				: 'Lo que no se había calificado quedó fuera de la cuenta: '
+					.'la definitiva está calculada sobre lo evaluado.',
+			CierreDeLoNoCalificado::BLOQUEAR =>
+				'No se podrá cerrar el periodo mientras quede algo sin calificar.',
+		];
+
+		return $frases[$salida] ?? '';
 	}
 
 	public function putToggleProfesPuedenNivelar()

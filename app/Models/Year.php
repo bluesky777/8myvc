@@ -187,6 +187,27 @@ use App\Models\Periodo;
  * @property string $titulo_certificado_final
  * @property string $titulo_certificado_periodos
  *
+ * Y **qué pasa al cerrar el periodo con lo que nadie calificó**, por migración
+ * (`2026_09_20_600000_el_cierre_y_lo_no_calificado`, fase 4 del doc 43, **D3** de
+ * Joseth del 20 sep 2026): `cero` | `fuera` | `bloquear`, con **`cero` de fábrica**,
+ * que es el comportamiento de hoy — la casilla vacía aporta lo mismo que un cero a una
+ * definitiva que no normaliza.
+ *
+ * Es **la elección del rector**, y es la tercera política del año que se elige una vez,
+ * al lado de `modelo_evaluacion` y `reparto_subunidades`. **Pero a diferencia de
+ * aquéllas, el cálculo NO la lee**: lo que gobierna una definitiva es
+ * `periodos.cierre_sin_calificar`, que congela lo que se aplicó el día del cierre. Por
+ * eso cambiar ésta no puede mover un boletín ya impreso, y por eso esta ruta no lleva
+ * `exigirEscrituraEnElAnio` y `years/modelo-evaluacion` sí. El porqué entero está en
+ * `App\Support\CierreDeLoNoCalificado`.
+ *
+ * Se escribe por `PUT years/cierre-sin-calificar` —con `Autoriza::puedeElegirQuePasaAlCerrar`
+ * dentro, no con el `auth.personal` a secas de los otros once interruptores— y **no
+ * por `years/toggle-cambiar-valor`**, donde está excluida: tiene dueño. Se copia al año
+ * siguiente en `YearsController::postStore` por lo mismo que `regla_nivelacion`.
+ *
+ * @property string $cierre_sin_calificar
+ *
  * Y los atributos que NO son columnas: el código se los cuelga al modelo en
  * tiempo de ejecución para armar la respuesta, que es un patrón repetido por
  * todo el proyecto. Eloquent los guarda entre los atributos y salen en el JSON,
