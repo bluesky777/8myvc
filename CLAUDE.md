@@ -611,6 +611,34 @@ docker exec 8myvc-app-1 php artisan test --filter=NotasTest    # una clase
 > > La comprobación va **antes de lanzar**, no cuando el resultado sale raro.
 > > Después sirve para diagnosticar; antes es lo único que lo evita.
 > >
+> > **Y UNA CUARTA, que es la peor porque la comprobación estándar la tapa:
+> > `migrate:status` dice qué migraciones están APUNTADAS, no qué columnas
+> > EXISTEN.** Una base de tests heredada de otro día puede tener la fila en
+> > `migrations` y no la columna, y entonces la suite da rojos **que no son del
+> > código**: 17 en `LoQueLaImportacionRecuerdaTest` y `ElDiaDeMatriculasTest` el
+> > 21 sep 2026, con `migrate:status | grep -ci pending` dando **0** antes de
+> > lanzar.
+> >
+> > Lo que sí contesta la pregunta es el esquema, no el registro:
+> >
+> > ```bash
+> > docker exec 8myvc-database-1 sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -N -e "
+> >   SELECT s.SCHEMA_NAME,
+> >          (SELECT COUNT(*) FROM information_schema.columns c
+> >            WHERE c.table_schema=s.SCHEMA_NAME AND c.table_name=\"importaciones\"
+> >              AND c.column_name=\"avisos\")
+> >     FROM information_schema.schemata s
+> >    WHERE s.SCHEMA_NAME LIKE \"%testing%\";"'
+> > ```
+> >
+> > **Censado así ese día: 33 de 38 bases de test NO tenían la columna**, la
+> > `simonbolivar_testing` por defecto entre ellas, y sólo cinco sí. O sea que el
+> > caso corriente **es** la base desfasada, no la excepción — se hereda de días
+> > anteriores y nadie la reconstruye hasta que algo se pone rojo. El arreglo es
+> > `DB_TEST_DATABASE=… tools/construir-bd-test.sh`, y demuestra el diagnóstico:
+> > las mismas dos clases pasaron de **17 failed** a **21 passed** sin tocar una
+> > línea de código.
+> >
 > > **Y UNA TERCERA FORMA, ésta del andamio: la suite dura MÁS que el tope de
 > > quien la lanza.** Si el `docker exec` se corta por timeout —15 minutos de
 > > suite contra un tope de 10—, deja `context canceled` al final del fichero,
