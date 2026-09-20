@@ -116,6 +116,49 @@ class SinCorreoNoSeInventaNingunoTest extends CasoDeContrato
     }
 
     /**
+     * El SEGUNDO invento, que no lo fabricábamos nosotros y que pasa por la rama buena.
+     *
+     * El alta de la aplicación **vieja** manda `email: '@gmail.com'` cuando no se
+     * teclea correo, copiando a `formatear_nuevo`. Como es una cadena **no vacía**,
+     * pasaba el `if (Request::input('email'))` que dejamos en pie al quitar el `else`
+     * — o sea que cerrar aquel grifo no cerraba éste.
+     *
+     * Y es cuarenta veces más grande: **678 cuentas vivas** lo llevan frente a 16
+     * activas con `@myvc.com`. De los 853 alumnos a los que la recuperación llega,
+     * 655 son éstos y sólo 196 tienen un correo de verdad.
+     *
+     * `app/` no se toca por decisión de Joseth, así que esa pantalla va a seguir
+     * mandándolo: la regla vive donde el dato entra (`CorreoDeLaCuenta`), no en quien
+     * lo manda. **La ficha sí lo conserva** — sólo tiene regla la columna que es la
+     * llave del reseteo.
+     */
+    public function test_una_cadena_sin_nada_delante_de_la_arroba_no_llega_a_la_cuenta(): void
+    {
+        $usuario = 'profe.arroba.'.random_int(100000, 999999);
+
+        $this->withToken($this->tokenDelSuperusuario())
+            ->postJson('/api/profesores/store', [
+                'nombres' => 'Profesor',
+                'apellidos' => 'Arroba Suelta',
+                'sexo' => 'M',
+                'username' => $usuario,
+                'tipo_profesor' => 'Catedrático',
+                'email' => '@gmail.com',
+            ]);
+
+        $fila = DB::table('users')->where('username', $usuario)->first();
+        $this->assertNotNull($fila, 'No se creó el profesor.');
+
+        $this->assertNull($fila->email,
+            'El literal `@gmail.com` llegó a `users.email`. Ahí el reseteo lo ENCUENTRA '
+            .'y contesta «Enviado» sin entregar nada: 678 cuentas vivas están así.');
+
+        $this->assertSame('@gmail.com', DB::table('profesores')
+            ->where('user_id', $fila->id)->value('email'),
+            'La ficha sí lo conserva: la regla es de la cuenta, no del dato de contacto.');
+    }
+
+    /**
      * Y el caso que no se ve: mandar el campo VACÍO a propósito.
      *
      * Antes esto no vaciaba — sustituía por el inventado, porque

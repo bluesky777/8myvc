@@ -15,6 +15,7 @@ use App\Models\Unidad;
 use App\Models\Year;
 use App\Support\Autoriza;
 use App\Support\CamposQueVinieron;
+use App\Support\CorreoDeLaCuenta;
 use App\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -319,7 +320,13 @@ class AlumnosController extends Controller
                 $usuario = new User;
                 $usuario->username = Request::input('username');
                 $usuario->password = Hash::make(Request::input('password', '123456'));
-                $usuario->email = Request::input('email');
+                // **Desde `email` y NO desde `email2`, que es lo que hace que la red de
+                // `sanarInputUser` no pinte nada aquí.** Se deja como estaba —cambiarlo a
+                // `email2` sería otra decisión— y lo que se le pone delante es la regla de
+                // qué puede vivir en `users.email`: el alta de la aplicación VIEJA manda el
+                // literal `'@gmail.com'` cuando no se teclea correo, y una cadena sin nada
+                // delante de la arroba no es una dirección. 678 cuentas vivas la llevan.
+                $usuario->email = CorreoDeLaCuenta::oNada(Request::input('email'));
                 $usuario->sexo = Request::input('sexo');
                 $usuario->is_superuser = Autoriza::concederSuperusuario($this->user, Request::input('is_superuser'));
                 $usuario->periodo_id = $periodo_actual->id;
@@ -494,8 +501,13 @@ class AlumnosController extends Controller
         // clave `email2` vacía, antes se fabricaba uno y **se escribía encima del que
         // hubiera** —`$vinieron->trae('email2')` contesta que sí, porque la clave
         // vino—. Ahora ese caso guarda vacío, o sea que vaciar el campo se respeta.
-        if (! Request::input('email2') && Request::input('email')) {
-            Request::merge(['email2' => Request::input('email')]);
+        //
+        // **Y no se deriva de cualquier cosa**: el alta de la aplicación vieja manda el
+        // literal `'@gmail.com'` cuando no se teclea correo, que es una cadena no vacía
+        // y por tanto pasaba este `if`. `CorreoDeLaCuenta` dice qué puede vivir en
+        // `users.email` y por qué esa columna tiene regla y la ficha no.
+        if (! Request::input('email2') && CorreoDeLaCuenta::oNada(Request::input('email')) !== null) {
+            Request::merge(['email2' => CorreoDeLaCuenta::oNada(Request::input('email'))]);
         }
     }
 
@@ -962,7 +974,7 @@ class AlumnosController extends Controller
                     // cuando no viene `email1` —que no lo manda nadie—, así que sin esta
                     // guarda el correo de la cuenta se mudaba de columna. 05 §68.3.
                     if ($vinieron->trae('email2')) {
-                        $usuario->email = Request::input('email2');
+                        $usuario->email = CorreoDeLaCuenta::oNada(Request::input('email2'));
                     }
 
                     // La condición estaba invertida: escribía la contraseña **sólo si
@@ -999,7 +1011,7 @@ class AlumnosController extends Controller
                     $usuario = new User;
                     $usuario->username = Request::input('username');
                     $usuario->password = Hash::make(Request::input('password', '123456'));
-                    $usuario->email = Request::input('email2');
+                    $usuario->email = CorreoDeLaCuenta::oNada(Request::input('email2'));
                     $usuario->is_superuser = 0;
                     $usuario->is_active = Request::input('is_active', 1);
                     $usuario->periodo_id = $periodo_actual->id;

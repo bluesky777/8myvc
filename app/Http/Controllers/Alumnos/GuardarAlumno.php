@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Alumnos;
 
 use App\Models\Matricula;
 use App\Support\ColumnaSegura;
+use App\Support\CorreoDeLaCuenta;
 use App\Support\FilaQueSeVaAEscribir;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -164,7 +165,7 @@ class GuardarAlumno
                 // es lo correcto: son dos correos distintos y los dos se editan.
                 FilaQueSeVaAEscribir::exigir('users', 'id', $user_acud_id, 'Esa cuenta de usuario');
                 $consulta = 'UPDATE users SET email=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:user_id';
-                $datos = [':valor' => trim((string) $valor) !== '' ? trim((string) $valor) : null, ':modificador' => $user_id, ':fecha' => $now, ':user_id' => $user_acud_id];
+                $datos = [':valor' => CorreoDeLaCuenta::oNada($valor), ':modificador' => $user_id, ':fecha' => $now, ':user_id' => $user_acud_id];
                 break;
 
             case 'parentesco':
