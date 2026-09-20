@@ -996,6 +996,70 @@
 > - **No manda ningún aviso**: sigue abierto y sigue dependiendo del correo, que está en rojo
 >   desde el 2 sep.
 
+> ## 📐 LAS ESTACIONES DE MATRÍCULA, ATENDIDAS DESDE LA APP — DISEÑO Y CONTRATO, **CERO CÓDIGO** (20 sep 2026)
+>
+> **Pedido: que alguien del personal pueda atender una estación del día de matrículas desde el
+> teléfono, sin web**, que al cerrar su paso le aparezca esa persona a la estación siguiente, y
+> que pueda seguir buscando a cualquier alumno del colegio para ver en qué va.
+>
+> El plan de matrículas del front —`myvc_front/INVESTIGACION-MATRICULAS.md` y
+> `PANTALLAS-MATRICULA.md`— pone las estaciones en **`app2`, o sea en la web**. Quien atiende
+> la estación 2 es un docente de pie con una fila delante. De ahí sale esto:
+>
+> - **[46-las-estaciones-en-la-app.md](46-las-estaciones-en-la-app.md)** — el contrato: **ocho
+>   rutas**, la tanda de columnas, el permiso partido en dos y lo que mueve.
+> - **`myvc_flutter/docs/estaciones.md`** — las doce pantallas de teléfono con sus porqués.
+> - Maqueta navegable: https://claude.ai/artifact/3fixY3xaQsjGT2V4LAWPbE
+>
+> ### Lo que salió midiendo, y no estaba en el plan
+>
+> 1. **`requisitos_alumno.estado` no tiene vocabulario cerrado** y `postAlumno` escribe tal cual
+>    lo que venga en el cuerpo. **Toda la cola de una estación es la pregunta «¿está cerrado el
+>    paso anterior?»**, así que una minúscula escrita por una pantalla vieja borra a una persona
+>    de la fila siguiente sin que nadie se entere. Fijar esa columna va **antes** que las siete
+>    rutas. Es el mismo sitio donde ya vivía el `estado=NULL` que se arregló el 1 sep.
+> 2. **El aviso a la estación siguiente hoy no puede ser un push.** `myvc_flutter/pubspec.yaml`
+>    tiene `firebase_core` y `firebase_analytics` y **no `firebase_messaging`**; y el disparo
+>    del servidor que sí está desplegado desde el 25 ago va **cada quince minutos**, que para
+>    una fila en un patio es no avisar. Lo que funciona es **la cola sondeada con una huella
+>    barata**, el patrón del [34](34-la-huella-de-sincronizacion.md).
+> 3. **La cola es una consulta, no una bandeja de avisos.** Un aviso perdido deja a la familia
+>    en la fila igual; una bandeja con un aviso perdido la deja invisible para siempre.
+> 4. **El globo de notas —lo pidió Joseth el 20 sep— destapa una trampa de la huella, y la
+>    regla del [34](34-la-huella-de-sincronizacion.md) ya la tenía resuelta.** Una nota escrita
+>    en la estación 5 tiene que hacer aparecer el globo al que atiende la 2, así que la huella
+>    de la 2 **se calcula sobre lo que devuelve su cola** —que trae el conteo de notas de todas
+>    las estaciones— y no sobre la tabla anotada. Escrito hace trece días para otro módulo y
+>    contesta ésta sin tocarla.
+>
+> ### Lo que esta rama daba por abierto y `main` ya contestó — leído al fundir
+>
+> **La que esta rama llamaba «la que más bloquea» está decidida.** Preguntaba *«¿estación con
+> rol o con persona?»*; Joseth contestó ese mismo día, en el [44](44-el-dia-de-matriculas.md)
+> §2: **ninguna de las dos** — *«cualquiera del personal puede cerrar, pero queda con su nombre
+> y su hora»*—, y **no hace falta `rol_id`**. No es una previsión: está desplegado —
+> `postAlumno` escribe `cerrado_por`/`cerrado_at` con `COALESCE`, y la migración
+> `2026_09_20_300000` ya puso las tres columnas.
+>
+> **Las dos sesiones se cruzaron por diez minutos** y ninguna podía ver a la otra: esta rama
+> salió de `fe74442` y cerró a las 17:29 UTC; la fusión del día de matrículas entró a las
+> 17:39. Es la **segunda** colisión de doc 44 del mismo día, y se corrige igual que la primera
+> —mirando `main`—: este documento pasa a **46**.
+>
+> **Y eso mueve el diseño, que es lo que hay que mirar antes de construir**: `estaciones.md`
+> §2.9 dice *«ver todo, cerrar sólo lo tuyo»* y lo pone en el servidor. Con la respuesta de
+> Joseth, cerrar lo abre **cualquiera del personal** y lo que protege no es un 403: es la firma
+> visible y el deshacer. Está dicho aquí, sin re-litigar, porque la §2.9 se escribió sin esta
+> respuesta delante.
+>
+> **Lo que sigue abierto de verdad**: las otras cuatro de la §5 del [46](46-las-estaciones-en-la-app.md)
+> —el aviso al acudiente, el push inmediato, el aviso de una nota, y las ocho rutas con el
+> precio delante—. Y el vocabulario de `estado`, que sigue siendo un `varchar` sin cerrar.
+>
+> **Nada de esto toca código todavía**: no hay rutas nuevas, ni migraciones, ni instantáneas
+> movidas. El router está en **623**, no en las 615 que esta rama contó: salió de `fe74442`.
+
+
 > ## ✅ LA COLA DE RAMAS, VACIADA: OCHO FUSIONES, ROUTER EN 615 Y `origin/main` AL DÍA (19 sep 2026, noche)
 >
 > **Encargo de Joseth: reunir lo que estaban haciendo las otras sesiones, arreglar `main` —que
