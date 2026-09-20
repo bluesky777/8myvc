@@ -419,18 +419,17 @@ class UnidadesController extends Controller
 
         User::pueden_editar_notas($user, PeriodoDeLaFila::deVariasUnidades(array_keys($ordenes)));
 
+        // **P6, y va AQUÍ y no dentro del bucle**: el bucle escribe fila a fila, así
+        // que preguntando dentro un lote mixto deja las anteriores ya guardadas y
+        // aborta a mitad — la rejilla medio movida y un 403 en la cara. Es el mismo
+        // invariante que respeta `pueden_editar_notas` tres líneas más arriba, y la
+        // primera versión de este candado lo rompió. Ver `CandadoDeLaPlantilla`.
+        CandadoDeLaPlantilla::exigirElLote($user, $ordenes);
+
         foreach ($ordenes as $id => $orden) {
             // `find()` devolvía null con un id que no existe y `->orden` sobre null
             // era un 500. Es 404 porque el cliente nombró una unidad que no está.
             $unidad = Unidad::findOrFail($id);
-
-            // **P6 otra vez**, y aquí con un matiz que no tiene el de arriba: el
-            // cliente manda la rejilla ENTERA cuando el docente mueve una fila suya,
-            // así que esto salta sólo si la del colegio **se mueve de sitio**. Con la
-            // comprobación antes del bucle —o rechazando por «viene una fila del
-            // colegio»— reordenar lo propio sería 403.
-            CandadoDeLaPlantilla::exigirOrden($user, $unidad, $orden);
-
             $unidad->orden = $orden;
             $unidad->save();
         }
@@ -450,10 +449,10 @@ class UnidadesController extends Controller
         // mundo, y esto sólo a quien no manda en la plantilla — primero el motivo que
         // vale para todos. Ver `CandadoDeLaPlantilla`, que explica por qué compara el
         // valor y no la presencia del campo.
-        CandadoDeLaPlantilla::exigir($user, $unidad, [
-            'definicion' => Request::input('definicion'),
-            'porcentaje' => Request::input('porcentaje'),
-        ], 'unidad');
+        // Se le pasa **lo que de verdad llegó** y no una lista armada con `input()`:
+        // construida así, la clave existe siempre y el `null` de «no vino» y el de
+        // «bórralo» serían indistinguibles antes de llegar al candado.
+        CandadoDeLaPlantilla::exigir($user, $unidad, Request::all(), 'unidad');
 
         // **`porcentaje` no es un dato descriptivo: es un factor de la definitiva.**
         // La nota sale de `(u.porcentaje/100) * ((s.porcentaje/100) * n.nota)`, y el
@@ -478,6 +477,16 @@ class UnidadesController extends Controller
         // Es la §68 otra vez, y aquí no hace falta `CamposQueVinieron`: este método no
         // tiene ningún `merge()` delante, así que el defecto de `Request::input()`
         // distingue igual. §96.
+        // **El defecto de `input()` y NO un `??`, y está decidido y fijado.** Las dos
+        // formas sólo se distinguen en una fila: con `{"porcentaje": null}`, `input()`
+        // devuelve null —se vacía el campo— y `??` devolvería el valor de antes. Se
+        // queda la primera porque **no mandar un campo y mandarlo vacío no son la
+        // misma petición**: lo segundo es un cliente diciendo «quítalo». Lo fijan
+        // `PorcentajeQueSePisaTest::test_mandar_null_a_proposito_si_borra_el_porcentaje`
+        // y `UnidadesTest::test_un_cero_es_un_cero_y_un_null_es_un_null`, y el 19 sep
+        // 2026 esos dos tests **pararon exactamente este cambio**, propuesto como si
+        // fuera un arreglo. Lo que SÍ frena el vaciado es el candado, y sólo para lo
+        // que es del colegio: pedir `null` sobre algo guardado es un cambio.
         $unidad->definicion = Request::input('definicion', $unidad->definicion);
         $unidad->porcentaje = Request::input('porcentaje', $unidad->porcentaje);
         $unidad->updated_by = $user->user_id;
