@@ -83,9 +83,9 @@
 > `PANTALLAS-MATRICULA.md`— pone las estaciones en **`app2`, o sea en la web**. Quien atiende
 > la estación 2 es un docente de pie con una fila delante. De ahí sale esto:
 >
-> - **[44-las-estaciones-en-la-app.md](44-las-estaciones-en-la-app.md)** — el contrato: **siete
+> - **[44-las-estaciones-en-la-app.md](44-las-estaciones-en-la-app.md)** — el contrato: **ocho
 >   rutas**, la tanda de columnas, el permiso partido en dos y lo que mueve.
-> - **`myvc_flutter/docs/estaciones.md`** — las once pantallas de teléfono con sus porqués.
+> - **`myvc_flutter/docs/estaciones.md`** — las doce pantallas de teléfono con sus porqués.
 > - Maqueta navegable: https://claude.ai/artifact/3fixY3xaQsjGT2V4LAWPbE
 >
 > ### Lo que salió midiendo, y no estaba en el plan
@@ -102,6 +102,12 @@
 >    barata**, el patrón del [34](34-la-huella-de-sincronizacion.md).
 > 3. **La cola es una consulta, no una bandeja de avisos.** Un aviso perdido deja a la familia
 >    en la fila igual; una bandeja con un aviso perdido la deja invisible para siempre.
+> 4. **El globo de notas —lo pidió Joseth el 20 sep— destapa una trampa de la huella, y la
+>    regla del [34](34-la-huella-de-sincronizacion.md) ya la tenía resuelta.** Una nota escrita
+>    en la estación 5 tiene que hacer aparecer el globo al que atiende la 2, así que la huella
+>    de la 2 **se calcula sobre lo que devuelve su cola** —que trae el conteo de notas de todas
+>    las estaciones— y no sobre la tabla anotada. Escrito hace trece días para otro módulo y
+>    contesta ésta sin tocarla.
 >
 > ### Lo que espera decisión de Joseth
 >

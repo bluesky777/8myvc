@@ -7,7 +7,7 @@ pregunta que aquel plan dejó sin contestar: **las estaciones del día de matrí
 diseñadas para `app2`, o sea para la web, y quien atiende una estación es un docente de pie en
 un aula con una fila delante.**
 
-El diseño de las once pantallas de teléfono, con sus porqués, vive en
+El diseño de las doce pantallas de teléfono, con sus porqués, vive en
 [`myvc_flutter/docs/estaciones.md`](../../../myvc_flutter/docs/estaciones.md).
 **Esto es el contrato que necesitan y lo que cuesta.**
 Maqueta navegable: https://claude.ai/artifact/3fixY3xaQsjGT2V4LAWPbE
@@ -71,7 +71,7 @@ Devuelto    no pasa, y `motivo_devolucion` NO puede estar vacío
 
 ---
 
-## 3. El contrato — siete rutas
+## 3. El contrato — ocho rutas
 
 ```
 GET  estaciones                       (auth.personal)
@@ -80,7 +80,8 @@ GET  estaciones                       (auth.personal)
 
 GET  estaciones/{nro}/cola            (auth.personal + rol de la estación)
   -> { nro, nombre, al_dia_at, cola:[ {alumno_id|aspirante_id, nombres, apellidos, grupo,
-       llego_at, avisos:[…], devuelto_antes:bool} ] }
+       llego_at, avisos:[…], devuelto_antes:bool,
+       notas_total, notas_pendientes} ] }
 
 GET  estaciones/huella                (auth.personal)
   -> { por_estacion: { "1":{n, ultimo_cambio}, "2":{…} } }        ~300 bytes
@@ -88,7 +89,9 @@ GET  estaciones/huella                (auth.personal)
 GET  estaciones/alumno/{id}           (auth.personal)
 GET  estaciones/codigo/{codigo}       (auth.personal)
   -> { persona:{…}, acudiente:{…}|null, codigo, pasos:[ {nro, nombre, estado, cerrado_por,
-       cerrado_at, motivo, obligatorio, bloquea, mio:bool, requisitos:[…] } ],
+       cerrado_at, motivo, obligatorio, bloquea, mio:bool, requisitos:[…],
+       notas:{total, pendientes, reservadas},
+       notas_detalle:[ {id, texto|null, reservada, pendiente, de, cuando} ] } ],
        puede_atenderlo:bool, si_no:{devolver_a_nro, donde} }
 
 PUT  estaciones/{nro}/marcar          (auth.personal + rol de la estación)
@@ -96,6 +99,9 @@ PUT  estaciones/{nro}/marcar          (auth.personal + rol de la estación)
 
 PUT  estaciones/{nro}/enviar-a/{destino}   (auth.personal + rol de la estación)
   { alumno_id|aspirante_id }     registra el intento, NO escribe el paso
+
+POST estaciones/{nro}/nota            (auth.personal, CUALQUIERA del personal)
+  { alumno_id|aspirante_id, texto, pendiente:bool, reservada:bool }
 ```
 
 ### 3.1 · Por qué la huella es una ruta y no un `ETag`
@@ -131,7 +137,59 @@ permiso dentro.
 > docente que atiende Documentos el martes no es el del miércoles. Mientras eso sea una
 > persona, la estación tiene un dueño y no un turno. Va a la §5.
 
-### 3.3 · `enviar-a` no escribe el paso, y eso es lo que la hace útil
+### 3.3 · El globo de notas, y por qué la regla del 34 ya lo tenía resuelto
+
+La app pinta **un globo con un número sobre el círculo de cualquier estación** —la 1, la 4 o
+la 5, haya llegado o no—, porque el tesorero puede dejar escrito el lunes que esa familia
+tiene un saldo pendiente y la estación 5 se atiende el sábado. Entre esas dos fechas el dato
+existe y no lo ve nadie.
+
+**Y aquí hay una trampa que se ve sola si la huella está bien hecha, y no se ve nunca si está
+mal.** Una nota escrita en la **estación 5** tiene que hacer aparecer el globo en la pantalla
+del que atiende la **estación 2**, porque es él quien tiene delante a esa familia. Si la
+huella se calculara *«por estación anotada»*, la huella de la 2 no se movería y el globo
+saldría cuando alguien recargase a mano — o sea, cuando ya no sirve.
+
+No hace falta ninguna regla nueva: es **exactamente** lo que dice el
+[34](34-la-huella-de-sincronizacion.md) —*«se calcula sobre lo que devuelve la lectura, no
+sobre la tabla»*—. La cola de la 2 devuelve `notas_total` de **todas** las estaciones de esa
+persona, así que la huella de la 2 se calcula sobre eso y una nota en la 5 la mueve. La regla
+estaba escrita hace trece días para otro módulo y contesta ésta sin tocarla; por eso se cita
+en vez de inventar otra.
+
+**Tabla nueva, y es pequeña:**
+
+```
+notas_estacion   requisito_id (la estación), alumno_id|aspirante_id, texto,
+                 pendiente tinyint, reservada tinyint, resuelta_por, resuelta_at,
+                 escrita_por, created_at
+```
+
+**Los cuatro permisos, que no son el mismo:**
+
+| | Quién |
+|---|---|
+| **Leer que existe** (el número del globo) | cualquiera del personal, **también las reservadas** |
+| **Leer el texto** | cualquiera del personal, **salvo las reservadas** |
+| **Escribir** | cualquiera del personal, en **cualquier** estación |
+| **Dar por resuelta una pendiente** | solo el rol de **esa** estación |
+
+> **Que el conteo incluya las reservadas es una decisión, no un descuido.** El plan del front
+> ya lo pedía con esas palabras —*«si hay algo que tesorería deba mirar, le llega la señal sin
+> el texto»* (`PANTALLAS-MATRICULA.md`, pantalla 11)—, y el motivo es que **esconder que una
+> nota existe es peor que esconder su contenido**: quien ve el globo y no puede abrirlo sabe
+> a quién preguntarle; quien no ve nada, no pregunta.
+>
+> **Y la de resolver es la que más se va a querer aflojar.** Si cualquiera pudiera marcar una
+> pendiente como resuelta, la nota del tesorero la apagaría el primero a quien le estorbe para
+> cerrar su paso — que es justo el escenario contra el que se escribió.
+
+**Una nota NO es `motivo_devolucion`**, y esto hay que hacerlo cumplir en el esquema, no en la
+pantalla: el motivo pertenece al paso, **lo lee la familia** y va en su columna; la nota es
+entre el personal y la familia no la ve nunca. El día que compartan sitio, un comentario
+interno acaba en el celular de una mamá.
+
+### 3.4 · `enviar-a` no escribe el paso, y eso es lo que la hace útil
 
 El que llega a la 4 sin haber pasado por la 3 **no deja marca en el paso 4**: se registra el
 intento. Así el tablero del rector puede decir *«en la 4 se presentan doce sin pasar por la 3»*
@@ -142,8 +200,8 @@ con un paso que no ocurrió.
 
 ## 4. Lo que mueve, contado y no supuesto
 
-**Siete rutas nuevas**, todas con `auth.personal` **declarado en la ruta** y una familia nueva
-(`estaciones/`). Con las **615** que este árbol cuenta hoy, el router quedaría en **622** —y
+**Ocho rutas nuevas**, todas con `auth.personal` **declarado en la ruta** y una familia nueva
+(`estaciones/`). Con las **615** que este árbol cuenta hoy, el router quedaría en **623** —y
 ese número **se cuenta con `route:list --json` en el árbol principal después de fundir**, no se
 suma aquí: es la regla de `CLAUDE.md` y ya se ha roto tres veces.
 
@@ -151,21 +209,29 @@ suma aquí: es la regla de `CLAUDE.md` y ya se ha roto tres veces.
 
 | | por qué |
 |---|---|
-| `rutas.json` | siete rutas nuevas |
-| `guards-por-ruta.json` | las siete llevan guard |
-| `guard-por-familia.json` | familia nueva: `estaciones: 7 de 7` |
+| `rutas.json` | ocho rutas nuevas |
+| `guards-por-ruta.json` | las ocho llevan guard |
+| `guard-por-familia.json` | familia nueva: `estaciones: 8 de 8` |
 
 **Y NO mueve la cuarta, que es lo que hay que comprobar y no suponer.**
 `familias-que-nunca-entran-en-el-candado.json` lista las familias con **menos de dos hermanas
-con guard**, y ésta entra con siete de siete: el candado de consistencia por familia **sí la
+con guard**, y ésta entra con ocho de ocho: el candado de consistencia por familia **sí la
 mira**. Por lo mismo tampoco se mueve
 `FamiliasQueNuncaEntranTest::test_cuantas_escrituras_viven_donde_el_candado_no_llega`, que
-sigue en **26**: las dos escrituras nuevas (`marcar` y `enviar-a`) viven en una familia que el
-candado **sí** recorre.
+sigue en **26**: las tres escrituras nuevas (`marcar`, `enviar-a` y `nota`) viven en una
+familia que el candado **sí** recorre.
 
-**Tampoco se mueve `RutasPreLoginTest::TOTAL_PUBLICAS`**: ninguna de las siete es pública, y
+**Tampoco se mueve `RutasPreLoginTest::TOTAL_PUBLICAS`**: ninguna de las ocho es pública, y
 no puede serlo. Quien atiende una estación tiene cuenta —es personal del colegio— a
 diferencia de la familia del aspirante, que es lo que obligó a abrir las tres del formulario.
+
+> **Y hay un candado del repositorio que va a hablar de `POST estaciones/{nro}/nota`.**
+> `AutorizacionTest` compara las hermanas de cada cohorte de método, y aquí la familia tiene
+> **siete rutas cuyo permiso real se decide dentro** —el rol de la estación— **y una que a
+> propósito no**: escribir una nota lo puede hacer cualquiera del personal. Eso se declara en
+> `EXCEPCIONES_DE_FAMILIA` **con el motivo escrito**, nunca regenerando la instantánea y
+> pasando: es el mismo renglón que la colilla del formulario, y por el mismo motivo —la
+> excepción es la decisión, no el ruido—.
 
 **Y una tanda de migración**, que va antes que las rutas:
 
@@ -173,10 +239,11 @@ diferencia de la familia del aspirante, que es lo que obligó a abrir las tres d
 requisitos_matricula  + tipo, rol_id, obligatorio, bloquea, estacion_nro, dias_limite
 requisitos_alumno     + aspirante_id, cerrado_por, cerrado_at, motivo_devolucion
                       + el vocabulario cerrado de `estado` (§2)
+notas_estacion        TABLA NUEVA (§3.3)
 ```
 
-Son **columnas anulables sobre dos tablas pequeñas**, así que en MariaDB 10.5 entran al
-instante — la misma medida que dejó escrita la tanda de `notas`. Lo que **no** es gratis es el
+Son **columnas anulables sobre dos tablas pequeñas** más una tabla nueva, así que en MariaDB
+10.5 entran al instante — la misma medida que dejó escrita la tanda de `notas`. Lo que **no** es gratis es el
 §2: migrar lo escrito exige mirar los dieciséis colegios uno a uno.
 
 ---
@@ -192,6 +259,9 @@ instante — la misma medida que dejó escrita la tanda de `notas`. Lo que **no*
 3. **¿El push inmediato por estación entra ahora o después?** No bloquea nada —la cola con
    huella basta para el día de matrículas— pero si entra, **no puede ir por la tanda de los
    quince minutos** y el lado Flutter de `notificaciones.md` hay que empezarlo.
-4. **Las siete rutas, con el precio delante.** Una familia nueva entra **entera en un
+4. **¿La nota de una estación se le avisa a alguien, o solo espera ahí?** Si el tesorero
+   escribe el lunes «tiene saldo», nadie se entera hasta que alguien abra esa ficha. Avisar a
+   la estación dueña cuesta lo mismo que el aviso de la cola; avisar a todas es ruido.
+5. **Las ocho rutas, con el precio delante.** Una familia nueva entra **entera en un
    commit** —a trozos el censo la recogería mal— así que esto se autoriza de una vez o no se
    empieza.
