@@ -8,6 +8,74 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+> ## 🔶 LA PARCIAL EN EL BOLETÍN — FASE 2 DEL 43, **SIN FUNDIR** (20 sep 2026)
+>
+> **Mientras esta línea diga «SIN FUNDIR», el árbol principal no tiene nada de esto.** Rama
+> `feat/la-parcial-en-el-boletin`, en `.worktrees/bol`, base `simonbolivar_testing_bol`.
+>
+> **El front ya la fundió esta mañana en `myvc_front`; lo que faltaba era la API**, y la §Fase 2
+> del [43](43-lo-que-todavia-no-se-ha-calificado.md) decía justo lo contrario —*«no necesita
+> desplegar la API»*—. Lo destapó `myvc-front-a7` midiendo a qué endpoint llama de verdad su
+> pantalla: `PUT boletines/detailed-notas-group/{grupo}`, con el formato **fijo en el cliente**
+> (`semaforo-grupo.ts:73`, `FORMATO = 1`), o sea el mismo en los dieciséis. Y ese camino
+> —`Grupo::detailed_materias_notafinal` + `notas_finales`— **no era ninguno de los siete del censo
+> de la §Fase 1.bis**: es un OCTAVO calculador.
+>
+> | | |
+> |---|---|
+> | Nuevo | `app/Support/LaParcialYLaCobertura.php` |
+> | Tocados | `app/Models/Asignatura.php` (sólo las dos expresiones finales), `Informes/BoletinesController`, `Informes/NotasActualesAlumnosController` |
+> | Prueba | `tests/Contrato/LaParcialEnElBoletinTest.php` |
+> | Rutas · columnas · migraciones · consultas nuevas | **0 · 0 · 0 · 0** |
+> | Instantáneas movidas | **3**, y el diff entero son **6 líneas**: dos claves por fichero. `nota_asignatura` intacta, que es la prueba de que la acumulada no se movió |
+> | `composer.json` | **no se tocó**: los dos ficheros caen bajo `app/Support` y `tests`, que ya van como directorios enteros |
+>
+> **Tests: 3 failed → 399 passed (2.741 aserciones)** con el subconjunto ampliado de 26 clases
+> (`--testsuite=Contrato`), y los tres rojos eran **las tres instantáneas previstas**, regeneradas
+> y miradas enteras. Del fichero nuevo: **5 passed (32 aserciones)**, y **los dos controles se
+> vieron en rojo** — la guarda del `nota_id` tira 2 casos y `!== null` → `> 0` tira 1.
+> `composer run stan`: **`[OK] No errors`, 710 ficheros**. `composer run pint:test`: **`PASS`,
+> 488**.
+>
+> ### El subconjunto lo eligió Joseth, porque la herramienta no supo
+>
+> `tools/tests-que-tocan.py` salió con **2**: no sabe mapear `Asignatura.php` ni el helper porque
+> no son controladores enrutados. Se le pusieron las dos cifras delante —26 clases y ~6 min contra
+> la suite entera y ~23— y eligió el subconjunto ampliado, que son las 17 que mapeó más las 9 que
+> cubren los seis lectores de `calculoAlumnoNotas`.
+>
+> ### El censo decía TRES y son CINCO, y el detector mintió sin chirriar
+>
+> Los que pasan por `Grupo::detailed_materias_notafinal` son **cinco**. El tres salió de un
+> `grep … | head`, o sea de **una lista truncada por el propio comando que la producía**: plausible,
+> del tamaño esperado y sin nada que invitara a mirar. Lo recontó `8myvc-79` y ya está escrito en
+> `CLAUDE.md` como la cuarta forma en que un detector miente. Quién los gana y por qué no los otros
+> tres está en la tabla de la §Fase 2 del 43 — y el único candidato de verdad que queda fuera es
+> `Nota::alumnoPeriodoDetalle`, porque **no lo pide ninguna pantalla todavía**.
+>
+> ### Lo que queda por hacer
+>
+> 1. **Fundir**, y **recontar el router en el ÁRBOL PRINCIPAL** — aunque esta rama no añade
+>    ninguna ruta, el contador de `CLAUDE.md` se cuenta y no se hereda.
+> 2. **Avisar a `myvc-front-a7` con la instantánea regenerada delante**, que es lo acordado: va a
+>    volver a correr `conducir-semaforo-con-corte.mjs` **sin la interceptación** contra el docker.
+>    Si los doce veredictos salen igual con los datos de verdad que con los inyectados, la fase 2
+>    está encendida y medida.
+> 3. **Hablar con Joseth del orden del despliegue**: el front aguanta sin los campos —`hayCorte()`
+>    pregunta por `undefined`, así que un colegio sin desplegar imprime el papel del 19 de
+>    septiembre byte por byte—, pero la API tiene que llegar antes que nada que los espere.
+>
+> ### Lo que queda abierto, y es de Joseth
+>
+> - **La parcial no cuadra con la acumulada impresa al lado en modo `promedio`**, porque el
+>   numerador es el del bucle y la `nota_asignatura` publicada es la guardada. Es la discrepancia
+>   preexistente de los dos calculadores —14 pares de 99, hasta 42,3 puntos sobre 0–50—, ahora con
+>   un número al lado que la deja ver. **Unificarlos sigue siendo una decisión suya y no un
+>   arreglo.**
+> - **Pint**: los tres ficheros tocados que no están en la lista curada —`Asignatura.php` y los dos
+>   controladores de `Informes/`— **no se han añadido, a propósito**: van con tabuladores y
+>   formatearlos enterraría el diff. Es la misma decisión que la Fase 4 con sus cinco.
+
 > ## ✅ LAS ESTACIONES EN LA APP — NUEVE RUTAS, **FUNDIDA** (20 sep 2026)
 >
 > **FUNDIDA en `98dfa73`. Router en 634, RECONTADAS en el árbol principal sobre `main` y

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 
 use App\Models\Nota;
+use App\Support\LaParcialYLaCobertura;
 use App\User;
 /**
  * Las columnas de `asignaturas`, tal como están en el esquema congelado.
@@ -383,29 +384,23 @@ class Asignatura extends Model {
 		// dijeran números distintos del mismo alumno.
 		$asignatura->nota_asignatura = $nota_asignatura; // Definitiva de la materia
 
-		// El `* 10000` repone los dos `/100` que el acumulador entero se ahorró: el
-		// divisor real es `$peso_evaluado / 10000`, así que dividir por él es
-		// multiplicar por 10.000 y dividir por el entero. Una operación de coma
-		// flotante en vez de cincuenta.
-		$asignatura->nota_parcial = $peso_evaluado === 0
-			? null
-			: (float) (($nota_asignatura * 10000) / $peso_evaluado);
-
-		// Aquí los dos 10.000 se cancelan solos, así que la cobertura es el cociente
-		// exacto de dos enteros. El `(float)` está porque PHP devuelve `int` cuando la
-		// división es exacta —`0/100` y `100/100`—, y dentro de PHP conviene que las dos
-		// ramas del mismo campo tengan el mismo tipo.
+		// **Las dos fórmulas viven en `App\Support\LaParcialYLaCobertura` desde el 20 sep
+		// 2026, y aquí no queda más que la llamada.** No es aseo: la [Fase 2 del
+		// 43](../../docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md) las necesita
+		// también en el boletín, que **no pasa por este método** —va por
+		// `Grupo::detailed_materias_notafinal` y `notas_finales`—, y dos copias de una
+		// cuenta son dos copias que divergen. Pasó con las definitivas y con la bitácora, y
+		// por eso existen `DefinitivasDeAsignatura` y `Auditoria`.
 		//
-		// **Lo que NO hace es fijar el tipo en el JSON, y conviene no creérselo**: sin
-		// `JSON_PRESERVE_ZERO_FRACTION`, `json_encode(0.0)` sale `0` y `json_encode(1.0)`
-		// sale `1`, así que al cliente le llegan enteros en los extremos. Medido el 20 sep
-		// 2026: la instantánea de `notas-perdidas/show-profesor` registra `cobertura` como
-		// **`int|null`** —en el seed sólo salen 0 y 1— y `nota_parcial` como
-		// `float|int|null`. Es exactamente lo que ya le pasa a `nota_asignatura`, que lleva
-		// años siendo `float|int`. Quien lea esto en el front **compara valores, no tipos**.
-		$asignatura->cobertura = $peso_total === 0
-			? null
-			: (float) ($peso_evaluado / $peso_total);
+		// Lo que NO se movió es el bucle de arriba: los acumuladores, los `(int)` del peso y
+		// el `!== null` siguen aquí, porque cómo se sabe que una casilla existe es distinto
+		// en cada llamante —aquí un `count()`, en el boletín un `nota_id` de un `LEFT JOIN`—.
+		// Que esto no cambió ni un número lo prueba que no se movió ninguna instantánea.
+		$asignatura->nota_parcial = LaParcialYLaCobertura::parcial($nota_asignatura, $peso_evaluado);
+
+		// El porqué de cada `null` y la advertencia de los tipos en el JSON están en el
+		// helper, que es donde ahora los lee quien vaya a tocarlos.
+		$asignatura->cobertura = LaParcialYLaCobertura::cobertura($peso_evaluado, $peso_total);
 
 		return $asignatura;
 	}

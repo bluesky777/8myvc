@@ -109,6 +109,7 @@
                     "asignatura_id": "int",
                     "ausencias": [],
                     "bol_independiente": "bool",
+                    "cobertura": "int|null",
                     "created_at": "null|string",
                     "creditos": "int",
                     "desempenio": "null|string",
@@ -127,6 +128,7 @@
                     "nota_definitiva_anio_desempenio": "string",
                     "nota_faltante": "int",
                     "nota_original_asignatura": "null",
+                    "nota_parcial": "int|null",
                     "notas_finales": [
                         {
                             "desempenio": "string",

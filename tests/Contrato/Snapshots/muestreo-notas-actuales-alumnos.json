@@ -141,6 +141,7 @@
                                     "tipo": "string"
                                 }
                             ],
+                            "cobertura": "int",
                             "created_at": "string",
                             "creditos": "int",
                             "desempenio": "string",
@@ -167,6 +168,7 @@
                             "nombres_profesor": "string",
                             "nota_asignatura": "int",
                             "nota_original_asignatura": "null",
+                            "nota_parcial": "float|int",
                             "orden": "null",
                             "orden_area": "int",
                             "orden_materia": "null",
