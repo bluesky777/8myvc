@@ -632,7 +632,11 @@ docker exec 8myvc-app-1 php artisan test --filter=NotasTest    # una clase
 > > ```
 > >
 > > **Censado así ese día: 33 de 38 bases de test NO tenían la columna**, la
-> > `simonbolivar_testing` por defecto entre ellas, y sólo cinco sí. O sea que el
+> > `simonbolivar_testing` por defecto entre ellas, y sólo cinco sí. *Otra sesión
+> > lo recontó minutos después y dio **34 de 41**: entre los dos censos se habían
+> > creado y reconstruido bases. **Es una cifra que se mueve sola mientras se
+> > mira**, así que lo que hay que leer es la proporción y no el número — como las
+> > ramas sin fundir.* O sea que el
 > > caso corriente **es** la base desfasada, no la excepción — se hereda de días
 > > anteriores y nadie la reconstruye hasta que algo se pone rojo. El arreglo es
 > > `DB_TEST_DATABASE=… tools/construir-bd-test.sh`, y demuestra el diagnóstico:
