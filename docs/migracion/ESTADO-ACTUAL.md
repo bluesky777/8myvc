@@ -164,6 +164,34 @@
 > comprar nada; la IA sólo añade un botón que la rellena. `myvc-front-41` ya la está empezando en
 > `app2` contra este contrato.
 >
+> ### CONDUCIDA contra el docker, y lo que salió
+>
+> `myvc-front-41` la condujo con Chrome, entrando como `administrador` y con el fichero modelo de la
+> propia aplicación. **El ensayo contesta 200 y la pantalla se pinta entera** —13 hojas, tres con
+> datos, y `vacios` dando RH 30 y EPS 30 sobre 32 filas, que es exactamente el caso que justificaba
+> ese contador: 30 celdas que se guardan sin que nadie las haya decidido—.
+>
+> **Dos cosas salieron, y ninguna la habría visto un test:**
+>
+> 1. **`pendiente` daba 500 porque la migración no estaba corrida en la base de DESARROLLO.** La
+>    suite migra la suya, el docker no lo hace solo. Corregido corriendo `migrate`; el hueco es del
+>    proceso y no del código, y le pasará a cualquiera que traiga `main` sin migrar.
+> 2. **`sobran` mezclaba «no lo lee nadie» con «el ensayo no lo mira todavía»**, así que la pantalla
+>    decía «se ignoran» de **34 columnas con las que el importador crea personas**. Partido en dos.
+>    Misma familia que el `acudientes_tocados: 0`: el dato era correcto y la lectura que inducía,
+>    falsa.
+>
+> ### Y una prueba EN VIVO del pendiente del `.env`, que conviene guardar
+>
+> Ese 500 llegó al navegador con **`Host: database`, `Port: 3306` y `Database: simonbolivar`**
+> dentro del cuerpo. Es el pendiente que el [01](01-plan-seguridad.md) tiene sin verificar y que el
+> [09](09-pendientes.md) manda comprobar colegio a colegio: **con `APP_DEBUG=true`, un error filtra
+> datos de la conexión**. Aquí está ocurriendo, en una ruta nueva y vista desde una pantalla.
+>
+> **No se tapa con un `try/catch`**: ahí un 500 es legítimo —la base no tiene la columna, y eso hay
+> que verlo— y taparlo cambiaría un fallo de despliegue por un silencio. Lo que falta sigue siendo
+> lo mismo: **saber cómo está `APP_DEBUG` en los dieciséis**, que no lo ha mirado nadie.
+>
 > ### Lo que sigue abierto
 >
 > - **Aplicar lo que la pantalla decide**: hoy `respuestas` se guarda y se devuelve, pero **el
