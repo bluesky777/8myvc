@@ -202,7 +202,7 @@ notas_estacion   requisito_id (la estación), alumno_id|aspirante_id, texto,
 | **Leer que existe** (el número del globo) | cualquiera del personal, **también las reservadas** |
 | **Leer el texto** | cualquiera del personal, **salvo las reservadas** |
 | **Escribir** | cualquiera del personal, en **cualquier** estación |
-| **Dar por resuelta una pendiente** | solo el rol de **esa** estación |
+| **Dar por resuelta una pendiente** | **quien la escribió**, o `Admin` (1), `Secretario` (12) o `Rector` (10) |
 
 > **Que el conteo incluya las reservadas es una decisión, no un descuido.** El plan del front
 > ya lo pedía con esas palabras —*«si hay algo que tesorería deba mirar, le llega la señal sin
@@ -213,6 +213,18 @@ notas_estacion   requisito_id (la estación), alumno_id|aspirante_id, texto,
 > **Y la de resolver es la que más se va a querer aflojar.** Si cualquiera pudiera marcar una
 > pendiente como resuelta, la nota del tesorero la apagaría el primero a quien le estorbe para
 > cerrar su paso — que es justo el escenario contra el que se escribió.
+>
+> **DECIDIDO por Joseth el 20 sep 2026, y no es lo que este documento pedía.** Pedía «el rol de
+> esa estación», y ese rol **no existe**: desde que cerrar un paso lo puede hacer cualquiera
+> del personal, la estación no tiene dueño. La regla que entra es **quien la escribió, o
+> `Admin`, `Secretario` o `Rector`** —los tres están en la tabla `roles` con los ids 1, 12 y
+> 10—, así que se comprueba sin acuñar un concepto nuevo que cada colegio tendría que
+> configurar antes de que el módulo sirviera.
+>
+> **Protege lo mismo y se sostiene mejor**: el que atiende la estación 5 no es ni quien
+> escribió la nota ni ninguno de esos tres, así que el aviso del tesorero sigue sin poder
+> apagarlo quien tenga prisa. Y la puerta de escape es nominal —Secretaría o Rectoría— en vez
+> de anónima.
 
 **Una nota NO es `motivo_devolucion`**, y esto hay que hacerlo cumplir en el esquema, no en la
 pantalla: el motivo pertenece al paso, **lo lee la familia** y va en su columna; la nota es
@@ -278,20 +290,35 @@ Son **columnas anulables sobre dos tablas pequeñas** más una tabla nueva, así
 
 ---
 
-## 5. Lo que espera una decisión de Joseth
+## 5. ~~Lo que espera una decisión de Joseth~~ — LAS CINCO, CONTESTADAS EL 20 SEP 2026
 
-1. ~~**¿Estación con rol o estación con persona?**~~ — **CONTESTADA el 20 sep**, ver la nota de
-   arriba: **ninguna de las dos**. Cierra cualquiera del personal y queda firmado. Lo que
-   **sigue abierto** es su cola: si eso vale también para `enviar-a` y para **resolver** una
-   nota pendiente (§3.3), que es donde este documento pedía el rol de la estación.
-2. **¿Se le avisa al acudiente en cada estación, o solo cuando lo devuelven?** Cinco avisos en
-   una mañana es spam; uno solo cuando algo sale mal puede llegar tarde.
-3. **¿El push inmediato por estación entra ahora o después?** No bloquea nada —la cola con
-   huella basta para el día de matrículas— pero si entra, **no puede ir por la tanda de los
-   quince minutos** y el lado Flutter de `notificaciones.md` hay que empezarlo.
-4. **¿La nota de una estación se le avisa a alguien, o solo espera ahí?** Si el tesorero
-   escribe el lunes «tiene saldo», nadie se entera hasta que alguien abra esa ficha. Avisar a
-   la estación dueña cuesta lo mismo que el aviso de la cola; avisar a todas es ruido.
-5. **Las ocho rutas, con el precio delante.** Una familia nueva entra **entera en un
-   commit** —a trozos el censo la recogería mal— así que esto se autoriza de una vez o no se
-   empieza.
+1. ~~**¿Estación con rol o con persona?**~~ — **ninguna de las dos**: cierra cualquiera del
+   personal y queda con su nombre y su hora. `rol_id` descartado
+   ([44](44-el-dia-de-matriculas.md) §2), y ya desplegado.
+2. ~~**¿Se le avisa al acudiente en cada estación, o solo cuando lo devuelven?**~~ — **en cada
+   estación.** Con el nombre del menor dentro y **sin el motivo**: `notificaciones.md` permite
+   lo primero y prohíbe lo segundo, y el motivo se lee abriendo la app.
+3. ~~**¿El push inmediato entra ahora o después?**~~ — **ahora**, y por tanto **no** por la
+   tanda de los quince minutos: hay que publicar en el momento, y el lado Flutter de
+   `notificaciones.md` hay que empezarlo (`firebase_messaging` no está en `pubspec.yaml`).
+   **La cola sondeada con huella no se retira**: un push perdido no puede dejar a una familia
+   invisible.
+4. ~~**¿La nota de una estación se le avisa a alguien?**~~ — **no: espera ahí.** El globo la
+   enseña a cualquiera que abra la ficha, y nadie puede resolverla hasta que la familia llegue.
+   **Esto quita trabajo del contrato**: `POST estaciones/{nro}/nota` no dispara nada.
+5. **Las ocho rutas, con el precio delante** — **lo único que sigue esperando.** Una familia
+   nueva entra **entera en un commit**; el precio está en la §4 y no ha cambiado con lo de
+   arriba, salvo que la 4 lo abarata: la nota no necesita cola de avisos.
+
+### Y una medición que acorta el §2, hecha el 20 sep al fundir
+
+El §2 pedía cerrar el vocabulario de `estado` **antes que las rutas**. Sigue haciendo falta,
+pero ya no está solo: **el desacuerdo de mayúsculas existe hoy** —`AlumnosController:899`
+inserta `"falta"` en minúscula y el defecto de la tabla es `'Falta'`—, y sin embargo
+`cerrado_at` **es inmune**, porque `postAlumno` compara con `mb_strtolower`. Una cola apoyada
+en `cerrado_at IS NOT NULL` no se rompe con una pantalla vieja.
+
+**La trampa, para que no se prometa sin mirarla:** `cerrado_at` se escribe con `COALESCE`, o
+sea **una sola vez**. Reabrir un paso no la limpia, así que la cola lo vería cerrado. Limpiarla
+al reabrir es una línea en `postAlumno`; migrar el vocabulario de dieciséis colegios es un
+trabajo. **Las dos son de aquí**, pero dejaron de estar empatadas.
