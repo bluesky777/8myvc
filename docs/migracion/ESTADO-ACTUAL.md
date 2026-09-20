@@ -73,6 +73,86 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## ✅ `GET muro/app` — EL MURO SIN EL CALENDARIO, ROUTER EN 613 (19 sep 2026, SIN FUNDIR)
+>
+> **Pedido por `myvc_flutter` (§5 de su `backend-pendiente.md`) y autorizado por Joseth el
+> 19 sep con las cuatro opciones delante.** Está en `.worktrees/muro`, rama
+> `feat/muro-para-la-app`, **sin fundir**: el contador de `CLAUDE.md` dice 613 con esa
+> condición escrita al lado, y hay que recontarlo en el árbol principal el día que entre.
+>
+> **El problema**: `GET ChangesAsked/to-me` manda **128 KB de calendario** (593 filas) que la
+> app **no lee en ningún rol** —comprobado: `eventos` no aparece ni una vez en todo `lib/` de
+> Flutter—, y siete consultas por acudido de las que sólo mira una. El argumento no es el
+> coste medio sino el pico: una notificación push hace que cientos de teléfonos abran a la
+> vez contra un hosting de un núcleo.
+>
+> ### Lo que cambió respecto al encargo, y las tres cosas son medidas
+>
+> **1 · La opción barata no existía.** §5 ofrecía «no mandar `eventos` a quien no lo pinta,
+> sin estrenar ruta». **No se puede**: este backend **no distingue la app del front web** —el
+> mismo token, el mismo `tipo`, y no hay cabecera de cliente—, así que vaciar `eventos` para
+> un acudiente se lo quita también al acudiente que abre el panel **en el navegador**, cuya
+> carga inicial sale justamente de ahí (`myvc_front`, `AnunciosCtrl.ts:1485`). O sea que la
+> ruta nueva no es la opción cara: **es la única que no le quita nada a nadie.**
+>
+> **2 · El contrato pedía tres claves y la app lee CINCO** (`MuroApi.dart`, `cuerpo['...']`).
+> Faltaban **`horario_version_id`** —que existe por decisión de Joseth del 2 sep para que
+> `horario_hoy: []` deje de significar dos cosas— y **`ausencias_periodo`**, la asistencia
+> del propio alumno. Es *«un encargo correcto deja atrás lo que no nombra»* otra vez.
+>
+> > **Y el modo de fallo que yo escribí para la primera estaba DEL REVÉS.** Dije que sin ella
+> > volvía el mensaje falso de agosto —«Hoy no tienes clases» a todo el mundo—; lo corrigió
+> > `myvc_flutter-c2` y se comprobó en su fuente: `HorarioDeHoy.tomar` hace
+> > `_clases = versionOficial == null ? null : clasesDeHoy`, así que sin la clave `seSabe`
+> > vale **`false`** y la app **no dice nada** — `MuroScreen` esconde el bloque y el filtro
+> > «sólo las de hoy» de `NotasScreen` se apaga. **Omitirla apaga la función en silencio en
+> > vez de mentir**, que es más barato y exactamente igual de invisible.
+> >
+> > La conclusión no se movió —la clave viaja, y el test la exige— pero el argumento escrito
+> > sí, y la diferencia importa: es lo que hay que buscar el día que alguien la quite. Estaba
+> > mal en el controlador, en el test y en el mensaje del commit `eb13d8e`, que no se puede
+> > reescribir; corregido en los dos primeros.
+>
+> **3 · El calendario no tiene ni una fila de 2026.** Las 593 van de 2019 a 2025 y 86 son
+> anteriores a 2024: **nadie ha curado esa tabla**. Filtrar por año lo dejaría hoy vacío en el
+> front web —que es la verdad y parece una avería—, así que **no se hace aquí** y queda
+> escrito. De paso: `calendario/this-year` **no filtra por año** pese al nombre y sigue
+> mandando los **215,5 KB** con `SELECT *` —el recorte del 2 sep arregló `to-me` y no a ella—,
+> y es la que llama el botón «Actualizar» del panel.
+>
+> ### Lo que cazaron las pruebas y habría salido el día del despliegue
+>
+> - **`persona_id` y no `profesor_id`**: para un Profesor esa propiedad **no existe** en el
+>   contexto (la de `profesor_id` es la rama del superusuario) — «Undefined property» y 500.
+> - **El seed no tiene ni un acudiente con acudidos**: los **76** viven en el año `1` y las
+>   matrículas están en el `7` y el `8`. Sin fabricar el caso dentro del test, `alumnos` sale
+>   `[]` y los casos de columnas pasan **sin mirar una sola fila** — y lo que no se miraría
+>   son datos personales de un menor.
+>
+> ### Lo que mueve, y el renglón que hay que leer con cuidado
+>
+> **Cuatro instantáneas, no tres**, porque estrena familia: `rutas.json`,
+> `guard-por-familia.json`, `familias-que-nunca-entran-en-el-candado.json` —donde entra como
+> **`muro: 0 de 1`**— y `guards-por-ruta.json` **no se movió** (lista las que declaran guard).
+>
+> **Ese `0 de 1` es la forma exacta que tendría un agujero**, y se acepta **con el motivo
+> escrito**: el censo cuenta `->middleware(...)` **declarado en la ruta**, y ésta no declara
+> ninguno porque vive dentro del grupo `auth.token` de `routes/api.php`. Es el mismo caso que
+> `notificaciones: 0 de 1`. Lo que lo distingue de un agujero de verdad no es este párrafo:
+> es `MuroParaLaAppTest::test_sin_token_no_contesta`, que exige **401**.
+>
+> ### Estado
+>
+> `MuroParaLaAppTest`: **7 passed (35 assertions)** (`--filter=MuroParaLaAppTest`,
+> `--testsuite=Contrato`, en `.worktrees/muro` con `DB_TEST_DATABASE=simonbolivar_testing_muro`).
+> Los candados de ruta: **82 passed** (`--filter='Rutas|Autoriza|Autenticacion|FamiliasQueNuncaEntran'`).
+> `pint:test` **PASS, 433 ficheros** —`MuroController` entra en la lista curada en este mismo
+> commit—. **`ChangesAsked/to-me` no se tocó**, y hay un test que lo ata: le sigue mandando el
+> calendario al front web.
+>
+> **Lo único que se tocó del fichero viejo** es que `asignaturas_dia` pasa de `private` a
+> `public static` —no usa `$this`, comprobado antes de moverla— para que las clases de hoy se
+> lean **de un solo sitio**. Cuatro llamadas actualizadas, ninguna respuesta movida.
 > ## ✅ EL FORMULARIO DE INSCRIPCIÓN IMPRESO Y SU COBRO — LAS DIEZ RUTAS, ROUTER EN 612 (19 sep 2026)
 >
 > **Autorizado por Joseth con el precio delante**, que es como entra una familia nueva aquí. El

@@ -8,6 +8,7 @@ use App\Http\Controllers\Disciplina\ComportamientoController;
 use App\Http\Controllers\Disciplina\DisciplinaController;
 use App\Http\Controllers\Disciplina\OrdinalesController;
 use App\Http\Controllers\Informes\PlanillasAusenciasController;
+use App\Http\Controllers\MuroController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -42,6 +43,17 @@ Route::put('ChangesAsked/destruir-pedido-asignatura', [ChangeAskedController::cl
 Route::put('ChangesAsked/rechazar', [ChangeAskedController::class, 'putRechazar'])->middleware('auth.personal');
 Route::put('ChangesAsked/solicitar-cambios', [ChangeAskedController::class, 'putSolicitarCambios'])->middleware('auth.personal');
 Route::get('ChangesAsked/to-me', [ChangeAskedController::class, 'getToMe']);
+
+// **El mismo muro, para la app.** Va pegada a su hermana a propósito: quien lea una
+// tiene que ver la otra, porque la regla de esta pareja es que **`to-me` no se toca**
+// —lo usa el panel del front web y ahí sí se pinta el calendario— y lo que la app
+// necesita se añade aquí. Lo que se ahorra son 128 KB de `eventos` que Flutter tira
+// sin mirar, y seis de las siete consultas por acudido. El porqué entero, con lo
+// medido y con por qué NO se pudo hacer sin estrenar ruta, está en `MuroController`.
+//
+// Sin `auth.personal`: la piden alumnos y acudientes, que es de quien va el ahorro.
+// Le basta el `auth.token` que la API pone por defecto a todo.
+Route::get('muro/app', [MuroController::class, 'getApp']);
 Route::put('ChangesAsked/ver-detalles', [ChangeAskedController::class, 'putVerDetalles'])->middleware('auth.personal');
 
 // ChangeAskedAssignmentController

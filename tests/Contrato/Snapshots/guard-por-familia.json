@@ -247,6 +247,10 @@
         "total": 5,
         "con_guard": 2
     },
+    "muro": {
+        "total": 1,
+        "con_guard": 0
+    },
     "myimages": {
         "total": 10,
         "con_guard": 5

@@ -134,6 +134,7 @@
     "GET api/informes/formularios-inscripcion/campos": "App\\Http\\Controllers\\Informes\\FormulariosInscripcionController@getCampos",
     "GET api/informes/formularios-inscripcion/{lote}": "App\\Http\\Controllers\\Informes\\FormulariosInscripcionController@getLote",
     "GET api/materias": "App\\Http\\Controllers\\MateriasController@getIndex",
+    "GET api/muro/app": "App\\Http\\Controllers\\MuroController@getApp",
     "GET api/myimages": "App\\Http\\Controllers\\Perfiles\\ImagesController@getIndex",
     "GET api/niveles_educativos": "App\\Http\\Controllers\\NivelesEducativosController@getIndex",
     "GET api/niveles_educativos/show/{id}": "App\\Http\\Controllers\\NivelesEducativosController@getShow",

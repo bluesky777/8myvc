@@ -12,7 +12,23 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**612 rutas** (contadas con `route:list --json` el **19 sep 2026 a las 18:54 en el ÁRBOL
+**613 rutas** (**recontadas con `route:list --json` el 19 sep 2026 en el ÁRBOL PRINCIPAL, sobre
+`main` y después de fundir** — y coincidió con las 613 contadas antes en `.worktrees/muro`, que es
+la única forma de saber que coincidía. La línea anterior decía *«SIN FUNDIR: hay que recontarlas
+en el árbol principal el día que entren»*, y esto es ese día — la que sube sobre las 612 es
+**`GET muro/app`**, el muro para la app, y **estrena familia**, así que mueve **cuatro**
+instantáneas y no tres: las tres de siempre más `familias-que-nunca-entran-en-el-candado.json`,
+donde entra como **`muro: 0 de 1`**.
+
+> **Ese `0 de 1` es el renglón que tendría un agujero, y aquí no lo es — va escrito porque la
+> regla dice que se acepta con el motivo y nunca regenerando y pasando.** El censo cuenta
+> `->middleware(...)` **declarados en la ruta**, y `muro/app` no declara ninguno porque vive
+> dentro del grupo `auth.token` de `routes/api.php`, que cubre toda la API. Es **exactamente el
+> mismo caso que `notificaciones: 0 de 1`**, que lleva meses ahí por lo mismo. Lo que lo
+> distingue de un agujero de verdad no es este texto: es
+> `MuroParaLaAppTest::test_sin_token_no_contesta`, que exige **401**.
+
+El número anterior era **612**, contado con `route:list --json` el **19 sep 2026 a las 18:54 en el ÁRBOL
 PRINCIPAL, sobre `main` y después de fundir** (`982a8cb`) — y **coincidió con las 612 contadas
 antes en `.worktrees/92`, que es la única forma de saber que coincidía**. Las dos que suben sobre las 610 son
 las de `pagos-inscripcion/` —el checkout y el webhook del pago en línea del formulario—, que
