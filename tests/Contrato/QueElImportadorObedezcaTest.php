@@ -152,6 +152,57 @@ class QueElImportadorObedezcaTest extends CasoDeContrato
     }
 
     /**
+     * CORREGIR EL ESTADO SE NOTA EN EL PLAN, no sólo en un contador.
+     *
+     * Conduciendo contra el servidor salió que el servidor decía «usé tu
+     * corrección 14 veces» **y en el mismo JSON seguía avisando de que esas 14
+     * no se escriben**. Las dos no pueden ser ciertas a la vez, y desde una
+     * pantalla la lectura es la peor: «corregí y el aviso sigue, así que no
+     * funcionó».
+     *
+     * Eran dos fallos en el mismo sitio: los truncados se calculaban sobre el
+     * valor CRUDO del Excel en vez del ya traducido, y el estado de la matrícula
+     * no entraba en el plan **porque no vive en `alumnos`** — así que los totales
+     * no se movían jamás con ese campo por mucho que la corrección llegara a la
+     * base.
+     */
+    public function test_corregir_el_estado_se_nota_en_el_plan(): void
+    {
+        [$token, $year] = $this->personalYSuYear();
+        $archivo = $this->conEstado($this->exportacionDeAlumnos($token), 'Activo');
+
+        // Sin decidir: sale como truncado y no cambia nada.
+        $sinDecidir = $this->ensayar($archivo, $token, $year)->assertStatus(200);
+
+        $this->assertNotNull(collect($sinDecidir->json('truncados'))->firstWhere('valor', 'Activo'));
+
+        $respuestas = ['vocabularios' => [
+            ['columna' => 'estado_matricula', 'valor_original' => 'Activo',
+                'decision' => 'usar_valor', 'valor' => 'ASIS'],
+        ]];
+
+        $conDecision = $this->ensayar($archivo, $token, $year, $respuestas)->assertStatus(200);
+
+        $this->assertEmpty(
+            collect($conDecision->json('truncados'))->firstWhere('valor', 'Activo'),
+            'El aviso de truncado mira el valor CRUDO: con la corrección puesta ya no hay nada que truncar.'
+        );
+
+        $this->assertGreaterThan(
+            0,
+            $conDecision->json('totales.actualizar'),
+            'Si el plan no se mueve, la pantalla no tiene forma de enseñar que la corrección sirvió.'
+        );
+
+        $cambio = collect($conDecision->json('plan'))
+            ->pluck('cambios')->flatten(1)->firstWhere('campo', 'estado_matricula');
+
+        $this->assertNotNull($cambio, 'El estado vive en `matriculas` y aun así tiene que salir en el plan.');
+        $this->assertSame('ASIS', $cambio['despues']);
+        $this->assertSame('matriculas', $cambio['tabla']);
+    }
+
+    /**
      * UNAS RESPUESTAS DE OTRO FICHERO NO SE APLICAN A ÉSTE.
      *
      * Es el agujero que este módulo lleva rodeando: alguien aprueba trece
