@@ -24,6 +24,20 @@
 > da su tamaño. Y el invariante se cumple en Quinto —parcial y acumulada idénticas en las diez—,
 > que es lo que acota la §7 del 43; está anotado allí con su salvedad.
 >
+> > **⚠️ LA SEGUNDA TANDA CAYÓ EN EL PERIODO SUCIO, y se salvó por dónde cayó cada cosa.**
+> > «Segundo, periodo 2» es el **grupo 96 del periodo 31**, que es justamente donde el censo de la
+> > §7 encuentra las **616 discrepancias** entre la definitiva guardada y la recalculada —los otros
+> > tres periodos de 2025 dan cero—. Lo vio `myvc-front-a7` al leer el censo, no al medir.
+> >
+> > **Sus nueve veredictos valen enteros**, y el motivo es concreto: son todos sobre **el papel**
+> > —cuántas casillas grises, si la que imprime enseña su `%`, si alguna gris enseña un cero— y
+> > **ninguno compara la parcial con la acumulada**, que es lo único que el periodo 31 envenena. El
+> > invariante se midió en **Quinto, periodo 30**, que es de los limpios.
+> >
+> > *O sea que la medición buena y el periodo sucio se cruzaron y no se tocaron por suerte, no por
+> > diseño.* Queda escrito para el siguiente: **para comparar números, el periodo 30; el 96/31
+> > sirve para mirar el papel y no para cuadrar cifras.**
+>
 > ### Y el caso real SÍ se podía medir aquí: había que mirar otro año
 >
 > Este documento llegó a decir que el escenario real no se veía en el docker y que había que
