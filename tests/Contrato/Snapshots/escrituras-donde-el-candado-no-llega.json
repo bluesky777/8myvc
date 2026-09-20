@@ -10,6 +10,8 @@
     "PUT api/calendario/crear-evento",
     "PUT api/calendario/eliminar-evento",
     "PUT api/calendario/guardar-evento",
+    "PUT api/calendario/mes",
+    "PUT api/calendario/proximos",
     "PUT api/calendario/sincronizar-cumples",
     "PUT api/calendario/this-year",
     "PUT api/enfermeria/guardar-valor",

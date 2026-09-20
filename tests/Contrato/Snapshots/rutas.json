@@ -375,6 +375,8 @@
     "PUT api/calendario/crear-evento": "App\\Http\\Controllers\\Perfiles\\CalendarioController@putCrearEvento",
     "PUT api/calendario/eliminar-evento": "App\\Http\\Controllers\\Perfiles\\CalendarioController@putEliminarEvento",
     "PUT api/calendario/guardar-evento": "App\\Http\\Controllers\\Perfiles\\CalendarioController@putGuardarEvento",
+    "PUT api/calendario/mes": "App\\Http\\Controllers\\Perfiles\\CalendarioController@putMes",
+    "PUT api/calendario/proximos": "App\\Http\\Controllers\\Perfiles\\CalendarioController@putProximos",
     "PUT api/calendario/sincronizar-cumples": "App\\Http\\Controllers\\Perfiles\\CalendarioController@putSincronizarCumples",
     "PUT api/calendario/this-year": "App\\Http\\Controllers\\Perfiles\\CalendarioController@putThisYear",
     "PUT api/cambiar-usuarios/poner-documento-como-username-acudientes": "App\\Http\\Controllers\\CambiarUsuarios\\CambiarUsuariosController@putPonerDocumentoComoUsernameAcudientes",
