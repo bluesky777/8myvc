@@ -718,6 +718,56 @@ docker exec 8myvc-app-1 php artisan test --filter=NotasTest    # una clase
 > > > del proceso. Si hace falta `docker stats`, **cinco muestras y el rango**,
 > > > nunca una.
 
+## LA SUITE ENTERA SE PAGA ANTES DE DESPLEGAR, NO ANTES DE FUNDIR
+
+**Regla de Joseth del 20 sep 2026, y hay que leerla antes de lanzar ninguna
+corrida.** La suite completa son **2.520 pruebas y ~23 minutos**, y aquí trabajan
+**ocho sesiones a la vez** sobre el mismo docker: cuatro líneas en paralelo son
+cuatro suites de ~180 MB y un núcleo cada una. El 20 sep se llegó a **cinco a la
+vez** con la máquina en swap.
+
+> **Fundir es barato de deshacer; desplegar no.** `main` recibe fusiones toda la
+> tarde —ocho el 20 sep entre las 11:31 y las 12:44— y un rojo que entre ahí se
+> arregla con otro commit. Lo desplegado viaja a **dieciséis colegios copia a
+> copia**, y allí el rojo lo descubre una secretaría. La suite entera se paga
+> donde el error es caro.
+
+**Lo que se corre normalmente es el subconjunto que cubre lo que cambió**, y lo
+calcula `tools/tests-que-tocan.py` a partir de los ficheros de la rama:
+
+```bash
+python3 tools/tests-que-tocan.py                 # contra el merge-base de main
+#   salida 0 -> imprime el `--filter` seguro
+#   salida 2 -> no hay subconjunto seguro: PREGUNTAR a Joseth, no decidir solo
+```
+
+**Cuándo SÍ va la suite entera, y son cinco ficheros y un momento:**
+`routes/`, `database/migrations/`, `database/schema/`, `config/`,
+`tests/TestCase.php` o `composer.json|lock` — y **antes de cada despliegue**.
+
+**Y cuando la herramienta no sabe mapear algo, se pregunta.** No se corre la
+entera «por si acaso» —cuesta 23 minutos de una máquina compartida— ni se recorta
+en silencio —un subconjunto que no cubre lo que cambió es una medición sobre la
+población equivocada—. Las dos cifras se le ponen delante y elige él.
+
+> **Toda corrida de la suite entera lleva `COBERTURA_RUTAS` puesta**, porque es
+> lo que mantiene vivo el mapa del que sale el subconjunto, y no cuesta nada:
+>
+> ```bash
+> docker exec -w /app -e DB_TEST_DATABASE=<la tuya> \
+>     -e COBERTURA_RUTAS=/tmp/rutas-tocadas.txt 8myvc-app-1 php artisan test
+> ```
+>
+> Sin ese fichero el mapa no existe y la herramienta manda a preguntar **siempre**
+> — que es lo correcto, pero también lo inútil.
+
+> **Y el mapeo no es por nombres, porque se midió y no vale.** De 259 ficheros de
+> `app/` muestreados el 20 sep, **58 no los nombra ningún test** (22 %), y
+> `NotasController` salía con 7 cuando hay más que lo ejercitan por HTTP: los
+> tests de contrato llaman **por ruta** y no nombran al controlador. La cadena que
+> sí es exacta es `fichero -> sus rutas (route:list) -> tests que las tocan (el
+> registrador de tests/TestCase.php)`.
+
 > **Y una cifra de pruebas se publica CON LA ORDEN QUE LA PRODUJO, nunca con la
 > palabra «suite».** Costó una fusión parada el 7 sep 2026: una sesión citó
 > **2.078** y otra **1.948** sobre el mismo trabajo, las dos correctas y las dos
@@ -838,6 +888,7 @@ leyendo el código. Cada una lleva su uso en la cabecera.
 | `imports-de-facades.php` | qué `use` resuelven por el array `aliases` en vez de por el nombre completo — **`--dry-run` NO es opcional (sin él ESCRIBE) y NO mira el orden: detrás va `pint:test`** |
 | `requisitos-de-matricula.php` | cómo usa un colegio **de verdad** los requisitos: cuántos pasos, en qué orden, con qué dueño y cuántos se cierran — **imprime el nombre de la base en cada bloque**, porque en desarrollo sale 1 paso y 0 cerrados y eso contesta bien a otra pregunta |
 | `lo-que-reparte-una-columna.py` | qué instantáneas se mueven el día que una tabla gane una columna — **cobertura, no exposición**: son los ficheros que hay que regenerar, no las respuestas que ganan la columna |
+| `tests-que-tocan.py` | qué tests hay que correr para lo que cambió esta rama — y **cuándo NO basta un subconjunto**; se equivoca siempre hacia correr de más y **dice lo que no supo mapear** en vez de callarlo |
 | `ensayo-del-alter-en-maria.sh` | si el `ALTER` de la casilla vacía bloquea el guardado de notas en **MariaDB**, que es lo que corre producción — **la señal no es que la escritura falle, es la LATENCIA**, así que trae su propio control que sí bloquea (`COPY, LOCK=SHARED`) |
 | `correo-de-los-colegios.sh` | qué instalaciones no pueden mandar correo, leído de su `.env` — **la caché de configuración manda sobre el fichero**, y la instalación viva de `lal` queda fuera del bucle: sale `2`, nunca verde |
 
