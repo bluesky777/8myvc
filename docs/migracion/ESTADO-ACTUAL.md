@@ -8,6 +8,60 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+> ## 🔴 LA FASE 2 MIENTE EN EL BOLETÍN INDEPENDIENTE — MEDIDO AL FUNDIRLA (20 sep 2026)
+>
+> **Espera decisión de Joseth. No es una deuda vieja: es la fase que se acaba de fundir dando un
+> número falso en un caso concreto, y el número es nuevo.**
+>
+> `BoletinIndependienteController` tiene **dos siembras vivas** —`sembrarLasCasillasDeSusUnidades`
+> (`:2363`) y `sembrarLasNotasQueFaltan` (`:2431`)— que hacen
+> `INSERT INTO notas (… nota …) SELECT s.id, ?, s.nota_default, …`, o sea que crean la casilla
+> **con el valor por defecto de la subunidad en vez de `NULL`**. Es el bug de origen del 43, y el
+> commit de la Fase 0 censó *«las tres siembras vivas»* cuando son **cinco**: lo levantó `8myvc-d7`
+> y quedó sin contestar.
+>
+> ### Lo que no estaba medido, y es lo que lo cambia de sitio
+>
+> La deuda venía contada como *«además le ensucia la cobertura»*. Medido en la copia de desarrollo:
+>
+> ```sql
+> SELECT COUNT(*) FROM subunidades WHERE deleted_at IS NULL AND nota_default IS NULL;  -- 0
+> SELECT COUNT(*) FROM subunidades WHERE deleted_at IS NULL AND nota_default = 0;      -- 32.288
+> SELECT COUNT(*) FROM subunidades WHERE deleted_at IS NULL AND nota_default > 0;      --  4.445
+> ```
+>
+> **Ninguna subunidad tiene `nota_default` nulo**, así que esas dos siembras **nunca** escriben
+> `NULL`: toda casilla que crean nace con una `nota` no nula. No es un caso de borde, es el 100 %.
+>
+> ### La consecuencia, que es nueva desde hoy
+>
+> `LaParcialYLaCobertura` cuenta como evaluada toda fila con `nota !== null` —y eso **es
+> correcto**, porque el `0` que teclea un docente es una nota—. Pero una casilla sembrada tiene
+> `nota_id` no nulo **y** `nota` no nula, así que para un alumno con boletín independiente
+> sembrado sale **`cobertura: 1`** y **la parcial igual que la acumulada**.
+>
+> O sea: la pantalla afirma **con confianza y con un número al lado que se evaluó todo**,
+> justamente en los alumnos donde no se evaluó nada. Antes el semáforo decía BAJO sin dar razones;
+> ahora da una razón y es falsa. *Para esos alumnos el 43 sale al revés de lo que pretendía*, y la
+> Fase 2 es lo que lo hace visible — el fallo es de la siembra, no del helper.
+>
+> ### Lo que NO se midió, y por qué no se midió aquí
+>
+> **Cuántos alumnos tienen hoy boletín independiente sembrado en un colegio de verdad.** En la
+> copia de desarrollo hay **82.975** notas con valor `0` sobre **1.166.608**, pero **no se separó
+> lo que tecleó un docente de lo que sembró esto**, y sin esa separación el número no dice nada:
+> ese censo es del §7 del 43 y su dueño es `8myvc-79`. *Una cifra sobre la población equivocada no
+> falla, contesta.*
+>
+> ### Las dos salidas, para que se elija con el precio delante
+>
+> | | qué cuesta |
+> |---|---|
+> | **Sembrar `NULL`** en las dos siembras | arregla el origen; hay que mirar qué lee hoy esas casillas esperando un número, y si alguna pantalla cuenta filas en vez de valores |
+> | **Dejarlo y que la cobertura lo absorba** | no toca nada, pero deja la pantalla afirmando 100 % de cobertura sobre casillas que nadie calificó |
+>
+> No se toca ninguna de las dos sin que Joseth conteste: la primera reescribe filas de `notas`.
+
 > ## ✅ LA PARCIAL EN EL BOLETÍN — FASE 2 DEL 43, **FUNDIDA** (20 sep 2026, `e14e675`)
 >
 > **Fundida en el ÁRBOL PRINCIPAL sobre `main`**, viniendo de `feat/la-parcial-en-el-boletin`
