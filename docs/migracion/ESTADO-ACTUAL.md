@@ -8,18 +8,20 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-> ## 🚧 LAS ESTACIONES EN LA APP — NUEVE RUTAS, **SIN FUNDIR** (20 sep 2026)
+> ## ✅ LAS ESTACIONES EN LA APP — NUEVE RUTAS, **FUNDIDA** (20 sep 2026)
 >
-> **Rama `feat/las-estaciones-en-la-app`, árbol `.worktrees/est`, base
-> `simonbolivar_testing_est`.** Que alguien del personal atienda una estación del día de
+> **FUNDIDA en `98dfa73`. Router en 634, RECONTADAS en el árbol principal sobre `main` y
+> después de fundir** — y coincidieron con las 634 que esta misma casilla había contado en
+> `.worktrees/est`, que es la única forma de saber que coincidía.
+>
+> Escrita en `.worktrees/est` con base `simonbolivar_testing_est`. Que alguien del personal atienda una estación del día de
 > matrículas **desde el teléfono, sin web**: que al cerrar su paso la persona aparezca en la
 > estación siguiente, y que se pueda buscar a cualquiera para ver en qué va. Es la fase 2 del
 > proceso de admisión, encima de la fase 1 que entró esta mañana
 > ([44](44-el-dia-de-matriculas.md)). El contrato y lo que la construcción destapó están en
 > [46](46-las-estaciones-en-la-app.md).
 >
-> **Router en 634, contado con `route:list --json` en `.worktrees/est`. SIN FUNDIR: hay que
-> recontarlas en el ÁRBOL PRINCIPAL el día que entren.** Son **nueve** sobre las 625 de `main`,
+> **Router en 634, recontado en el árbol principal.** Son **nueve** sobre las 625 de `main`,
 > todas `auth.personal` y familia nueva `estaciones/`.
 >
 > ```

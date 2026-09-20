@@ -21,10 +21,12 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**634 rutas** (contadas con `route:list --json` el **20 sep 2026 en `.worktrees/est`**, sobre
-`main` en `90d997e` más las estaciones en la app — **SIN FUNDIR: hay que recontarlas en el ÁRBOL
-PRINCIPAL el día que entren**, que es la frase que lleva salvando este número las últimas cinco
-veces). Las **nueve** que suben sobre las 625 son la familia nueva `estaciones/`, la **fase 2 del
+**634 rutas** (**recontadas con `route:list --json` el 20 sep 2026 en el ÁRBOL PRINCIPAL, sobre
+`main` y después de fundir** (`98dfa73`) — y coincidieron con las 634 contadas antes en
+`.worktrees/est`, que es la única forma de saber que coincidía. Esta línea decía *«SIN FUNDIR: hay
+que recontarlas en el ÁRBOL PRINCIPAL el día que entren»* y **aquél fue ese día**: van **seis**
+veces seguidas que esa condición de caducidad salva el número, y las dos últimas las escribió y las
+cumplió la misma sesión —que es lo que demuestra que no depende de acordarse—). Las **nueve** que suben sobre las 625 son la familia nueva `estaciones/`, la **fase 2 del
 proceso de admisión**: que alguien del personal atienda una estación del día de matrículas **desde
 el teléfono y sin web**. Las nueve con `auth.personal` y **una sola con permiso dentro** —dar por
 resuelta una nota—, porque Joseth decidió el 20 sep que **cerrar un paso lo puede hacer cualquiera
