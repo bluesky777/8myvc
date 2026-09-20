@@ -1321,10 +1321,15 @@ class EstacionesController extends Controller
             [$alumnoId, $requisitoId]);
 
         if (! $fila) {
+            // **Sin nombrar `estado`**: la columna es `NOT NULL DEFAULT 'Falta'`, y dejar
+            // que la base ponga su defecto es lo correcto — el `UPDATE` de dos líneas más
+            // abajo escribe el resultado de verdad. Nombrarla aquí obligaría a elegir un
+            // valor intermedio, y el que se eligió primero fue `Cumple`: una fila que
+            // existe un instante diciendo lo contrario de lo que va a decir.
             DB::insert('INSERT INTO requisitos_alumno
-                (alumno_id, requisito_id, estado, created_at, updated_at)
-                VALUES (?,?,?,?,?)',
-                [$alumnoId, $requisitoId, self::RESULTADOS['cumple'], $ahora, $ahora]);
+                (alumno_id, requisito_id, created_at, updated_at)
+                VALUES (?,?,?,?)',
+                [$alumnoId, $requisitoId, $ahora, $ahora]);
 
             $fila = DB::selectOne('SELECT id FROM requisitos_alumno WHERE id=?',
                 [DB::getPdo()->lastInsertId()]);

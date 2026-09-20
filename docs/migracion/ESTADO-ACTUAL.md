@@ -87,14 +87,45 @@
 > llevan el mismo guard, así que no hay excepción que declarar. *Es la decisión funcionando,
 > no el candado fallando.*
 >
+> ### UN CANDADO QUE YA EXISTÍA CAZÓ LA TABLA NUEVA EL DÍA QUE NACIÓ
+>
+> La suite entera salió con **dos rojos**, y los dos eran
+> `CentinelaDeLasTablasDelAnioNuevoTest`: **`envios_estacion` lleva `year_id` y nadie la
+> copia al crear un año**. Es exactamente para lo que se escribió ese fichero el 13 sep, y
+> la forma cara de ese fallo es la que describe su propia cabecera — *«no rompe nada el día
+> que pasa, no deja una línea en ningún log, y se nota en enero»*.
+>
+> Se declara **con el motivo escrito** en `DATOS_DEL_ANIO`, que es la única forma
+> aceptable: copiar esos intentos diría que hubo doce salteados en un año cuyo día de
+> matrículas todavía no ha ocurrido. *La salida barata —añadir el nombre y pasar— es
+> justo lo que ese test existe para impedir.*
+>
+> Y su hermana `notas_estacion` **no entra, y no es un olvido**: no tiene `year_id` —cuelga
+> de `requisitos_matricula`, que es quien lleva el año—, así que el centinela no la mira.
+> La que sí la miraría es **el tercer censo de tablas hijas que ese fichero dice que no
+> existe todavía**, y su respuesta sería la misma.
+>
 > ### Estado — las cifras con la orden que las produjo
 >
 > | | |
 > |---|---|
-> | `LasEstacionesEnLaAppTest`: **33 passed** | `--filter=LasEstacionesEnLaAppTest --testsuite=Contrato` |
+> | `Tests: 2 failed, 1 skipped, 2592 passed (54.146 aserciones)` · 972,71 s | `php artisan test` (las tres testsuites) en `.worktrees/est`, sobre `766da42`, con `COBERTURA_RUTAS` puesta. **Los dos rojos son el centinela de arriba**, y con él declarado las cuatro clases implicadas dan **92 passed** |
+> | `LasEstacionesEnLaAppTest`: **33 passed (325 aserciones)** | `--filter=LasEstacionesEnLaAppTest --testsuite=Contrato` |
 > | `PASS 486 files` | `composer run pint:test` |
-> | `[OK] No errors` | `composer run stan` (nivel 7) |
+> | `[OK] No errors`, 708 ficheros | `composer run stan` (nivel 7) |
 > | `0 imports en 0 ficheros, de 715` | `php tools/imports-de-facades.php --dry-run`, y detrás `pint:test` |
+>
+> > **La suite se lanzó desprendida** (`docker exec -d … > /tmp/est-suite.txt`) y con el
+> > contenedor comprobado vacío de otras suites **antes** de lanzarla, preguntando **contra
+> > qué base** corría cada una y no cuántas había. Y se leyó de la línea `Tests:`, no del
+> > código de salida: *una suite sin esa línea no ha terminado, diga lo que diga el exit.*
+> >
+> > **Y una cosa que se dice en vez de taparse:** entre que la suite arrancó y terminó se
+> > tocó el `INSERT` de `escribirElPaso` —dejar que la base ponga el defecto de `estado` en
+> > vez de nombrarlo—, así que **esas 2.592 describen el árbol de `766da42` y no el final**.
+> > No toca `routes/` ni `database/migrations/`, así que le aplica el subconjunto y no la
+> > entera; queda cubierto por las 92 de arriba. *Una medición vale por el árbol contra el
+> > que corrió, y el que la publica es quien sabe si el árbol se movió.*
 >
 > ### Lo que queda abierto — y lo primero es de Joseth
 >
