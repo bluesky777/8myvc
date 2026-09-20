@@ -73,7 +73,78 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
-> ## ✅ `GET muro/app` — EL MURO SIN EL CALENDARIO, ROUTER EN 613 (19 sep 2026, SIN FUNDIR)
+> ## ✅ LA COLA DE RAMAS, VACIADA: OCHO FUSIONES, ROUTER EN 615 Y `origin/main` AL DÍA (19 sep 2026, noche)
+>
+> **Encargo de Joseth: reunir lo que estaban haciendo las otras sesiones, arreglar `main` —que
+> estaba 1 adelante y 7 por detrás de `origin/main`— y dejar local y remoto sincronizados.**
+> Hecho en el árbol principal por `8myvc-8b`, con `8myvc-47` trabajando a la vez y repartiéndose
+> el árbol por mensaje.
+>
+> ### Lo primero, que no era fusionar nada: los dos duplicados
+>
+> El commit que `main` tenía de más —`1be0414`, el de las imágenes publicadas— era **byte a byte
+> idéntico** a `52f1b98`, que ya estaba en `origin/main`. Lo dijo `git rebase` él solo:
+> *«skipped previously applied commit»*. Y lo que colgaba sin commitear en el árbol principal era
+> **una segunda redacción entera de la P6**, escrita por otra sesión en paralelo: `ContextoDeUsuario`
+> y las cuatro instantáneas `login-contexto-*` salieron **byte a byte iguales** a las publicadas, y
+> el candado era otra implementación con los mismos tres puntos de llamada. Está guardada en
+> `rescate/p6-copia-paralela-del-arbol-principal`, **no fundida y con el porqué dentro**.
+>
+> > **Y ese trabajo «duplicado» pagó solo unas horas después**: `8myvc-47` comparó su candado
+> > contra el publicado y encontró **dos fallos reales** —reordenar escribía la mitad del lote
+> > antes de abortar con 403, y un `null` se colaba— que `8myvc-14` reprodujo y arregló
+> > (`befdd41`, fundido aquí). Lo que parecía esfuerzo tirado era una **revisión cruzada sin
+> > acordarla**.
+>
+> ### Las ocho, y las tres que entraron A MEDIAS a propósito
+>
+> | rama | qué entró |
+> |---|---|
+> | `docs/despliegue-remedido` | **sólo la casilla**: `DESPLIEGUE.md` decía 232 commits (4 sep) y `main` lleva **321** (5 sep). Fundirla habría hecho retroceder el número |
+> | `docs/appkey-compartida-fortul-lal` | todo **menos** `29-los-env` §5: la rama la cerraba el 3 sep y `main` la tiene cerrada el **7**, con las dos mediciones de Tauri dentro |
+> | `fix/columnas-en-los-modelos-no-borra` | entera; el conflicto de `AutopruebasDeLasHerramientasTest` se resolvió como **unión**: conviven las tres herramientas |
+> | `fix/importacion-fase-1` | el código y el Pint; los docs **40 y 41 se quedan los de `main`** — la §5 de la rama son preguntas que Joseth contestó el 19 sep |
+> | `feat/la-casilla-vacia` | entera (sin su Pint, que su sesión tenía a medias) |
+> | `feat/calendario` | la funcionalidad; **`ChangeAskedController` se queda el de `main`** — ver abajo |
+> | `fix/reparar-la-hora-y-uniformes` | entera: dos migraciones que llevaban **trece días** escritas y probadas |
+> | `fix/candado-los-dos-agujeros` | entera: los dos fallos del candado P6 |
+>
+> **`feat/muro-para-la-app` la fundió `8myvc-47`** en paralelo, y recontó el router en 613.
+>
+> ### Lo que costó más y no se ve en el diff: lo que NO se adoptó
+>
+> **`feat/calendario` llevaba dieciocho días fuera y `ChangeAskedController` lo han reescrito tres
+> sesiones en ese tiempo.** Lo único que la rama le cambia es sustituir cinco `SELECT *` por
+> `CalendarioController::COLUMNAS` —la mejora correcta **de entonces**—, pero esa constante nombra
+> **diecisiete** columnas y `main` hizo después la versión medida: **nueve**, porque el calendario
+> era el 84–96% de esa respuesta y con nueve pesa **un 47% menos**. Fundirla habría devuelto siete
+> columnas de contabilidad a las cuatro ramas de `getToMe` **sin poner nada en rojo**.
+>
+> *Una rama vieja no se funde comprobando que no rompa: se funde comprobando qué deshace.* Las
+> tres fusiones a medias de la tabla son el mismo caso — documentación que esperó dos semanas y
+> llegó **desmentida por lo de después**, no pendiente.
+>
+> ### Las cifras, y de dónde salen
+>
+> - **615 rutas**, `route:list --json` en el **árbol principal, sobre `main` y después de fundir**
+>   (`b5f5345`). 613 + las dos del calendario.
+> - **`FamiliasQueNuncaEntranTest`: 24 → 26**, y la cifra **se midió corriendo el test**, no
+>   sumando: la rama traía `assertCount(25)`, cierto el día que se escribió. El motivo del renglón
+>   es un **tercero** —preguntan de quién es la fila dentro del método—, distinto del guard y
+>   distinto de «la llave es el dato» de `pagos-inscripcion`.
+> - **Base de tests reconstruida** (entraron cuatro migraciones): 38/38, 112 tablas.
+>
+> ### Lo que NO se tocó, y por qué
+>
+> - **El Pint sin commitear de `.worktrees/vacia`** (3.391 + 985 líneas) y el de `e6`: eran de
+>   sesiones que en ese momento tenían **una suite entera corriendo encima** (41% y 59% de CPU,
+>   comprobado en el contenedor, no supuesto). Commitearlo desde fuera les habría cambiado el
+>   árbol bajo una medición en curso.
+> - **`medicion/dos-columnas-en-listasignaturas`**: obsoleta. Su única línea —`a.materia_id,
+>   g.grado_id`— ya está en `origin/main` por `0d9af81`.
+> - **`.worktrees/2e`**: sólo una sonda de medición sin commitear y un `Snapshots.parcial/`.
+
+> ## ✅ `GET muro/app` — EL MURO SIN EL CALENDARIO, ROUTER EN 613 (19 sep 2026 — **FUNDIDA esa noche**, ver la casilla de la integración arriba)
 >
 > **Pedido por `myvc_flutter` (§5 de su `backend-pendiente.md`) y autorizado por Joseth el
 > 19 sep con las cuatro opciones delante.** Está en `.worktrees/muro`, rama
@@ -154,10 +225,13 @@
 > `public static` —no usa `$this`, comprobado antes de moverla— para que las clases de hoy se
 > lean **de un solo sitio**. Cuatro llamadas actualizadas, ninguna respuesta movida.
 
-> ## 🚧 LA CASILLA VACÍA — FASE 0 EN `.worktrees/vacia`, SIN FUNDIR (19 sep 2026, noche)
+> ## ✅ LA CASILLA VACÍA — FASE 0 (19 sep 2026, noche — **FUNDIDA esa misma noche**; lo que sigue fuera es sólo su Pint, que su sesión tenía a medias)
 >
-> **Rama `feat/la-casilla-vacia`. Esto es una INSTRUCCIÓN, no un dato: mientras la rama no esté
-> fundida, el árbol principal NO tiene nada de esto y `notas.nota` sigue siendo `NOT NULL`.**
+> **Rama `feat/la-casilla-vacia`, FUNDIDA el 19 sep 2026 por la noche.** El párrafo que había
+> aquí era una instrucción con su condición de caducidad puesta —*«mientras la rama no esté
+> fundida, el árbol principal NO tiene nada de esto y `notas.nota` sigue siendo `NOT NULL`»*— y
+> hoy se cumplió esa condición, así que se sustituye en vez de dejarla envejecer a mentira.
+> `notas.nota` ya es anulable en el árbol principal.
 >
 > El porqué entero, medido, en [`43`](43-lo-que-todavia-no-se-ha-calificado.md). En una línea: una
 > casilla de `notas` nace con el indicador y vale 0 desde ese instante, así que **a mitad de periodo

@@ -12,10 +12,34 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**613 rutas** (**recontadas con `route:list --json` el 19 sep 2026 en el ÁRBOL PRINCIPAL, sobre
-`main` y después de fundir** — y coincidió con las 613 contadas antes en `.worktrees/muro`, que es
-la única forma de saber que coincidía. La línea anterior decía *«SIN FUNDIR: hay que recontarlas
-en el árbol principal el día que entren»*, y esto es ese día — la que sube sobre las 612 es
+**615 rutas** (contadas con `route:list --json` el **19 sep 2026 por la noche en el ÁRBOL
+PRINCIPAL, sobre `main` y después de fundir** (`b5f5345`), en la integración que vació la cola de
+ramas. Las dos que suben sobre las 613 son las del **calendario con destinatarios** —`PUT
+calendario/mes` y `PUT calendario/proximos`—, que llevaban **dieciocho días** escritas y probadas
+en `feat/calendario` sin fundir.
+
+> **Y aquí este contador hizo lo que lleva meses pidiendo, pero al revés de como se esperaba: lo
+> que se quedó corto no fue el número, fue la LISTA DE RAMAS.** El primer intento de fundir
+> `fix/reparar-la-hora-y-uniformes` murió con un `fatal: Exiting because of an unresolved
+> conflict` —otra sesión tenía un merge abierto en el índice compartido del árbol principal— y al
+> retomar el hilo no se repitió. No lo delató `git branch --no-merged`, que se había leído antes:
+> lo delató **contar las migraciones del árbol** y ver que faltaban dos que sí estaban en la rama.
+> *Una fusión que falla por el árbol y no por su contenido deja el mismo rastro que una que nunca
+> se intentó — ninguno.*
+
+> **Las dos del calendario suben además `FamiliasQueNuncaEntranTest` de 24 a 26 escrituras**, y el
+> renglón está bien por un motivo TERCERO, distinto de los dos que ya había escritos: no es que
+> tengan guard —la familia `calendario/*` sigue con **0 de 7**— ni que la llave sea el dato, como
+> en `pagos-inscripcion`: es que **preguntan de quién es cada fila dentro del método**, con el
+> token, y un evento que no le toca a quien pregunta no viaja. Lo fija `CalendarioMesTest`. **La
+> cifra se midió corriendo el test, no sumando**: la rama traía `assertCount(25)`, cierto el día
+> que se escribió y falso desde entonces.
+
+El número anterior era **613**, **recontado con `route:list --json` el 19 sep 2026 en el ÁRBOL
+PRINCIPAL, sobre `main` y después de fundir** — y coincidió con las 613 contadas antes en
+`.worktrees/muro`, que es la única forma de saber que coincidía. La línea anterior decía *«SIN
+FUNDIR: hay que recontarlas en el árbol principal el día que entren»*, y aquél fue ese día — la
+que subía sobre las 612 era
 **`GET muro/app`**, el muro para la app, y **estrena familia**, así que mueve **cuatro**
 instantáneas y no tres: las tres de siempre más `familias-que-nunca-entran-en-el-candado.json`,
 donde entra como **`muro: 0 de 1`**.
@@ -43,7 +67,10 @@ contadas antes en el worktree; las cuatro que subían sobre las 606 eran las de
 > ninguna línea de este fichero y que costó un rojo el 19 sep:
 > `FamiliasQueNuncaEntranTest::test_cuantas_escrituras_viven_donde_el_candado_no_llega` lleva la
 > cuenta de las escrituras que viven en familias que el candado de familia **no mira nunca**, y
-> pasa de **22 a 24**.
+> pasa de **22 a 24**. *(Y a **26** esa misma noche, al fundir las dos del calendario: ahí el
+> motivo es un tercero —preguntan de quién es la fila **dentro del método**— y está escrito en el
+> propio test. Tres subidas seguidas con tres motivos distintos y ninguna que sea un agujero: lo
+> que este centinela busca sigue sin aparecer, que es exactamente por qué no se regenera.)*
 >
 > **La colilla no lo movió y éstas sí, y la diferencia no es de mérito**: `colillas-inscripcion`
 > tiene tres hermanas con guard, así que el candado ya la miraba; `pagos-inscripcion` **no tiene
@@ -592,7 +619,8 @@ del 05 — el fichero ya se descargaba sin sesión.
 > **El tercero, medido el 19 sep 2026 con las dos de `pagos-inscripcion/`:**
 > `FamiliasQueNuncaEntranTest::test_cuantas_escrituras_viven_donde_el_candado_no_llega` y su
 > instantánea, que cuentan las **escrituras** que viven en familias que el candado de familia no
-> mira nunca — de **22 a 24**. Sólo se mueve si la ruta nueva **escribe** y su familia tiene menos
+> mira nunca — de **22 a 24**, y a **26** con las dos del calendario. Sólo se mueve si la ruta
+> nueva **escribe** y su familia tiene menos
 > de dos hermanas con guard: la colilla no lo movió porque sus tres hermanas sí lo llevan. O sea
 > que *«una pública mueve cinco sitios»* vale mientras la familia esté guardada por otro lado, y
 > **una familia nueva entera de públicas que escriben mueve seis**.
