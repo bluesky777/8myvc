@@ -167,9 +167,15 @@
 >
 > ### Lo que espera a Joseth (no se decide aquí)
 >
-> - **El aviso al tesorero.** Hoy la bandeja hay que abrirla; **nada avisa**. El canal es WhatsApp
->   y no el correo —sólo el **9,2 %** de los acudientes tiene correo— y este caso cuesta **COP
->   12.261 al año para los dieciséis** ([42](42-avisos-por-whatsapp.md)).
+> - **Los dos avisos que este flujo no manda.** Esta línea decía *«el canal es WhatsApp»* y
+>   **Joseth lo descartó esa misma noche** ([42](42-avisos-por-whatsapp.md)): matriculado → app y
+>   push, aspirante → correo. Al **tesorero** se le puede avisar por push, que ya funciona y es
+>   gratis —es personal del colegio, tiene cuenta—; a la **familia** hay que avisarle por correo,
+>   **y el correo de esta API está en rojo desde el 2 sep**: `lalvirtual.com`, el
+>   `MAIL_FROM_ADDRESS` de quince colegios, no está registrado. Y **falla callado**: un «pago
+>   aprobado» que no llega no se reintenta, porque el aspirante no sabe que existía.
+>   Consecuencia concreta para este módulo: **rechazar una colilla exige un motivo para que la
+>   familia sepa qué corregir, y hoy ese motivo no sale de la base.**
 > - ¿Secretaría tiene **lector de código de barras**? Es lo único que devolvería el QR a esta fase.
 > - La lista al día está en [`41 §8`](41-el-formulario-de-inscripcion.md).
 >

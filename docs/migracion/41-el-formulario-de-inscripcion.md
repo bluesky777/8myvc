@@ -415,10 +415,21 @@ los campos.
   preguntándole a Wompi; sin ella, decide la firma del evento. Las dos funcionan y **la diferencia
   es de cuánto se pierde si se filtra un secreto**, no de si cobra (§5.bis). Es una pregunta para
   cada colegio, no una decisión de producto.
-- **El aviso al tesorero.** Hoy la bandeja hay que abrirla; nada avisa. `8myvc-95` midió que **sólo
-  el 9,2% de los acudientes tiene correo** y el 94% tiene celular, así que el canal es WhatsApp y
-  no el correo — y que este caso concreto cuesta **COP 12.261 al año para los dieciséis colegios**
-  (doc 42).
+- **Los dos avisos que este flujo no manda**, y la respuesta cambió el mismo día que se escribió
+  esta línea. Decía *«el canal es WhatsApp»* y **Joseth descartó WhatsApp esa noche** (doc 42
+  §revocada): estrechó el alcance al único hueco real y el mapa quedó **matriculado → app y push**
+  —que ya funciona, agrupado y gratis— **y aspirante → correo**. Así que:
+  - **Al tesorero**, cuando entra una colilla. Es personal del colegio: **tiene cuenta y tiene
+    app**, o sea push, que ya existe. Hoy la bandeja hay que abrirla porque nadie ha conectado el
+    aviso, no porque falte canal.
+  - **A la familia**, cuando su pago se aprueba o se rechaza. Va por correo, **y el correo de
+    esta API está medido en rojo desde el 2 sep** (29 §2): `lalvirtual.com` —el
+    `MAIL_FROM_ADDRESS` de quince colegios— **no está registrado**. Lo que lo hace peor que caro
+    es que **falla callado**: un «pago aprobado» que no llega no se reintenta, porque el
+    aspirante no sabe que existía.
+
+  Para este módulo eso tiene una consecuencia concreta y no teórica: **el rechazo de una colilla
+  pide un motivo para que la familia sepa qué corregir, y hoy ese motivo no sale de la base.**
 - **El tope de altura del formulario configurable**, resuelto en el front avisando de que hay que
   imprimir en oficio. Ojo: el **oficio colombiano no es el `legal` de CSS** — 216×330 contra
   216×356, exactamente una pulgada.
