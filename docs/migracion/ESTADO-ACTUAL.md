@@ -93,6 +93,35 @@
 > Más `Autoriza::puedeAtarFormularios`, `CodigoDeInscripcion::componer()` y **una migración**
 > (`2026_09_20_100000`): `codigo_anterior` y dos índices.
 >
+> ### LAS CIFRAS, CON LA ORDEN QUE LAS PRODUJO Y EL ÁRBOL DESDE EL QUE SE CONTARON
+>
+> | | |
+> |---|---|
+> | `php artisan test --filter=DelPapelAlAlumnoTest` | **23 passed** |
+> | `php artisan test` (las tres testsuites) | **2.437 passed, 1 skipped (52.721 aserciones)**, sobre `9bf336d` a las 07:24 en `.worktrees/fi` |
+> | `composer run stan` | `[OK] No errors`, **680** ficheros |
+> | `composer run pint:test` | **PASS**, **454** ficheros |
+> | `pint --test` (el repo entero, otra población) | `FAIL`, **695** ficheros y **182** avisos |
+> | `route:list --json` | **619**, en `.worktrees/fi` · **recontar en el principal al fundir** |
+>
+> **Y son DOS índices y no tres, comprobado con `EXPLAIN` y no supuesto**: el informe filtra por
+> `year_campana`, y el `UNIQUE (year_campana, alumno_id)` que ya existía **lo lleva de primera
+> columna**, así que lo usa como prefijo. Un índice de más se mantiene en cada `INSERT` de una
+> tabla que se escribe de cincuenta en cincuenta al imprimir una tanda.
+>
+> ### Las tres instantáneas que se movieron, revisadas una a una
+>
+> No se regeneraron y se pasó: se guardó la versión anterior y **se diferenció**.
+>
+>     rutas.json                615 -> 619
+>     guard-por-familia.json    la familia del formulario, 6/6 -> 10/10 con guard
+>     guards-por-ruta.json      las cuatro, dos en el grupo del GET y dos en el del PUT
+>
+> **La cuarta NO se movió, y por eso no se tocó**:
+> `familias-que-nunca-entran-en-el-candado.json` lista las familias con menos de dos hermanas con
+> guard, e `informes/` tiene de sobra más de dos. `RutasPreLoginTest` y `AutenticacionTest`
+> tampoco: **ninguna de las cuatro es pública**.
+>
 > ### EL HUECO QUE TAPA, Y ERA EL CASO PRINCIPAL
 >
 > Las diez rutas del 19 sep acuñan, imprimen y cobran, y ahí se acababa. Medido con un `grep` de
