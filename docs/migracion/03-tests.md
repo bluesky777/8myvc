@@ -780,3 +780,37 @@ conclusión es «el arreglo funciona».
 > puede reintroducir sin tocar producción— **eso se dice en el test**, en vez de
 > dejarlo en verde como si se hubiera comprobado. Un verde sin negativo es un
 > verde con una nota al pie, no un verde.
+
+## El número de ASERCIONES no es una huella: se mueve solo
+
+*Medido el 19 sep 2026 en `.worktrees/vacia`, persiguiendo una diferencia que no existía.*
+
+La línea final de `php artisan test` trae dos números y **sólo uno es estable**. El de tests lo es;
+el de aserciones **no**, y creerlo cuesta una investigación entera:
+
+```
+php artisan test --testsuite=Unit     30435    ← mismo código
+php artisan test --testsuite=Unit     30442    ← mismo código
+php artisan test --testsuite=Unit     30460    ← mismo código
+php artisan test --testsuite=Unit     30466    ← mismo código
+```
+
+La culpable es `Unit\CodigoDeInscripcionTest::test_ninguna_transposicion_pasa`, y **no está mal
+escrita**: genera códigos **al azar** y se salta las transposiciones de caracteres iguales
+—intercambiar dos iguales no es un error que se pueda detectar—, así que cuántas prueba depende de
+cuántas cifras repetidas le salgan. Por eso acaba con un `assertGreaterThan`: el test ya sabe que su
+propio recuento varía.
+
+**De dónde salió esto:** al reformatear `NotasController` con Pint, el total de la suite pasó de
+50.842 a 50.840 aserciones. Dos menos con un cambio que sólo mueve espacios parecía un censo
+quedándose ciego —un detector que deja de detectar es el fallo más caro de esta casa— y se fue a
+buscar. Lo que lo zanjó no fue encontrar el censo culpable, sino **medir dos veces lo mismo**: las
+dos corridas «antes» tampoco coincidían entre sí.
+
+> **La regla que sale de aquí, y vale para cualquier cifra que se use como huella:** antes de
+> explicar por qué un número cambió entre A y B, **medir B dos veces**. Si se mueve solo, no hay
+> nada que explicar. Es la hermana de *«el primer sitio donde mirar cuando el número sale raro es el
+> detector»* — aquí el detector era la propia cifra.
+
+Para comparar dos corridas de verdad hay que mirar **qué tests hay**, no cuántas aserciones:
+`--log-junit` da el recuento por test y es lo que separa una diferencia real del ruido.
