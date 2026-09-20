@@ -11,9 +11,16 @@ la firma del contrato»* — y la cosa no existía. La pasarela la había retira
 Eso no importa»*—, y de esa respuesta sale además que **la pantalla 12 no se puede construir
 aquí**. Todo, en la §9.
 
-**Diez rutas.** El router queda en **644** contado con `route:list --json` en `.worktrees/mat`.
-**SIN FUNDIR: hay que recontarlas en el ÁRBOL PRINCIPAL el día que entren** — que es la frase que
-lleva salvando este número las últimas seis veces, y la única razón de que no envejezca a mentira.
+**Diez rutas.** El router queda en **644**, **recontado con `route:list --json` en el ÁRBOL
+PRINCIPAL sobre `main` y después de fundir** (`74d5028`) — y coincidieron con las 644 contadas
+antes en `.worktrees/mat`, que es la única forma de saber que coincidía.
+
+> **Esta línea decía «SIN FUNDIR: hay que recontarlas en el ÁRBOL PRINCIPAL el día que entren», y
+> aquél fue ese día** — la frase que lleva salvando este número siete veces seguidas, y ésta la
+> cumplió una sesión que ni existía cuando se escribió: llegó por un traspaso, con la condición
+> dentro. *Y la línea siguió aquí unas horas después de fundir, ya falsa, hasta que alguien la
+> miró: es la §7.6 de este mismo documento —**el rótulo no es el dato**— cometida dentro del
+> documento que la enseña.*
 
 ---
 
@@ -318,12 +325,25 @@ familia **sin la observación interna y sin quién cerró cada paso**. *El sínt
 son dos campos que faltan, y eso se descubre el día que alguien en el patio pregunta por qué no
 ve la observación.* Lo fija un test.
 
-> **Y la propuesta de test que llegó habría fijado lo contrario.** Decía *«que `mi-recorrido` no
-> traiga `descripcion` ni `cerrado_por_nombres`»*, y **`descripcion` sí viaja**: es la del
-> **requisito**, que es pública y es lo que le dice a la familia qué le piden. La que no viaja es
-> `ra.descripcion`, que sale con el alias `observacion`. *Dos columnas que se llaman igual en dos
-> tablas.* El test fija las tres cosas: sin `observacion`, sin `cerrado_por`, **con**
-> `descripcion`.
+> **Y el test que se propuso habría fijado lo contrario, por una omisión que venía de dos manos
+> antes.** `myvc-flutter-1a` apuntó en un docblock que `mi-recorrido` traía *«sólo estado, motivo
+> y `cerrado_at`»* —cierto de las columnas de `requisitos_alumno` y **falso como contrato**,
+> porque se dejaba fuera `r.requisito`, `r.descripcion` y `r.bloquea`—; sobre esa lista,
+> `8myvc-6f` propuso un test *«de que `mi-recorrido` no traiga `descripcion` ni
+> `cerrado_por_nombres`»*.
+>
+> **`descripcion` sí viaja, y es lo que le dice a la familia qué le piden**: es la del
+> **requisito**, que es pública. La que no viaja es `ra.descripcion`, que en el recorrido del
+> personal sale con el alias `observacion`. *Dos columnas que se llaman igual en dos tablas, y
+> una lista de campos correcta sobre una tabla que se leyó como el contrato entero.* Con aquella
+> versión, la pantalla del acudiente habría salido **sin poder decirle qué le están pidiendo**.
+> El test fija las tres cosas: sin `observacion`, sin `cerrado_por`, **con** `descripcion`.
+>
+> > **Y la atribución se corrige porque estaba torcida por el relevo:** esta caja llegó a decir
+> > *«la propuesta de test que llegó»* debajo de un párrafo que nombra a `myvc-flutter-1a`, así
+> > que se leía como suya, y **el test lo propuso `8myvc-6f`**. Él mismo lo levantó al leerlo.
+> > *Un traspaso conserva el dato y pierde de quién era* — que es la misma forma que ya tiene
+> > escrita [[el-resumen-pierde-la-advertencia]], aquí aplicada a la autoría y no al aviso.
 
 > **El riesgo que se propuso primero —un «docente-padre» que pasaría los dos guards— se midió y
 > no se sostiene aquí:** **0** cuentas de personal tienen ficha de acudiente; los 1.000 que la
@@ -343,6 +363,13 @@ Flutter construye contra una ruta que no existiría **ni desplegando `main`**. L
 *Es «el router está en N» sin decir el árbol, otra vez, y en el documento que cruza los dos
 repositorios.* **El estado de una ruta se escribe con el dónde delante**: «fundida en `main`», «en
 una rama», «desplegada en los dieciséis». Nunca sólo con el cuándo.
+
+> **Y el rótulo corregido caducó el mismo día, en la dirección contraria** —lo anotó
+> `myvc-flutter-1a` al fundirse esto unas horas después—: por la mañana mandaba a construir
+> contra algo inexistente, y por la tarde mandaba a esperar una fusión ya hecha. O sea que la
+> lección no es *«pon el dónde»* sino que **el rótulo no es el dato**: «fundido» y «desplegado»
+> se mueven solos. Lo que no caduca es la orden que lo rehace —`git grep <la ruta> main` y
+> `git log origin/main..main`—, que es exactamente lo que este repo hace con los contadores.
 
 ### 7.7 · 🔴 «CON SU NOMBRE Y SU HORA» — y el nombre sale VACÍO justo para quien atiende
 
