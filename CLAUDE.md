@@ -613,8 +613,20 @@ docker exec 8myvc-app-1 php artisan test --filter=NotasTest    # una clase
 > > padre**:
 > >
 > > ```bash
-> > docker exec 8myvc-app-1 sh -c "ps -eo args | grep [p]hpunit"   # ANTES de lanzar otra
+> > # ANTES de lanzar otra. Y la pregunta NO es «cuántas hay» sino «CONTRA QUÉ BASE»:
+> > docker exec 8myvc-app-1 sh -c 'for pid in $(ps -eo pid,args | grep "[p]hpunit" | awk "{print \$1}"); do
+> >   db=$(tr "\0" "\n" < /proc/$pid/environ 2>/dev/null | grep "^DB_TEST_DATABASE=" | cut -d= -f2)
+> >   echo "$pid -> ${db:-POR_DEFECTO}"
+> > done'
 > > ```
+> >
+> > **Buscar por el ÁRBOL no vale, y costó dos suites enteras el 21 sep 2026.**
+> > Un `grep 'obe/phpunit.xml'` encuentra las que corren *desde* ese worktree y
+> > **no** la que corre desde `/app` con `DB_TEST_DATABASE=…_obe`: la contención
+> > es **por base**, no por árbol, y las dos eran de la misma sesión. Salieron
+> > **68 y 56 rojos** repartidos por clases sin relación —asistencias, boletín
+> > independiente, certificados— con `Deadlock found when trying to get lock`
+> > dentro. *Un detector que contesta bien a la pregunta equivocada.*
 > >
 > > **Las dos enfermedades juntas, vividas el 21 sep 2026 por quien acababa de
 > > escribir este bloque:** una suite «parada» media hora antes seguía corriendo,
