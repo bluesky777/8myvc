@@ -8,11 +8,44 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-> ## 🔴🔴 LA FASE 2 VACÍA EL SEMÁFORO EN MODO `promedio` — BLOQUEANTE DE DESPLIEGUE (20 sep 2026)
+> ## 🟠 LA FASE 2 NO CALCULA EN MODO `promedio` — REAL, PERO NO ES BLOQUEANTE (20 sep 2026)
 >
-> **Lo más importante de esta casilla: NO desplegar la Fase 2 a un colegio en `promedio` hasta
-> que esto esté decidido.** Lo encontró `myvc-front-a7` imprimiendo el PDF contra el docker con
-> `main` en `9185879`, y está reproducido por separado desde este lado.
+> ### ⚠️ ESTA CASILLA SE ESCRIBIÓ COMO «BLOQUEANTE DE DESPLIEGUE» Y ERA FALSO. LA CORRECCIÓN VA PRIMERA
+>
+> **El mecanismo es real y está bien medido. La población NO: no hay ningún colegio en
+> `promedio`.** Lo preguntó Joseth —*«todos los colegios hasta ahora sólo han creado notas con
+> modalidad de porcentaje»*— y tenía razón. Medido después de que lo preguntara:
+>
+> ```
+> id  año   reparto_subunidades  modelo_evaluacion  actual  updated_at
+>  1  2018  porcentaje           ponderado            0     2025-06-23
+>  …      … los ocho iguales …
+>  8  2025  porcentaje           ponderado            0     2026-09-16
+>  9  2026  promedio             competencias         1     2026-09-20 00:18:37   <-- HOY
+> ```
+>
+> La columna es `enum('porcentaje','promedio') NOT NULL DEFAULT 'porcentaje'` y crear un año
+> **lo copia del anterior** (`YearsController:248`), así que `promedio` no sale solo: lo puso
+> alguien. Y no por la API —la última `years/guardar-cambios` de ese año es del **18 sep** y **no
+> hay ninguna auditoría** del cambio—, o sea **a mano en la base, hoy a las 00:18**, junto con
+> `modelo_evaluacion = competencias`. *Es una sesión de desarrollo probando las dos cosas nuevas
+> del mes sobre la copia compartida.*
+>
+> **Lo que esto cambia y lo que no.** El fallo sigue existiendo y el arreglo sigue haciendo falta
+> el día que un colegio elija `promedio` —que es una opción que la pantalla ofrece—. Lo que se cae
+> es la urgencia: **no hay nada que bloquear**, porque no hay ningún colegio al que esto le pase.
+>
+> **Y cómo se coló: contando bien y concluyendo de más.** La consulta que dio «el único año en
+> `promedio` es el año en curso» es correcta y se reprodujo por dos lados. Lo que nadie miró es
+> **por qué** ese año estaba así, y de una medición cierta sobre la copia de desarrollo se dedujo
+> una afirmación sobre dieciséis colegios. *Es la trampa de siempre de este repo, en su forma más
+> cara: el detector no falló, la pregunta que se le hizo no era la que hacía falta.* Lo cazó
+> Joseth con una frase sobre el negocio que ninguna consulta iba a dar.
+>
+> ### Lo que sigue siendo cierto, y por eso la casilla no se borra
+>
+> Lo encontró `myvc-front-a7` imprimiendo el PDF contra el docker con `main` en `9185879`, y está
+> reproducido por separado desde este lado.
 >
 > ### Lo que sale por pantalla
 >
@@ -55,13 +88,13 @@
 > puede comprobar nadie*, y por eso el arreglo no es ninguno de los dos parches hasta que la
 > premisa esté escrita.
 >
-> ### La pregunta que hay que contestar ANTES de desplegar, y no se puede desde este repo
+> ### El censo de los dieciséis: DESCARTADO por Joseth, y ya no hace falta
 >
-> **¿Cuántos de los dieciséis están en `promedio`?** `reparto_subunidades` es una columna de
-> `years` y cada colegio tiene su base; desde aquí sólo se ve `simonbolivar`, y **está en
-> `promedio`**. Se contesta con el bucle de `docs/DESPLIEGUE.md` sobre los diecisiete
-> `/home/micolev1/*.micolevirtual.com/8myvc`, y lo corre Joseth. Un colegio en `promedio` que
-> reciba el despliegue **se queda sin semáforo el mismo día**.
+> Esta casilla llegó a decir que había que contar cuántos de los dieciséis están en `promedio`
+> antes de desplegar. **Joseth dijo que no quiere censar los colegios**, y con su respuesta sobre
+> el negocio el censo además **dejó de hacer falta**: si ningún colegio ha usado nunca otra cosa
+> que `porcentaje`, no hay nada que contar. *El dato que habría costado un barrido por diecisiete
+> instalaciones lo contestó quien conoce el producto, en una frase.*
 >
 > ### Las salidas, y por qué ninguna se toma sin Joseth
 >

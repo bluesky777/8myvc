@@ -39,15 +39,28 @@ namespace App\Support;
  * calcula mal: **no calcula nada calculable**.
  *
  * Medido en la copia de desarrollo el 20 sep 2026: de nueve años, los ocho en `porcentaje` tienen
- * 33.091 subunidades con peso de 33.113; **el único en `promedio` es 2026 —el año en curso— y
- * tiene 0 con peso de 2.205**. El front lo destapó imprimiendo el PDF: diez asignaturas, diez
- * rayas y la columna del `%` vacía entera, porque lee `null` como «no hay nada que calificar» y
- * deja de imprimir la nota, que es lo que mandó D2.
+ * 33.091 subunidades con peso de 33.113, y el de 2026 —en `promedio`— tiene **0 de 2.205**. El
+ * front lo destapó imprimiendo el PDF: diez asignaturas, diez rayas y la columna del `%` vacía
+ * entera, porque lee `null` como «no hay nada que calificar» y deja de imprimir la nota (D2).
  *
- * **Cada pieza hace lo correcto por separado; juntas vacían el papel.** Está sin resolver y es
- * decisión de Joseth —las dos salidas cambian lo que significa el número en las cinco pantallas
- * que ya lo publican—, y hasta entonces **no se despliega a un colegio en `promedio`**. El estado
- * y las opciones, en `ESTADO-ACTUAL.md`.
+ * ### PERO NINGÚN COLEGIO ESTÁ EN `promedio`, así que esto NO es un bloqueante
+ *
+ * Ese 2026 lo puso **una sesión de desarrollo, a mano y hoy a las 00:18** —no hay auditoría del
+ * cambio y la última `years/guardar-cambios` del año es del 18 sep—, junto con
+ * `modelo_evaluacion = competencias`. La columna es `NOT NULL DEFAULT 'porcentaje'` y crear un
+ * año la copia del anterior, así que `promedio` no aparece solo. Lo confirmó Joseth: **ningún
+ * colegio ha usado nunca otra cosa que `porcentaje`**.
+ *
+ * O sea que **cada pieza hace lo correcto por separado y juntas vacían el papel, pero hoy no le
+ * pasa a nadie**. El arreglo hace falta el día que un colegio elija `promedio` —la pantalla lo
+ * ofrece—, y no antes de desplegar. Lo que este aviso protege es que nadie vuelva a leer
+ * `s.porcentaje` crudo creyendo que siempre tiene un peso dentro. El estado, en
+ * `ESTADO-ACTUAL.md`.
+ *
+ * > **Y la lección de cómo se descubrió, que vale más que el fallo**: la consulta que dijo «el
+ * > único año en `promedio` es el año en curso» era correcta y se reprodujo por dos lados, y de
+ * > ella se dedujo una afirmación sobre dieciséis colegios. Nadie preguntó **por qué** ese año
+ * > estaba así. *El detector no falló; la pregunta que se le hizo no era la que hacía falta.*
  *
  * ## LO QUE DECIDE QUE UNA CASILLA CUENTE, Y ES DONDE ESTO SE ROMPE SOLO
  *
