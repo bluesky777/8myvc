@@ -1,5 +1,18 @@
 `8myvc` es la API del sistema escolar MyVc: Laravel 13 + PHP 8.4, ~37.000 líneas
-en `app/`, **118 ficheros de controlador — 121 clases** (recontados el 13 sep 2026 al
+en `app/`, **125 ficheros de controlador — 128 clases** (**recontados el 20 sep 2026** al entrar
+`EstacionesController`, y **el contador llevaba una semana de retraso**: decía 118 y 121, que era
+cierto el 13 sep y falso desde la primera familia nueva de la semana. Las órdenes que lo rehacen,
+porque una cifra sin su forma de rehacerla envejece sin que nada se ponga rojo:
+
+```bash
+find app/Http/Controllers -name '*.php' | wc -l                                   # 126
+grep -rhoE '^[[:space:]]*(final )?(abstract )?class [A-Za-z_]+' app/Http/Controllers | wc -l  # 128
+```
+
+126 − 1 = **125**, porque `Concerns/ResuelveElUsuario.php` es un trait y no declara clase; y 128 −
+125 = 3 porque `Alumnos/ImportarController.php` declara cuatro. *Siete controladores entraron entre
+el 13 y el 20 de septiembre y nadie tocó este número — que es exactamente por lo que se cuenta y no
+se supone.* Antes decía, y se conserva el rastro: recontados el 13 sep 2026 al
 entrar `CompetenciasController` y `DesempenosController`; el 5 sep eran 115 y 118 al entrar
 `PlantillaNotasController`, el 4 sep 114 y 117, y antes decían 113 y 116, y el trait
 `Concerns/ResuelveElUsuario.php` **no cuenta**: no declara ninguna clase, así que el
@@ -8,8 +21,40 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**625 rutas** (**recontadas con `route:list --json` el 20 sep 2026 en el ÁRBOL PRINCIPAL, sobre
-`main` y después de fundir** (`04b6852`) — y coincidieron con las 625 contadas antes en
+**634 rutas** (contadas con `route:list --json` el **20 sep 2026 en `.worktrees/est`**, sobre
+`main` en `90d997e` más las estaciones en la app — **SIN FUNDIR: hay que recontarlas en el ÁRBOL
+PRINCIPAL el día que entren**, que es la frase que lleva salvando este número las últimas cinco
+veces). Las **nueve** que suben sobre las 625 son la familia nueva `estaciones/`, la **fase 2 del
+proceso de admisión**: que alguien del personal atienda una estación del día de matrículas **desde
+el teléfono y sin web**. Las nueve con `auth.personal` y **una sola con permiso dentro** —dar por
+resuelta una nota—, porque Joseth decidió el 20 sep que **cerrar un paso lo puede hacer cualquiera
+del personal, con su nombre y su hora**.
+
+> **El contrato del [46](docs/migracion/46-las-estaciones-en-la-app.md) decía OCHO, y son NUEVE.**
+> La novena es `PUT estaciones/nota/{id}/resuelta`, y sin ella **dos columnas nacen muertas**: el
+> 46 §3.3 describe quién puede dar por resuelta una nota pendiente y `estaciones.md` §2.10 describe
+> el botón que lo hace, pero **ninguna de las ocho escribía `resuelta_por` ni `resuelta_at`**. Es
+> `profesores.tono` por sexta vez en un mes — y esta vez **dentro del documento que lo cita como
+> error**. *Se cuenta y se dice; el plan pasa de ocho a nueve.*
+
+> **Y la huella de este módulo lleva TRES cifras donde el [34](docs/migracion/34-la-huella-de-sincronizacion.md)
+> pedía dos, porque `timestamp` tiene precisión de SEGUNDO.** Una nota escrita en el mismo segundo
+> en que se cerró el paso anterior **no mueve el `MAX`** —los dos sellos son la misma cadena— y
+> tampoco mueve el conteo de la cola, porque una nota no cambia quién espera: sería **invisible
+> hasta el siguiente cambio, y si no hay ninguno, para siempre**. La tercera es `notas`. *Es la
+> misma medicina que aquel documento recetó para los borrados: cuando el reloj no puede, cuenta.*
+> Lo encontró un test escrito en verde que falló al correr — y el que estaba mal era el código.
+
+> **Mueven TRES instantáneas y NO la cuarta, comprobado y no supuesto.** `estaciones` entra en
+> `guard-por-familia.json` como **9 de 9**, así que el candado de familia **sí la mira** y
+> `familias-que-nunca-entran-en-el-candado.json` no se toca; `FamiliasQueNuncaEntranTest` sigue en
+> **26** y `RutasPreLoginTest::TOTAL_PUBLICAS` tampoco se mueve —ninguna es pública ni puede
+> serlo—. **Y el candado que el 46 anunciaba no habla**: avisaba de que `AutorizacionTest`
+> delataría `POST …/nota` como «sola entre sus hermanas», pero con la decisión de Joseth las nueve
+> llevan el mismo guard. *Es la decisión funcionando, no el candado fallando.*
+
+El número anterior era **625**, **recontadas con `route:list --json` el 20 sep 2026 en el ÁRBOL
+PRINCIPAL, sobre `main` y después de fundir** (`04b6852`) — y coincidieron con las 625 contadas antes en
 `.worktrees/cie`, que es la única forma de saber que coincidía. Esta línea decía *«SIN FUNDIR: hay
 que recontarlas en el ÁRBOL PRINCIPAL el día que entren»*, y **aquél fue ese día**: van cinco veces
 seguidas que esa condición de caducidad salva el número, y la tercera en que quien la escribió y
@@ -1131,8 +1176,20 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
   > | `composer run pint` | **ESCRIBE**: formatea los ficheros de la lista |
   > | `pint --test` a secas | mide **todo el repo**, incluido lo que no se formatea a propósito |
   >
-  > Los dos primeros corren sobre **la lista curada de `composer.json`** —hoy **478**
-  > ficheros—; el tercero sobre **715**, y da `FAIL` con **177** avisos.
+  > Los dos primeros corren sobre **la lista curada de `composer.json`** —hoy **486**
+  > ficheros—; el tercero sobre **723**, y da `FAIL` con **177** avisos.
+  >
+  > > *Remedidas las tres el **20 sep 2026 en `.worktrees/est`**, sobre `main` en `90d997e` más
+  > > las nueve rutas de las estaciones: **486** (`PASS`), **723** y **177**. Decían 478, 715 y
+  > > 177 unas horas antes. **Sí hubo que tocar `composer.json`**, y por una vez sin precio:
+  > > `EstacionesController` es un **fichero nuevo**, escrito ya en el estilo de Pint, así que
+  > > apuntarlo no reformatea ni una línea de legado — *ése es el único caso en que esta lista
+  > > crece gratis*. Larastan analiza **708** en este árbol y sale `[OK] No errors`.*
+  > >
+  > > > **Y el que NO entró se dice, con su motivo**: `RequisitosController`, que esta tanda sí
+  > > > tocó. Es legado con tabuladores y formatearlo enterraría el diff de la fase bajo un
+  > > > fichero reescrito entero. Es la misma decisión que tomó la Fase 4 del 43 con sus cinco, y
+  > > > queda escrita para que no se lea como un olvido.
   >
   > > *Remedidas las tres el **20 sep 2026 en `.worktrees/cie`**, sobre `main` en `26ef140` más
   > > la Fase 4 del doc 43: **478** (`PASS`), **715** y **177**. Decían 454, 695 y 182 esa misma
