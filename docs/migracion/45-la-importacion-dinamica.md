@@ -375,6 +375,38 @@ nada se ponga rojo:
 *Lo segundo no es un «no hagas esto»: es que, si se hace sin lo otro, esto deja de ser un ensayo y
 se convierte en una pantalla decorativa. Lo nombró la sesión del front al construir la pantalla.*
 
+### 5.3 octies El lazo, conducido — y los dos relojes vistos desde fuera
+
+`myvc-front-41` condujo el ciclo entero contra el docker, con permiso de Joseth para escribir. **El
+informe final cuadra**: 32 filas leídas, 0 creados, 32 actualizados, 0 que no hacen nada — los
+cuatro renglones, lo prometido contra lo hecho.
+
+Y salió un hallazgo que no buscaba nadie: **el importador escribe en DOS RELOJES en la misma
+petición.**
+
+```sql
+SELECT inicio FROM importaciones ORDER BY id DESC LIMIT 1;  -- 2026-09-20 17:37:03  UTC
+SELECT MAX(updated_at) FROM alumnos;                        -- 2026-09-20 12:37:03  Bogotá
+SELECT MAX(updated_at) FROM matriculas;                     -- 2026-09-20 12:37:03
+SELECT MAX(updated_at) FROM acudientes;                     -- 2026-09-20 12:37:03
+```
+
+**Mismo segundo, cinco horas de diferencia.** Las dos zonas son las que este repo decidió —
+`ImportarController` usa `Carbon::now('America/Bogota')`, que es la regla, y `importaciones` usa
+`now()`, que es la excepción declarada en `RelojUnicoTest`— así que **nada está roto**.
+
+**Lo que ha caducado es la mitad del motivo de esa excepción**, que decía *«sólo se restan entre sí,
+nunca se comparan con otra tabla»*. Conduciendo, el front consultó qué había escrito la importación
+usando la ventana de `importaciones.inicio` contra `alumnos.updated_at`, le salieron **cero filas**
+mientras la pantalla decía 32, y estuvo a punto de anotar que no había escrito nada. *Molesta a
+quien consulta la base, que es lo que hace todo el que viene a diagnosticar una importación.* La
+evidencia queda al lado de la decisión, en el propio test.
+
+**Y los acudientes, medidos:** 40 actualizados y 40 parentescos, **0 creados** —el fichero venía del
+export y trae `id_acud1`, así que entra por la rama que actualiza—. O sea **80 filas escritas que el
+plan no menciona**, que es exactamente lo que el aviso de §5.3 sexies vino a decir. Ahora con
+números.
+
 ### 5.4 Lo que NO hizo falta construir
 
 - **La escritura del escenario 6** (cambiar documento y tipo de un alumno existente, el caso
