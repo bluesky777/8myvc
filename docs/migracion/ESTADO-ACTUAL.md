@@ -134,6 +134,19 @@
 >   distinto de «la llave es el dato» de `pagos-inscripcion`.
 > - **Base de tests reconstruida** (entraron cuatro migraciones): 38/38, 112 tablas.
 >
+> ### Y una cosa que no era del encargo y salió de camino: la tanda ha TRIPLICADO
+>
+> `DESPLIEGUE.md` describe la tanda pendiente como **SIETE migraciones y 321 commits**, medido el
+> 5 sep. Recontado esta noche sobre `8279c62`: **25 migraciones y 632 commits**, con el router en
+> 615 y no en 578. **La tabla no se rehace** —la regla es que se remide entera el día del
+> despliegue, no fila a fila— pero lleva ya un aviso fechado encima con las tres cifras y las
+> órdenes que las rehacen.
+>
+> **Se escribe hoy y no el día del despliegue porque el congelado se levantó hoy**: el siguiente
+> que abra ese documento puede ser alguien a punto de subir a los dieciséis colegios, y llegar
+> con «son siete» cuando son veinticinco es decidir a las tres de la mañana si las dieciocho que
+> sobran son legítimas.
+>
 > ### Lo que NO se tocó, y por qué
 >
 > - **El Pint sin commitear de `.worktrees/vacia`** (3.391 + 985 líneas) y el de `e6`: eran de
