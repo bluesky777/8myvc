@@ -8,6 +8,40 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+> ## ✅ QUE EL IMPORTADOR OBEDEZCA — LA FASE 2, CERRADA Y CONDUCIDA (21 sep 2026)
+>
+> **En `main`.** Router sigue en **623** —esta entrega no añade rutas: todo viaja por el cuerpo de
+> las dos que ya existían—. Suite entera: **2.354 passed, 1 skipped** (`--testsuite=Contrato`,
+> 1.013 s). El plan entero, en [`45-la-importacion-dinamica.md`](45-la-importacion-dinamica.md).
+>
+> El ciclo funciona de punta a punta: **el ensayo avisa → la persona decide → el ensayo refleja la
+> corrección → la importación la escribe**. Conducido contra el servidor por `myvc-front-41`, y los
+> números lo demuestran sin discusión: sin decidir, `sin_cambios 32`; con `usar_id: 1`,
+> **`actualizar 24` + `sin_cambios 8`**. *Si el plan no se hubiera movido, meter las equivalencias
+> en el traductor habría sido la decisión equivocada.*
+>
+> ### Lo que la conducción destapó y ninguna revisión de código habría visto
+>
+> 1. **El servidor se contradecía dentro del mismo JSON**: decía «usé tu corrección 14 veces» y
+>    seguía avisando de que esas 14 no se escriben. Eran **dos** fallos —los truncados miraban el
+>    valor crudo, y el estado de la matrícula no entraba en el plan porque no vive en `alumnos`—.
+> 2. **El ensayo no decía si la importación iba a fallar entera.** Tenía el dato y no la
+>    consecuencia, así que la pantalla pintó una hoja que detiene la importación como «Vacía · no se
+>    importa», dejó pulsar «Importar 32 alumnos» y la subida contestó 500.
+> 3. **Y el defecto se esconde solo cuando coincide con lo que ya había**: sin corregir, el plan
+>    dice «a los 32 no les cambia nada» **y es verdad** —el importador adivina Tarjeta de Identidad
+>    y esos alumnos ya lo son—. El error no deja rastro ni en la base ni en el plan: **sólo existe
+>    en el aviso que la Fase 1 inventó**. *El aviso no sobra ni cuando el plan dice que no cambia
+>    nada, y es justo entonces cuando es lo único que hay.*
+>
+> ### Lo que sigue abierto, y no está en el alcance de hoy
+>
+> - **Las otras cuatro secciones de decisiones** —`vacios`, `repetidos`, `duplicados`, `hojas`— se
+>   aceptan, se guardan y **no se interpretan**. Salen declaradas en `no_aplicadas` con su motivo,
+>   para que la pantalla no ofrezca lo que no ocurre.
+> - **La Fase 3** entera, y los **otros quince colegios**: todo lo medido es de la copia de
+>   desarrollo.
+
 > ## CÓMO SE AVERIGUA ESTE ESTADO — cinco órdenes, y van ANTES que las cifras
 >
 > **Escrito el 5 sep 2026, después del apagón que mató cinco sesiones a la vez.** Lo que hizo
