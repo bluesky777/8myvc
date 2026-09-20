@@ -363,7 +363,7 @@ informe de corte; lo único que le falta es decirlo y calcular como tal.
 | **D6** | Cómo se escribe «sin calificar» | ✅ **`notas.nota` anulable, `NULL` = sin calificar.** Propuesta de Joseth contra la columna `calificada_at` que traía yo. Cambia la fase 0 entera. |
 | **D7** | Si «quitar la nota» es `update` con `null` o `destroy` | ✅ **`update` con `nota: null`.** Conserva la fila, su `id`, su bitácora y su historial. `destroy` se queda para lo que de verdad es borrar la fila. |
 | **D5** | Si se capturan las fechas de los indicadores | ✅ **No, fuera de alcance.** Las fases 0–4 arreglan los dos síntomas sin pedirle un dato nuevo a nadie. |
-| **D2** | El cuarto color gris y desde qué % se apaga | ✅ **Gris por debajo del 15 % evaluado.** No es el mínimo posible —el mínimo sería «sólo con 0 %»— y la razón es el papel: esto **se firma y se archiva**, así que una o dos notas sueltas no bastan para ponerle color a una asignatura delante de una familia. |
+| **D2** | El cuarto color gris y desde qué % se apaga | ✅ **Gris con el 15 % evaluado o menos** — `cobertura <= 0.15`. No es el mínimo posible —el mínimo sería «sólo con 0 %»— y la razón es el papel: esto **se firma y se archiva**, así que una o dos notas sueltas no bastan para ponerle color a una asignatura delante de una familia. **El borde lo decidió Joseth el 20 sep 2026 con los 152 pares delante** (abajo). |
 | **D4** | Estado **NE** por celda (el alumno que no pudo ser evaluado) | ✅ **No por ahora.** Con D3 en «queda fuera», una casilla vacía ya hace lo que haría NE; sólo haría falta si el colegio eligiera «pasa a 0» y quisiera excepciones. **Vuelve a la mesa el día que un colegio elija eso.** |
 
 > ### El valor de fábrica de D3 es «pasa a cero», y eso no es lo mismo que la decisión
@@ -556,7 +556,15 @@ fase 1 ya está.
 > impresa, esa casilla dice de quién es el silencio. Ése es el aviso que el colegio necesita a
 > mitad de periodo, y no estaba en el encargo.
 
-> **Antes de escribirla hay que decidir de qué lado cae el 15,00 % exacto, y no es cosmético.**
+> **DECIDIDO el 20 sep 2026: el 15,00 % clavado va en GRIS** — `cobertura <= 0.15`, **2.265 grises**.
+>
+> Lo eligió Joseth con la medición delante, y **es el lado que encaja con el motivo que él mismo
+> había dado para D2**: si esto se firma y se archiva, un docente que calificó **un solo indicador**
+> no debería ponerle color a una asignatura delante de una familia. Los 152 pares de la frontera son
+> exactamente ese caso, así que dejarlos con color habría contradicho la razón de ser del umbral.
+> *Una decisión que no dice dónde está su borde la acaba tomando quien escribe el `if`.*
+>
+> **Lo que había escrito aquí, que es de dónde salió la pregunta.**
 > *(Medido el 20 sep 2026 sobre `simonbolivar`, periodos abiertos.)* D2 dice *«gris por debajo del
 > 15 % evaluado»* y no dice si el 15 clavado es gris o ya tiene color. Hay **152 pares clavados en
 > 15,00 %** —**ocho asignaturas**, o sea grupos enteros: el docente que calificó **un solo
