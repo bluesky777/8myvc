@@ -148,10 +148,71 @@ de verdad, con autor y fecha. `nota_default` no hay que sustituirlo por nada: ya
 
 | | |
 |---|---|
-| `ALTER TABLE notas MODIFY nota int NULL, ALGORITHM=INPLACE, LOCK=NONE` | **8 s** sobre 1.166.608 filas, sin bloquear. **MySQL 8 del docker — producción es MariaDB 10.5 y esto NO está medido ahí**: va a `tools/ensayo-de-la-tanda.sh` sobre copia de un colegio antes de nada. |
+| `ALTER TABLE notas MODIFY nota int NULL, ALGORITHM=INPLACE, LOCK=NONE` | **8 s** sobre 1.166.608 filas, sin bloquear — **MySQL 8 del docker**. ~~Producción es MariaDB 10.5 y esto NO está medido ahí~~ **Medido el 20 sep 2026: `tools/ensayo-del-alter-en-maria.sh`, y el apartado de abajo.** |
 | Agregados sobre `notas.nota` que cambiarían de significado (`AVG`, `MIN`, `MAX`) | **Cero.** El único `AVG(c.nota)` del proyecto (`PuestosController:226`) es de comportamiento, otra tabla. |
 | `INSERT INTO notas(` que no nombren la columna | **Cero**: todos la pasan, así que ninguno empezaría a meter `NULL` por descuido. |
 | **Los tres clientes** | **Ninguno se rompe, y dos ya estaban esperando esto.** |
+
+#### Y medido contra MariaDB el 20 sep 2026 — **no bloquea el guardado de notas**
+
+Era lo único que quedaba abierto de la Fase 0, y la pregunta **no eran los segundos**: el `ALTER`
+reconstruye `notas` entera —123 MB de una base de 187, dos tercios— así que lo que decide es **si
+MariaDB lo hace `INPLACE` o cae a `COPY`**. Con `COPY` la tabla queda de sólo lectura mientras dure
+y un docente guardando notas a esa hora recibe un error.
+
+Contra `mariadb:10.5` (10.5.29; producción corre **10.5.25**), con las cuatro tablas de
+`simonbolivar` copiadas y **rebobinadas al estado de antes de la Fase 0** — comprobado: el proxy
+vuelve a seleccionar exactamente las **20.655** filas.
+
+| | |
+|---|---|
+| `ALGORITHM=INSTANT` · `ALGORITHM=NOCOPY` | **no soportados** — MariaDB contesta *«Try ALGORITHM=INPLACE»* |
+| `ALGORITHM=INPLACE, LOCK=NONE` | **aceptado, 4,97 s** — es la comparación limpia con los **8 s** de MySQL 8, que se midieron con esa misma cláusula |
+| `ALTER` tal como lo escribe la migración, sin cláusula | **6,96 s** |
+| `UPDATE` del relleno | **0,49 s**, 20.655 filas, y el plan **no recorre `notas`**: ataca desde `periodos` (37 filas) y baja por los índices |
+
+> **Los 6,96 s y los 4,97 s son la MISMA operación y la diferencia es ruido, no un hallazgo.** El
+> mismo `INPLACE` cronometrado dentro de la prueba de concurrencia dio **5,8 s**, así que este banco
+> tiene alrededor de un segundo de variación entre pasadas. Leer que «sin cláusula tarda dos
+> segundos más» sería inventarse un efecto: **sin cláusula MariaDB elige exactamente `INPLACE`**, que
+> es justo lo que dice la fila de arriba. Cada cifra es de **una sola pasada**; para un número que
+> haya que defender, medianas.
+
+**Y la cláusula no se creyó: se comprobó escribiendo de verdad desde otra conexión.** Dos pasadas,
+la segunda corriendo el guion entero de cero:
+
+```
+                            pasada 1                     pasada 2
+linea base, sin nada         212–515 ms                  135–180 ms
+INPLACE / LOCK=NONE     14 escrituras, PEOR   355 ms   13 escrituras, PEOR 1.003 ms
+CONTROL, COPY/LOCK=SHARED  1 escritura,      9.448 ms    1 escritura,      6.874 ms
+```
+
+> **El control es lo que hace que el verde signifique algo.** Sin él, «trece escrituras pasaron» no
+> distingue *«no bloquea»* de *«mi bucle no llegó a correr»*. Con `COPY` la escritura esperó el
+> `ALTER` **entero** —9,4 s y 6,9 s—: la sonda **sí sabe detectar un bloqueo**.
+>
+> **Y el pico de 1.003 ms de la segunda pasada se dice, aunque no cambie la conclusión.** «No
+> bloquea» no significa «no se nota nunca»: un DDL en línea toma un **cerrojo de metadatos
+> exclusivo, breve, al principio y al final**, y ahí es donde cabe ese segundo. La diferencia con el
+> control sigue siendo de un orden de magnitud —un segundo contra siete—, y sobre todo **la
+> escritura se completa**: nadie pierde una nota. Quien despliegue esto tiene que saber que **puede
+> haber un tirón de ~1 s**, no que no se enterará nadie.
+>
+> **Los dos `ALTER` sin cláusula dieron 6,96 s y 4,78 s**, que es la variación de este banco entre
+> pasadas. Ninguna cifra de aquí es una mediana: son una pasada cada una, y para un número que haya
+> que defender hacen falta más.
+>
+> **Y la primera sonda estaba rota en la dirección alarmante**: contó **40 escrituras fallidas con
+> las diez filas escritas**, porque el `if` miraba el código de salida de un `grep -vi warning`, que
+> devuelve 1 cuando no selecciona nada. *El primer sitio donde mirar cuando el número sale raro es
+> el detector.*
+
+**Lo que esto NO mide, y hay que decirlo:** es un Mac con Docker Desktop y el `innodb_buffer_pool_size`
+de fábrica (128 MB, con la tabla en 123 MB). **Producción es CloudLinux con límites de I/O por
+cuenta**, así que los segundos de allí serán otros. Lo que viaja de aquí es **el algoritmo** —que es
+lo que decidía—: al no bloquear escrituras, el reloj deja de gobernar la ventana de despliegue. Y es
+**un colegio**, el de la copia de desarrollo, no los dieciséis.
 
 **Y esa última fila es la que cierra la discusión.** No es que los clientes toleren el `null`: es
 que **ya está escrito que la casilla vacía no cuenta**, en los dos clientes nuevos, y el backend es

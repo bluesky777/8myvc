@@ -769,9 +769,29 @@
 >
 > ### Lo que falta, por orden
 >
-> 1. **Medir el `ALTER` contra MariaDB 10.5** con `tools/ensayo-de-la-tanda.sh` sobre copia de un
->    colegio. Los **8 s** medidos son del **MySQL 8 del docker** y no valen para producción. Es lo
->    único que puede tumbar la forma de la fase 0.
+> 1. ~~**Medir el `ALTER` contra MariaDB 10.5.**~~ **HECHO el 20 sep 2026, y sale bien:
+>    `tools/ensayo-del-alter-en-maria.sh`.** MariaDB 10.5 lo hace **`INPLACE` con `LOCK=NONE`**
+>    —`INSTANT` y `NOCOPY` no los soporta, y el propio motor contesta *«Try ALGORITHM=INPLACE»*—,
+>    o sea que **no bloquea el guardado de notas**. `ALTER` **6,96 s** sin cláusula (MySQL 8 daba
+>    8 s), `UPDATE` del relleno **0,49 s** y 20.655 filas con un plan que **no recorre `notas`**.
+>    Comprobado escribiendo desde otra conexión mientras corría, **en dos pasadas**: peor latencia
+>    **355 ms** y **1.003 ms**, frente a los **9.448 ms** y **6.874 ms** del control con
+>    `COPY, LOCK=SHARED` —que es lo que hace que el verde signifique algo—. **No hace falta ventana
+>    de mantenimiento**, pero *«no bloquea»* no es *«no se nota»*: **puede haber un tirón de ~1 s**
+>    por el cerrojo de metadatos breve que un DDL en línea toma al principio y al final. La
+>    escritura se completa; nadie pierde una nota.
+>
+>    > **Y esta casilla decía que era «lo único que puede tumbar la forma de la fase 0», que estaba
+>    > sobredimensionado y se vio al releer la migración.** El modo de fallo «revienta» ya estaba
+>    > cerrado por construcción —la migración **no escribe `ALGORITHM=`** a propósito, así que un
+>    > motor que no pueda hacerlo `INPLACE` cae a copia y termina— y el del motor lo cerró Joseth el
+>    > 5 sep censando las 18 bases (todas InnoDB, ninguna `COMPRESSED`). Lo que de verdad quedaba
+>    > abierto era **la ventana de despliegue**, no el diseño. *Un pendiente heredado se relee antes
+>    > de repetirlo: el que lo escribió no sabía lo que se arregló después.*
+>
+>    **Lo que sigue sin medir** es el reloj sobre CloudLinux, que limita I/O por cuenta; el ensayo
+>    corrió en un Mac con Docker. Viaja el algoritmo, no los segundos — y al no bloquear escrituras,
+>    los segundos dejan de gobernar nada.
 > 2. **El relleno no lo ejercita la base de tests**: `construir-bd-test.sh` migra **antes** de cargar
 >    el seed, así que el `UPDATE` encuentra cero filas y sale `0`. Hay que probarlo aparte.
 > 3. `nota_default` **queda inerte pero sigue aceptándose** en `PlantillaNotasController`: es un
