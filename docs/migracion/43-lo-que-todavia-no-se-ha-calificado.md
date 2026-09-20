@@ -707,11 +707,33 @@ oscilaba más que el efecto.*
 > `NO EXISTE` también en la columna «después» — que es exactamente para lo que se le puso esa
 > línea. *Un banco que sólo imprime milisegundos no puede avisar de que midió otra cosa.*
 
-### Fase 2 — el semáforo deja de acusar al alumno
+### Fase 2 — el semáforo deja de acusar al alumno · **ESCRITA el 20 sep 2026** (front y API)
 
-Cuarto color gris, columna de cobertura y rótulo *informe de corte* con el % evaluado. Sólo
-`myvc_front/app2` (`cuentas-del-semaforo.ts` y la hoja): **no necesita desplegar la API** si la
-fase 1 ya está.
+Cuarto color gris, columna de cobertura y rótulo *informe de corte* con el % evaluado.
+
+> #### ~~«No necesita desplegar la API si la fase 1 ya está»~~ — **ERA FALSO, y al revés: el front estaba entero y lo que faltaba era la API**
+>
+> Esta sección decía que la fase 2 era *«sólo `myvc_front/app2`»*. **El front la fundió el 20 sep
+> por la mañana** —cuarto color con sus tres motivos distinguidos, columna de cobertura, rótulo y
+> una hoja de riesgo que lista las asignaturas que callan— y al ir a encenderla midió a **qué
+> endpoint llama de verdad su pantalla**:
+>
+> ```
+> semaforo-grupo.ts:73   private readonly FORMATO = 1;
+> datos/boletines.ts     {1: 'boletines', 2: 'boletines2', 3: 'boletines3', 6: 'boletines-competencias'}
+> → PUT boletines/detailed-notas-group/{grupo}, SIEMPRE y en los dieciséis
+> ```
+>
+> Y ese camino **no era ninguno de los siete del censo de la §Fase 1.bis**: va por
+> `BoletinesController::putDetailedNotasGroup` → `detailedNotasGrupo` → `allNotasAlumno` →
+> `Grupo::detailed_materias_notafinal`, que resuelve la definitiva con un `LEFT JOIN` sobre
+> `notas_finales`. Ni el servicio, ni `calculoAlumnoNotas`, ni el séptimo de `EditnotaController`.
+> **Es un OCTAVO calculador**, y el censo que lo habría encontrado no existía porque nadie había
+> preguntado *«¿a qué endpoint llama la pantalla?»* — se había preguntado *«¿quién calcula la
+> definitiva?»*, que es otra cosa.
+>
+> *El documento describía bien el trabajo del front y se equivocaba entera en el de la API. La
+> frase se conserva tachada porque el error no es el dato: es haber dado por sabido el consumidor.*
 
 > **Y gana algo que hoy no tiene nadie: delata a la asignatura que no ha reportado.** Hoy un
 > docente que no calificó produce treinta rojos y la culpa se lee como del alumno. Con la cobertura
@@ -745,6 +767,97 @@ fase 1 ya está.
 > `cobertura`**, al lado de `nota_asignatura` — y no `parcial`, que es como se llama dentro del
 > servicio: junto a `nota_asignatura`, un campo llamado `parcial` se lee como una bandera.
 > **A los boletines NO llega**, y el porqué está en la §Fase 1.bis.
+
+#### Lo entregado en la API: **0 rutas, 0 columnas, 0 migraciones y 0 consultas nuevas**
+
+| | |
+|---|---|
+| Nuevo | `app/Support/LaParcialYLaCobertura.php` — las dos fórmulas y la regla de qué casilla cuenta |
+| Tocados | `app/Models/Asignatura.php` (sólo las dos expresiones finales), `Informes/BoletinesController`, `Informes/NotasActualesAlumnosController` |
+| Prueba | `tests/Contrato/LaParcialEnElBoletinTest.php` |
+| Rutas · columnas · migraciones · clientes | **0 · 0 · 0 · 0** |
+
+**No cuesta ni una consulta**, y ésa es la parte que casi se presupuesta mal. La primera
+estimación fue *«o una llamada a `calculoAlumnoNotas` por par —treinta alumnos por doce
+asignaturas— o hacerlo en SQL»*, y las dos eran innecesarias: `allNotasAlumno` **ya carga** las
+unidades (`Unidad::deAsignaturaCalculada`) y sus subunidades (`Subunidad::deUnidadCalculada`) para
+pintar el boletín, así que los dos números son dos sumas sobre lo que ya está en memoria.
+
+#### El octavo camino lo recorren CINCO, y lo ganan DOS — con el motivo de cada uno de los tres
+
+**El censo son cinco, y la primera versión de este renglón decía tres.** Lo corrigió `8myvc-79`
+contándolo entero; el tres salió de un `grep … | head`, o sea de una lista **truncada por el
+propio comando que la producía**. *Un detector que corta su salida no dice que la cortó, y de las
+dos lecturas la falsa es la que hace archivar el asunto.* La orden que lo cuenta bien, descartando
+los comentarios —que son cuatro más y lo inflan—:
+
+```bash
+grep -rn "Grupo::detailed_materias_notafinal(" app/ | grep -v '\* '
+```
+
+| quien lo llama | ¿gana los dos números? | por qué |
+|---|---|---|
+| `Informes\BoletinesController:320` | **sí** | es el que lee la pantalla del semáforo |
+| `Informes\NotasActualesAlumnosController:180` | **sí** | mismo método copiado y **ya carga las subunidades** |
+| `Informes\Boletines2Controller:223` | no | **no carga las subunidades**: su `allNotasAlumno` sólo pide las unidades, y el único `subunidades` del fichero es `Subunidad::perdidasDeUnidad`, que trae **sólo las perdidas**. Ahí costaría una consulta por unidad, asignatura y alumno — *«no cuesta ni una consulta»* dejaría de ser cierto justo donde se dice |
+| `Informes\BoletinPorCompetenciasController:459` | no | otro modelo de evaluación: ahí la definitiva no es una suma ponderada, así que **la parcial pesada no está definida** — el motivo del sexto lector de la §Fase 1.bis |
+| `Models\Nota::alumnoPeriodoDetalle:376` | **no, y es el único candidato de verdad** | carga unidades y subunidades con la forma que `calculoAlumnoNotas` consume, así que saldría igual de barato. Queda fuera porque **no lo pide ninguna pantalla todavía** y cada campo nuevo mueve instantáneas de `notas/detailed` y `alumno-periodo-grupo`. *Se deja escrito como candidato, no como olvido.* |
+
+**`Boletines3Controller` ni siquiera entra en este censo**: no pasa por aquí, usa
+`Grupo::detailed_materias_notas_finales` —la de los cuatro periodos en una fila—, donde lo único
+que cabría es «la parcial del año», que no está definida en ninguna parte.
+
+*La regla de «no dejar dos iguales y uno distinto» vale cuando son iguales, y de estos cinco sólo
+dos lo son.*
+
+#### El numerador se recalcula — decisión de Joseth del 20 sep, y su precio
+
+Las dos opciones se pusieron con su coste. Se recalcula en el bucle, **no** se divide la definitiva
+guardada, por dos razones: tras la §Fase 4 un periodo cerrado con `fuera` guarda la definitiva **ya
+normalizada** y dividirla otra vez normalizaría dos veces —dando un número más bajo, plausible y
+sin significado en un papel que se firma—, y la parcial del boletín tiene que ser **la misma que la
+de la planilla** para el mismo alumno.
+
+**El precio, escrito antes de que lo encuentre una secretaría:** la parcial **no cumple**
+`parcial × Σpeso == nota_asignatura` contra la `nota_asignatura` que el boletín publica, porque ésa
+es la guardada y el numerador es el del bucle. En modo `promedio` los dos calculadores ya discrepan
+—14 pares de 99 en el 2026 de la copia, hasta 42,3 puntos sobre 0–50—, así que **el mismo alumno
+puede llevar impresa una parcial que no cuadra con su acumulada**. No es un fallo nuevo: es la
+discrepancia que ya existía, ahora con un número al lado que la deja ver. Unificar los dos
+calculadores sigue abierto en la §7 y es una decisión de Joseth.
+
+#### Lo que fija el test, y los dos controles que se vieron en rojo
+
+Cinco casos, 32 aserciones. El que sostiene el resto es
+`test_el_boletin_y_la_planilla_dicen_la_misma_parcial`, que pasa **el mismo alumno y la misma
+asignatura** por los dos caminos y compara: sin él, dos implementaciones de la misma cuenta se
+separan y el alumno acaba con una cobertura en la planilla de su profesor y otra en su boletín, las
+dos con 200 y ninguna en rojo.
+
+| lo que se rompió | qué cayó |
+|---|---|
+| la guarda de la subunidad sin fila (`nota_id`) | **2** — el de la subunidad ajena y el del alumno sin casillas |
+| `!== null` → `> 0` en el divisor | **1** — el del 0 tecleado |
+
+**La trampa propia de este camino es el `LEFT JOIN`**, y no existe en el otro: aquí la subunidad
+que **no le toca a este alumno vuelve igual**, con `nota_id` a `null`. Mirando `nota` en vez de
+`nota_id` el peso total del lienzo sube de 10.000 a 11.500 y la cobertura cae de 0,35 a 0,304 — la
+pantalla pintaría de gris a un alumno por un indicador que no es suyo.
+
+#### El front ya estaba, y el papel ya se miró
+
+`myvc_front` fundió la fase 2 el 20 sep (`5f8656d6`…`6c49ca40`), con `COBERTURA_QUE_APAGA = 0.15`
+comparado contra el factor y no contra el redondeo, y `hayCorte()` preguntando por `undefined` —o
+sea que **un colegio sin desplegar imprime el papel del 19 de septiembre byte por byte**, que es lo
+que sostiene el despliegue de uno en uno—. De camino corrigió un campo que había escrito
+adivinando —`parcial` en vez de `nota_parcial`— y el modo de fallo merece quedar escrito: **un
+nombre equivocado se lee exactamente igual que un colegio sin desplegar**, así que no habría dado
+error en consola y habría salido el papel viejo en los dieciséis.
+
+Y condujo la hoja en Chrome interceptando la respuesta, con doce veredictos: `cobertura: 0.15` gris
+**con su número impreso** —D2 apaga el color, no el dato—, `cobertura: null` con la casilla del `%`
+**vacía** y no en 0, y `nota_parcial: null` con **una raya** donde antes iba un cero. *Cuando la
+API emita, no será la primera vez que se mire el papel.*
 
 ### Fase 3 — lo que ve la familia
 

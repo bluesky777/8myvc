@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
+use App\Support\LaParcialYLaCobertura;
 use App\Models\Grupo;
 use App\Models\Periodo;
 use App\Models\Year;
@@ -390,6 +391,24 @@ class BoletinesController extends Controller {
 			foreach ($asignaturas[$i]->unidades as $unidad) {
 				$unidad->subunidades = Subunidad::deUnidadCalculada($alumno->alumno_id, $unidad->unidad_id, $this->user->year_id);
 			}
+
+			// **LA PARCIAL Y LA COBERTURA** — Fase 2 del
+			// [43](../../../../docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md).
+			//
+			// Va **aquí y no antes** porque necesita las unidades y las subunidades ya
+			// cargadas, y **no cuesta ni una consulta**: las dos líneas de arriba acaban de
+			// traer exactamente la materia prima que estas dos sumas necesitan.
+			//
+			// `nota_asignatura` NO se toca: sigue siendo la de `notas_finales`, la que este
+			// boletín lleva años imprimiendo. Estas dos claves son aditivas. El numerador de
+			// la parcial se recalcula aquí a propósito y **no** se divide la guardada —
+			// decisión de Joseth del 20 sep 2026—: tras la Fase 4, un periodo cerrado con
+			// `fuera` guarda la definitiva ya normalizada, y dividirla otra vez normalizaría
+			// dos veces. El porqué entero y su precio están en el helper.
+			$medida = LaParcialYLaCobertura::deLasUnidades($asignaturas[$i]->unidades);
+
+			$asignaturas[$i]->nota_parcial = LaParcialYLaCobertura::parcial($medida['nota_asignatura'], $medida['peso_evaluado']);
+			$asignaturas[$i]->cobertura = LaParcialYLaCobertura::cobertura($medida['peso_evaluado'], $medida['peso_total']);
 			
 			if ($comport_and_frases) {
 				$asignaturas[$i]->ausencias		= Ausencia::deAlumno($asignaturas[$i]->asignatura_id, $alumno->alumno_id, $periodo_id);
