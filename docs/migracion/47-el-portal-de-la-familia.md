@@ -371,6 +371,26 @@ una rama», «desplegada en los dieciséis». Nunca sólo con el cuándo.
 > se mueven solos. Lo que no caduca es la orden que lo rehace —`git grep <la ruta> main` y
 > `git log origin/main..main`—, que es exactamente lo que este repo hace con los contadores.
 
+#### Y la forma de las tres veces que pasó en un día: el error NO estaba en la medición
+
+Lo contó `myvc-flutter-1a` al cerrar, y el patrón vale más que cualquiera de los tres casos:
+
+| | lo medido, que estaba BIEN | el rótulo, que estaba MAL |
+|---|---|---|
+| su `§7.bis` | las rutas, una por una | *«escritos, sin desplegar»* para dos estados distintos |
+| su docblock de campos | las columnas de `requisitos_alumno` | leído como **el contrato entero**, y faltaban tres |
+| la cabecera de **este** documento | **644**, contadas con `route:list --json` | *«SIN FUNDIR»*, horas después de fundir |
+
+**Las tres veces la cifra era correcta y la frase que la resumía no.** Y eso tiene una
+consecuencia operativa que no se deduce de *«mide bien»*: revisar más despacio **no lo caza** —el
+número al que vas a mirar está bien—; lo caza **que alguien de fuera tropiece con la versión de al
+lado**. Las tres las encontró el otro repositorio, no el que las escribió.
+
+> Y la tercera es la que lo demuestra sin discusión: **el documento que enseña esta lección la
+> estaba cometiendo en su primera pantalla**, con la §7.6 ya escrita cuatro secciones más abajo.
+> *Un aviso escrito no protege solo; sólo protege el día que alguien hace lo que dice* — otra vez,
+> y esta vez contra su propio autor.
+
 ### 7.7 · 🔴 «CON SU NOMBRE Y SU HORA» — y el nombre sale VACÍO justo para quien atiende
 
 Lo destapó el test de la §7.5 al escribirlo, y **no es de esta tanda: está en `main` desde el
