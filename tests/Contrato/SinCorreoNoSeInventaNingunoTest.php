@@ -116,6 +116,81 @@ class SinCorreoNoSeInventaNingunoTest extends CasoDeContrato
     }
 
     /**
+     * El SEGUNDO invento, que no lo fabricábamos nosotros y que pasa por la rama buena.
+     *
+     * El alta de la aplicación **vieja** manda `email: '@gmail.com'` cuando no se
+     * teclea correo, copiando a `formatear_nuevo`. Como es una cadena **no vacía**,
+     * pasaba el `if (Request::input('email'))` que dejamos en pie al quitar el `else`
+     * — o sea que cerrar aquel grifo no cerraba éste.
+     *
+     * Y es cuarenta veces más grande: **678 cuentas vivas** lo llevan frente a 16
+     * activas con `@myvc.com`. De los 853 alumnos a los que la recuperación llega,
+     * 655 son éstos y sólo 196 tienen un correo de verdad.
+     *
+     * `app/` no se toca por decisión de Joseth, así que esa pantalla va a seguir
+     * mandándolo: la regla vive donde el dato entra (`CorreoDeLaCuenta`), no en quien
+     * lo manda. **La ficha sí lo conserva** — sólo tiene regla la columna que es la
+     * llave del reseteo.
+     */
+    public function test_una_cadena_sin_nada_delante_de_la_arroba_no_llega_a_la_cuenta(): void
+    {
+        $usuario = 'profe.arroba.'.random_int(100000, 999999);
+
+        $this->withToken($this->tokenDelSuperusuario())
+            ->postJson('/api/profesores/store', [
+                'nombres' => 'Profesor',
+                'apellidos' => 'Arroba Suelta',
+                'sexo' => 'M',
+                'username' => $usuario,
+                'tipo_profesor' => 'Catedrático',
+                'email' => '@gmail.com',
+            ]);
+
+        $fila = DB::table('users')->where('username', $usuario)->first();
+        $this->assertNotNull($fila, 'No se creó el profesor.');
+
+        $this->assertNull($fila->email,
+            'El literal `@gmail.com` llegó a `users.email`. Ahí el reseteo lo ENCUENTRA '
+            .'y contesta «Enviado» sin entregar nada: 678 cuentas vivas están así.');
+
+        $this->assertSame('@gmail.com', DB::table('profesores')
+            ->where('user_id', $fila->id)->value('email'),
+            'La ficha sí lo conserva: la regla es de la cuenta, no del dato de contacto.');
+    }
+
+    /**
+     * El correo de RECUPERACIÓN que se pone uno mismo, que es el sitio donde la regla
+     * más importa y el que casi se queda fuera.
+     *
+     * `perfiles/guardar-mi-email-restore` escribe `users.email` con un `UPDATE`
+     * crudo y no pasa por ningún `sanarInputUser`. La primera versión de esta regla
+     * cubría los diez sitios que encontré con un `grep` de `$usuario->email =`, y
+     * **éste no está escrito así**. Lo destapó `myvc-front-2e` contando catorce
+     * donde yo había contado diez.
+     *
+     * Aquí el daño es el más directo de todos: quien se pone su correo de
+     * recuperación cree que lo tiene puesto, y lo que hay en la columna no sirve
+     * para recuperar nada.
+     */
+    public function test_el_correo_de_recuperacion_propio_tambien_pasa_por_la_regla(): void
+    {
+        $fila = DB::selectOne('SELECT u.username, u.id FROM users u
+            INNER JOIN periodos p ON p.id = u.periodo_id
+            WHERE u.tipo = "Profesor" AND u.is_active = 1 AND u.deleted_at IS NULL
+            ORDER BY u.id LIMIT 1');
+        $this->assertNotNull($fila, 'El seed no tiene ningún profesor con periodo.');
+
+        DB::update('UPDATE users SET email = NULL WHERE id = ?', [$fila->id]);
+
+        $this->withToken($this->tokenDe($fila->username))
+            ->putJson('/api/perfiles/guardar-mi-email-restore', ['email_restore' => '@gmail.com']);
+
+        $this->assertNull(DB::table('users')->where('id', $fila->id)->value('email'),
+            'El correo de recuperación que se pone el propio usuario no pasaba por la '
+            .'regla, y es el sitio donde más importa que la pase.');
+    }
+
+    /**
      * Y el caso que no se ve: mandar el campo VACÍO a propósito.
      *
      * Antes esto no vaciaba — sustituía por el inventado, porque

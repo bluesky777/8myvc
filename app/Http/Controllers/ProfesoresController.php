@@ -8,6 +8,7 @@ use App\Models\Role;
 use App\Models\Year;
 use App\Support\Autoriza;
 use App\Support\CamposQueVinieron;
+use App\Support\CorreoDeLaCuenta;
 use App\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -181,7 +182,7 @@ class ProfesoresController extends Controller
         $usuario = new User;
         $usuario->username = Request::input('username');
         $usuario->password = Hash::make(Request::input('password', '123456'));
-        $usuario->email = Request::input('email2');
+        $usuario->email = CorreoDeLaCuenta::oNada(Request::input('email2'));
         $usuario->is_superuser = Autoriza::concederSuperusuario($this->user, Request::input('is_superuser'));
         $usuario->is_active = Request::input('is_active', 1);
         $usuario->tipo = 'Profesor';
@@ -264,8 +265,13 @@ class ProfesoresController extends Controller
         // clave `email2` vacía, antes se fabricaba uno y **se escribía encima del que
         // hubiera** —`$vinieron->trae('email2')` contesta que sí, porque la clave
         // vino—. Ahora ese caso guarda vacío, o sea que vaciar el campo se respeta.
-        if (! Request::input('email2') && Request::input('email')) {
-            Request::merge(['email2' => Request::input('email')]);
+        //
+        // **Y no se deriva de cualquier cosa**: el alta de la aplicación vieja manda el
+        // literal `'@gmail.com'` cuando no se teclea correo, que es una cadena no vacía
+        // y por tanto pasaba este `if`. `CorreoDeLaCuenta` dice qué puede vivir en
+        // `users.email` y por qué esa columna tiene regla y la ficha no.
+        if (! Request::input('email2') && CorreoDeLaCuenta::oNada(Request::input('email')) !== null) {
+            Request::merge(['email2' => CorreoDeLaCuenta::oNada(Request::input('email'))]);
         }
 
         if (! Request::input('is_superuser')) {
@@ -513,7 +519,7 @@ class ProfesoresController extends Controller
                     // se sustituía por el de la persona, o por `usuario@myvc.com`.
                     // Son dos columnas de dos tablas. 05 §68.3.
                     if ($vinieron->trae('email2')) {
-                        $usuario->email = Request::input('email2');
+                        $usuario->email = CorreoDeLaCuenta::oNada(Request::input('email2'));
                     }
 
                     if (Request::input('nuevo_password')) {
@@ -546,7 +552,7 @@ class ProfesoresController extends Controller
                     $usuario = new User;
                     $usuario->username = Request::input('username');
                     $usuario->password = Hash::make(Request::input('password', '123456'));
-                    $usuario->email = Request::input('email2');
+                    $usuario->email = CorreoDeLaCuenta::oNada(Request::input('email2'));
                     $usuario->is_superuser = Autoriza::concederSuperusuario($this->user, Request::input('is_superuser'));
                     $usuario->is_active = Request::input('is_active', 1);
                     $usuario->save();
