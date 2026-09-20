@@ -45,8 +45,11 @@ class YearsController extends Controller {
 
 	public function getColegio()
 	{
-		$user = User::fromToken();
-
+		/*
+		 * AQUI HABIA UN `$user = User::fromToken();` y se fue con el filtro por usuario de las imagenes
+		 * (mas abajo): era su unico uso. No hace de guardia -- `fromToken()` devuelve null en vez de
+		 * cortar, y quien corta es el middleware `auth.token` que envuelve a todo `routes/api.php`.
+		 */
 		$consulta = 'SELECT * FROM years WHERE deleted_at is null';
 		$years    = DB::select($consulta);
 
@@ -62,8 +65,27 @@ class YearsController extends Controller {
 		$consulta = 'SELECT * FROM config_certificados';
 		$certif   = DB::select($consulta);
 
-		$consulta = 'SELECT * FROM images WHERE user_id=? and publica=true';
-		$imagenes = DB::select($consulta, [$user->user_id]);
+		/*
+		 * LAS PUBLICADAS SON DEL COLEGIO, NO DE QUIEN ENTRA  *(19 sep 2026, pedido)*.
+		 *
+		 * Aqui ponia `WHERE user_id=? and publica=true`, y era la UNICA de las seis consultas de
+		 * imagenes del backend que filtraba por usuario. Las otras cinco --`ComportamientoController`
+		 * (dos), `ObservadorHorizontalController`, `InformesController` y el de portadas-- piden
+		 * `publica=true` a secas, porque para eso se publica una imagen: para que la vea el resto del
+		 * personal del colegio.
+		 *
+		 * El efecto del filtro se veia en la configuracion de certificados: el membrete que subia el
+		 * rector NO le salia a la secretaria, y la pantalla no tenia forma de explicar por que faltaba.
+		 *
+		 * **NO SE AÑADE `deleted_at is null`**, y eso es a proposito aunque las otras cinco si lo
+		 * lleven: una plantilla de certificado puede estar apuntando a una imagen de la papelera, y el
+		 * dia que esta consulta deje de devolverla el desplegable de `app2` enseñaria «(sin imagen)»
+		 * para una plantilla que SI tiene imagen puesta -- y guardar desde ahi la borraria de verdad,
+		 * porque `putUpdate` pone la columna a null cuando no le mandan la imagen. El front ya las
+		 * marca y las manda al final de la lista; ver `comunes/selector-imagen` en `myvc_front`.
+		 */
+		$consulta = 'SELECT * FROM images WHERE publica=true';
+		$imagenes = DB::select($consulta);
 
 
 

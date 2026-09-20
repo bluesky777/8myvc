@@ -31,7 +31,7 @@
             "nombre": "string",
             "publica": "int",
             "updated_at": "string",
-            "updated_by": "null",
+            "updated_by": "int|null",
             "user_id": "int"
         }
     ],
