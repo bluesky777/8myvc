@@ -64,6 +64,32 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
      */
     public $punto;
 
+    /**
+     * Qué hizo de verdad, contado mientras lo hace.
+     *
+     * Lo pide la pantalla del ensayo: el informe final **compara lo prometido
+     * con lo hecho**, y para eso los dos tienen que hablar de lo mismo. Hasta
+     * hoy la respuesta era la cadena `'Importados.'` y estos números no los
+     * sabía nadie — ni siquiera cuántas filas eran, que `importaciones` sí
+     * guarda pero sin repartirlas entre crear y actualizar.
+     *
+     * `reencontrados` va aparte de `actualizados` a propósito: son las filas
+     * que venían **sin `id`** y aun así no se crearon, porque su documento ya
+     * estaba. Es la idempotencia trabajando, y es el número que dice cuántos
+     * alumnos duplicados se habrían creado antes del 20 ago 2026.
+     *
+     * @var array<string, int>
+     */
+    public $hechos = [
+        'filas' => 0,
+        'creados' => 0,
+        'actualizados' => 0,
+        'reencontrados' => 0,
+        'usuarios_creados' => 0,
+        'matriculas_creadas' => 0,
+        'saltadas' => 0,
+    ];
+
     public function __construct($year, $fixer, PuntoDeControlDeImportacion $punto)
     {
         $this->sheetNames = [];
@@ -91,6 +117,8 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
         // mirar siquiera qué grupo era. Reanudar un archivo de dieciséis
         // pestañas por la última no puede costar dieciséis consultas de grupo.
         if (count($array) > 0 && $this->punto->yaProcesada($abrev, count($array) - 1)) {
+            $this->hechos['saltadas'] += count($array);
+
             return;
         }
 
@@ -113,8 +141,12 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
         for ($f = 0; $f < count($results); $f++) {
 
             if ($this->punto->yaProcesada($abrev, $f)) {
+                $this->hechos['saltadas']++;
+
                 continue;
             }
+
+            $this->hechos['filas']++;
 
             // La fila entera y su marca de avance, en la MISMA transacción.
             //
@@ -176,7 +208,13 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
         // que hasta este arreglo cambiaba a 68 de los 68 alumnos del seed.
 
         if ($alumno['id']) {
-            $consulta = 'UPDATE alumnos SET no_matricula=?, nombres=?, apellidos=?, sexo=?, fecha_nac=?, 
+            $this->hechos['actualizados']++;
+
+            if ($reencontrado) {
+                $this->hechos['reencontrados']++;
+            }
+
+            $consulta = 'UPDATE alumnos SET no_matricula=?, nombres=?, apellidos=?, sexo=?, fecha_nac=?,
 					tipo_doc=?, documento=?, no_matricula=?, direccion=?, barrio=?, telefono=?, celular=?, estrato=?, 
 					tipo_sangre=?, eps=?, religion=?, nro_sisben=?, updated_at=?'.$res['consulta'].' WHERE id=?';
 
@@ -273,6 +311,8 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
                 $alumno->nro_sisben = $alumno_row['sisben'];
                 $alumno->save();
 
+                $this->hechos['creados']++;
+
                 $alumno_row['id'] = $alumno->id;
 
                 $opera = new OperacionesAlumnos;
@@ -287,6 +327,8 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
                 $usuario->tipo = 'Alumno';
                 $usuario->save();
 
+                $this->hechos['usuarios_creados']++;
+
                 $role = Role::where('name', 'Alumno')->get();
                 // $usuario->attachRole($role[0]);
                 $usuario->roles()->attach($role[0]['id']);
@@ -300,6 +342,8 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
                 $matricula->estado = 'MATR';
                 $matricula->fecha_matricula = $now;
                 $matricula->save();
+
+                $this->hechos['matriculas_creadas']++;
 
                 // Acudiente 1
                 $this->modificar_acudiente1($alumno_row, $now, $res['consultaA1']);
@@ -557,15 +601,39 @@ class ImportarController extends Controller
 
             $punto->completar();
 
-            $data = [];
-            // Return an import object for every sheet
-            foreach ($Import->getSheetNames() as $index => $sheetName) {
-                $data[$index] = new AlumnosImport;
-            }
-
-            return 'Importados.';
+            // Aquí había un bucle que llenaba un `$data` que no devolvía nadie,
+            // instanciando `AlumnosImport` una vez por hoja. Se va con el
+            // cambio de respuesta: era lo único que instanciaba esa clase.
+            //
+            // LO QUE SE DEVOLVÍA HASTA HOY ERA LA CADENA `'Importados.'`, y eso
+            // no era inocuo. Medido el 20 sep 2026 contra el docker:
+            //
+            //     status 200 · Content-Type text/html · cuerpo 'Importados.'
+            //
+            // `app2` sube por `comunes/subida/subida.ts`, que llama a
+            // `http.post` **sin `responseType`** —o sea `'json'`—, y Angular
+            // convierte un 2xx cuyo cuerpo no parsea en un ERROR. Así que las
+            // dos pantallas nuevas enseñaban «no se pudieron importar» después
+            // de una importación que había funcionado. Lo dedujo la sesión del
+            // front leyendo su propio código y lo confirmó esta medición.
+            //
+            // Devolver JSON arregla ese camino además de abrir el contrato.
+            // **Los errores siguen siendo texto**, decidido por Joseth el 20
+            // sep: la pantalla vieja pinta `status + ': ' + data` y con un JSON
+            // ahí saldría `500: [object Object]`.
+            return response()->json([
+                'ok' => true,
+                'importacion_id' => $punto->id(),
+                'reanudada' => $punto->reanudada(),
+                'filas_del_archivo' => $punto->filas(),
+                'hechos' => $Import->hechos,
+                'avisos' => $fixer->avisos,
+            ]);
         }
 
+        // Se queda en texto a propósito, por lo mismo que los errores: es la
+        // rama de «no me mandaste fichero», y los cuatro llamadores mandan uno
+        // siempre.
         return 'No se encontró archivo.';
     }
 
