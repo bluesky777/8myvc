@@ -55,6 +55,21 @@ use Illuminate\Support\Facades\Schema;
  * revés»*. De la orden a la matrícula se va por la columna; **al revés no se podía
  * ir sin recorrer la tabla entera**, y esa pregunta —«¿de qué formulario salió esta
  * matrícula?»— es la que contesta el informe de campaña.
+ *
+ * ## Y SON DOS ÍNDICES Y NO TRES, comprobado con `EXPLAIN` y no supuesto
+ *
+ * La tentación era añadir un tercero para el informe, que filtra por
+ * `year_campana`. **No hace falta**, y no es una corazonada: el `UNIQUE
+ * (year_campana, alumno_id)` que ya existe **lleva `year_campana` de primera
+ * columna**, así que la consulta del resumen lo usa como prefijo. Medido en la base
+ * de tests el 20 sep 2026:
+ *
+ *     WHERE codigo_anterior=…   ->  key: ordenes_inscripcion_codigo_anterior  (ref)
+ *     WHERE matricula_id=…      ->  key: ordenes_inscripcion_matricula        (ref)
+ *     WHERE year_campana=…      ->  key: ordenes_inscripcion_alumno_campana   (ref)
+ *
+ * Un índice de más no es gratis: se mantiene en cada `INSERT` de una tabla que se
+ * escribe de cincuenta en cincuenta al imprimir una tanda.
  */
 return new class extends Migration
 {
