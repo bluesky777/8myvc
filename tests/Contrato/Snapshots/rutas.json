@@ -182,6 +182,7 @@
     "GET api/profesores/todos": "App\\Http\\Controllers\\ProfesoresController@getTodos",
     "GET api/profesores/trashed": "App\\Http\\Controllers\\ProfesoresController@getTrashed",
     "GET api/publicaciones/ultimas": "App\\Http\\Controllers\\Perfiles\\PublicacionesController@getUltimas",
+    "GET api/requisitos/recorrido/{alumno_id}": "App\\Http\\Controllers\\Matriculas\\RequisitosController@getRecorrido",
     "GET api/roles": "App\\Http\\Controllers\\RolesController@getIndex",
     "GET api/roles/rolesconpermisos": "App\\Http\\Controllers\\RolesController@getRolesconpermisos",
     "GET api/rubricas": "App\\Http\\Controllers\\RubricasController@getIndex",
