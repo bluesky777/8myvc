@@ -147,6 +147,31 @@
 > con «son siete» cuando son veinticinco es decidir a las tres de la mañana si las dieciocho que
 > sobran son legítimas.
 >
+> ### La suite entera, y los TRES ROJOS que destapó — los tres de antes
+>
+> **`php artisan test` sobre el árbol fundido: 3 rojos y 2.411 verdes**, los tres en la testsuite
+> `Unit` (`Contrato` 2.236 y `Feature` 20, verdes). **Ninguno lo causaron las fusiones**: dos ya
+> estaban en `origin/main` y el tercero es deuda vieja que un test recién fundido acaba de poder
+> ver. Arreglados los tres en `d6d6471`:
+>
+> 1. **`use Log;` en `UnidadesController`** — lo dejó el Pint de la P6 (`3ce3056`) y resuelve por
+>    el array `aliases`. Es **el mismo fallo que `e4686ba` arregló en `ImporterFixer` el mismo
+>    día**, en otro fichero. Aquí se borra la línea: ese controlador no nombra `Log` ni una vez.
+> 2. **El censo de interruptores, 93 contra 92** — `por_defecto` lleva **tres** cruces entre
+>    «decorativa» y «decide algo» (D14 el 13 sep, la Fase 2 deshaciéndolo el 17, y
+>    `CandadoDeLaPlantilla:99` el 19). Los dos primeros los apuntó quien los causó; el tercero no.
+> 3. **Cuatro funciones globales declaradas en siete herramientas** —`pedir`, `token`, `contar`,
+>    `pedirMidiendo`— copiadas con **firma idéntica**, que es justo lo que larastan no denuncia.
+>
+> > **Y el porqué de que nadie los viera es el aviso que ya estaba escrito**: aquí la cifra se
+> > publica casi siempre con `--testsuite=Contrato`, **que no ejecuta `Unit`**. `CLAUDE.md` lo dice
+> > desde el 7 sep. *Un aviso que ya está escrito no protege solo; sólo protege el día que alguien
+> > hace lo que dice* — y esta noche el que lo hizo fue correr la suite entera antes de empujar.
+>
+> **Verde tras arreglarlos: `Tests: 1 skipped, 2414 passed (52539 assertions)` (`php artisan
+> test`), larastan `[OK] No errors` (678 ficheros), `pint:test` PASS (450).** Con eso empujado:
+> `origin/main` pasa de `befdd41` a `d6d6471`, 37 commits, y local y remoto quedan a cero.
+>
 > ### Lo que NO se tocó, y por qué
 >
 > - **El Pint sin commitear de `.worktrees/vacia`** (3.391 + 985 líneas) y el de `e6`: eran de
