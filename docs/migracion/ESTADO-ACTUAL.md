@@ -302,9 +302,18 @@
 > motivo ya se guardaba desde el 19 sep, y **sólo lo veía el personal**.
 >
 > **No espera al correo, y ése es el punto**: el aviso que debía cerrarlo va por correo, que está
-> en rojo desde el 2 sep y **falla callado**, y sólo el **9,2 %** de los acudientes tiene uno. Esto
-> es *pull* en vez de *push*: la familia entra con el código que lleva impreso el papel. *Arreglar
-> el correo sigue haciendo falta; lo que ya no hace falta es esperarlo.*
+> en rojo desde el 2 sep y **falla callado**. Esto es *pull* en vez de *push*: la familia entra con
+> el código que lleva impreso el papel. *Arreglar el correo sigue haciendo falta; lo que ya no hace
+> falta es esperarlo.*
+>
+> > **Y aquí se citaba el 9,2 % de acudientes con correo, que está mal DOS veces.** La primera la
+> > levantó `8myvc-9a`: ese 9,2 % es `acudientes.email` y todo lo que manda correo busca por
+> > `users.email` —eran **0**, y su arreglo los dejó en **91**—. **La segunda es la de fondo y es
+> > mía: ninguna de las dos cifras cuenta a esta gente.** Las dos son acudientes de alumnos **ya
+> > matriculados**, y quien paga un formulario es la familia de un **aspirante**, que no tiene fila
+> > en `users` ni en `acudientes`. Medido: **este flujo no le pide el correo en ningún momento y
+> > ninguna de sus tres tablas tiene esa columna.** Para él el correo **no es un canal**, y esta
+> > ruta no es la mejor opción: es **la única**. Detalle en el [`41 §10`](41-el-formulario-de-inscripcion.md).
 >
 > ### Lo que devuelve lo decide que sea pública, no que le sirva a la familia
 >

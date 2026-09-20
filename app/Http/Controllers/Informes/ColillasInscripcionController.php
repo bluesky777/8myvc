@@ -172,10 +172,28 @@ class ColillasInscripcionController extends Controller
      * colegios, **no está registrado**, y falla callado.
      *
      * **Por eso esto no espera al correo**: la familia entra con el código que ya
-     * lleva impreso en el papel. Es *pull* en vez de *push*, y para un destinatario
-     * que no tiene cuenta y puede no tener correo —sólo el **9,2 %** de los 1.085
-     * acudientes vivos tiene uno, medido en el doc 42— es el único canal que
-     * funciona seguro.
+     * lleva impreso en el papel. Es *pull* en vez de *push*, y para este
+     * destinatario **no es el mejor canal: es el único que existe**.
+     *
+     * ## Y la cifra que justificaba esto estaba mal DOS veces, así que va medida
+     *
+     * Esta línea decía *«sólo el 9,2 % de los acudientes tiene correo»*, del doc 42.
+     * Ese 9,2 % es `acudientes.email` —la **ficha**— y **todo lo que manda correo
+     * busca por `users.email`, la CUENTA** (`LoginController`, cuatro consultas y
+     * las cuatro sobre esa columna). Lo levantó `8myvc-9a` el 20 sep 2026: por esa
+     * columna eran **0 de 1.085**, y su arreglo los dejó en **91**.
+     *
+     * **Pero ninguna de las dos cifras es la de aquí, y ése es el fondo del asunto:
+     * las dos cuentan acudientes de alumnos YA MATRICULADOS.** Quien paga un
+     * formulario de inscripción es la familia de un **aspirante**, que por
+     * definición no tiene fila en `users` ni en `acudientes` — es el motivo entero
+     * de que estas rutas sean públicas. Y remedido el 20 sep: **este flujo no le
+     * pide el correo en ningún momento y ninguna de sus tres tablas tiene esa
+     * columna**.
+     *
+     * Así que para un aspirante el correo no es un canal malo: **no es un canal**.
+     * Un `SELECT` no lo habría dicho —no hay dónde mirar—, y las dos cifras que
+     * circulaban eran ciertas sobre una población que no es ésta.
      *
      * ## Es PÚBLICA, así que lo que decide su forma es qué es inocuo
      *

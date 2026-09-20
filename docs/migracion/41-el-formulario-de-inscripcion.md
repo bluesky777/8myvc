@@ -662,11 +662,45 @@ sep, y no por formulismo: sin texto no se puede rechazar— pero **sólo lo veí
 
 El aviso que debía cerrar esto iba por correo, y el correo de esta API **está en rojo desde el 2
 sep**: `lalvirtual.com`, el `MAIL_FROM_ADDRESS` de quince colegios, no está registrado, y **falla
-callado**. Encima, de los 1.085 acudientes vivos **sólo el 9,2 % tiene correo** (doc 42).
+callado**.
 
 Así que esto es **_pull_ en vez de _push_**: la familia entra con el código que ya lleva impreso el
-papel. Para un destinatario que no tiene cuenta y puede no tener correo, es el único canal que
-funciona seguro. *Arreglar el correo sigue haciendo falta; lo que ya no hace falta es esperarlo.*
+papel. *Arreglar el correo sigue haciendo falta; lo que ya no hace falta es esperarlo.*
+
+> ### LA CIFRA QUE JUSTIFICABA ESTO ESTABA MAL DOS VECES, Y LA SEGUNDA ES LA QUE IMPORTA
+>
+> Aquí decía *«sólo el 9,2 % de los 1.085 acudientes vivos tiene correo»*, del doc 42.
+>
+> **Primer error, y lo levantó `8myvc-9a` el 20 sep 2026** (corregido por `myvc-front-2e`): ese
+> 9,2 % es `acudientes.email` —la **ficha**— y **todo lo que manda correo busca por `users.email`,
+> la CUENTA**: `LoginController`, cuatro consultas y las cuatro sobre esa columna. Por ahí eran
+> **0 de 1.085**, incluidos los 100 que tenían correo escrito en la ficha. Su arreglo los dejó en
+> **91**. Remedido aquí, en la copia de desarrollo:
+>
+> ```
+> acudientes vivos                        1085
+> con correo de FICHA  (acudientes.email)  100     <- el 9,2 % que se citaba
+> con cuenta viva y activa                1000
+> con correo de CUENTA (users.email)        91     <- por aquí busca todo
+> ```
+>
+> **Segundo error, y es el de fondo: ninguna de las dos cifras es la de este módulo.** Las dos
+> cuentan **acudientes de alumnos YA MATRICULADOS**. Quien paga un formulario de inscripción es la
+> familia de un **aspirante**, que por definición **no tiene fila en `users` ni en `acudientes`**
+> — es el motivo entero de que estas rutas sean públicas.
+>
+> Y medido el 20 sep: **este flujo no le pide el correo en ningún momento, y ninguna de sus tres
+> tablas tiene esa columna.** Así que para un aspirante el correo no es un canal malo: **no es un
+> canal**, y esta ruta no es «el que funciona mejor», es **el único que existe**.
+>
+> *Un `SELECT` no habría dicho esto —no hay dónde mirar—, y las dos cifras que circulaban eran
+> ciertas sobre una población que no es ésta. Es la regla de que una cuenta sobre la población
+> equivocada no falla: contesta, y contesta bien a otra pregunta.*
+>
+> **Y de aquí sale lo que habría que pedir el día que se quiera avisar de verdad**: un correo **en
+> el formulario**, validado mandándolo —que es lo que el §7 ya proponía— porque es el único momento
+> en que el aspirante está delante y puede corregir una errata. Hasta entonces, no hay a dónde
+> mandar nada.
 
 ### Lo que devuelve lo decide que sea PÚBLICA, no que le sirva a la familia
 
@@ -758,3 +792,60 @@ censo como «0 de 2».*
 
 `FamiliasQueNuncaEntranTest` —las **escrituras** que viven donde el candado no llega— tampoco se
 mueve: sigue en **26**, porque esto lee.
+
+### PREGUNTAR CONSUMÍA SUBIDAS — y la causa no era un número mal puesto
+
+**Lo encontró `8myvc-dd` revisando esta ruta unas horas después de fundirla**, y está reproducido,
+no razonado. La clave de un limitador con nombre la arma Laravel así:
+
+```php
+// ThrottleRequests::handleRequestUsingNamedLimiter
+'key' => md5($limiterName.$limit->key)
+```
+
+**Sin el verbo y sin la ruta.** Como el `GET` y el `POST` de `colillas-inscripcion/{codigo}`
+llevaban el mismo `throttle:colilla` y los mismos `by('ip:…')` y `by('cod:…')`, eran **un solo
+cubo de diez por hora para las dos**.
+
+Y el reparto salía justo al revés de lo que conviene: **preguntar es la acción barata que una
+familia repite** —*«¿ya me aprobaron?»*, refrescando— y **subir es la cara y la rara**.
+
+> **El comentario del router lo escondía diciendo la verdad.** Decía *«mismo limitador: quien sube
+> ahí es quien pregunta ahí»*, que es cierto — y es exactamente por lo que no se veía: **el
+> problema no era quién, era que preguntar consumía subidas**.
+
+**Y el síntoma llega antes de donde parecía.** El informe predecía que fallaría el `POST` tras
+diez consultas; reproducido, **falla la undécima CONSULTA**: la familia ni siquiera puede
+preguntar once veces. Si hubiera quedado saldo para subir, habría sido peor todavía —
+`puede_enviar_otro` diría `true`, porque el tope por orden está libre, y el `POST` rebotaría con
+el **429 genérico de Laravel** en vez del mensaje que explica qué pasa: *la familia leyendo «puede
+mandar otro» y recibiendo «demasiados intentos»*.
+
+**Arreglado con `throttle:consulta-inscripcion`**: 60 por hora por IP **y** por código —seis veces
+el de la subida, mismo reparto doble que su hermana— dejando `colilla` sólo para el `POST`. Lo que
+este límite protege es la base de datos de quien consulte en bucle: la ruta no escribe nada, y los
+códigos los protege el carácter de control rechazando **28 de cada 29** cadenas antes de tocar
+disco.
+
+#### Y UN TEST QUE NO MEDÍA LO QUE DECÍA, DEL MISMO GÉNERO
+
+`test_subir_sigue_topado` subía dos comprobantes **a la misma orden** y esperaba 429 en el
+segundo. Eso pasa siempre — **pero por el tope de «una pendiente por orden», no por el
+limitador**. Se destapó por accidente: un `sed` pisó la línea del `POST` y lo dejó apuntando al
+limitador generoso, **y el test siguió en verde**.
+
+Es el mismo error que el hallazgo de arriba visto desde el otro lado: **un detector que cuenta
+bien un síntoma sin estar contando la causa**. Reescrito para gastar el limitador **por IP**
+—once órdenes distintas, una subida en cada una—, que es lo único que el tope por orden no tapa.
+Ahora cae cuando se rompe, comprobado.
+
+#### PENDIENTE QUE SALE DE AQUÍ: un test genérico del comodín
+
+**Dos veces en la misma familia ya no es casualidad**: `…/campos` tragada por `{lote}` el 19 sep,
+y `…/pendientes` tragada por `{codigo}` el 20. Las dos se arreglaron con un test propio, y las dos
+habrían salido de un test **genérico**: recorrer el router y, para cada ruta con URI literal,
+comprobar con `getRoutes()->match()` que la atiende **su** acción y no un comodín registrado
+antes.
+
+Cazaría la familia entera de una vez y las futuras. **Es idea de `8myvc-dd` y queda escrita sin
+hacer**, porque escribirla al cerrar una sesión es empezar algo que no se puede verificar entero.
