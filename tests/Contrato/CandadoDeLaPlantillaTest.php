@@ -187,6 +187,122 @@ class CandadoDeLaPlantillaTest extends CasoDeContrato
         $this->assertSame(0, (int) $this->filaDeUnidad($id)->orden);
     }
 
+    /**
+     * **El lote no se escribe a medias**, y este caso es el que lo dice.
+     *
+     * Lo encontró `8myvc-47` comparando esta clase contra su propia implementación
+     * de lo mismo, escrita en paralelo y sin vernos. La primera versión preguntaba
+     * **dentro** del bucle, justo antes de cada `save()`: un lote que llevara
+     * primero una unidad del docente y después una del colegio dejaba **la primera
+     * ya guardada** y abortaba con 403 en la segunda.
+     *
+     * Es el invariante que `putUpdateOrden` ya respetaba a propósito para el
+     * periodo —`pueden_editar_notas` está FUERA del bucle— y que su gemelo de
+     * subunidades deja escrito: *«basta que una esté en periodo cerrado para que no
+     * pase ninguna: escribir la mitad de un reordenado es peor que no escribir
+     * nada»* (§27).
+     *
+     * **Lo que hay que mirar cuando esto se ponga rojo no es el 403** —ése es
+     * fácil— **sino la última aserción**: que la unidad del docente NO se movió.
+     */
+    #[Test]
+    public function test_un_lote_rechazado_no_deja_movida_la_que_iba_delante(): void
+    {
+        $e = $this->escenario();
+        $mia = $this->unidad($e, delColegio: false, campos: ['orden' => 1]);
+        $delColegio = $this->unidad($e, delColegio: true, campos: ['orden' => 2]);
+
+        // La del docente va PRIMERA a propósito: con la comprobación dentro del
+        // bucle, para cuando se mira la del colegio ésta ya está guardada.
+        $this->withToken($e->token)
+            ->putJson('/api/unidades/update-orden', ['sortHash' => [[$mia => 6], [$delColegio => 7]]])
+            ->assertStatus(403);
+
+        $this->assertSame(2, (int) $this->filaDeUnidad($delColegio)->orden,
+            'Movió la del colegio, que es lo que el candado venía a impedir.');
+
+        $this->assertSame(1, (int) $this->filaDeUnidad($mia)->orden,
+            'El lote se escribió A MEDIAS: la del docente se movió y la del colegio no. '.
+            'La comprobación está DENTRO del bucle; tiene que ir antes.');
+    }
+
+    /**
+     * **Un `null` explícito no es «no vino»: es borrar.**
+     *
+     * Medido en el contenedor con un cuerpo `{"porcentaje": null}`:
+     *
+     *     Request::input('porcentaje', 70)  ->  NULL
+     *     array_key_exists('porcentaje')    ->  true
+     *
+     * O sea que el defecto de `input()` **no tapa el null que llega escrito**, y un
+     * candado que lo tratara como «no cambia» dejaría pasar justo la escritura más
+     * destructiva de las tres que puede recibir el campo. El segundo hallazgo de
+     * `8myvc-47`, y el que más duele: el porcentaje de la unidad es el factor de
+     * fuera de la definitiva, que este mismo método recalcula unas líneas después.
+     */
+    #[Test]
+    public function test_un_null_explicito_no_se_cuela_por_el_candado(): void
+    {
+        $e = $this->escenario();
+        $id = $this->unidad($e, delColegio: true);
+
+        $this->withToken($e->token)
+            ->putJson('/api/unidades/update/'.$id, ['porcentaje' => null])
+            ->assertStatus(403);
+
+        $this->assertSame(60, (int) $this->filaDeUnidad($id)->porcentaje,
+            'El null explícito pasó el candado y borró el peso de una unidad del colegio.');
+    }
+
+    /**
+     * **Y la otra cara, que es la que casi me lleva por delante una decisión.**
+     *
+     * Aquí la unidad es **del docente**, así que el candado ni la mira: mandar
+     * `null` **vacía el porcentaje y contesta 200**, y eso NO es un agujero — es una
+     * decisión escrita y fijada por otros dos tests
+     * (`PorcentajeQueSePisaTest::test_mandar_null_a_proposito_si_borra_el_porcentaje`
+     * y `UnidadesTest::test_un_cero_es_un_cero_y_un_null_es_un_null`), con su tabla
+     * de las dos formas al lado: **no mandar un campo y mandarlo vacío no son la
+     * misma petición**; lo segundo es un cliente diciendo «quítalo».
+     *
+     * El 19 sep 2026 se propuso «arreglarlo» cambiando el defecto de `input()` por
+     * un `??` en los dos controladores, creyendo que era el mismo agujero que el del
+     * candado. **Esos dos tests lo pararon**, que es literalmente para lo que
+     * existen. Este caso se queda aquí, al lado del que sí frena, para que el
+     * contraste esté escrito donde alguien lo vuelva a ver: **el candado no está
+     * para impedir que se vacíe un campo, está para impedir que se toque lo que es
+     * del colegio.**
+     */
+    #[Test]
+    public function test_el_docente_si_puede_vaciar_el_peso_de_lo_suyo(): void
+    {
+        $e = $this->escenario();
+        $id = $this->unidad($e, delColegio: false);
+
+        $this->withToken($e->token)
+            ->putJson('/api/unidades/update/'.$id, ['porcentaje' => null])
+            ->assertStatus(200);
+
+        $this->assertNull($this->filaDeUnidad($id)->porcentaje,
+            'Mandar null sobre lo suyo es pedir que se quite el peso, y tiene que quitarse.');
+    }
+
+    /**
+     * **`"70.00"` y `70` son el mismo peso**, y compararlos como texto daba un 403
+     * a quien no había cambiado nada — que es el modo de fallo que esta clase
+     * entera intenta evitar. Lo apuntó `8myvc-47` de paso.
+     */
+    #[Test]
+    public function test_el_mismo_numero_escrito_distinto_no_es_un_cambio(): void
+    {
+        $e = $this->escenario();
+        $id = $this->unidad($e, delColegio: true);
+
+        $this->withToken($e->token)
+            ->putJson('/api/unidades/update/'.$id, ['porcentaje' => '60.00'])
+            ->assertStatus(200);
+    }
+
     // ─── Lo que el candado NO frena, que es la mitad que lo hace usable ─────────
 
     /**

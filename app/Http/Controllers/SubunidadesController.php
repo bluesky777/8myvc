@@ -263,10 +263,10 @@ class SubunidadesController extends Controller
         // `orden` NO entran en el candado —el docente los usa en su día a día y no
         // son el peso— y añadir subunidades dentro de una unidad del colegio sigue
         // siendo suyo (D14). Ver `CandadoDeLaPlantilla`.
-        CandadoDeLaPlantilla::exigir($user, $subunidad, [
-            'definicion' => Request::input('definicion'),
-            'porcentaje' => Request::input('porcentaje'),
-        ], 'subunidad');
+        // Lo que de verdad llegó, no una lista armada con `input()` — ver el
+        // docblock de `CandadoDeLaPlantilla`: construida así, el `null` de «no vino»
+        // y el de «bórralo» son indistinguibles antes de llegar al candado.
+        CandadoDeLaPlantilla::exigir($user, $subunidad, Request::all(), 'subunidad');
 
         $nota_def = Request::input('nota_default', $subunidad->nota_default);
 
@@ -274,6 +274,16 @@ class SubunidadesController extends Controller
             $nota_def = 0;
         }
 
+        // **El defecto de `input()` y NO un `??`, y está decidido y fijado.** Las dos
+        // formas sólo se distinguen en una fila: con `{"porcentaje": null}`, `input()`
+        // devuelve null —se vacía el campo— y `??` devolvería el valor de antes. Se
+        // queda la primera porque **no mandar un campo y mandarlo vacío no son la
+        // misma petición**: lo segundo es un cliente diciendo «quítalo». Lo fijan
+        // `PorcentajeQueSePisaTest::test_mandar_null_a_proposito_si_borra_el_porcentaje`
+        // y `UnidadesTest::test_un_cero_es_un_cero_y_un_null_es_un_null`, y el 19 sep
+        // 2026 esos dos tests **pararon exactamente este cambio**, propuesto como si
+        // fuera un arreglo. Lo que SÍ frena el vaciado es el candado, y sólo para lo
+        // que es del colegio: pedir `null` sobre algo guardado es un cambio.
         $subunidad->definicion = Request::input('definicion', $subunidad->definicion);
         $subunidad->porcentaje = Request::input('porcentaje', $subunidad->porcentaje);
         $subunidad->nota_default = $nota_def;
