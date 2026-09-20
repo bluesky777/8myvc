@@ -159,6 +159,38 @@ class SinCorreoNoSeInventaNingunoTest extends CasoDeContrato
     }
 
     /**
+     * El correo de RECUPERACIÓN que se pone uno mismo, que es el sitio donde la regla
+     * más importa y el que casi se queda fuera.
+     *
+     * `perfiles/guardar-mi-email-restore` escribe `users.email` con un `UPDATE`
+     * crudo y no pasa por ningún `sanarInputUser`. La primera versión de esta regla
+     * cubría los diez sitios que encontré con un `grep` de `$usuario->email =`, y
+     * **éste no está escrito así**. Lo destapó `myvc-front-2e` contando catorce
+     * donde yo había contado diez.
+     *
+     * Aquí el daño es el más directo de todos: quien se pone su correo de
+     * recuperación cree que lo tiene puesto, y lo que hay en la columna no sirve
+     * para recuperar nada.
+     */
+    public function test_el_correo_de_recuperacion_propio_tambien_pasa_por_la_regla(): void
+    {
+        $fila = DB::selectOne('SELECT u.username, u.id FROM users u
+            INNER JOIN periodos p ON p.id = u.periodo_id
+            WHERE u.tipo = "Profesor" AND u.is_active = 1 AND u.deleted_at IS NULL
+            ORDER BY u.id LIMIT 1');
+        $this->assertNotNull($fila, 'El seed no tiene ningún profesor con periodo.');
+
+        DB::update('UPDATE users SET email = NULL WHERE id = ?', [$fila->id]);
+
+        $this->withToken($this->tokenDe($fila->username))
+            ->putJson('/api/perfiles/guardar-mi-email-restore', ['email_restore' => '@gmail.com']);
+
+        $this->assertNull(DB::table('users')->where('id', $fila->id)->value('email'),
+            'El correo de recuperación que se pone el propio usuario no pasaba por la '
+            .'regla, y es el sitio donde más importa que la pase.');
+    }
+
+    /**
      * Y el caso que no se ve: mandar el campo VACÍO a propósito.
      *
      * Antes esto no vaciaba — sustituía por el inventado, porque

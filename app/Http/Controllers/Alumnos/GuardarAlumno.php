@@ -38,6 +38,15 @@ class GuardarAlumno
 
                 FilaQueSeVaAEscribir::exigir('users', 'id', $user_id, 'Esa cuenta de usuario');
 
+                // `email` aquí es el de la CUENTA —esta rama escribe `users`—, así que
+                // pasa por la misma regla que el resto: una cadena sin nada delante de
+                // la arroba no es una dirección y el reseteo la encontraría igual.
+                // Sólo `email`: envolver `$valor` a secas dejaría en null los
+                // `username`, que comparten este bloque.
+                if ($propiedad === 'email') {
+                    $valor = CorreoDeLaCuenta::oNada($valor);
+                }
+
                 $consulta = 'UPDATE users SET '.$propiedad.'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:user_id';
                 $datos = [':valor' => $valor, ':modificador' => $user->user_id, ':fecha' => $now, ':user_id' => $user_id];
 

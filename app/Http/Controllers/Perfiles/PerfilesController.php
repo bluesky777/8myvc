@@ -1,6 +1,7 @@
 <?php namespace App\Http\Controllers\Perfiles;
 
 use App\Http\Controllers\Controller;
+use App\Support\CorreoDeLaCuenta;
 use App\Support\Autoriza;
 use App\Support\CamposQueVinieron;
 use App\Support\ClaveNueva;
@@ -86,8 +87,12 @@ class PerfilesController extends Controller {
 	{
 
 		$user 		= User::fromToken();
+		// `email_restore` es LITERALMENTE el correo de recuperación, así que aquí la
+		// regla importa más que en ningún otro sitio: si entra algo que no es una
+		// dirección, el reseteo encuentra la cuenta y contesta «Enviado» sin
+		// entregar nada, y quien se lo puso cree que lo tiene puesto.
 		$consulta 	= 'UPDATE users SET email=? WHERE id=?';
-		DB::update($consulta, [ Request::input('email_restore'), $user->user_id ]);
+		DB::update($consulta, [ CorreoDeLaCuenta::oNada(Request::input('email_restore')), $user->user_id ]);
 		return 'Guarddo con éxito';
 	}
 
@@ -480,7 +485,7 @@ class PerfilesController extends Controller {
 		// recuperación, que es con lo que se recupera la cuenta si se pierde la
 		// contraseña nueva. La columna es `DEFAULT NULL` y el save() no protestaba.
 		if (Request::has('email_restore')) {
-			$perfil->email = Request::input('email_restore');
+			$perfil->email = CorreoDeLaCuenta::oNada(Request::input('email_restore'));
 		}
 
 
@@ -601,7 +606,7 @@ class PerfilesController extends Controller {
 
 
 		if (Request::input('email_restore')) {
-			$perfil->email = Request::input('email_restore');
+			$perfil->email = CorreoDeLaCuenta::oNada(Request::input('email_restore'));
 			$perfil->save();
 		}else{
 			abort(400, 'Email no asignado');
