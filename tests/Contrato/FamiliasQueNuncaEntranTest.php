@@ -215,7 +215,23 @@ class FamiliasQueNuncaEntranTest extends CasoDeContrato
         //
         // **26 desde el 19 sep 2026**, al fundir `feat/calendario`: las dos de arriba
         // —`PUT calendario/mes` y `PUT calendario/proximos`—, cuyo porqué está en el
-        // docblock. Son el tercer caso seguido en que este número SUBE y el renglón
+        // docblock.
+        //
+        // **Y la mitad que hace que el renglón no dé miedo: no son escrituras.** Este
+        // censo cuenta **por verbo**, y aquí `PUT` es la convención vieja de esta casa
+        // para leer con un cuerpo —la misma de `calendario/this-year`—. Medida la
+        // cadena entera (`putMes`, `putProximos`, `respuestaDelRango`,
+        // `eventosManualesDelRango`, `rejillaDelMes`, `filtroDeDestinatarios`,
+        // `cumplesDelRango` y los seis auxiliares que llaman): **cero**
+        // `DB::insert/update/delete/statement` y cero `->save()`. Las que sí escriben
+        // en ese controlador —`guardarDestinatarios` y las de crear/guardar/eliminar
+        // evento— **no las llama ninguna de las dos**. Lo midió `8myvc-47` y se
+        // reprodujo aquí antes de escribirlo, método por método.
+        //
+        // **Por eso el número no es la garantía, y este motivo caduca igual que el de
+        // `pagos-inscripcion`**: el día que `calendario/*` estrene una escritura de
+        // verdad, el renglón pasa a ser lo que hoy sólo aparenta. Lo que hay que
+        // releer entonces no es la cifra: es este párrafo. Son el tercer caso seguido en que este número SUBE y el renglón
         // está bien, y los tres por motivos distintos: el pago lleva la llave en el
         // dato, y éstas **preguntan de quién es la fila dentro del método**. Lo que
         // no ha aparecido todavía es el caso que este centinela busca de verdad —una
