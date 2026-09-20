@@ -840,23 +840,42 @@ class Autoriza
      * `docs/migracion/33-la-tilde-que-sql-no-ve.md` — que sí mordería a
      * `Coord académico`. Va dicho porque la próxima vez puede no ser así.
      *
-     * ## EL HUECO QUE ESTO DEJA, MEDIDO Y NO TAPADO: dos superusuarios fuera
+     * ## Y EL SUPERUSUARIO TAMBIÉN — decidido por Joseth el 20 sep 2026
      *
-     * `Admin` es **un rol**, y el administrador de verdad de este sistema es la
-     * columna `users.is_superuser`. **No son el mismo conjunto.** Medido sobre
-     * `simonbolivar` el 20 sep 2026:
+     * **La regla escrita eran tres roles, y el hueco lo destapó medirlos.** `Admin` es
+     * **un rol**; el administrador de verdad de este sistema es la columna
+     * `users.is_superuser`, y **no son el mismo conjunto**. Medido sobre `simonbolivar`
+     * antes de preguntar:
      *
      *     superusuarios vivos                12
      *     con el rol `Admin`                 10
-     *     superusuario SIN el rol `Admin`     2      <- no pueden resolver
+     *     superusuario SIN el rol `Admin`     2      <- veían el botón apagado
      *     con el rol `Admin` sin superusuario 0
      *
-     * Se implementa **lo que Joseth dijo**, que fueron los tres roles, y no se
-     * ensancha a `is_superuser` por cuenta propia: eso sería exactamente *«crear un
-     * rol regala permisos que nadie pidió»* al revés. Pero el hueco es real y en
-     * este colegio son dos personas, así que **queda escrito aquí y en el 46 como
-     * decisión abierta** en vez de resolverse en silencio en cualquiera de las dos
-     * direcciones.
+     * Se le puso delante con esas dos personas dentro y **contestó que sí**. O sea que
+     * la regla no se ensanchó por cuenta propia —eso habría sido *«crear un rol regala
+     * permisos que nadie pidió»* al revés— sino con la medición delante, que es la
+     * única forma en que esta clase debería moverse.
+     *
+     * ## `esSuperusuario()` y NO `esAdministrativo()`, aunque hoy sobre
+     *
+     * `esAdministrativo` es `is_superuser || isSecretario`, o sea **dos tercios de lo
+     * que hace falta aquí**, y la tentación es usarlo y añadir sólo `Admin` y `Rector`.
+     * No se hace, por el mismo motivo que ya está escrito en `puedeAtarFormularios`:
+     * ese método lo comparten quince llamadas de dominios que no se parecen a éste, y
+     * el día que alguien lo ensanche **esta puerta se ensancharía con él sin que nadie
+     * lo decidiera**. `esSuperusuario` lee una columna y nada más.
+     *
+     * ## LO QUE EL SEED NO PUEDE PROBAR, y por eso su test fabrica la condición
+     *
+     * En la base de tests **los diez superusuarios tienen los diez el rol `Admin`**
+     * (medido el 20 sep 2026), así que esta rama queda **tapada por la de `Admin`**: un
+     * test que cogiera un superusuario del seed pasaría **exactamente igual sin esta
+     * línea**. Por eso `LasEstacionesEnLaAppTest` construye el caso —un usuario llano al
+     * que le enciende `is_superuser` dentro de su transacción— en vez de buscarlo.
+     *
+     * *Un control verde sobre una población que no distingue las dos ramas no prueba
+     * nada, y es la clase de test que se escribe sin darse cuenta.*
      *
      * @param  object  $user  el `stdClass` de `User::fromToken()`
      * @param  int|null  $escritaPor  `users.id` de quien escribió la nota
@@ -871,6 +890,10 @@ class Autoriza
 
         if ($quien <= 0) {
             return false;
+        }
+
+        if (self::esSuperusuario($user)) {
+            return true;
         }
 
         return Role::hasRole($quien, 'Admin')

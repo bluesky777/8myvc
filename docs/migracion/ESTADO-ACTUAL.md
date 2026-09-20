@@ -131,10 +131,18 @@
 >
 > ### Lo que queda abierto — y lo primero es de Joseth
 >
-> 1. **¿Un superusuario sin el rol `Admin` puede dar por resuelta una nota?** Hoy **no**, y en
->    la copia de desarrollo son **dos personas** (12 superusuarios, 10 con el rol). Se
->    implementó la regla literal —`Admin`, `Secretario`, `Rector`, o quien la escribió— y no se
->    ensanchó por cuenta propia. La respuesta es una línea.
+> 1. ~~**¿Un superusuario sin el rol `Admin` puede dar por resuelta una nota?**~~ —
+>    **CONTESTADO por Joseth el 20 sep 2026: sí.** Se le puso delante con las dos personas que
+>    se quedaban fuera (12 superusuarios, 10 con el rol) y la regla queda en **quien la
+>    escribió, o superusuario, `Admin`, `Secretario` o `Rector`**. Con `esSuperusuario()` y no
+>    con `esAdministrativo()`, para que ensanchar aquel método no ensanche esta puerta sin que
+>    nadie lo decida.
+>
+>    **Y el control destapó que el test escrito para protegerlo no lo protegía**: los diez
+>    superusuarios del seed tienen los diez el rol `Admin`, así que la rama nueva queda tapada
+>    por la vieja. El test construye el caso, pero en su primera versión **la nota la escribía
+>    el mismo usuario que la resolvía**, o sea que entraba por la rama del autor y seguía verde
+>    con la línea quitada. Lo delató que **sólo caía uno de los dos tests nuevos**.
 > 2. **El vocabulario de `estado` sigue sin migrar en los dieciséis colegios.** La cola no
 >    depende de él —se apoya en `cerrado_at`— y la ruta nueva rechaza con 422 lo que no esté en
 >    la lista, pero `postAlumno` sigue aceptando lo que le manden las tres pantallas vivas.

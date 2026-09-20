@@ -569,8 +569,93 @@ class LasEstacionesEnLaAppTest extends CasoDeContrato
             'Contestó 403 y la apagó igual.');
     }
 
-    /** Quien la escribió sí puede, y la firma queda con su nombre. */
+    /**
+     * **Quien la escribió sí puede**, y la firma queda con su nombre.
+     *
+     * El autor es el **personal llano**, a propósito: escrito con el superusuario de
+     * `tokenDeOtro()` este test pasaría por dos motivos a la vez —ser el autor y ser
+     * superusuario— y dejaría de probar el que dice su nombre.
+     */
     public function test_quien_la_escribio_puede_darla_por_resuelta(): void
+    {
+        [$ana] = $this->dosAlumnos();
+        $this->unRecorridoDeTres();
+
+        $nota = $this->withToken($this->tokenLlano())->postJson(self::RUTA.'/2/nota', [
+            'alumno_id' => $ana,
+            'texto' => 'Saldo pendiente.',
+            'pendiente' => true,
+        ])->assertStatus(200)->json('id');
+
+        $this->withToken($this->tokenLlano())
+            ->putJson(self::RUTA.'/nota/'.$nota.'/resuelta')->assertStatus(200);
+
+        $fila = DB::selectOne('SELECT resuelta_por, resuelta_at FROM notas_estacion WHERE id=?',
+            [$nota]);
+
+        $this->assertNotNull($fila->resuelta_at);
+        $this->assertNotNull($fila->resuelta_por,
+            'Sin `resuelta_por` las dos columnas de la migración nacen muertas.');
+    }
+
+    /**
+     * **Un superusuario SIN el rol `Admin` también puede.** Decidido por Joseth el 20
+     * sep 2026, con la medición delante.
+     *
+     * La regla escrita eran tres roles —`Admin`, `Secretario`, `Rector`— y medirlos
+     * destapó que **`Admin` es un rol y el administrador de verdad es
+     * `users.is_superuser`**: en la copia de desarrollo hay 12 superusuarios y sólo 10
+     * con ese rol, así que **dos personas veían el botón apagado**.
+     *
+     * ## EL SEED NO PUEDE PROBAR ESTO SOLO, y por eso el caso se construye
+     *
+     * En la base de tests **los diez superusuarios tienen los diez el rol `Admin`**, así
+     * que la rama nueva queda **tapada** por la vieja: cogiendo un superusuario del seed,
+     * este test pasaría **exactamente igual sin la línea que viene a proteger**. Sería un
+     * control verde sobre una población que no distingue las dos ramas — la clase de test
+     * que se escribe sin darse cuenta.
+     *
+     * Así que se parte de un usuario llano **comprobando que no tiene ninguno de los tres
+     * roles** y se le enciende `is_superuser` dentro de la transacción del test. Lo que
+     * queda es exactamente la persona que Joseth decidió dejar entrar, y nada más.
+     *
+     * ## Y LA NOTA LA ESCRIBE OTRO, que es lo que este test tuvo mal al nacer
+     *
+     * Escrito primero con `tokenLlano()` como autor, **seguía verde con la rama nueva
+     * quitada**: el superusuario que se construye sale de *ese mismo* usuario, así que
+     * entraba por ser **el autor** y no por ser superusuario. Un control verde sobre un
+     * sujeto que cumple dos condiciones a la vez.
+     *
+     * Lo delató apagar la línea y ver que **sólo caía uno de los dos tests nuevos**. Por
+     * eso la nota la escribe `tokenDeOtro()`: el que resuelve tiene que ser ajeno a ella
+     * o esto no mide lo que dice su nombre.
+     */
+    public function test_un_superusuario_sin_el_rol_admin_puede_resolver(): void
+    {
+        [$ana] = $this->dosAlumnos();
+        $this->unRecorridoDeTres();
+
+        // La escribe OTRO: si la escribiera el mismo, pasaría por la rama del autor.
+        $nota = $this->withToken($this->tokenDeOtro())->postJson(self::RUTA.'/2/nota', [
+            'alumno_id' => $ana,
+            'texto' => 'Saldo pendiente.',
+            'pendiente' => true,
+        ])->assertStatus(200)->json('id');
+
+        $super = $this->unSuperusuarioSinNingunRolDeEscape();
+
+        $this->withToken($this->tokenDe($super))
+            ->putJson(self::RUTA.'/nota/'.$nota.'/resuelta')->assertStatus(200);
+
+        $this->assertNotNull(DB::selectOne('SELECT resuelta_at FROM notas_estacion WHERE id=?',
+            [$nota])->resuelta_at);
+    }
+
+    /**
+     * Y el que NO es superusuario sigue sin poder, que es la otra mitad: la decisión
+     * ensancha la puerta, no la quita.
+     */
+    public function test_encender_el_superusuario_es_lo_que_cambia_la_respuesta(): void
     {
         [$ana] = $this->dosAlumnos();
         $this->unRecorridoDeTres();
@@ -581,15 +666,18 @@ class LasEstacionesEnLaAppTest extends CasoDeContrato
             'pendiente' => true,
         ])->assertStatus(200)->json('id');
 
-        $this->withToken($this->tokenDeOtro())
+        // El mismo usuario, la misma nota ajena, y lo único que cambia entre las dos
+        // respuestas es la columna. Si esto no fuera así, el test de arriba estaría
+        // midiendo cualquier otra cosa del sujeto que eligió.
+        $llano = $this->usuarioLlanoDelPersonal()->username;
+
+        $this->withToken($this->tokenDe($llano))
+            ->putJson(self::RUTA.'/nota/'.$nota.'/resuelta')->assertStatus(403);
+
+        DB::update('UPDATE users SET is_superuser=1 WHERE username=?', [$llano]);
+
+        $this->withToken($this->tokenDe($llano))
             ->putJson(self::RUTA.'/nota/'.$nota.'/resuelta')->assertStatus(200);
-
-        $fila = DB::selectOne('SELECT resuelta_por, resuelta_at FROM notas_estacion WHERE id=?',
-            [$nota]);
-
-        $this->assertNotNull($fila->resuelta_at);
-        $this->assertNotNull($fila->resuelta_por,
-            'Sin `resuelta_por` las dos columnas de la migración nacen muertas.');
     }
 
     /** Una nota sin texto no es una nota. */
@@ -940,6 +1028,35 @@ class LasEstacionesEnLaAppTest extends CasoDeContrato
      * en vez del 403 del guard — o sea que el test habría medido otra cosa y encima
      * habría pasado si lo hubiera escrito esperando 400.
      */
+    /**
+     * Un superusuario **sin `Admin`, `Secretario` ni `Rector`**, construido aquí porque
+     * el seed no lo tiene: sus diez superusuarios llevan los diez el rol `Admin`.
+     *
+     * Se comprueba el punto de partida antes de tocar nada — si el llano que devuelve el
+     * ayudante tuviera alguno de los tres, este test pasaría por el motivo viejo y la
+     * línea nueva seguiría sin estar protegida.
+     */
+    private function unSuperusuarioSinNingunRolDeEscape(): string
+    {
+        $username = $this->usuarioLlanoDelPersonal()->username;
+
+        $atajos = DB::selectOne('SELECT u.is_superuser,
+                (SELECT COUNT(*) FROM role_user ru
+                   INNER JOIN roles r ON r.id=ru.role_id
+                  WHERE ru.user_id=u.id AND r.name IN ("Admin","Secretario","Rector")) AS roles
+            FROM users u WHERE u.username=?', [$username]);
+
+        $this->assertSame(0, (int) $atajos->is_superuser,
+            'El sujeto ya era superusuario: este test no distinguiría las dos ramas.');
+        $this->assertSame(0, (int) $atajos->roles,
+            'El sujeto ya tiene uno de los tres roles de escape, así que pasaría por el '
+            .'motivo viejo y la rama nueva seguiría sin protegerse.');
+
+        DB::update('UPDATE users SET is_superuser=1 WHERE username=?', [$username]);
+
+        return $username;
+    }
+
     private function tokenDeUnAlumno(): string
     {
         return $this->tokenDe($this->usuarioDeTipo('Alumno')->username);
