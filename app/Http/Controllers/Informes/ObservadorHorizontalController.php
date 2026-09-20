@@ -60,8 +60,25 @@ class ObservadorHorizontalController extends Controller {
 
         }
 
+        /*
+         * SIN GRUPO SE DEVUELVE NULO, Y NO SE REVIENTA  (2026-09-19)
+         *
+         * `$grupos[0]` a secas tiraba un 500 -- «Undefined array key 0» -- **siempre que la consulta
+         * de arriba no encontraba el grupo**, y eso no es un caso raro: la consulta filtra por
+         * `g.year_id = :year_id`, o sea por el año que tiene puesto el usuario, así que basta con
+         * pedir un grupo del año pasado (un enlace guardado, una direccion copiada) para tumbarla.
+         *
+         * El observador VERTICAL, que es el mismo informe en la otra orientación, ya lo hacía bien:
+         * le pasa `$grupos` entero a la vista y con la lista vacía sale una hoja sin nada. Esto es
+         * la misma respuesta desde el lado del JSON, y el front ya sabe pintarla -- dice «El servidor
+         * no devolvió ningún observador para este grupo», que es la verdad, en vez de un aviso rojo
+         * con el mensaje generico del servidor.
+         *
+         * Medido contra el docker: `PUT observador-horizontal/horizontal/93` con el año 2026 puesto
+         * y el grupo 93 siendo de 2025 -> 500 en esta línea.
+         */
         // debería ser un solo grupo pero por pereza...
-        $grupo = $grupos[0];
+        $grupo = $grupos[0] ?? null;
         
         return ['grupo' => $grupo, 'imagenes' => $imagenes];
 

@@ -75,6 +75,19 @@ return new class extends Migration
 {
     public function up()
     {
+        // **Idempotente, y no por costumbre.** Es el estilo que ya usa
+        // `crear_uniformes_donde_falte` y aquí protege dos casos reales: una tanda
+        // que se cortó a la mitad y se reintenta —el `ensayo-de-la-tanda.sh` existe
+        // porque eso pasa— y un árbol de test al que alguien le añadiera la columna a
+        // mano para no reconstruir la base. Sin esto, el segundo intento muere con
+        // «Duplicate column name» y deja la tanda parada en el colegio nueve de
+        // diecisiete, a las tres de la mañana.
+        if (Schema::hasColumn('ordenes_inscripcion', 'codigo_anterior')) {
+            echo "  ordenes_inscripcion.codigo_anterior: ya existe, no se toca.\n";
+
+            return;
+        }
+
         Schema::table('ordenes_inscripcion', function (Blueprint $tabla) {
             // El código que llevaba impreso el papel antes de que secretaría lo
             // corrigiera. Mismo largo que `codigo`, y **sin `UNIQUE`**: dos
@@ -92,6 +105,10 @@ return new class extends Migration
 
     public function down()
     {
+        if (! Schema::hasColumn('ordenes_inscripcion', 'codigo_anterior')) {
+            return;
+        }
+
         Schema::table('ordenes_inscripcion', function (Blueprint $tabla) {
             $tabla->dropIndex('ordenes_inscripcion_matricula');
             $tabla->dropIndex('ordenes_inscripcion_codigo_anterior');

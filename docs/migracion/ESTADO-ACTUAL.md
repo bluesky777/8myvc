@@ -198,6 +198,35 @@
 > de la impresora. `recaudado` suma sobre el **estado**. Las columnas no se renombran —están
 > desplegadas— pero el nombre queda desmentido por escrito.
 >
+> ### ⚠️ LAS 29 BASES DE TEST DEL DOCKER NO TIENEN LA COLUMNA, Y NO SE LES PUSO A MANO
+>
+> Medido el 20 sep 2026: de las 30 bases `%testing%` del contenedor, **sólo
+> `simonbolivar_testing_fi` tiene `ordenes_inscripcion.codigo_anterior`**. Cualquier sesión que
+> traiga `main` y corra la suite **sin reconstruir su base** verá `DelPapelAlAlumnoTest` en rojo,
+> y **el rojo no dirá por qué**: dirá que una propiedad no existe.
+>
+> **No se les añadió a mano, y el porqué es lo que importa:** un `ALTER` manual deja una base que
+> **miente sobre su propio estado de migración** —la columna está y la fila de `migrations` no—,
+> así que el siguiente `artisan migrate` de esa sesión moriría con `Duplicate column name` y le
+> pararía la tanda entera por un favor que nadie pidió. La orden que lo arregla ya está escrita y
+> es la de siempre:
+>
+> ```bash
+> DB_TEST_DATABASE=simonbolivar_testing_<x> PHP_EXEC="docker exec -i -w /app/.worktrees/<x> 8myvc-app-1" \
+>     tools/construir-bd-test.sh
+> ```
+>
+> **Lo que sí se hizo es que la migración no pueda romper esa tanda**: comprueba
+> `Schema::hasColumn` y dice *«ya existe, no se toca»*, igual que
+> `crear_uniformes_donde_falte`. Protege los dos casos reales — una tanda cortada que se
+> reintenta, y una base a la que alguien le puso la columna a mano.
+>
+> > **Y se vio el rojo antes que el verde, por accidente y por el mismo sitio de siempre.** El
+> > primer intento corrió `migrate` con `-w /app/.worktrees/fi`, que usa **la copia del worktree**
+> > —donde la rama aún tenía la versión sin idempotencia— y dio `Duplicate column name`. El
+> > detector contestó bien; **quien preguntó mal fui yo**. Repetido desde el árbol principal,
+> > `DONE`. El accidente salió gratis: es el control en rojo que había que buscar a propósito.
+>
 > ### Lo que NO hace, para que nadie lo suponga
 >
 > - **No crea el alumno**: ata a uno que ya existe. Es donde encajará `aspirantes` (§7 de
