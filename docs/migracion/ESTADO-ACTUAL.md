@@ -235,6 +235,166 @@
 > entrega y el correo falla callado. El «pago aprobado» que no llega no se reintenta, porque
 > el aspirante no sabe que existía.
 
+> ## ✅ P6 · EL CANDADO DE LA PLANTILLA — CERO RUTAS, Y LE QUITA ALGO AL DOCENTE (19 sep 2026)
+>
+> **Autorizado por Joseth el 19 sep, y con el alcance recortado por él**: de las dos mitades de P6
+> entra **sólo el candado**. «Volver a aplicar» se queda fuera. **El router no se mueve: 602.**
+>
+> | | |
+> |---|---|
+> | `unidades/update`, `subunidades/update` y `unidades/update-orden` rechazan **nombre y porcentaje** de una fila con `por_defecto = 1` | 403, y la fila no se toca |
+> | …salvo quien tiene `can_edit_plantilla_notas` | el criterio va **dentro** del método, no en la ruta |
+> | Añadir subunidades **dentro** de una unidad del colegio sigue siendo del docente | **D14** |
+> | `years.reparto_subunidades` pasa a viajar en el contexto del login, en las cuatro ramas | 6 instantáneas |
+> | `Tests: 2122 passed (--testsuite=Contrato)` · larastan `[OK]` · `pint:test` PASS 421 | `.worktrees/e6` |
+>
+> ### El agujero era real y llevaba abierto desde siempre
+>
+> `PUT unidades/update/{id}` lleva sólo `auth.personal`, que cierra la puerta a alumnos y acudientes
+> **y a nadie más**. Así que cualquier docente podía renombrar y recambiar el porcentaje de una fila
+> sembrada desde `unidades_por_defecto`. Y el porcentaje de la unidad **es el factor de fuera de la
+> definitiva** —`(u.porcentaje/100) * …`—, con el recálculo diez líneas más abajo en el mismo
+> método: mover el 60 al 90 movía las notas del curso.
+>
+> ### Las tres decisiones de diseño, y las tres tienen su test
+>
+> **1. Se compara el VALOR, no la presencia del campo.** El front reenvía el formulario entero, así
+> que un candado que salte porque *«vino `porcentaje`»* contesta 403 a quien no cambió nada. Se
+> leería como una avería, y el arreglo evidente —quitar el candado— reabre el agujero.
+>
+> **2. `update-orden` se frena por el ORDEN, y eso es una interpretación.** P6 dice que las tres
+> rutas *«rechazan el cambio de nombre y de porcentaje»*, y esa ruta **no escribe ninguno de los
+> dos**: lo único que puede hacerle a una fila del colegio es moverla de sitio. Si se lee literal,
+> nombrarla no significa nada. Queda fijado en el test para que sea discutible en vez de invisible.
+>
+> **3. 403 y no 422.** El cuerpo es correcto: lo que falta es permiso. Un 422 haría que el front
+> dijera «revisa los campos», que es mentira — no hay nada que revisar.
+>
+> ### `reparto_subunidades` viaja porque si no el candado se nota en el sitio equivocado
+>
+> Lo pidió la app y **la asimetría la vio ella**: su hermana `modelo_evaluacion` salía en las cuatro
+> ramas del contexto y ésta en ninguna —`grep -c` daba 5 y 0—, siendo las dos columnas de `years`
+> que gobiernan lo que un docente ve. Sin ella, con `reparto_subunidades = 'promedio'` el cliente le
+> sigue pintando un campo de porcentaje **que ya no decide nada**: sin error y sin log.
+>
+> ### LO QUE JOSETH DECIDIÓ Y NO ESTÁ HECHO — se escribe para que no se re-litigue
+>
+> - **«Volver a aplicar» queda fuera de este lote.** Y antes de escribirlo hay que medir una cosa:
+>   **`PUT plantilla-notas/sembrar` ya acepta `reemplazar`**, ya salta los periodos cerrados
+>   (`saltadas_por_periodo_cerrado`), ya resiembra las que tienen unidades pero **cero notas**, y ya
+>   contesta con su recuento. Puede que la ruta nueva **no haga falta**.
+> - **Y cuando se haga: las asignaturas que YA tienen notas se actualizan igual**, nombre y
+>   porcentaje. Decisión de Joseth, 19 sep, **tomada con la consecuencia delante**: eso cambia
+>   definitivas ya calculadas, así que un boletín impreso y la pantalla pueden dejar de coincidir.
+>   Hoy `sembrar` las salta; ahí está toda la diferencia entre lo que hay y lo que pide P6.
+> - **Se despliega SIN avisar a los colegios.** P6 dice *«hay que decirlo colegio a colegio antes,
+>   no después»* y Joseth decidió lo contrario el 19 sep, a sabiendas. Queda escrito aquí para que
+>   dentro de un mes se sepa que se sabía: el síntoma en el colegio será un docente que guarda y
+>   recibe un error donde antes guardaba.
+>
+> **Falta**: fundir y desplegar. Rama `feat/candado-de-la-plantilla`, sobre `99060be`.
+> El front tiene que pintar el campo como bloqueado; hasta que lo haga, el docente ve el campo
+> editable y se lleva el 403 al guardar.
+
+> ## ✅ `materia_id` Y `grado_id` EN LAS ASIGNATURAS DE UN DOCENTE — DOS COLUMNAS, CERO RUTAS (19 sep 2026)
+>
+> **Autorizado por Joseth con el precio delante.** Empezó como una **propuesta de ruta nueva** de
+> `myvc_flutter` —`GET desempenos/mis-clases`— y **la retiró la propia sesión de la app** al ir a
+> justificarla: lo que le faltaba era un campo, no un endpoint. **Esto no añade ninguna ruta**
+> —el contador lo movió a **602** la prematrícula de más abajo, que entró en `main` mientras
+> esto se escribía; se dice así y no «sigue en 600» porque un número absoluto en una rama
+> describe un árbol que a las dos horas ya no existe—.
+>
+> | | |
+> |---|---|
+> | `a.materia_id` y `g.grado_id` en `Profesor::asignaturas` | ningún JOIN nuevo: los dos ya estaban |
+> | …y en su **gemelo copiado a mano**, `PiarsAsignaturasController` rama `Usuario` | mismo commit |
+> | 3 instantáneas regeneradas, `+2` claves cada una y nada más | |
+> | `Tests: 2117 passed (--testsuite=Contrato)` · larastan `[OK] No errors` | `.worktrees/e6` |
+>
+> ### Por qué dos ids y no un nombre: el esquema no impide la ambigüedad
+>
+> El plan de área se dirige por ids —`Autoriza::puedeEscribirDesempenos` filtra literalmente por
+> `a.materia_id` y `g.grado_id`— y ese SELECT sólo devolvía **nombres**. Así que `myvc_front` lo
+> reconstruía desde fuera (`app2/…/docente-competencias/alcance.ts`): el grado por `grupo_id`
+> —exacto— y **la materia emparejando `materia`+`alias` contra `GET materias`**, descartando la
+> asignatura en silencio cuando el par no era único. Funciona hoy: en la base de desarrollo hay
+> **35 materias vivas y cero pares repetidos**. Y **eso es una casualidad de los datos de UN
+> colegio**: `materias` **no tiene índice único sobre `(materia, alias)`** —comprobado en el
+> volcado— y hay dieciséis. Ése es el argumento que sostiene el cambio; el de *«la regla escrita
+> dos veces se separa»* es más débil y no lo habría pagado.
+>
+> ### LO QUE SE PAGA, Y NO ES LO QUE SE PUSO ROJO
+>
+> `Profesor::asignaturas` lo comparten **once llamantes en nueve controladores**, y **los once
+> devuelven esas filas al cliente**. De los once, **la suite de contrato mira dos**. O sea que las
+> otras nueve cambiaron de forma **sin que nada se pusiera rojo** — y una de ellas es
+> `asignaturas/listasignaturas`, que es **la única puerta de `myvc_flutter` a las asignaturas de un
+> docente**. Añadir es inocuo (los clientes ignoran lo que no conocen, y ninguno pinta estas filas
+> recorriendo sus claves: comprobado en los tres repositorios); **quitar o renombrar ahí no lo
+> caza nadie**.
+>
+> ### El gemelo quedó demostrado por lo que NO se movió
+>
+> `PiarsAsignaturasController` lleva ese mismo SELECT **copiado a mano** para su rama `Usuario`,
+> con otro `WHERE` —aquél pregunta por el docente, éste por el grupo—, así que no se pueden fundir.
+> En la medición previa, tocando **sólo** el método, `muestreo-piars-asignaturas` **no se movió**:
+> esa instantánea es de la rama `Usuario`, y la del `Profesor` no tiene ninguna. O sea que esa ruta
+> habría contestado **dos formas según quién pregunte y la suite habría seguido verde**. Por eso
+> los dos van en el mismo commit, y por eso cada lado lleva el aviso escrito apuntando al otro.
+> *(Siguen diferenciándose en `caritas`, que el gemelo nunca trajo: es anterior a esto y se deja.)*
+>
+> ### Lo que esto borra en el front, y lo que NO se ha hecho
+>
+> Con las dos columnas, `alcance.ts` (12 KB) sobra entero y con él el emparejamiento por nombre.
+> **Ese borrado no está hecho**: es del repositorio del front y no se toca desde aquí. La app de
+> Flutter escribe su pantalla contra lo que existe hoy, **detrás de un interruptor apagado**, y lo
+> encenderá cuando esto esté **desplegado** —no fundido—, verificado por el hash de la tanda.
+>
+> ### Y la lección que no era nuestra: un umbral no lleva un número dentro
+>
+> De aquí salió que `myvc_flutter` tenía en `Interruptores.dart` la condición de encendido escrita
+> como **«desplegado en los quince»**. Son **dieciséis** desde que entró `lal` el 30 ago
+> ([DESPLIEGUE.md](../DESPLIEGUE.md):966), así que **encendía con un colegio sin desplegar** — y el
+> fallo le salía justo a ése, en la pantalla que usa a diario. Ya está cambiado a *«todos los que
+> recorre el bucle de despliegue»*, **sin cifra**. La sesión de la app lo había propagado hasta el
+> punto de **«corregir» a Joseth** un documento que estaba bien.
+>
+> > **CONTESTADO por Joseth el 19 sep 2026: `lal` está bien.** La duda era que el interruptor
+> > `disciplinaMisFichas` se encendió el 26 ago contra la tanda `eb95cbc`, **cuatro días antes de
+> > que `lal` existiera**, y que `lal` llegó **por traslado desde otro servidor**
+> > ([TRASLADO-LAL.md](../TRASLADO-LAL.md)) — o sea que lo que tenga dependía de qué copia se
+> > llevó y no de la fecha. **Queda cerrado porque lo dice quien lo sabe, no porque se dedujera**:
+> > eso es exactamente lo que no se podía hacer desde aquí. Si alguien vuelve a abrirlo, lo que
+> > lo contesta es el hash desplegado de `lal`, no este párrafo.
+>
+> ### Qué falta, y en qué orden
+>
+> **FUNDIDA el 19 sep 2026 en `6b20cda`. Falta desplegar.** La rama era
+> `feat/materia-id-y-grado-id-en-asignaturas`, **rebasada sobre `99060be`** y con tres commits:
+> `0d9af81` el cambio, `bfd27c7` el Pint de los dos ficheros que toca y `d130bca` el `chore` que
+> los mete en la lista curada de `composer.json` (**419**, apuntado en `CLAUDE.md` en el mismo
+> commit). Es *fast-forward*: `git branch -f main d130bca && git push origin main` — **y se
+> reverifica antes**, que `main` ya se movió una vez debajo de esta rama.
+>
+> > **Una cifra de esta casilla era falsa y se corrige aquí, no se borra.** Decía que
+> > `Profesor.php` *«lo tocan cuatro ramas vivas y el reformateo les deja conflicto»*: **no lo
+> > toca ninguna**. Se contó con `git diff main..<rama>`, que da positivo también cuando la rama
+> > va **por detrás** y fue `main` quien tocó el fichero. Medido contra el merge-base de cada
+> > rama —que es la pregunta que se quería hacer—, las únicas que lo tocan son las de este
+> > trabajo. **Es la trampa nº 3 de la cabecera de este documento, la de `--no-merged`, cometida
+> > con otra orden**: contar referencias en vez de trabajo. La decisión de Joseth no cambia; el
+> > coste con el que se la tomó era inventado, y por eso vale más la orden que el número.
+>
+> **Desplegar ya es posible** desde el 19 sep — ver la casilla del congelado—, pero **esto no
+> corre prisa**: mientras no esté en los dieciséis, el front sigue con su rodeo y la app con su
+> interruptor apagado, y las dos cosas funcionan. Lo que **no** se puede hacer hasta entonces es
+> borrar `alcance.ts`.
+>
+> La medición previa, con el árbol sin el gemelo tocado, quedó aparte en
+> `medicion/dos-columnas-en-listasignaturas` (`7a2df03`, **NO FUSIONAR**): es la prueba de las
+> dos formas de `piars/asignaturas`, y sólo sirve emparejada con ésta.
+
 > ## ✅ ABRIR Y CERRAR LA CAMPAÑA DE PREMATRÍCULA — DOS RUTAS, ROUTER EN 602 (19 sep 2026)
 >
 > **Lo reportó Joseth con el error delante**: la pantalla de ajustes del año de `app2` ya pintaba
@@ -4293,6 +4453,26 @@ esta casilla · **cero código** · la copia de ensayo se borró al terminar
 > `simonbolivar_testing_h` tiene **95 tablas** y está parada en `2026_08_31_100000` — el
 > estado que `construir-bd-test.sh` documenta como el peor: **la columna que esa migración
 > retira ya retirada y las demás sin llegar**. No la he tocado. Se arregla reconstruyéndola.
+
+**19 sep 2026 — EL CONGELADO SE LEVANTA: LA APP SALIÓ DE REVISIÓN** · dicho por Joseth ·
+sólo documentos · **cero código**
+
+> **Joseth, 19 sep 2026:** *«ya salió de revisión y subí versión a producción, bueno, a que lo
+> revisen a ver si sube a producción esta semana.»*
+>
+> O sea que **el suceso que desbloqueaba pasó**: el criterio de la casilla de abajo era *«la app
+> salió de revisión»*, no el 10 de septiembre, y se cumplió. **Ya se puede desplegar.**
+>
+> **Con un matiz que no cambia la decisión pero sí lo que hay que mirar**: hay una versión NUEVA
+> en revisión ahora mismo, con la esperanza de que suba esta semana. La que salió y la que está
+> dentro no son la misma, así que quien despliegue algo que la app lea debería preguntarse si esa
+> versión en revisión lo aguanta — que es la pregunta original del congelado, sobre otra versión.
+>
+> **Lo que queda pendiente de mirar, y no se ha mirado**: `main` lleva cosas fundidas y sin
+> desplegar acumuladas durante el congelado. La lista vive en la sección
+> **«Lo que está fusionado y NO desplegado»** de este mismo documento y **no se ha repasado
+> contra el estado de hoy**: alguien tiene que leerla entera antes de la próxima tanda, porque
+> se escribió cuando desplegar no era una opción.
 
 **4 sep 2026 — EL CONGELADO TIENE FECHA: EL 10 DE SEPTIEMBRE, Y LA PREGUNTA QUE LO
 DESBLOQUEA YA ESTÁ CONTESTADA** · decisión de Joseth · sólo documentos:

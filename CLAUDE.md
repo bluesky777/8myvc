@@ -658,11 +658,22 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
   > | `composer run pint` | **ESCRIBE**: formatea los ficheros de la lista |
   > | `pint --test` a secas | mide **todo el repo**, incluido lo que no se formatea a propósito |
   >
-  > Los dos primeros corren sobre **la lista curada de `composer.json`** —hoy **430**
-  > ficheros—; el tercero sobre **679**, y da `FAIL` con **189** avisos. **Las dos cifras
+  > Los dos primeros corren sobre **la lista curada de `composer.json`** —hoy **437**
+  > ficheros—; el tercero sobre **682**, y da `FAIL` con **185** avisos. **Las dos cifras
   > son correctas y cuentan poblaciones distintas**: con la tercera se archivó como ruido
   > un rojo real que llevaba desde el 7 sep en `CorsDelEscritorioTest`.
   >
+  > > > **Y las tres se remidieron OTRA VEZ al fundir, esa misma noche: 437, 682 y 185.**
+  > > > Las de `.worktrees/92` —430, 679, 189— y las de la otra tanda —423, 662, 189— eran
+  > > > **ciertas las seis**, y ninguna describía el árbol fundido: dos tandas en paralelo
+  > > > metieron ficheros en la misma lista sin verse. **437 no es 430 + 7 ni 423 + 14**: es
+  > > > lo que contestó `composer run pint:test` sobre el árbol fundido — y hubo que
+> > > medirlo DOS veces, porque entre la primera y la segunda entraron tres commits más
+> > > en `main` y pasó de 436 a 437. Y la tercera cifra
+  > > > **bajó** —189 a 185—, que es la dirección que nadie habría supuesto sumando: un
+  > > > fichero que entra en la lista curada **sale** de la cuenta de avisos al formatearse.
+  > > > *Sumar dos cifras ciertas da una falsa; contar da la buena.*
+  > >
   > > *Remedidas las tres el 19 sep 2026 por la noche en `.worktrees/92`: **430** la lista
   > > curada (`PASS`), **679** el repo entero y **189** avisos, que es el único de los tres
   > > que no se movió. Decían 423, 662 y 189 esa misma mañana. **Que la primera suba es lo
@@ -683,6 +694,43 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
   > > no hubo nada que añadir: el número sube solo. **Que se mueva tres veces en una tarde no
   > > es que esté mal medido; es lo que hace esta cifra**, y por eso lleva al lado la orden que
   > > la rehace en vez de una fecha de caducidad.*
+  > >
+  > > *Y **419** el 19 sep 2026, con `app/Models/Profesor.php` y
+  > > `app/Http/Controllers/Piars/PiarsAsignaturasController.php`, que los formateó el día que
+  > > los tocó el cambio de `materia_id`/`grado_id`. Lo decidió Joseth con el precio delante,
+  > > que es la única forma en que este número debería moverse.*
+  > >
+  > > > **Y el precio que se le puso delante ERA FALSO, así que aquí queda la orden que lo
+  > > > mide bien.** Esta nota dijo que `Profesor.php` *«lo tocan cuatro ramas vivas y el
+  > > > reformateo les deja conflicto a las cuatro»*. **No lo toca ninguna.** Salió de contar
+  > > > con `git diff --name-only main..<rama>`, que mezcla dos cosas distintas: *«la rama
+  > > > cambió este fichero»* y **«la rama va por detrás y fue `main` quien lo cambió»**. Con
+  > > > diecisiete worktrees vivos, lo segundo es casi siempre. Lo que contesta la pregunta
+  > > > que se quería hacer es el **merge-base**:
+  > > >
+  > > > ```bash
+  > > > for b in $(git for-each-ref --format='%(refname:short)' refs/heads/); do
+  > > >   base=$(git merge-base origin/main "$b") || continue
+  > > >   git diff --name-only "$base".."$b" -- <el fichero> | grep -q . && echo "$b"
+  > > > done
+  > > > ```
+  > > >
+  > > > **La decisión no cambia** —formatear el fichero el día que se toca— pero el coste que
+  > > > se usó para tomarla era inventado, y eso se dice. Es la trampa nº 3 de
+  > > > `ESTADO-ACTUAL.md`, la de `--no-merged`, cometida con otra orden.*
+  > >
+  > > *Y **423** un rato después, el mismo 19 sep, con el candado de la plantilla:
+  > > `CandadoDeLaPlantilla` y su test entran solos —`app/Support` y `tests` ya estaban en la
+  > > lista— y `UnidadesController` y `SubunidadesController` se apuntan a mano, formateados el
+  > > día que se tocaron.*
+  > >
+  > > > **Y este 423 es la prueba de que la regla de arriba sirve para algo.** Las dos ramas
+  > > > que lo movieron se escribieron a la vez y cada una contó desde su propio árbol: una dijo
+  > > > **419** y la otra **421**, **las dos ciertas y ninguna describiendo el `main` que iba a
+  > > > quedar**. Al fundir la segunda no se sumó —419 + 2 daría 421, que es lo que decía la
+  > > > otra rama y habría cuadrado de mentira—: se volvió a correr `composer run pint:test`
+  > > > sobre el árbol fundido y dio **423**. *Dos cifras ciertas se contradicen en cuanto
+  > > > salen de su árbol; la única que vale es la que se cuenta después de fundir.*
   > >
   > > **Y el 647 tiene una trampa que conviene dejar dicha: hoy es el número de LARASTAN,
   > > no el de Pint.** `composer run stan` analiza **647** ficheros —**651 el 19 sep 2026 sobre
