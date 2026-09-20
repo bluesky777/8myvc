@@ -520,6 +520,37 @@ class EnsayoDeLaImportacionTest extends CasoDeContrato
         $this->assertTrue($colaterales['acudientes']['los_escribe_la_subida']);
     }
 
+    /**
+     * Las columnas de acudiente NO salen como «sobran».
+     *
+     * Salían todas juntas, y la pantalla las enseñaba bajo «no las usa MyVc y se
+     * ignoran». **Para las de acudiente eso es falso**: el importador las lee y
+     * escribe acudientes y parentescos con ellas. Decir que se ignoran cuando
+     * van a crear personas es la clase de frase tranquilizadora y falsa que este
+     * módulo existe para quitar.
+     *
+     * Lo vio la sesión del front conduciendo la pantalla contra el docker — que
+     * es donde se ve lo que una respuesta **parece decir**, y no sólo lo que
+     * dice.
+     */
+    public function test_las_columnas_de_acudiente_no_se_dan_por_ignoradas(): void
+    {
+        [$token, $year] = $this->personalYSuYear();
+
+        $hojas = $this->ensayar($this->exportacionDeAlumnos($token), $token, $year)
+            ->assertStatus(200)->json('hojas');
+
+        $conDatos = collect($hojas)->firstWhere('filas', '>', 0);
+
+        $this->assertNotEmpty($conDatos['de_acudiente_no_estudiadas'],
+            'El modelo trae columnas de acudiente y tienen que salir declaradas como no estudiadas.');
+
+        foreach ($conDatos['sobran'] as $columna) {
+            $this->assertStringNotContainsString('acud', $columna,
+                "«{$columna}» sale como que sobra, y el importador la usa para escribir acudientes.");
+        }
+    }
+
     /** El guard, que es el mismo de la subida. */
     public function test_sin_token_no_contesta(): void
     {
