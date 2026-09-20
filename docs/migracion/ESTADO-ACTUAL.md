@@ -134,11 +134,16 @@
 > | | |
 > |---|---|
 > | `php artisan test --filter=DelPapelAlAlumnoTest` | **23 passed** |
-> | `php artisan test` (las tres testsuites) | **2.437 passed, 1 skipped (52.721 aserciones)**, sobre `9bf336d` a las 07:24 en `.worktrees/fi` |
+> | `php artisan test` (las tres testsuites) | **2.437 passed, 1 skipped**, dos veces: sobre `9bf336d` en `.worktrees/fi` (52.721 aserciones) **y sobre `42508a2` en el ÁRBOL PRINCIPAL tras fundir**, con la base reconstruida 39/39 (52.733) |
 > | `composer run stan` | `[OK] No errors`, **680** ficheros |
 > | `composer run pint:test` | **PASS**, **454** ficheros |
 > | `pint --test` (el repo entero, otra población) | `FAIL`, **695** ficheros y **182** avisos |
 > | `route:list --json` | **619**, en `.worktrees/fi` · **recontar en el principal al fundir** |
+>
+> **Las aserciones NO cuadran entre las dos —52.721 y 52.733— y eso está bien**: `cb50685` ya
+> dejó escrito que ese número se mueve solo y no es una huella. Lo que tiene que cuadrar es
+> **2.437 y cero rojos**, y cuadra. *Medir dos veces sirve justo para esto: para saber qué parte
+> del número es la que significa algo.*
 >
 > **Y son DOS índices y no tres, comprobado con `EXPLAIN` y no supuesto**: el informe filtra por
 > `year_campana`, y el `UNIQUE (year_campana, alumno_id)` que ya existía **lo lleva de primera
