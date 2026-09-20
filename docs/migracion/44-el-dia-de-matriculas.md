@@ -31,6 +31,22 @@ esquema congelado, con seis rutas vivas (`RequisitosController`). Lo que hace fa
 |---|---|
 | **Cuántas estaciones** | **las que el colegio quiera.** No hay número fijo ni plantilla obligatoria: es un editor de pasos, no un diagrama grabado en el código |
 | **Si una estación frena** | **cada una es «obligatoria antes de continuar» u «opcional»** |
+| **El número impreso en la cartulina** | **es `requisitos_matricula.orden`, que ya existe.** El paso 3 se atiende en la estación 3 — así que **no hace falta `estacion_nro`** |
+| **Qué significa «falta» hoy** | **las dos cosas, según la estación**: en unas la familia no entregó, en otras nadie lo marcó |
+| **Quién cierra un paso** | **cualquiera del personal, pero queda con su nombre y su hora** — no hace falta `rol_id` |
+
+### La respuesta que parecía la más floja es la que hace esto desplegable
+
+*«Las dos cosas, según la estación»* no es una respuesta tibia: es **la que convierte `bloquea` de
+lujo en necesidad**. Significa que **el bloqueo no se puede encender de golpe**.
+
+Donde el dato es fiable el colegio enciende el interruptor y la estación frena de verdad; donde
+nadie marca lo deja apagado, y el paso **sale igualmente en la lista de pendientes, informando**.
+Un bloqueo global —o un interruptor de colegio— habría mandado de vuelta a familias que sí
+entregaron, **el primer día y en la cola**.
+
+Por eso la columna nace en **0**: un colegio que actualiza no puede encontrarse el lunes con un
+recorrido que frena donde antes no frenaba.
 
 ### Y la segunda decisión COLAPSA algo que la propuesta separaba — va dicho, no corregido
 
@@ -54,7 +70,7 @@ entonces la cola de orientación para el día entero.
 colegio pida «que no frene pero que no se me olvide», la respuesta no es un parche: es esta
 decisión, revisada con el caso delante.
 
-## 3. Lo medido, y por qué no alcanza todavía
+## 3. Lo medido — y por qué la medición sigue haciendo falta AUNQUE ya no bloquee
 
 **En la copia de desarrollo (UN colegio) esto no se usa**: 1 fila en `requisitos_matricula` en
 todos los años, **0 en el año actual**, 12 marcas y las 12 en «falta». Y la única fila se llama
@@ -71,34 +87,85 @@ php tools/requisitos-de-matricula.php micolev1_lal_db
 php tools/requisitos-de-matricula.php --csv BASE [BASE…]
 ```
 
-## 4. LA PREGUNTA QUE DECIDE SI HAY COLUMNA NUEVA, Y QUE SÓLO CONTESTA `lal`
+> **Ya no bloquea, porque Joseth contestó a mano las tres preguntas que dependían de ella** (§2).
+> Pero sigue haciendo falta, y para algo distinto de lo que se pensó: **saber qué encuentra un
+> colegio el día que despliegue esto**.
+>
+> `bloquea` nace en 0, así que nadie se rompe — pero si `lal` tiene doce pasos con `orden` en cero,
+> su recorrido sale **sin numerar** y la pantalla de configuración tiene un trabajo de media hora
+> antes de que el módulo sirva. Eso no cambia el código: **cambia lo que hay que decirle al colegio
+> antes de encenderlo**.
 
-**¿El número de estación ES `requisitos_matricula.orden`, o son dos cosas distintas?**
+## 4. ~~La pregunta que decidía si había columna nueva~~ — CONTESTADA
 
-No es una duda de estilo: decide si esto es **una migración o ninguna**.
-
-- Si son la misma, `orden` ya lo guarda y **no hace falta columna**.
-- Si son dos —el orden en que se configuran y el número impreso en la cartulina—, hace falta
-  `estacion_nro`.
-
-**El relato admite las dos lecturas**: *«ve que el **requisito 2** no está marcado y esta es la
-**estación 4**»* puede ser lenguaje suelto, o puede ser exactamente lo que dice — que el requisito
-2 se atiende en la estación 3, y entonces son numeraciones distintas.
-
-Y lo que lo contesta no es discutirlo: es **mirar qué tiene `lal` en `orden`**. Si están todos en
-cero, `orden` nunca se usó como recorrido y el número de estación es un concepto nuevo; si están
-numerados y coinciden con lo que el colegio imprime, no hace falta nada.
+**¿El número de estación ES `requisitos_matricula.orden`, o son dos cosas?** Se le puso delante con
+las dos lecturas del relato —*«ve que el **requisito 2** no está marcado y esta es la **estación
+4**»*— y **contestó que es el mismo número**. Así que `orden` ya lo guarda y **no hay
+`estacion_nro`**.
 
 *Una columna que se añade sin saber esto es `profesores.tono` otra vez: la escribe la migración y
 no la lee nadie, o la lee la pantalla y no la escribe nadie.*
 
-## 5. Lo que sigue abierto, y quién lo contesta
+## 5. ENTREGADO el 20 sep 2026
 
-| | quién |
+    GET requisitos/recorrido/{alumno_id}      auth.personal      NO escribe
+
+**Router 621.** Migración `2026_09_20_300000`, tres columnas:
+
+```
+requisitos_matricula.bloquea       obligatoria antes de continuar (1) u opcional (0)
+requisitos_alumno.cerrado_por      quién lo chuleó
+requisitos_alumno.cerrado_at       cuándo
+```
+
+### `cerrado_por` no es `updated_by`, y por eso son dos
+
+`updated_by` cambia cada vez que alguien toca la fila —una observación, una tilde, desmarcar— así
+que al final del día dice **quién pasó por aquí el último**. Lo que la trazabilidad del día
+necesita es **quién lo cerró**. Se escribe con `COALESCE`, así que corregir una observación
+después no reescribe la firma.
+
+### UN FALLO VISTO ANTES DE COMETERLO: `users.profesor_id` ESTÁ VACÍA
+
+El `JOIN` natural para sacar el nombre de quien cerró es `profesores p ON p.id=u.profesor_id`. Las
+dos columnas existen, y medido en la base de tests:
+
+```
+users con profesor_id       0
+profesores con user_id     47
+```
+
+Escrito al revés, el renglón «cerrado por» **habría salido en blanco en los diecisiete sin que
+nada fallara**. Va por `p.user_id=u.id`, comprobado devolviendo nombres.
+
+### Y lo que la pantalla vieja no puede romper
+
+`putUpdate` escribe `orden` y `bloquea` **sólo si vienen**. Esa pantalla está desplegada en los
+dieciséis colegios y manda `requisito` y `descripcion` y nada más: escritos incondicionalmente,
+**corregir una tilde en el nombre de un paso desharía el recorrido del día**, sin error y sin que
+nadie lo note hasta la cola.
+
+Es el mismo caso que el `valor` del formulario de inscripción ([41 §5.ter](41-el-formulario-de-inscripcion.md)),
+donde la pantalla vieja *«no revienta: apaga el cobro sin querer»*. **Allí se avisó; aquí se
+impide**, y lo fija un test.
+
+### Ninguna instantánea se movió, y lo que eso significa NO es lo que parece
+
+`RequisitosController::putIndex` hace `SELECT *`, así que una columna nueva se reparte sola a la
+respuesta. Medido con `tools/lo-que-reparte-una-columna.py` sobre las 129 instantáneas: **0 para
+`requisitos_matricula` y 0 para `requisitos_alumno`**.
+
+**Eso no quiere decir «no hay riesgo»: quiere decir que esas rutas no tenían NINGUNA instantánea de
+contrato.** El riesgo no estaba tapado — estaba sin medir. Por eso la fase 1 trae los suyos: diez
+tests, con **control visto en rojo cinco veces**.
+
+| lo que se rompió | qué cayó |
 |---|---|
-| ¿`orden` es el número de estación, o son dos cosas? | lo contesta **el dato de `lal`** (§4) |
-| ¿«falta» significa que la familia no entregó, o que nadie lo marcó? | **Joseth** — desde la base son indistinguibles, y decide si la fase 1 arregla un problema de datos o uno de proceso |
-| ¿Quién cierra cada estación: un rol, o cualquiera del personal? | **el dato de `lal`** primero: si `editable_por_profe_id` está siempre en NULL, `rol_id` no ensancha nada, **inventa** un concepto — y eso se decide, no se deduce |
+| todo bloquea (se ignora el interruptor) | el test que lo nombra, y sólo ése |
+| `INNER JOIN` en vez de `LEFT` | tres — es el recorrido de quien acaba de llegar |
+| devolver al último que bloquea, no al primero | el que lo nombra |
+| pisar `cerrado_por` en cada escritura | el que lo nombra |
+| `putUpdate` escribiendo siempre | el que lo nombra |
 
 ## 6. Lo que NO entra en la fase 1, para que nadie lo suponga
 
@@ -109,3 +176,21 @@ no la lee nadie, o la lee la pantalla y no la escribe nadie.*
 - **El aviso al celular del acudiente** de la pantalla 09. Depende de push, que existe, pero es una
   decisión aparte y no es lo que hace útil el día de matrículas: lo que lo hace útil es que **la
   pantalla diga «devuélvala a la estación 3» antes de que el profesor abra la boca**.
+
+## 7. Lo que sigue abierto
+
+| | quién |
+|---|---|
+| Correr `tools/requisitos-de-matricula.php` en `lal` | **Joseth** — ya no bloquea el código, pero dice qué encuentra un colegio al desplegar (§3) |
+| Las pantallas: el editor de pasos y la de estación | **`myvc_front`** — el backend está, y sin ellas no lo usa nadie |
+| El aviso al celular del acudiente (pantalla 09) | decisión aparte: push existe, pero **no es lo que hace útil el día** |
+| Las fases 2, 3 y 4 | portal de la familia, venta por los dos canales, firma y pago |
+
+## 8. Y una cosa que este módulo NO resuelve, dicha para que no se prometa
+
+**El recorrido dice qué falta; no dice si lo que falta se entregó.** Mientras «falta» siga
+significando dos cosas según la estación —que es lo que Joseth contestó—, el módulo **traslada** el
+problema a una decisión del colegio: encender `bloquea` sólo donde marcan de verdad.
+
+Lo que lo arreglaría de raíz no es una columna: es que marcar sea **más fácil que no marcar** en la
+estación. Eso es de la pantalla, no de aquí.
