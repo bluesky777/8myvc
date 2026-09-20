@@ -354,8 +354,27 @@
 > exactamente la lectura falsa de las dos — y la que hace tirar trabajo bueno. Es la regla de
 > *«ninguna herramienta imprime OK sin decir su población»* aplicada a una consulta a mano.
 >
-> **Lo que hace falta antes de escribir la fase 1** es correr esas cuatro consultas **en un colegio
-> que la use**, que sólo puede hacer quien tenga acceso a producción.
+> ### ✅ JOSETH NOMBRÓ EL COLEGIO EL 20 SEP: **`lalvirtual`**, Y LA MEDICIÓN QUEDA LISTA
+>
+> **`tools/requisitos-de-matricula.php`**, escrita ese día. No es un `SELECT` suelto: contesta las
+> cinco preguntas que la fase 1 necesita —cuántos pasos, si el `orden` se usa, si alguien es dueño,
+> qué proporción se cierra de verdad y cuándo fue la última vez— y **dice el nombre de la base en
+> cada bloque**, que es lo único que impide volver a leer un cero sin su población.
+>
+> ```bash
+> php tools/requisitos-de-matricula.php micolev1_lal_db      # o la base de lal donde viva
+> php tools/requisitos-de-matricula.php --csv BASE [BASE…]   # para pegarlo aquí
+> ```
+>
+> **No se pudo correr desde el repositorio**: el docker sólo tiene `simonbolivar`, y la base de
+> `lal` vive en el servidor. Probada contra los cuatro caminos —el colegio que no lo usa, una base
+> que no existe (**`NO MEDIDO`, nunca `0`**), el CSV y un argumento con forma rara—, y larastan en
+> `[OK]`.
+>
+> **Lo que NO contesta, dicho para que nadie lo suponga**: cuántas estaciones tiene un día de
+> matrículas —eso va en cartulinas, no en la base—, si un paso bloquea al siguiente, y si «falta»
+> significa que no se entregó o que nadie lo marcó. **Esas tres deciden la mitad de la fase 1 y
+> sólo las sabe el colegio.**
 
 > ## ✅ EL LIMITADOR: PREGUNTAR YA NO GASTA SUBIDAS (20 sep 2026, `f400145`)
 >
