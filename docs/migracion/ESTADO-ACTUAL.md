@@ -73,6 +73,53 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## ❗ LA RECUPERACIÓN DE CONTRASEÑA ALCANZA A **CERO** ACUDIENTES (20 sep 2026)
+
+> **Lo levantó `myvc-front-2e` corrigiendo una cifra mía, y está reproducido aquí antes de
+> escribirlo.** El transporte de correo quedó arreglado hoy en las dieciocho instalaciones — y
+> eso destapa que **no había nadie al otro lado**.
+>
+> | | |
+> |---|---|
+> | Acudientes vivos | 1.085 |
+> | …con correo de **ficha** (`acudientes.email`) | 100 (9,2 %) |
+> | …con cuenta viva y activa | 1.000 |
+> | **…con correo de CUENTA (`users.email`)** | **0** |
+> | **Alcanzables por la recuperación** | **0** |
+>
+> **Yo cité el 9,2 % y contaba la columna equivocada.** `LoginController.php:240-266` busca por
+> `users.email` en cuatro consultas seguidas; `acudientes.email` **no lo mira nadie** en ese
+> flujo. Y como el método contesta `Enviado` aunque el correo no esté registrado —a propósito,
+> para no confirmar qué direcciones existen—, **los mil acudientes ven la misma pantalla que si
+> el correo hubiera salido**. Es el mismo silencio que el `mail()` viejo, en otro sitio.
+>
+> ### La causa es una asimetría entre tres controladores de este repositorio
+>
+> `AlumnosController.php:496-502` y `ProfesoresController.php:248-254` derivan `email2` desde
+> `email` cuando el cliente no lo manda. **`AcudientesController` no tiene esa red**: su línea
+> 400 asigna `Request::input('email2')` a pelo y el front sólo manda `email`. *Los tres
+> formularios se comportan igual; los tres controladores no.*
+>
+> **Y no se arregla entero en un solo lado**: `Alumnos/GuardarAlumno.php:147` (`valorAcudiente`)
+> sólo tiene rama a `users` para `username`, así que cualquier columna de correo que el front
+> añada a la rejilla caería en el `default` y **volvería a escribir la ficha**.
+>
+> ### Lo que espera decisión de Joseth — NADA DE CÓDIGO TOCADO
+>
+> Son tres piezas y ninguna es obvia: **(1)** darle a `AcudientesController` la misma red que
+> sus dos hermanos —y entonces hay que decidir si un acudiente sin correo recibe el
+> `username@myvc.com` inventado, que es lo que hoy se les pone a alumnos y profesores y que **no
+> sirve para recuperar nada**—; **(2)** la rama `email2` en `valorAcudiente`; **(3)** qué se hace
+> con los **94 correos de ficha que no están en ninguna cuenta** — hay direcciones reales
+> inutilizadas. `myvc-front-2e` lo dejó escrito en su `PREGUNTAS-MANANA.md` y tampoco ha tocado
+> nada.
+>
+> **Ojo al alcance**: medido en el docker, que es **un** colegio. Si los dieciséis están igual no
+> lo sabe nadie, y se contesta con la misma consulta en cada base.
+>
+> *Y una que sale de paso: para profesores la recuperación alcanza a **12**, no a 34, porque
+> exige `is_active=1` y veintidós cuentas con correo no lo están.*
+
 > ## 🔧 `tools/correo-de-los-colegios.sh` — QUÉ INSTALACIONES NO PUEDEN MANDAR CORREO (20 sep 2026)
 
 > **Pedido por Joseth**: un guion para subir al shared host que diga **qué subdominios siguen sin

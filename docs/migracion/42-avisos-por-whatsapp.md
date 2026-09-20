@@ -407,6 +407,48 @@ FROM (SELECT m.alumno_id,
 > es que **el correo, hoy, casi no existe** como canal con las familias. Va avisado a la
 > sesión que lleva `41-el-formulario-de-inscripcion.md`.
 >
+> > ### CORREGIDO EL 20 SEP 2026: NO ES EL 9,2 %, ES EL 0 %
+> >
+> > **Levantado por `myvc-front-2e` y reproducido aquí antes de escribirlo.** La medición de
+> > arriba es cierta y cuenta `acudientes.email` —la **FICHA**—, pero **la recuperación de
+> > contraseña no busca por ahí**: `LoginController.php:240-266` busca por `users.email`, la
+> > **CUENTA**, en cuatro consultas seguidas y todas sobre esa columna. Contado en el mismo
+> > docker (`simonbolivar`) el 20 sep 2026:
+> >
+> > | | |
+> > |---|---|
+> > | Acudientes vivos | 1.085 |
+> > | …con correo de **ficha** (`acudientes.email`) | 100 (9,2 %) |
+> > | …con cuenta de usuario viva y activa | 1.000 |
+> > | **…con correo de CUENTA (`users.email`)** | **0** |
+> > | **Alcanzables por la recuperación** | **0** |
+> >
+> > **No son nueve de cada diez, son diez de diez** — incluidos los 100 que sí tienen correo en
+> > la ficha. Y **no es que la copia esté anonimizada**: 917 cuentas vivas sí tienen correo. El
+> > cero es sólo de los acudientes.
+> >
+> > **La causa está en este repositorio y es una asimetría entre tres controladores.**
+> > `AlumnosController.php:496-502` y `ProfesoresController.php:248-254` derivan `email2` desde
+> > `email` cuando el cliente no lo manda —y si tampoco hay `email`, inventan
+> > `username@myvc.com`—. **`AcudientesController` no tiene esa red**: su línea 400 hace
+> > `$usuario->email = Request::input('email2')` a pelo, y el front sólo manda `email`. Los tres
+> > formularios se comportan igual; los tres controladores no. De ahí 876 alumnos con correo de
+> > cuenta y 0 acudientes.
+> >
+> > **Y no se arregla sólo en un lado.** `Alumnos/GuardarAlumno.php:147` (`valorAcudiente`) sólo
+> > tiene rama a `users` para `username`; cualquier otra propiedad cae en el `default`, que hace
+> > `UPDATE acudientes SET …`. Sin una rama `email2` ahí, una columna de correo nueva en la
+> > rejilla del front **volvería a escribir la ficha**.
+> >
+> > **Un dato que no tenía ninguno de los dos y que hay que decidir qué hacer con él:
+> > 94 de los 100 correos de ficha no están en NINGUNA cuenta.** Hay direcciones reales que
+> > nadie puede usar para recuperar.
+> >
+> > *Y el desglose por tipo salió distinto en las dos sesiones —853/34 allí, 876/40 aquí— con el
+> > mismo total de 917: la diferencia es la población, no el dato. 853 y 34 son los que además
+> > tienen ficha viva; 876 y 40 son las cuentas de ese tipo. **Y para profesores lo que la
+> > recuperación alcanza son 12, no 34**, porque exige `is_active=1` y veintidós no la tienen.*
+>
 > Y el 20 % inalcanzable no se arregla con esto: se arregla pidiendo el número en la
 > matrícula. **Un canal nuevo no repara los datos que necesita.**
 
