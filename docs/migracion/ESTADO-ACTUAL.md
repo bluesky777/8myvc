@@ -80,8 +80,10 @@
 > acudiente que vino por él»*. Alcance y permiso autorizados por él con las poblaciones delante.
 > El porqué entero está en [`41 §9`](41-el-formulario-de-inscripcion.md); esto es dónde quedó.
 >
-> **Está en `.worktrees/fi`, rama `feat/del-papel-al-alumno`, SIN FUNDIR**: el 619 se contó en ese
-> árbol y **hay que recontarlo en el árbol principal el día que entre**.
+> **FUNDIDA el 20 sep 2026** (`032a1a6`). El 619 se contó primero en `.worktrees/fi` **con su
+> condición de caducidad al lado** —*«hay que recontarlo en el árbol principal el día que entre»*—
+> y **se recontó al fundir, en el árbol principal sobre `main`: 619 otra vez.** Coincidir es lo
+> único que no se puede saber sin contar las dos veces.
 >
 > | | |
 > |---|---|

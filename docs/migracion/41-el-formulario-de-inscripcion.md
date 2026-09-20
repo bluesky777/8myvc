@@ -416,7 +416,8 @@ descuido.
 | Quién ata y quién corrige | secretaría o superusuario, **dentro del método** |
 
 **Las diez del 19 sep están dentro, y las cuatro del 20 también.** Router **619**, contado con
-`route:list --json` en `.worktrees/fi` — **sin fundir**. Antes de ellas eran **612**, contadas en
+`route:list --json` **en el árbol principal, sobre `main` y después de fundir** (`032a1a6`).
+Antes de ellas eran **612**, contadas en
 el árbol principal sobre `main` después de fundir; el precio **no gastó ruta** —va en la fila y la
 ruta que ya tenían los campos— y las 615 intermedias las trajeron otras ramas.
 
@@ -476,8 +477,9 @@ por él»*.
     PUT  informes/formularios-inscripcion/codigo/{codigo}         auth.personal + puedeAtarFormularios
     PUT  informes/formularios-inscripcion/codigo/{codigo}/alumno  auth.personal + puedeAtarFormularios
 
-**Router 619**, contado con `route:list --json` en `.worktrees/fi` — **sin fundir: hay que
-recontarlo en el árbol principal el día que entre**.
+**Router 619**, contado con `route:list --json` **en el árbol principal, sobre `main` y después de
+fundir** (`032a1a6`) — y coincidió con las 619 contadas antes en `.worktrees/fi`, que es la única
+forma de saber que coincidía.
 
 ### EL HUECO, MEDIDO ANTES DE ESCRIBIR NADA — Y ES EL CASO PRINCIPAL
 

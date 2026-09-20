@@ -12,15 +12,20 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**619 rutas** (contadas con `route:list --json` el **20 sep 2026 en `.worktrees/fi`** —
-**SIN FUNDIR: hay que recontarlas en el ÁRBOL PRINCIPAL el día que entren**, que es la condición
-de caducidad que este párrafo lleva meses pidiendo que se escriba y la única razón de que la
-cifra anterior no envejeciera a mentira. Las cuatro que suben sobre las 615 son las de **del
+**619 rutas** (contadas con `route:list --json` el **20 sep 2026 en el ÁRBOL PRINCIPAL, sobre
+`main` y después de fundir** (`032a1a6`) — **y coincidieron con las 619 contadas antes en
+`.worktrees/fi`, que es la única forma de saber que coincidía**. Las cuatro que suben sobre las 615 son las de **del
 papel al alumno** —`GET …/campana`, `GET`/`PUT …/codigo/{codigo}` y `PUT
 …/codigo/{codigo}/alumno`—, que cierran el formulario de inscripción: hasta ellas, un formulario
 del modo `nuevos` **no se ataba a ningún alumno jamás** y `matricula_id` no lo escribía nadie.
 **Mueven TRES instantáneas y no cuatro**: `informes/` tiene de sobra más de dos hermanas con
 guard, así que `familias-que-nunca-entran-en-el-candado.json` no se toca.
+
+> **Esta cifra se escribió primero con su condición de caducidad al lado** —*«SIN FUNDIR: hay que
+> recontarlas en el árbol principal el día que entren»*— **y se recontó el mismo día, en cuanto
+> entró.** Es la tercera vez seguida que esa frase salva el número, y la primera en que quien la
+> escribió y quien la cumplió son la misma sesión: *una cifra sin su condición de caducidad al
+> lado se lee como cierta para siempre.*
 
 > **Y son las primeras de esta familia con el permiso PARTIDO EN DOS, que es lo que hay que leer
 > antes de copiarlas.** Las cuatro del 19 sep llevan `auth.personal` y nada dentro; de éstas, las
