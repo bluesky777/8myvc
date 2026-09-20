@@ -140,19 +140,38 @@ Route::get('colillas-inscripcion/pendientes', [ColillasInscripcionController::cl
 //
 // NO ESPERA AL CORREO, y ése es el punto: el aviso que debía cerrar esto va por
 // correo, y el correo de esta API está en rojo desde el 2 sep (`lalvirtual.com` no
-// está registrado, y falla callado). Además sólo el 9,2 % de los acudientes vivos
-// tiene correo (doc 42). Con una lectura, la familia entra con el código que ya
-// lleva impreso y lo ve — es *pull* en vez de *push*, y para quien no tiene cuenta
-// es el único canal que funciona seguro.
+// está registrado, y falla callado). Con una lectura, la familia entra con el código
+// que ya lleva impreso y lo ve — es *pull* en vez de *push*.
+//
+// Y NO ES «EL MEJOR CANAL PARA QUIEN NO TIENE CUENTA»: ES EL ÚNICO QUE EXISTE.
+// Aquí se citaba el 9,2 % de acudientes con correo (doc 42), y esa cifra está mal
+// dos veces: cuenta `acudientes.email` cuando todo lo que manda correo busca por
+// `users.email` —eran 0, y `8myvc-9a` los dejó en 91 el 20 sep— y **sobre todo
+// cuenta acudientes de alumnos YA MATRICULADOS**. Quien paga un formulario es la
+// familia de un ASPIRANTE, que no tiene fila en `users` ni en `acudientes`. Medido:
+// este flujo no le pide el correo en ningún momento y ninguna de sus tres tablas
+// tiene esa columna. Para él, el correo no es un canal malo: no es un canal.
 //
 // LO QUE DEVUELVE LO DECIDE QUE SEA PÚBLICA, no que le sirva a la familia: el
 // código se dicta por teléfono y viaja en un papel que pasa de mano en mano, así
 // que **no sale el nombre del alumno, ni su documento, ni sus teléfonos, ni el
 // fichero del recibo** —la URL es la llave—. Sale el trámite, no la persona.
 //
-// Misma URI que el POST y mismo limitador: quien sube ahí es quien pregunta ahí.
+// MISMA URI QUE EL POST, PERO **LIMITADOR PROPIO**, Y ESO SE VIO ROTO. Decía «mismo
+// limitador: quien sube ahí es quien pregunta ahí», que era verdad y era justo lo que
+// lo escondía: el problema no es QUIÉN, es que **preguntar consumía subidas**.
+//
+// La clave de un limitador con nombre es `md5($limiterName.$limit->key)` —
+// `ThrottleRequests::handleRequestUsingNamedLimiter`, comprobado en el fuente—, así
+// que **no lleva el verbo ni la ruta**: con el mismo `throttle:colilla` y los mismos
+// `by()`, el GET y el POST eran **un solo cubo de diez por hora**. Y el reparto salía
+// al revés de lo que conviene: preguntar es lo barato que se repite, subir es lo caro
+// y raro. Medido: a la **undécima consulta**, la consulta misma daba 429.
+//
+// Lo encontró `8myvc-dd` revisando esta ruta el 20 sep 2026, unas horas después de
+// fundirla. Lo fija `LaFamiliaPreguntaTest`, visto en rojo.
 Route::get('colillas-inscripcion/{codigo}', [ColillasInscripcionController::class, 'getEstado'])
-    ->withoutMiddleware('auth.token')->middleware('throttle:colilla');
+    ->withoutMiddleware('auth.token')->middleware('throttle:consulta-inscripcion');
 Route::put('colillas-inscripcion/{id}/aprobar', [ColillasInscripcionController::class, 'putAprobar'])->middleware('auth.personal');
 Route::put('colillas-inscripcion/{id}/rechazar', [ColillasInscripcionController::class, 'putRechazar'])->middleware('auth.personal');
 

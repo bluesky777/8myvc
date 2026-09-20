@@ -92,9 +92,15 @@ class AutenticacionTest extends CasoDeContrato
         //
         // No espera al correo a propósito: el aviso que debía cerrarlo va por correo,
         // y `lalvirtual.com` —el `MAIL_FROM_ADDRESS` de quince colegios— **no está
-        // registrado** desde el 2 sep y falla callado; además sólo el 9,2 % de los
-        // acudientes vivos tiene correo (doc 42). Es *pull* en vez de *push*, y para
-        // quien no tiene cuenta es el único canal que funciona seguro.
+        // registrado** desde el 2 sep y falla callado. Es *pull* en vez de *push*, y
+        // para este destinatario **no es el mejor canal: es el único que existe**.
+        //
+        // Aquí se citaba el 9,2 % de acudientes con correo, y esa cifra cuenta la
+        // columna equivocada (`acudientes.email` en vez de `users.email`) **y la
+        // población equivocada**: son acudientes de alumnos YA MATRICULADOS, y quien
+        // paga un formulario es la familia de un ASPIRANTE, que no tiene fila en
+        // `users` ni en `acudientes`. Medido el 20 sep 2026: este flujo no le pide el
+        // correo en ningún momento y ninguna de sus tres tablas tiene esa columna.
         //
         // **Lo que la hace aceptable no es el limitador: es lo que NO devuelve.** La
         // llave es un código que se dicta por teléfono y viaja en un papel que pasa

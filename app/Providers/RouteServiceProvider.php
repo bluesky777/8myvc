@@ -134,6 +134,49 @@ class RouteServiceProvider extends ServiceProvider
         });
 
         /*
+         * **Consultar cómo va una inscripción, que es una LECTURA y por eso no puede
+         * compartir cubo con la subida.**
+         *
+         * Existe por un fallo reproducido el 20 sep 2026 —lo encontró `8myvc-dd`
+         * revisando `GET colillas-inscripcion/{codigo}`— y la causa no es un número
+         * mal puesto, es **cómo Laravel construye la clave de un limitador con
+         * nombre**:
+         *
+         *     ThrottleRequests::handleRequestUsingNamedLimiter
+         *     'key' => md5($limiterName.$limit->key)
+         *
+         * **Sin el verbo y sin la ruta.** Así que dos rutas con el mismo
+         * `throttle:colilla` y los mismos `by()` **son un solo cubo**, y el `GET`
+         * heredó los diez por hora pensados para subir ficheros.
+         *
+         * El reparto salía justo al revés de lo que conviene: **preguntar es la
+         * acción barata que una familia repite** —*«¿ya me aprobaron?»*, refrescando—
+         * y **subir es la cara y la rara**. Medido: a la **undécima consulta**, la
+         * consulta misma contesta 429; y si hubiera quedado saldo para el `POST`,
+         * `puede_enviar_otro` habría dicho `true` y la subida habría rebotado con el
+         * 429 genérico de Laravel — **la familia leyendo «puede mandar otro» y
+         * recibiendo «demasiados intentos»**.
+         *
+         * ## Sesenta, y por qué no más ni menos
+         *
+         * Uno por minuto por IP y por código. Es **seis veces** el de la subida y
+         * sigue siendo un tope de verdad: lo que este límite protege es la base de
+         * datos de alguien que consulte en bucle, no el disco —esta ruta no escribe
+         * nada— ni los códigos, que los protege el carácter de control rechazando
+         * **28 de cada 29** cadenas antes de tocar disco.
+         *
+         * **Y va por IP Y por código, como su hermana**, por el mismo par de agujeros:
+         * el de IP corta al que consulta en bucle desde un sitio, y el de código al
+         * que reparte la carga entre muchas IPs contra el mismo formulario.
+         */
+        RateLimiter::for('consulta-inscripcion', function (Request $request) {
+            return [
+                Limit::perHour(60)->by('ip:'.$request->ip()),
+                Limit::perHour(60)->by('cod:'.strtoupper(trim((string) $request->route('codigo')))),
+            ];
+        });
+
+        /*
          * El checkout del pago en línea del formulario. Mismo reparto que
          * `colilla` —por IP y por código a la vez— y por los mismos dos agujeros:
          * el de IP corta al que abre checkouts en bucle desde un sitio, y el de
