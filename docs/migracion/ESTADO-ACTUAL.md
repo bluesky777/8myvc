@@ -357,6 +357,44 @@
 > **Lo que hace falta antes de escribir la fase 1** es correr esas cuatro consultas **en un colegio
 > que la use**, que sólo puede hacer quien tenga acceso a producción.
 
+> ## ✅ EL LIMITADOR: PREGUNTAR YA NO GASTA SUBIDAS (20 sep 2026, `f400145`)
+>
+> **Lo encontró `8myvc-dd` revisando `GET colillas-inscripcion/{codigo}` unas horas después de
+> fundirlo**, y la causa no era un número mal puesto: la clave de un limitador con nombre es
+> `md5($limiterName.$limit->key)` —`ThrottleRequests::handleRequestUsingNamedLimiter`, comprobado
+> en el fuente— **sin el verbo y sin la ruta**. Con el mismo `throttle:colilla` y los mismos
+> `by()`, el `GET` y el `POST` eran **un solo cubo de diez por hora**.
+>
+> **Y el síntoma llegaba antes de lo previsto.** El informe decía que fallaría el `POST` tras diez
+> consultas; reproducido, **falla la undécima CONSULTA**: la familia ni siquiera podía preguntar
+> once veces. Arreglado con `throttle:consulta-inscripcion` (60/h por IP **y** por código).
+>
+> > **Y un test mío que NO medía lo que decía, del mismo género.** `test_subir_sigue_topado` subía
+> > dos comprobantes **a la misma orden** y esperaba 429 — pero eso pasa por el tope de «una
+> > pendiente por orden», no por el limitador. Se destapó porque un `sed` pisó la línea del `POST`
+> > y lo dejó con el limitador generoso, **y el test siguió en verde**. Reescrito para gastarlo
+> > **por IP**, que es lo único que ese tope no tapa.
+>
+> **La cifra del correo, corregida en mis cuatro sitios y en dos capas.** La primera la levantó
+> `8myvc-9a`: el 9,2 % es `acudientes.email` y todo busca por `users.email` —eran **0**, su arreglo
+> los dejó en **91**—. **La segunda es de fondo: ninguna de las dos cuenta a esta gente.** Son
+> acudientes de **matriculados**, y quien paga un formulario es la familia de un **aspirante**, que
+> no tiene fila en `users` ni en `acudientes`. Medido: **este flujo no le pide el correo y ninguna
+> de sus tres tablas tiene esa columna.** Para él el correo **no es un canal**.
+>
+> | | |
+> |---|---|
+> | `php artisan test` (las tres testsuites) | **2.459 passed, 1 skipped**, sobre `2454459` con `main` dentro |
+> | `composer run pint:test` | **PASS**, 462 ficheros |
+> | `route:list --json` | **620**, árbol principal sobre `main` tras fundir (`f400145`) |
+>
+> ### PENDIENTE QUE SALE DE AQUÍ, escrito sin hacer
+>
+> **Dos veces en la misma familia ya no es casualidad**: `…/campos` tragada por `{lote}` el 19 sep
+> y `…/pendientes` tragada por `{codigo}` el 20. Un test **genérico** que recorra el router y
+> compruebe con `getRoutes()->match()` que cada URI literal la atiende **su** acción cazaría la
+> familia entera y las futuras. **Es idea de `8myvc-dd`.**
+
 > ## ✅ LA FAMILIA PREGUNTA — LA 16ª PÚBLICA Y LA PRIMERA DE LECTURA, ROUTER EN 620 (20 sep 2026)
 >
 > **Encargo de Joseth**, al preguntar qué faltaba del formulario. El porqué entero está en
