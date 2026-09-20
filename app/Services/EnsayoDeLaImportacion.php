@@ -118,6 +118,15 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
             'si_falta' => 'Se BORRA la que hubiera.'],
     ];
 
+    /**
+     * El estado de la matrícula va aparte de las demás porque **no vive en
+     * `alumnos`**: vive en `matriculas`, y hasta hoy el plan no lo contaba. Eso
+     * dejaba a la pantalla sin forma de enseñar que una corrección de
+     * `estado_matricula` había surtido efecto — los totales no se movían jamás
+     * con ese campo, por mucho que la corrección llegara a la base.
+     */
+    private const ETIQUETA_ESTADO = 'Estado de la matrícula';
+
     /** Las columnas del UPDATE de un alumno que ya existe, para poder decir qué le cambia. */
     private const COMPARABLES = [
         'nombres' => 'Nombres', 'apellidos' => 'Apellidos', 'sexo' => 'Sexo', 'fecha_nac' => 'Fecha de nacimiento',
@@ -245,7 +254,15 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
             $this->fixer->avisos[$i]['fila_del_libro'] = $indice + 3;
         }
 
-        $this->anotarTruncados($fila, $hoja, $indice);
+        // Se le pasa `$alumno` —lo que el traductor ya corrigió— y NO `$fila`,
+        // que es lo crudo del Excel. Con el crudo, una equivalencia aprobada no
+        // se notaba: el servidor contestaba «usé tu corrección 14 veces» y en el
+        // mismo JSON seguía avisando de que esas 14 no se escriben. **Las dos no
+        // pueden ser ciertas a la vez**, y desde una pantalla la lectura es la
+        // peor: «corregí y el aviso sigue, así que no funcionó». Lo vio la sesión
+        // del front conduciendo `estado_matricula`, que es el campo donde se
+        // nota porque el otro sí desaparecía.
+        $this->anotarTruncados($alumno, $hoja, $indice);
         $this->anotarVacios($fila);
 
         $documento = $fila['nro_de_documento'] ?? null;
@@ -391,6 +408,27 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
                 'antes' => $ahora,
                 'despues' => $luego,
                 'se_vacia' => $luego === null || (string) $luego === '',
+            ];
+        }
+
+        // EL ESTADO DE LA MATRÍCULA, que no está en `alumnos` y por eso no entra
+        // en el bucle de arriba. Sin esto, corregir «Activo» a «ASIS» llegaba a
+        // la base y **el plan no se movía ni una fila**, así que la pantalla no
+        // podía enseñar que había servido de algo.
+        //
+        // Se aplica la misma regla que el importador: lo que NO CABE en
+        // `varchar(4)` no se escribe, y entonces tampoco es un cambio.
+        $estadoNuevo = $traducido['estado_matricula'] ?? null;
+        $cabe = $estadoNuevo === null || mb_strlen(trim((string) $estadoNuevo)) <= 4;
+
+        if ($cabe && $estadoNuevo !== null && (string) $estadoNuevo !== (string) ($existente->estado_matricula ?? '')) {
+            $cambios[] = [
+                'campo' => 'estado_matricula',
+                'etiqueta' => self::ETIQUETA_ESTADO,
+                'antes' => $existente->estado_matricula ?? null,
+                'despues' => $estadoNuevo,
+                'se_vacia' => false,
+                'tabla' => 'matriculas',
             ];
         }
 
@@ -679,7 +717,7 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
     private function fichaDe(int $id): ?object
     {
         return DB::selectOne(
-            'SELECT a.*, g.abrev AS grupo_actual
+            'SELECT a.*, g.abrev AS grupo_actual, m.estado AS estado_matricula
              FROM alumnos a
              LEFT JOIN matriculas m ON m.alumno_id = a.id AND m.deleted_at IS NULL
              LEFT JOIN grupos g ON g.id = m.grupo_id AND g.deleted_at IS NULL
