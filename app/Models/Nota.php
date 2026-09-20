@@ -149,7 +149,6 @@ class Nota extends Model {
 			self::verificarCrearNota(
 				(int) $unidad->alumno_id,
 				$subunidad->id,
-				$subunidad->nota_default,
 				$user_id
 			);
 
@@ -170,8 +169,16 @@ class Nota extends Model {
 				continue;
 			}
 
+			// **`NULL` literal y no `$subunidad->nota_default`**: la casilla nace SIN
+			// nota, que es la fase 0 del
+			// [43](../../docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md). Antes
+			// nacía con el valor por defecto de la subunidad —0 en el 88 % de los casos—
+			// y desde ese instante pesaba en la definitiva sin que nadie la hubiera
+			// calificado. Va en el SQL y no ligado porque **no es un valor que se elija**:
+			// es la ausencia de valor, y ligar un `null` invitaría a que algún día alguien
+			// le pase otra cosa.
 			$consulta = "INSERT INTO notas(subunidad_id, alumno_id, nota, created_by, created_at, updated_at) 
-				SELECT ?, ?, ?, ?, ?, ? FROM dual
+				SELECT ?, ?, NULL, ?, ?, ? FROM dual
 				WHERE NOT EXISTS (
 					SELECT 1 FROM notas WHERE subunidad_id=? AND alumno_id=? AND deleted_at IS NULL
 				) LIMIT 1";
@@ -179,7 +186,6 @@ class Nota extends Model {
 			DB::insert($consulta, [
 				$subunidad->id,
 				$alumno->alumno_id,
-				$subunidad->nota_default,
 				$user_id,
 				$now,
 				$now,
@@ -239,18 +245,23 @@ class Nota extends Model {
 	 * `alumnoPeriodoDetalle` que lo lee no guardaba nada — se releía la fila
 	 * también cuando no había nada que releer.
 	 */
-	public static function verificarCrearNota($alumno_id, $subunidad_id, $nota_default, $user_id): bool
+	public static function verificarCrearNota($alumno_id, $subunidad_id, $user_id): bool
 	{
 		$now = Carbon::now('America/Bogota');
 
+		// **`NULL` y no la nota por defecto de la subunidad, y por eso este método
+		// perdió un parámetro** (fase 0 del
+		// [43](../../docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md)). Se quita
+		// en vez de ignorarlo: un argumento que ya no decide nada es peor que no tenerlo
+		// —el que lo lea al llamar creerá que la nota con la que nace se elige aquí—.
 		$consulta = 'INSERT INTO notas(subunidad_id, alumno_id, nota, created_by, created_at, updated_at)
-			SELECT ?, ?, ?, ?, ?, ? FROM dual
+			SELECT ?, ?, NULL, ?, ?, ? FROM dual
 			WHERE NOT EXISTS (
 				SELECT 1 FROM notas WHERE subunidad_id=? AND alumno_id=? AND deleted_at IS NULL
 			) LIMIT 1';
 
 		$filas = DB::affectingStatement($consulta, [
-			$subunidad_id, $alumno_id, $nota_default, $user_id, $now, $now,
+			$subunidad_id, $alumno_id, $user_id, $now, $now,
 			$subunidad_id, $alumno_id,
 		]);
 
@@ -401,7 +412,6 @@ class Nota extends Model {
 							$creada = Nota::verificarCrearNota(
 								$alumno_id,
 								$unidad->subunidades[$j]->subunidad_id,
-								$unidad->subunidades[$j]->nota_default,
 								$crear_por_user_id
 							);
 

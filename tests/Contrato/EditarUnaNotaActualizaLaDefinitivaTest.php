@@ -123,7 +123,25 @@ class EditarUnaNotaActualizaLaDefinitivaTest extends CasoDeContrato
         $subunidadId = (int) $nota->subunidad_id;
 
         // Se quita la nota de ese alumno en esa subunidad para que haya hueco que
-        // rellenar. Con `nota_default` a 40, su definitiva pasa de 20 a **25**.
+        // rellenar.
+        //
+        // **Esta cuenta cambió con la fase 0 del
+        // [43](../../docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md), y el
+        // test es mejor ahora.** Antes decía «con `nota_default` a 40, la definitiva
+        // pasa de 20 a 25»: o sea que **rellenar el hueco le regalaba un 40 al
+        // alumno**, que es exactamente el fallo que esa fase viene a cerrar. Ahora la
+        // casilla vuelve **vacía**, así que la definitiva se queda en **15** —los 20 de
+        // partida menos los 5 que aportaba la nota borrada— y no se mueve hasta que
+        // alguien la califique.
+        //
+        // El sujeto del test **no cambia**: sigue siendo que el `INSERT` de
+        // `putSubunidad` inserta de verdad (lo comprueba el `assertSame(1, …)` de
+        // abajo, que es el que cazaba el fallo de las comillas). Lo que cambia es qué
+        // se espera del número, y ahora comprueba **dos** cosas donde antes comprobaba
+        // una: que la casilla vuelve, y que vuelve sin nota.
+        //
+        // `nota_default` se sigue mandando en el cuerpo **a propósito**: el controlador
+        // ya no lo mira, y este test es el que lo fija.
         //
         // El 40 no es arbitrario: con números que dan entero, lo que se comprueba es
         // el disparador, que es lo que este test mide.
@@ -153,8 +171,14 @@ class EditarUnaNotaActualizaLaDefinitivaTest extends CasoDeContrato
             'La nota rápida no llegó a guardarse: el INSERT sigue mandando una cadena '
             .'donde va un entero, y la clave foránea lo rechaza.');
 
-        $this->assertSame(25.0, $this->definitivaDe($ctx),
-            'Se guardó la nota pero la definitiva no se movió.');
+        $this->assertNull(DB::table('notas')
+            ->where('subunidad_id', $subunidadId)
+            ->where('alumno_id', $ctx['alumno'])
+            ->whereNull('deleted_at')->value('nota'),
+            'La casilla volvió con una nota que nadie puso: la siembra sigue usando nota_default.');
+
+        $this->assertSame(15.0, $this->definitivaDe($ctx),
+            'La casilla vacía movió la definitiva, y no puede: no cuenta hasta que alguien la califique.');
     }
 
     /**
@@ -179,10 +203,20 @@ class EditarUnaNotaActualizaLaDefinitivaTest extends CasoDeContrato
             ->where('id', DB::table('notas')->where('id', $ctx['notas'][0])->value('subunidad_id'))
             ->value('unidad_id');
 
-        // La quinta subunidad con nota por defecto 40. Los pesos ya no suman 100 y
-        // eso es a propósito (§9.3: la fórmula no normaliza), así que el aporte
-        // nuevo es 50% de la unidad × 50% de la subunidad × 40 = 10 sobre los 20
-        // que ya había: **30**.
+        // La quinta subunidad, con nota por defecto 40 en el cuerpo.
+        //
+        // **Y aquí la fase 0 del
+        // [43](../../docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md) cambia lo
+        // que este test defiende, a mejor.** Antes: el aporte nuevo era 50 % de la
+        // unidad × 50 % de la subunidad × 40 = 10 sobre los 20 que ya había, o sea
+        // **30**. Dicho en voz alta: **crear un indicador le subía la nota a todo el
+        // grupo**, sin que nadie hubiera evaluado nada.
+        //
+        // Ahora las casillas nacen vacías, así que la definitiva **no se mueve**: 20 y
+        // 20. La §5.1 sigue defendida —lo que le importa es que las notas nazcan con la
+        // subunidad y que el recálculo se dispare, no que el número suba— y de paso
+        // esto pasa a fijar lo contrario de lo que fijaba: **añadir un indicador no
+        // toca la nota de nadie**.
         $r = $this->withToken($token)->postJson('/api/subunidades', [
             'unidad_id' => $unidadId,
             'definicion' => 'SUBUNIDAD NUEVA',
@@ -197,8 +231,8 @@ class EditarUnaNotaActualizaLaDefinitivaTest extends CasoDeContrato
             'La subunidad nació sin notas: la ventana de la §5.1 sigue abierta y '
             .'sólo la cerraría alguien abriendo /notas.');
 
-        $this->assertSame(30.0, $this->definitivaDe($ctx),
-            'La definitiva no cuenta la subunidad recién creada.');
+        $this->assertSame(20.0, $this->definitivaDe($ctx),
+            'Crear una subunidad movió la definitiva: sus casillas nacieron con nota en vez de vacías.');
     }
 
     /**

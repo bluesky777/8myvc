@@ -336,13 +336,11 @@ class NotasTest extends CasoDeContrato
         DB::table('notas')->where('subunidad_id', $subunidad->id)->delete();
 
         $this->assertTrue(
-            Nota::verificarCrearNota($alumno->alumno_id, $subunidad->id,
-                $subunidad->nota_default, $asignatura->user_id),
+            Nota::verificarCrearNota($alumno->alumno_id, $subunidad->id, $asignatura->user_id),
             'La primera vez no había fila: tiene que decir que la creó.');
 
         $this->assertFalse(
-            Nota::verificarCrearNota($alumno->alumno_id, $subunidad->id,
-                $subunidad->nota_default, $asignatura->user_id),
+            Nota::verificarCrearNota($alumno->alumno_id, $subunidad->id, $asignatura->user_id),
             'La segunda no insertó nada —lo impide su propio NOT EXISTS— y no puede decir que sí.');
 
         $this->assertEquals(1, DB::table('notas')->where('subunidad_id', $subunidad->id)

@@ -280,7 +280,12 @@ class PlanillaSinIndependientesTest extends CasoDeContrato
         $this->assertCount(1, $creadas,
             'Una subunidad de una unidad con dueño le nació al grupo entero: veintinueve alumnos con una fila dentro del boletín de otro.');
         $this->assertSame($marcado, (int) $creadas[0]->alumno_id);
-        $this->assertEquals(7, $creadas[0]->nota, 'La nota nace en el valor por defecto de su subunidad.');
+        // Nace **vacía**, no en el 7 de `nota_default` — fase 0 del
+        // [43](../../docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md). El sujeto
+        // de este test es *a quién* se le siembra (uno y no treinta), y eso no cambia;
+        // lo que cambia es *con qué*.
+        $this->assertNull($creadas[0]->nota,
+            'La casilla nació con el valor por defecto de su subunidad: sigue naciendo calificada.');
     }
 
     // ------------------------------------------------------------------ (5)

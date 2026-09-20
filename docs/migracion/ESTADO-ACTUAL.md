@@ -153,6 +153,57 @@
 > **Lo único que se tocó del fichero viejo** es que `asignaturas_dia` pasa de `private` a
 > `public static` —no usa `$this`, comprobado antes de moverla— para que las clases de hoy se
 > lean **de un solo sitio**. Cuatro llamadas actualizadas, ninguna respuesta movida.
+
+> ## 🚧 LA CASILLA VACÍA — FASE 0 EN `.worktrees/vacia`, SIN FUNDIR (19 sep 2026, noche)
+>
+> **Rama `feat/la-casilla-vacia`. Esto es una INSTRUCCIÓN, no un dato: mientras la rama no esté
+> fundida, el árbol principal NO tiene nada de esto y `notas.nota` sigue siendo `NOT NULL`.**
+>
+> El porqué entero, medido, en [`43`](43-lo-que-todavia-no-se-ha-calificado.md). En una línea: una
+> casilla de `notas` nace con el indicador y vale 0 desde ese instante, así que **a mitad de periodo
+> el plan entero pesa** — el semáforo sale rojo completo y el acudiente ve definitivas perdidas con
+> todo lo calificado en SUPERIOR. Medido en el docker: en el periodo 2 de 2025, de **767** pares
+> alumno-asignatura con alguna nota puesta salían **767 en rojo**, **539** no estaban perdidos y
+> **258** iban en SUPERIOR.
+>
+> ### Las siete decisiones de Joseth del 19 sep, para no re-litigarlas
+>
+> | | |
+> |---|---|
+> | **D1** | La familia ve **la parcial** (sobre lo evaluado). Sin interruptor: una forma para los dieciséis. |
+> | **D2** | El semáforo pinta **gris por debajo del 15 % evaluado**. |
+> | **D3** | Al cerrar, lo no calificado: **lo elige cada rector** (columna en `years`), **con «pasa a 0» de fábrica**. |
+> | **D4** | El estado **NE** por celda: **no por ahora**. |
+> | **D5** | Las **fechas** de los indicadores: **fuera de alcance**. |
+> | **D6** | «Sin calificar» se escribe como **`notas.nota` anulable**, no como una columna al lado. **Propuesta de Joseth**, contra la que traía la sesión. |
+> | **D7** | «Quitar la nota» es **`update` con `nota: null`**; `destroy` se queda para borrar la fila. |
+>
+> ### Lo que la fase 0 deja escrito, y lo que NO se puede desplegar suelto
+>
+> - **Migración `2026_09_19_500000_la_casilla_vacia`**: `nota` anulable + relleno **acotado a
+>   periodos abiertos** (`profes_pueden_editar_notas = 1`). En la copia de desarrollo eso son
+>   **20.655** filas de 1.166.608 — el 1,8 % — y deja intactas las **1.053.592** de periodos
+>   cerrados, cuyas definitivas ya están impresas.
+> - **Las tres siembras de `notas` nacen con `NULL`** en vez de con `subunidades.nota_default`:
+>   `Nota::verificarCrearNotas`, `Nota::verificarCrearNota` (que **pierde un parámetro**) y
+>   `NotasController::putSubunidad`.
+> - **`putUpdate` gana `Request::has('nota')` → 422**, y esto **va en el mismo commit que la
+>   migración, obligatoriamente**: hasta hoy el `NOT NULL` de la columna era lo único que impedía
+>   que un cuerpo sin `nota` borrara la nota, y lo hacía abortando en producción (MariaDB estricto,
+>   `1048`). Con la columna anulable, eso pasa a ser **un borrado silencioso**.
+> - **`putLote`**: el vacío explícito quita la nota; el ítem **sin la clave** sigue siendo un fallo.
+>
+> ### Lo que falta, por orden
+>
+> 1. **Medir el `ALTER` contra MariaDB 10.5** con `tools/ensayo-de-la-tanda.sh` sobre copia de un
+>    colegio. Los **8 s** medidos son del **MySQL 8 del docker** y no valen para producción. Es lo
+>    único que puede tumbar la forma de la fase 0.
+> 2. **El relleno no lo ejercita la base de tests**: `construir-bd-test.sh` migra **antes** de cargar
+>    el seed, así que el `UPDATE` encuentra cero filas y sale `0`. Hay que probarlo aparte.
+> 3. `nota_default` **queda inerte pero sigue aceptándose** en `PlantillaNotasController`: es un
+>    interruptor que ya no lee nadie, y retirarlo de la pantalla es trabajo del front.
+> 4. Fases 1 a 4 del [`43`](43-lo-que-todavia-no-se-ha-calificado.md).
+
 > ## ✅ EL FORMULARIO DE INSCRIPCIÓN IMPRESO Y SU COBRO — LAS DIEZ RUTAS, ROUTER EN 612 (19 sep 2026)
 >
 > **Autorizado por Joseth con el precio delante**, que es como entra una familia nueva aquí. El

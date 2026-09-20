@@ -560,7 +560,35 @@ class NotasController extends Controller {
 	{
 		$user 	= User::fromToken();
 		$now 	= Carbon::now('America/Bogota');
-		
+
+		// **La guarda que hasta hoy hacía el `NOT NULL` de la columna, y que la fase 0
+		// del [43](../../docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md) se
+		// lleva por delante.** `Request::input('nota')` devuelve `null` **tanto si vino
+		// vacía como si no vino**, y ese valor entra tal cual en el `UPDATE` de más
+		// abajo. Mientras `notas.nota` fue `NOT NULL`, un cuerpo sin `nota` abortaba en
+		// producción —MariaDB estricto, `1048`— y se tragaba un 0 en el docker; con la
+		// columna anulable eso **se convierte en un borrado silencioso**: cualquier
+		// cliente que mande el cuerpo incompleto vacía la nota y nadie se entera.
+		//
+		// *Quitar un `NOT NULL` no es sólo permitir un valor más: es retirarle la última
+		// validación a los que no validan.* Por eso esto va en el MISMO commit que la
+		// migración, y con test.
+		//
+		// **`Request::has()` y no `filled()`**: `has` mira que la clave **esté**, y una
+		// nota vacía es exactamente una clave presente con valor nulo —
+		// `ConvertEmptyStringsToNull` ya unificó `""` y `null` antes de llegar aquí—.
+		// Con `filled()`, quitar la nota volvería a ser indistinguible del cuerpo
+		// incompleto, que es el fallo que esto cierra.
+		//
+		// **Va ANTES del permiso, y eso sigue la regla que dejó escrita `putLote`**: *la
+		// forma se valida antes del permiso sólo cuando no depende de datos; lo que mira
+		// la base va después*. Esto no mira la base —ni siquiera necesita saber de qué
+		// periodo es la nota—, así que un cuerpo mal formado se rechaza sin gastar una
+		// consulta. La escala, que sí necesita el periodo, se queda donde estaba.
+		if (! Request::has('nota')) {
+			abort(422, 'Falta la nota. Para quitarla, mándala vacía.');
+		}
+
 		// La nota no lleva periodo: cuelga de la subunidad y esa de la unidad,
 		// que sí. Es una de las dos que la §27.1 daba por difíciles.
 		$periodoDeLaNota = PeriodoDeLaFila::deNota($id);
@@ -824,7 +852,13 @@ class NotasController extends Controller {
 
 		foreach ($pedidas as $posicion => $pedida) {
 			$id    = is_array($pedida) ? ($pedida['id'] ?? null) : null;
-			$valor = is_array($pedida) && array_key_exists('nota', $pedida) ? $pedida['nota'] : null;
+			// **`traeNota` y `$valor` son dos preguntas distintas, y aquí siempre lo
+			// fueron**: `array_key_exists` ya distinguía «vino vacía» de «no vino». Lo
+			// que cambia en la fase 0 del
+			// [43](../../docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md) es que
+			// el vacío deja de ser un fallo y pasa a ser **quitar la nota**.
+			$traeNota = is_array($pedida) && array_key_exists('nota', $pedida);
+			$valor    = $traeNota ? $pedida['nota'] : null;
 
 			if (! is_numeric($id)) {
 				$fallidas[] = ['id' => null, 'motivo' => 'La posición '.$posicion.' no trae un id de nota.'];
@@ -834,10 +868,22 @@ class NotasController extends Controller {
 
 			$id = (int) $id;
 
-			if (! is_numeric($valor)) {
-				$fallidas[] = ['id' => $id, 'motivo' => 'La nota no es un número.'];
+			// El vacío explícito —`{"id": 7, "nota": null}` o `""`, que
+			// `ConvertEmptyStringsToNull` ya unifica— deja la casilla sin calificar.
+			// Un ítem **sin la clave** sigue siendo un fallo: mandar medio cuerpo no
+			// puede ser la forma de borrar una nota (D7).
+			$borrar = $traeNota && ($valor === null || $valor === '');
+
+			if (! $borrar && ! is_numeric($valor)) {
+				$fallidas[] = ['id' => $id, 'motivo' => $traeNota
+					? 'La nota no es un número.'
+					: 'Hace falta la nota. Para quitarla, mándala vacía.'];
 
 				continue;
+			}
+
+			if ($borrar) {
+				$valor = null;
 			}
 
 			// El mismo camino que usa el recalculador: la nota no sabe de qué
@@ -1174,7 +1220,9 @@ class NotasController extends Controller {
 		$subunidad 		= Request::input('subunidad');
 		$asignatura_id 	= Request::input('asignatura_id');
 		$sub_id 		= $subunidad ? $subunidad["id"] : null;
-		$nota_default 	= $subunidad ? $subunidad["nota_default"] : null;
+		// `$nota_default` se leía aquí y ya no: la casilla nace vacía. Se borra la
+		// línea en vez de dejarla sin uso — una variable que se calcula y no se usa es
+		// la pista falsa que hace buscar el valor por defecto donde ya no está.
 		$now 			= Carbon::now('America/Bogota');
 
 
@@ -1213,15 +1261,21 @@ class NotasController extends Controller {
 				// Y la otra mitad: **los cinco valores venían del cuerpo y entraban
 				// interpolados**. Que la comilla de más los rompiera es lo único que
 				// impedía que fuera explotable. Se liga todo.
+				// **`NULL` y no `$nota_default`**: la tercera y última siembra de `notas`,
+				// alineada con las dos de `Models\Nota` (fase 0 del
+				// [43](../../docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md)). Las
+				// tres tenían que cambiar a la vez: una sola que siguiera sembrando el valor
+				// por defecto dejaría casillas que nacen calificadas, y **serían justo las
+				// de la pantalla de «Clases de hoy»**, o sea las que más se miran.
 				$consulta = 'INSERT INTO notas(subunidad_id, alumno_id, nota, created_by, created_at, updated_at)
 						SELECT * FROM
-						(SELECT ? as subunidad_id, ? as alumno_id, ? as nota, ? as created_by, ? as created_at, ? as updated_at) AS tmp
+						(SELECT ? as subunidad_id, ? as alumno_id, NULL as nota, ? as created_by, ? as created_at, ? as updated_at) AS tmp
 							WHERE NOT EXISTS (
 								SELECT * from notas WHERE subunidad_id=? and alumno_id=? and deleted_at is null
 							) LIMIT 1';
 
 				DB::insert($consulta, [
-					$sub_id, $alumno->alumno_id, $nota_default, $user->user_id, $now, $now,
+					$sub_id, $alumno->alumno_id, $user->user_id, $now, $now,
 					$sub_id, $alumno->alumno_id,
 				]);
 				
