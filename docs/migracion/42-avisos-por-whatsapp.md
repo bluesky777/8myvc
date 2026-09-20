@@ -14,8 +14,19 @@
 > en `main`** el día que se escribe esto; por eso este documento toma el 42 y no depende
 > de ellos.
 >
-> **Nada de lo de aquí está implementado.** Es un análisis con las cifras medidas y las
-> decisiones que faltan, no un plan aprobado.
+> **DECIDIDO EL 19 sep 2026: NO SE USA WHATSAPP, EN NINGÚN CASO.** Joseth lo cerró al
+> estrechar el alcance hasta el único hueco real —el aspirante, que no tiene la app— y ver
+> que ahí **basta con exigirle un correo válido en el formulario**. El documento se queda
+> entero y sin recortar: las cifras de volumen valen para **cualquier** canal que se plantee
+> mañana, y lo que aquí se midió es lo que evita volver a discutirlo desde cero.
+>
+> **El mapa de canales que deja esa decisión, y no tiene huecos**: la familia matriculada se
+> entera **por la app**, con el push que ya funciona, agrupado y gratis; el aspirante se
+> entera **por correo**, que se le pide en el formulario. WhatsApp no cubría ningún tercer
+> caso — cubría mejor el segundo, y no lo bastante mejor.
+>
+> **Y la decisión tiene una dependencia que hay que comprobar, porque hoy NO se cumple**:
+> ver §13, que es el único apartado que sobrevive como trabajo pendiente.
 
 ---
 
@@ -487,3 +498,48 @@ la baja—. **Antes de firmar un precio se descarga el rate card.**
 - [WhatsApp Pricing Change 2026 — respond.io](https://respond.io/blog/whatsapp-pricing-change-2026)
 - [SMS masivos en Colombia — Inalambria](https://www.inalambria.express/post/cuanto-cuesta-enviar-sms-masivos-en-colombia) · [Onurix](https://www.onurix.com/portal/tarifas/sms-masivo-colombia)
 - TRM del 19 sep 2026: COP 3.192,92/USD ([Banco de la República](https://www.banrep.gov.co/es/glosario/tasa-cambio-trm))
+
+
+---
+
+## 13. La decisión de usar correo tiene una dependencia, y está medida en rojo
+
+**Escrito el 19 sep 2026, al cerrar el documento.** No es una objeción a la decisión —el
+correo es gratis y el aspirante está delante del formulario, así que se le puede **exigir**
+en vez de heredarlo—. Es la condición que tiene que cumplirse para que funcione, y hoy no se
+cumple. Todo esto está medido en [29](29-los-env-no-son-uniformes.md) §2 el 2 sep 2026:
+
+- **La única función que manda correo en toda la API es el reseteo de contraseña**
+  (`LoginController.php:312`). No hay infraestructura de correo transaccional: hay un
+  `Mailable` y un comando de diagnóstico.
+- En `cads-itagui` el `.env` de producción es **el de desarrollo sin tocar**: `MAIL_MAILER=smtp`
+  con `MAIL_HOST=mailhog` —un capturador que no existe en el servidor— y
+  `MAIL_FROM_ADDRESS=null`, que Laravel lee como null de verdad y **rechaza el envío antes de
+  intentarlo**. *Ese colegio no ha enviado un correo nunca.*
+- **`lalvirtual.com` —el `MAIL_FROM_ADDRESS` de quince colegios— no está registrado.** Un
+  remitente cuyo dominio no existe es lo que un proveedor grande manda a spam o rechaza.
+- El arreglo de los dieciséis `.env` está escrito ahí como **tarea de Joseth, no de las
+  sesiones**, y seguía abierto el 2 sep. **Desde el repositorio no se puede saber si ya se
+  hizo**; se contesta corriendo `correo:probar` en cada colegio.
+
+> **Y la diferencia que decide esto no es el precio, es el silencio.** WhatsApp avisa cuando
+> no entrega; **el correo falla callado**. El reseteo de contraseña que no llega se reintenta
+> —el usuario vuelve a pulsar, o llama—; el «pago aprobado» que no llega **no se reintenta,
+> porque el aspirante no sabe que existía**. Ahí el coste de un mensaje perdido no son mil
+> pesos: es un aspirante que se fue creyendo que nadie le contestó.
+
+**Las dos cosas que lo cierran, y las dos son baratas:**
+
+1. **Correr `correo:probar` en los diecisiete.** El comando ya existe, detecta los tres
+   fallos por separado y dice cuál es cada uno. **Nadie lo ha corrido nunca en un colegio**
+   —eso también está medido en el 29—. Va con el bucle del despliegue.
+2. **Validar el correo del aspirante mandándolo, no con una expresión regular.** Un código o
+   un enlace al enviar el formulario: es el único momento en que la persona está delante y
+   puede corregir una errata. Tres días después, cuando el tesorero aprueba, ya no está — y
+   una errata en el correo es indistinguible de un correo que no llegó.
+
+**Lo que ya no hace falta de este documento**: las seis decisiones de §11 quedan sin efecto,
+incluidas las dos que Joseth tomó esa misma tarde. Se dejan escritas con su razón porque
+**una decisión revocada y una decisión que nunca se tomó no se leen igual**, y porque la de
+D1 —cuenta por colegio o central— vuelve tal cual el día que se plantee cualquier canal de
+pago por mensaje.

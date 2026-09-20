@@ -166,7 +166,7 @@
 > (`myvc_front/INVESTIGACION-MATRICULAS.md` §11). Los dos interruptores de prematrícula son la
 > excepción: ya están en `main` y pueden ir cuando quieran.
 
-> ## 📊 AVISOS POR WHATSAPP — ANÁLISIS PEDIDO POR JOSETH, SIN CÓDIGO (19 sep 2026)
+> ## ❌ WHATSAPP: ANALIZADO Y DESCARTADO — EL CANAL ES EL CORREO (19 sep 2026)
 >
 > **Encargo de Joseth por la sesión `8myvc-92`**: los mensajes de WhatsApp, la
 > implementación, los costos, cuánto cobrarle al colegio, y **el límite para no mandar un
@@ -197,16 +197,22 @@
 > - **Y el alcance es 80 %, no 100 %**: 75 de los 377 matriculados de 2025 no tienen
 >   ningún móvil colombiano válido en la ficha. Eso se arregla en la matrícula, no aquí.
 >
-> **Joseth decidió dos el mismo día** (§11 del 42): **una cuenta de Meta por colegio**, con
-> su medio de pago —MYVC no revende, y el ×17,5 de una recategorización le llega al colegio—,
-> y **un resumen por alumno y día**. La primera tiene un precio que hay que ver antes de
-> implementar: **el cupo es de la cartera, así que no se hereda** — los diecisiete arrancan
-> en 250 destinatarios únicos en 24 h y hay que **verificar el negocio de cada colegio** para
-> llegar a 2.000, que es el mínimo para un abanico de boletín. Eso convierte el orden de
-> encendido en obligatorio: **prematrícula primero**.
+> **DECIDIDO: no se usa WhatsApp en ningún caso.** Joseth estrechó el alcance hasta el único
+> hueco real —el aspirante, que no tiene la app— y ahí **basta con exigirle un correo válido
+> en el formulario**. El mapa queda sin huecos: **matriculado → app y push** (ya funciona,
+> agrupado y gratis), **aspirante → correo**.
 >
-> **Siguen abiertas cuatro**: a cuántos acudientes se escribe, qué se enciende primero
-> (ya casi forzada), qué viaja a la pasarela y si alguien contesta los mensajes.
+> **Lo que queda vivo de esto es UNA tarea, y es de Joseth**: el correo de esta API está
+> medido en rojo desde el 2 sep (29 §2) — `cads-itagui` tiene el `.env` de desarrollo sin
+> tocar y **no ha enviado un correo nunca**, y `lalvirtual.com`, el `MAIL_FROM_ADDRESS` de
+> quince colegios, **no está registrado**. Se contesta corriendo **`correo:probar` en los
+> diecisiete**, que existe, detecta los tres fallos y **nadie lo ha corrido nunca**. Y el
+> formulario debería **validar el correo mandándolo**, no con una expresión regular: es el
+> único momento en que el aspirante está delante y puede corregir una errata.
+>
+> **La diferencia que decide esto no es el precio, es el silencio**: WhatsApp avisa cuando no
+> entrega y el correo falla callado. El «pago aprobado» que no llega no se reintenta, porque
+> el aspirante no sabe que existía.
 
 > ## ✅ ABRIR Y CERRAR LA CAMPAÑA DE PREMATRÍCULA — DOS RUTAS, ROUTER EN 602 (19 sep 2026)
 >
