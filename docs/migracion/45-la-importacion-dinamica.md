@@ -465,6 +465,33 @@ Dos números distintos y los dos hacen falta: **`vocabularios_decididos`** —cu
 persona— y **`veces_que_se_usaron`** —cuántas fichas cambiaron—. Aprobar una equivalencia cuyo valor
 no está en el fichero no es un fallo, pero tampoco es haberla aplicado.
 
+### 5.5 bis Conducido contra el servidor — y el defecto que se esconde solo
+
+`myvc-front-41` condujo el ciclo **sin pantalla de por medio**, llamando al ensayo tres veces, para
+comprobar el contrato antes de construir controles encima. Con un libro cuyo tipo de documento
+decía `CARNÉ DIPLOMÁTICO`:
+
+| | `valores_no_reconocidos` | `totales` | `respuestas` |
+|---|---|---|---|
+| **sin decidir** | `CARNÉ DIPLOMÁTICO ×24` | crear 0 · actualizar 0 · **sin_cambios 32** | `null` |
+| **con `usar_id: 1`** | *vacío* | crear 0 · **actualizar 24** · sin_cambios 8 | decididos 1 · **usadas 24** |
+| **con la huella de otro** | — | — | **422** |
+
+**El plan se movió: 24 filas pasaron de «no les cambia nada» a «se actualiza».** Ésa era la
+pregunta que decidía si las equivalencias iban en el traductor o en el controlador, y la contesta
+sin discusión.
+
+> **Y el paso 1 enseña algo que no habíamos dicho en voz alta: EL DEFECTO SE ESCONDE SOLO CUANDO
+> COINCIDE CON LO QUE YA HABÍA.**
+>
+> Sin la corrección, el plan dice *«a los 32 no les cambia ningún dato»* — **y es verdad**. El
+> importador adivina Tarjeta de Identidad, esos alumnos **ya son** Tarjeta de Identidad en la base,
+> así que no hay nada que escribir. El error no deja rastro **ni en la base ni en el plan**.
+>
+> Sólo se ve en el renglón de `valores_no_reconocidos`, que es la pieza que la Fase 1 tuvo que
+> inventar y que no cambia lo que se guarda. *O sea que el aviso no sobra ni cuando el plan dice
+> que no cambia nada* — y es justo entonces cuando es lo único que hay.
+
 ---
 
 ## 6. Lo que sigue abierto
