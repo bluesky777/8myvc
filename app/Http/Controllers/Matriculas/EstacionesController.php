@@ -346,6 +346,119 @@ class EstacionesController extends Controller
     }
 
     /**
+     * **EL TABLERO DEL DÍA.** Pantalla 15 de `myvc_front/PANTALLAS-MATRICULA.md`.
+     *
+     * *«Cuántos pasaron por cada estación, dónde está el tapón —34 minutos en la 3
+     * con un solo coordinador, mientras la 4 y la 5 están libres—, los que se fueron
+     * sin terminar y por qué.»*
+     *
+     * ## NO DEVUELVE EL INFORME DE CAMPAÑA, Y ESO ES UNA DECISIÓN
+     *
+     * Esa misma pantalla pide además *«formularios vendidos por caja y por web,
+     * recaudado, y cuántos compraron el formulario y no aparecieron»*. **Eso ya
+     * existe**: `GET informes/formularios-inscripcion/campana`, entregada el 20 sep
+     * ([41](../../../../docs/migracion/41-el-formulario-de-inscripcion.md) §9), y
+     * devuelve exactamente esas tres cosas con `sin_volver` dentro.
+     *
+     * Duplicarlo aquí serían dos consultas que contestan lo mismo, dos sitios que
+     * mantener y **dos cifras que algún día se contradirán** — que es el fallo que
+     * aquel documento ya deja avisado en su propio cuerpo (`resumen.matriculados`
+     * contra `por_estado.MATRICULADA`). La pantalla llama a las dos y las pinta
+     * juntas; el tablero es **del día**, no de la campaña.
+     *
+     * ## «LOS QUE SE FUERON SIN TERMINAR» SE DEVUELVE EN CRUDO, Y NO SE DECIDE AQUÍ
+     *
+     * El servidor **no sabe quién se fue**: nadie ficha a la salida. Lo que sí sabe
+     * es quién entró al recorrido, cuántos pasos le faltan y **desde cuándo no se
+     * mueve**, y eso es lo que viaja: `sin_terminar` con su `ultima_marca`.
+     *
+     * Poner aquí un umbral —«más de 45 minutos parado es que se fue»— sería inventar
+     * un dato y publicarlo como medido. Un colegio con una sola estación de
+     * orientación tiene esperas de una hora **que son normales**, y otro con cinco
+     * ventanillas las tiene de cinco minutos. *Quien puede elegir ese número es quien
+     * mira el patio, no esta consulta.*
+     *
+     * ## EL TAPÓN SE CALCULA CON LA ESPERA, NO CON LA COLA
+     *
+     * El reflejo es «la estación con más gente esperando». **Es la medida
+     * equivocada**: una estación con doce personas que despacha en un minuto va mejor
+     * que una con tres que lleva media hora con las mismas tres. Lo que duele en un
+     * patio es el tiempo, así que el tapón es **la mayor espera media**, y la cola
+     * viaja al lado para que la pantalla pueda enseñar las dos.
+     *
+     * Y `null` cuando no hay nadie esperando en ninguna: **«no hay tapón» y «no hay
+     * datos» no se pueden leer igual**, que es la misma regla que
+     * `deriva-del-horario.php` aplica al salir con `2` en vez de con `0`.
+     *
+     * ## EL PERMISO ES `auth.personal` Y NO SE ESTRECHA, con el motivo
+     *
+     * Es la pantalla del rector, así que la tentación es pedir un rol. **No enseña
+     * nada que quien atiende no vea ya**: los nombres de `sin_terminar` son los
+     * mismos que salen en `GET estaciones/{nro}/cola`, que llevan las 75 cuentas de
+     * personal desde el 20 sep. Un permiso nuevo aquí no taparía ningún dato; sólo
+     * daría la impresión de que sí.
+     */
+    public function getTablero()
+    {
+        $user = $this->user;
+        $yearId = (int) $user->year_id;
+        $ahora = Carbon::now('America/Bogota');
+
+        $estaciones = $this->recorrido($yearId);
+        $pasos = $this->pasosPorAlumno($yearId, $estaciones);
+
+        $filas = [];
+        $tapon = null;
+
+        foreach ($estaciones as $nro => $estacion) {
+            $cola = $this->quienesEsperan($nro, $estaciones, $pasos);
+
+            $esperas = [];
+
+            foreach ($cola as $porque) {
+                if ($porque['llego_at'] === null) {
+                    // Está en la cola y no se sabe desde cuándo: entró al recorrido
+                    // sin que nada quedara sellado. **No cuenta como espera cero**,
+                    // que bajaría la media y taparía justo el tapón que se busca.
+                    continue;
+                }
+
+                $esperas[] = max(0, $ahora->diffInMinutes(Carbon::parse($porque['llego_at']), true));
+            }
+
+            $media = count($esperas) > 0 ? (int) round(array_sum($esperas) / count($esperas)) : null;
+
+            $filas[] = [
+                'nro' => $nro,
+                'nombre' => $estacion['nombre'],
+                'bloquea' => $estacion['bloquea'],
+                'esperando' => count($cola),
+                'atendidos_hoy' => $this->atendidosHoy($estacion['requisitos']),
+                'espera_media_min' => $media,
+                'espera_maxima_min' => count($esperas) > 0 ? max($esperas) : null,
+            ];
+
+            if ($media !== null && ($tapon === null || $media > $tapon['espera_media_min'])) {
+                $tapon = ['nro' => $nro, 'nombre' => $estacion['nombre'],
+                    'espera_media_min' => $media, 'esperando' => count($cola)];
+            }
+        }
+
+        return [
+            'year_id' => $yearId,
+            // La hora del servidor, **y no la del teléfono**: un tablero proyectado en
+            // una pared se mira durante horas, y sin este sello no hay forma de saber
+            // si lo que se ve es de ahora o de cuando se abrió la pestaña.
+            'generado_at' => $ahora->toDateTimeString(),
+            'estaciones' => $filas,
+            'tapon' => $tapon,
+            'salteados' => $this->salteadosDeHoy($yearId, $ahora),
+            'sin_terminar' => $this->sinTerminar($yearId, $estaciones, $pasos),
+            'totales' => $this->totalesDelDia($estaciones, $pasos),
+        ];
+    }
+
+    /**
      * **La ficha: los N pasos de esta persona.** Pantallas 04 y 11.
      *
      * ## La MISMA ruta sirve para atender y para mirar, y las distingue `?estacion=`
@@ -858,6 +971,154 @@ class EstacionesController extends Controller
     }
 
     /** ¿Tiene esta persona la estación N cerrada **entera**? */
+    /**
+     * **Los intentos de hoy de quien llegó salteado**, agrupados por par de estaciones.
+     *
+     * Es lo que hace útil a `envios_estacion`, que nace vacía y **no la lee nadie más**:
+     * *«en la 4 se presentan doce sin pasar por la 3 — el cartel está mal puesto, o la 3
+     * está tapada»*. Sin esta lectura, aquella tabla sería una columna de `profesores.tono`
+     * con otro nombre.
+     *
+     * **Sólo los de hoy**, y no los del año: un día de matrículas es una jornada, y un
+     * acumulado de la campaña entera enterraría el cartel mal puesto de esta mañana bajo
+     * los tres sábados anteriores.
+     */
+    private function salteadosDeHoy(int $yearId, Carbon $ahora): array
+    {
+        $filas = DB::select('SELECT desde_orden, hacia_orden, COUNT(*) AS n
+            FROM envios_estacion
+            WHERE year_id=? AND created_at >= ?
+            GROUP BY desde_orden, hacia_orden
+            ORDER BY n DESC, desde_orden, hacia_orden',
+            [$yearId, $ahora->copy()->startOfDay()]);
+
+        return array_map(fn ($fila) => [
+            'desde' => (int) $fila->desde_orden,
+            'hacia' => (int) $fila->hacia_orden,
+            'n' => (int) $fila->n,
+        ], $filas);
+    }
+
+    /**
+     * **Quién entró al recorrido y no lo ha terminado**, con desde cuándo no se mueve.
+     *
+     * Ver el docblock de `getTablero`: aquí **no se decide quién se fue**. Se devuelve el
+     * hecho —entró, le faltan N, su última marca es de tal hora— y el umbral lo pone quien
+     * mira el patio.
+     *
+     * **El tope es 200 y se dice cuando corta** (`sin_terminar_recortada`), que es la misma
+     * regla que el informe de campaña aplica a `sin_volver`: una lista truncada en silencio
+     * se lee como una lista completa, y en un tablero eso son familias que nadie va a
+     * buscar.
+     */
+    private function sinTerminar(int $yearId, array $estaciones, array $pasos): array
+    {
+        if (count($estaciones) === 0) {
+            return ['total' => 0, 'recortada' => false, 'personas' => []];
+        }
+
+        $pendientes = [];
+
+        foreach ($pasos as $alumnoId => $suyos) {
+            $faltan = 0;
+            $entro = false;
+
+            foreach ($estaciones as $nro => $_) {
+                if ($this->cerrada($suyos, $nro, $estaciones)) {
+                    $entro = true;
+
+                    continue;
+                }
+
+                // `tocado` —o sea `updated_by` no nulo— es lo que distingue «pasó por
+                // aquí» de «la fila la creó `AlumnosController` al matricularlo». Es el
+                // mismo marcador que usa la cola de la primera estación, y por el mismo
+                // motivo: sobrevive a reabrir un paso.
+                $entro = $entro || (bool) ($suyos[$nro]['tocado'] ?? false);
+                $faltan++;
+            }
+
+            if (! $entro || $faltan === 0) {
+                continue;
+            }
+
+            $pendientes[$alumnoId] = ['faltan' => $faltan, 'ultima' => $this->ultimoDeTodos($suyos)];
+        }
+
+        $total = count($pendientes);
+        $ids = array_slice(array_keys($pendientes), 0, 200);
+        $personas = $this->datosDeLosAlumnos($yearId, $ids);
+
+        $filas = [];
+
+        foreach ($ids as $alumnoId) {
+            if (! isset($personas[$alumnoId])) {
+                // Tiene marcas del recorrido y su matrícula de este año no está en el
+                // embudo. No es un error: es alguien que ya no viene, y no puede contar
+                // como «se fue sin terminar» — nunca empezó este año.
+                $total--;
+
+                continue;
+            }
+
+            $filas[] = [
+                'alumno_id' => $alumnoId,
+                'nombres' => $personas[$alumnoId]->nombres,
+                'apellidos' => $personas[$alumnoId]->apellidos,
+                'grupo' => $personas[$alumnoId]->grupo,
+                'faltan' => $pendientes[$alumnoId]['faltan'],
+                'ultima_marca' => $pendientes[$alumnoId]['ultima'],
+            ];
+        }
+
+        usort($filas, fn ($a, $b) => strcmp((string) $a['ultima_marca'], (string) $b['ultima_marca']));
+
+        return [
+            'total' => $total,
+            'recortada' => $total > count($filas),
+            'personas' => $filas,
+        ];
+    }
+
+    /**
+     * Las tres cifras de cabecera: cuántos están dentro del recorrido, cuántos lo
+     * terminaron y cuántos no lo han empezado.
+     *
+     * **`sin_empezar` sale de los que tienen fila y no la han tocado**, no del censo de
+     * matriculados del año: esta consulta no puede decir cuántas familias faltan por
+     * venir, porque nadie le dice al sistema a quién espera el colegio hoy. *Lo que se
+     * cuenta es lo que se sabe.*
+     */
+    private function totalesDelDia(array $estaciones, array $pasos): array
+    {
+        $dentro = 0;
+        $completos = 0;
+        $sinEmpezar = 0;
+
+        foreach ($pasos as $suyos) {
+            $cerradas = 0;
+            $tocado = false;
+
+            foreach ($estaciones as $nro => $_) {
+                if ($this->cerrada($suyos, $nro, $estaciones)) {
+                    $cerradas++;
+                }
+
+                $tocado = $tocado || (bool) ($suyos[$nro]['tocado'] ?? false);
+            }
+
+            if ($cerradas === count($estaciones) && count($estaciones) > 0) {
+                $completos++;
+            } elseif ($tocado || $cerradas > 0) {
+                $dentro++;
+            } else {
+                $sinEmpezar++;
+            }
+        }
+
+        return ['en_el_recorrido' => $dentro, 'completos' => $completos, 'sin_empezar' => $sinEmpezar];
+    }
+
     private function cerrada(array $pasosDelAlumno, int $nro, array $estaciones): bool
     {
         $cuantos = count($estaciones[$nro]['requisitos'] ?? []);

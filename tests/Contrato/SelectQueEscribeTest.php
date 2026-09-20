@@ -146,15 +146,20 @@ class SelectQueEscribeTest extends CasoDeContrato
             'created_at' => now(), 'updated_at' => now(),
         ]);
 
+        // **`'ya'` y no el entero `1`.** Desde el 20 sep 2026 `EstadosDelPaso` fija el
+        // vocabulario de esta columna y `1` no está en él — no lo manda ningún cliente:
+        // era un fixture de cuando `estado` era texto libre. Lo que este test mide —que
+        // el `UPDATE` llega a la fila— no depende de qué valor sea.
         $this->postJson('/api/requisitos/alumno',
-            ['requisito_alumno_id' => $id, 'estado' => 1, 'descripcion' => 'VERBOS-1'],
+            ['requisito_alumno_id' => $id, 'estado' => 'ya', 'descripcion' => 'VERBOS-1'],
             ['Authorization' => 'Bearer '.$token])->assertStatus(200);
 
         $fila = DB::selectOne('SELECT estado, descripcion FROM requisitos_alumno WHERE id = ?', [$id]);
 
         $this->assertSame('VERBOS-1', $fila->descripcion,
             'El `UPDATE requisitos_alumno` no llegó a la fila (RequisitosController:79-81).');
-        $this->assertSame(1, (int) $fila->estado);
+        $this->assertSame('ya', $fila->estado,
+            'La segunda columna del mismo `SET` no llegó: el UPDATE escribió a medias.');
     }
 
     /** `RolesController::putAddroletouser` → `INSERT INTO role_user` */

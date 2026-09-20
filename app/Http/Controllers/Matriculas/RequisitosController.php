@@ -12,6 +12,7 @@ use Carbon\Carbon;
 use App\Events\MatriculasEvent;
 use \Log;
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
+use App\Support\EstadosDelPaso;
 
 
 class RequisitosController extends Controller {
@@ -135,6 +136,122 @@ class RequisitosController extends Controller {
 		];
 	}
 
+
+	/**
+	 * **LO MISMO, PERO PARA LA FAMILIA.** Pantalla 04 de `PANTALLAS-MATRICULA.md`.
+	 *
+	 * Es la ruta que faltaba para que el aviso signifique algo. El 20 sep se decidio
+	 * que **al acudiente se le avisa en CADA estacion** (`myvc_flutter/docs/
+	 * estaciones.md` §2.2 bis), y el propio diseno dice que el motivo de una
+	 * devolucion *«se lee abriendo la app»*. Pero **las diecisiete rutas de este
+	 * dominio eran `auth.personal`**: la familia recibia el aviso y abria la app a
+	 * nada. Un aviso que apunta a una pantalla que no existe es peor que no avisar,
+	 * porque ensena que los avisos no sirven.
+	 *
+	 * ## POR QUE ES OTRO METODO Y NO UN PARAMETRO DE `getRecorrido`
+	 *
+	 * Porque devuelven cosas distintas, no la misma con menos campos. `getRecorrido`
+	 * es para quien atiende: lleva la observacion interna, quien cerro cada paso y a
+	 * donde hay que devolver a la familia. Esto es para la familia: lleva **el motivo
+	 * de la devolucion**, que es la columna que se escribio aparte precisamente para
+	 * esto, y **no lleva** la observacion ni el nombre del docente.
+	 *
+	 * Un `if ($esFamilia)` dentro del otro metodo habria puesto las dos respuestas en
+	 * un solo sitio, y el dia que alguien anada un campo tendria que acordarse de que
+	 * hay un lector que no puede verlo. *El invariante de `motivo_devolucion` —lo del
+	 * personal no viaja al celular de una madre— se sostiene separando las respuestas,
+	 * no separando las columnas y volviendolas a juntar.*
+	 *
+	 * ## EL GUARD ES `boletin.propio:sin-paz-y-salvo`, Y LAS DOS MITADES IMPORTAN
+	 *
+	 * `boletin.propio` ya sabe la regla del negocio —*un alumno solo ve lo suyo; un
+	 * acudiente, lo de sus acudidos*— y la comprueba contra `parentescos`, que es
+	 * donde vive de verdad. Escribirla otra vez aqui seria una segunda copia que
+	 * envejece sola.
+	 *
+	 * Y **`sin-paz-y-salvo` no es un descuido**: retener el boletin de quien debe es
+	 * una cosa, y esconderle a una familia en que paso de la matricula va es otra. Es
+	 * exactamente el mismo razonamiento que ya esta escrito para
+	 * `matriculas/prematricular`, que tambien lo lleva.
+	 *
+	 * **El personal pasa de largo** —ese middleware solo mira a `Alumno` y
+	 * `Acudiente`—, asi que secretaria puede abrir esta misma vista para ensenarsela
+	 * a una madre por telefono sin cambiar de pantalla.
+	 */
+	public function getMiRecorrido($alumno_id)
+	{
+		$user = $this->user;
+
+		if (! is_numeric($alumno_id)) {
+			abort(422, 'El alumno no es válido.');
+		}
+
+		$alumno = DB::selectOne('SELECT a.id, a.nombres, a.apellidos
+			FROM alumnos a WHERE a.id=? AND a.deleted_at IS NULL', [(int) $alumno_id]);
+
+		if (! $alumno) {
+			abort(404, 'Ese alumno no existe.');
+		}
+
+		// `LEFT JOIN` por lo mismo que en `getRecorrido`: el paso que nadie ha tocado
+		// todavia no tiene fila, y es justo el que la familia necesita ver.
+		//
+		// **No se traen `ra.descripcion` ni `ra.cerrado_por`**, y eso es el contrato:
+		// la observacion es entre el personal y el nombre del docente que atendio no
+		// es asunto de la familia. Lo que si viaja es `motivo_devolucion`, que se
+		// escribio en su propia columna para poder salir por aqui sin arrastrar lo
+		// otro.
+		$pasos = DB::select('SELECT r.id, r.orden AS estacion, r.requisito, r.descripcion,
+				r.bloquea,
+				ra.id AS marca_id, ra.estado, ra.motivo_devolucion, ra.cerrado_at
+			FROM requisitos_matricula r
+			LEFT JOIN requisitos_alumno ra ON ra.requisito_id=r.id AND ra.alumno_id=?
+			WHERE r.year_id=? AND r.deleted_at IS NULL
+			ORDER BY r.orden, r.id', [(int) $alumno->id, $user->year_id]);
+
+		$salida = [];
+		$faltan = 0;
+
+		foreach ($pasos as $paso) {
+			$estado = EstadosDelPaso::normalizar($paso->estado);
+
+			// **`cerrado_at` y no el estado**, que es la misma eleccion que hizo la
+			// cola de las estaciones y por el mismo motivo (46 §8): `estado` es una
+			// columna que escriben tres pantallas con tres vocabularios, y
+			// `cerrado_at` la escribe una sola rama de codigo.
+			$cumplido = $paso->marca_id !== null && $paso->cerrado_at !== null;
+
+			if (! $cumplido) {
+				$faltan++;
+			}
+
+			$salida[] = [
+				'estacion' => (int) $paso->estacion,
+				'requisito' => $paso->requisito,
+				'descripcion' => $paso->descripcion,
+				'bloquea' => (bool) $paso->bloquea,
+				'cumplido' => $cumplido,
+				'devuelto' => $estado === 'devuelto',
+				// La unica cosa que el colegio le escribe a la familia en todo el
+				// recorrido. Sin ella, «devuelto» es una mala noticia sin instrucciones.
+				'motivo_devolucion' => $paso->motivo_devolucion,
+				'cerrado_at' => $paso->cerrado_at,
+			];
+		}
+
+		return [
+			// Sin documento y sin telefonos: quien pregunta ya sabe quien es, y esta
+			// respuesta no tiene por que ser un sitio mas donde vive el documento de
+			// un menor.
+			'alumno' => ['id' => (int) $alumno->id, 'nombres' => $alumno->nombres,
+				'apellidos' => $alumno->apellidos],
+			'year_id' => (int) $user->year_id,
+			'pasos' => $salida,
+			'faltan' => $faltan,
+			'completo' => $faltan === 0,
+		];
+	}
+
 	public function putIndex()
 	{
         
@@ -253,13 +370,55 @@ class RequisitosController extends Controller {
 		$sets    = [];
 		$valores = [];
 
+		// **EL ESTADO SE COMPRUEBA ANTES DE ESCRIBIR, Y LA CADENA VACIA NO ES UN ESTADO.**
+		//
+		// Esta columna guardaba literalmente lo que le mandaran, y de ahi salia un
+		// fallo vivo: `prematriculas.ts::guardarObservacion` manda
+		// `estado: observacion.estado ?? ''` al corregir una observacion, asi que con
+		// el estado nulo en la fila --los hay, del `UPDATE` que escribia NULL hasta el
+		// 1 sep 2026-- lo que llegaba era la cadena vacia. Y `''` no es `falta` ni
+		// `devuelto`, o sea que entraba por la rama de cerrar: **corregir una tilde en
+		// una observacion cerraba el paso y lo firmaba** con el nombre de quien
+		// escribio el texto y su hora, sin error y con un 'Actualizado' de vuelta.
+		//
+		// Es la misma familia que el fallo del 1 sep, cometido por el otro lado: aquel
+		// borraba el estado cuando no venia, este lo cerraba cuando venia vacio.
+		//
+		// Vacio se trata como si el campo no hubiera venido --que es lo que quiere
+		// decir quien edita solo la observacion-- y lo que no esta en la lista se
+		// rechaza. Los tres escritores desplegados mandan `falta`, `ya` o `n/a`, y los
+		// tres estan dentro: esto no puede romper ninguna pantalla viva. El vocabulario
+		// y los tres escritores medidos estan en `App\Support\EstadosDelPaso`.
+		$estadoPedido = null;
+
+		if (Request::has('estado')) {
+			$crudo = Request::input('estado');
+
+			if ($crudo !== null && ! is_scalar($crudo)) {
+				abort(422, 'El estado del requisito tiene que ser un texto.');
+			}
+
+			$texto = (string) $crudo;
+
+			if (! EstadosDelPaso::esVacio($texto)) {
+				if (! EstadosDelPaso::valido($texto)) {
+					abort(422, 'Ese estado no existe. Los que valen son: '.EstadosDelPaso::lista().'.');
+				}
+
+				$estadoPedido = $texto;
+			}
+		}
+
+		if ($estadoPedido !== null) {
+			$sets[]    = 'estado=?';
+			$valores[] = $estadoPedido;
+		}
+
 		// `has` y no `filled`: un `descripcion` vacio o nulo SI es un cambio -- es como se borra
 		// una observacion --, y lo que no puede tocarse es la columna que nadie nombro.
-		foreach (['estado', 'descripcion'] as $columna) {
-			if (Request::has($columna)) {
-				$sets[]    = $columna.'=?';
-				$valores[] = Request::input($columna);
-			}
+		if (Request::has('descripcion')) {
+			$sets[]    = 'descripcion=?';
+			$valores[] = Request::input('descripcion');
 		}
 
 		// Sin ninguna columna que escribir no se toca la fila. Se contesta lo mismo que siempre:
@@ -281,9 +440,7 @@ class RequisitosController extends Controller {
 		// Sólo se escribe cuando el estado deja de ser «falta» **y no estaba cerrado
 		// ya**: reabrir y volver a cerrar deja la firma de quien lo cerró de verdad,
 		// y tocar la observación de algo ya cerrado no reescribe su hora.
-		if (Request::has('estado')) {
-			$pedido = mb_strtolower(trim((string) Request::input('estado')));
-
+		if ($estadoPedido !== null) {
 			// **REABRIR UN PASO TIENE QUE LIMPIAR LA FIRMA, y hasta el 20 sep 2026 no
 			// lo hacía.** `cerrado_at` se escribe con `COALESCE`, o sea **una sola
 			// vez**: devolver un paso a «falta» dejaba la fecha puesta para siempre.
@@ -301,9 +458,7 @@ class RequisitosController extends Controller {
 			//
 			// **`devuelto` cuenta como reabrir**, y por el mismo motivo: un paso
 			// devuelto es un paso que se sigue debiendo.
-			$reabre = $pedido === 'falta' || $pedido === 'devuelto';
-
-			if ($reabre) {
+			if (! EstadosDelPaso::cierra($estadoPedido)) {
 				$sets[] = 'cerrado_por=NULL';
 				$sets[] = 'cerrado_at=NULL';
 			} else {

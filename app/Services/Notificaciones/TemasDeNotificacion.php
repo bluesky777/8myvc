@@ -40,13 +40,33 @@ namespace App\Services\Notificaciones;
 class TemasDeNotificacion
 {
     /**
-     * Los tres tipos que se avisan por alumno. Cada uno es un tema aparte, y ahí
+     * Los tipos que se avisan por alumno. Cada uno es un tema aparte, y ahí
      * está la clave de las preferencias: apagar «Notas» es que el teléfono se
      * desapunte de ese tema —una llamada a Google, **cero peticiones al servidor
      * y cero filas en la base**—. El envío no filtra por preferencias porque
      * quien no lo quiere ya no está en el tema.
+     *
+     * ## EL CUARTO ENTRÓ EL 20 SEP 2026 Y ES `matricula`
+     *
+     * Lo decidió Joseth ese día —*«al acudiente se le avisa en CADA estación»*,
+     * `myvc_flutter/docs/estaciones.md` §2.2 bis— y lo escribe
+     * `EnviarNotificaciones::avisosDeMatricula`.
+     *
+     * **Tiene que ser un tipo propio y no colgarse de ninguno de los tres**, y no
+     * por orden: lo que un tipo significa aquí es *«un interruptor que la familia
+     * puede apagar por separado»*. Metido dentro de `disciplina`, apagar las
+     * situaciones apagaría el aviso de que la devolvieron en Documentos, y al
+     * revés. Son cinco avisos en una mañana de sábado una vez al año contra un
+     * goteo de todo el curso: nadie los quiere con el mismo interruptor.
+     *
+     * **Y esto mueve el contrato de `GET notificaciones/temas`**, que devuelve
+     * `todosLosDe()`: la respuesta pasa de tres claves a cuatro. Una app vieja
+     * simplemente no se apunta al tema nuevo y **no recibe estos avisos**, que es
+     * degradarse bien — no se rompe ninguna versión desplegada. Hoy además no hay
+     * ninguna que pueda recibirlos: `myvc_flutter` todavía no tiene
+     * `firebase_messaging` (medido el 20 sep 2026 en su `pubspec.yaml`).
      */
-    public const TIPOS = ['notas', 'asistencia', 'disciplina'];
+    public const TIPOS = ['notas', 'asistencia', 'disciplina', 'matricula'];
 
     /**
      * Los del colegio entero, que no dependen de ningún alumno.

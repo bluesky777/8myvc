@@ -431,9 +431,15 @@ ruta que ya tenían los campos— y las 615 intermedias las trajeron otras ramas
   esta línea. Decía *«el canal es WhatsApp»* y **Joseth descartó WhatsApp esa noche** (doc 42
   §revocada): estrechó el alcance al único hueco real y el mapa quedó **matriculado → app y push**
   —que ya funciona, agrupado y gratis— **y aspirante → correo**. Así que:
-  - **Al tesorero**, cuando entra una colilla. Es personal del colegio: **tiene cuenta y tiene
-    app**, o sea push, que ya existe. Hoy la bandeja hay que abrirla porque nadie ha conectado el
-    aviso, no porque falte canal.
+  - **Al tesorero**, cuando entra una colilla. **Esta línea decía *«tiene cuenta y tiene app, o
+    sea push, que ya existe… no porque falte canal»* y es FALSA**, medido el 20 sep 2026 al ir a
+    construirlo: los temas de esta casa son cuatro **por alumno** más dos **de colegio**, y **no
+    hay ninguno de persona** —el nombre del tema se deriva del id del alumno, y eso es lo que
+    impide apuntarse al de otro—; `myvc_flutter` **no tiene `firebase_messaging`** (sólo
+    `firebase_core` y `firebase_analytics`), así que hoy no puede recibir ningún push; y
+    `years.tesorero_id` está **en NULL en los 9 años vivos**, o sea que tampoco hay a quién
+    avisar. *El canal no falta por poco: faltan las tres piezas.* Las salidas, con lo que cuesta
+    cada una, están medidas en el [47](47-el-portal-de-la-familia.md) §9 y **esperan a Joseth**.
   - **A la familia**, cuando su pago se aprueba o se rechaza. Va por correo, **y el correo de
     esta API está medido en rojo desde el 2 sep** (29 §2): `lalvirtual.com` —el
     `MAIL_FROM_ADDRESS` de quince colegios— **no está registrado**. Lo que lo hace peor que caro

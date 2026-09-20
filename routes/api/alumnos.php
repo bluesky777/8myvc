@@ -210,6 +210,32 @@ Route::put('requisitos', [RequisitosController::class, 'putIndex'])->middleware(
 // estación. Joseth lo decidió así el 20 sep — «cualquiera puede cerrar, pero queda
 // con su nombre y hora».
 Route::get('requisitos/recorrido/{alumno_id}', [RequisitosController::class, 'getRecorrido'])->middleware('auth.personal');
+// LO MISMO, PERO PARA LA FAMILIA. Pantalla 04 de `PANTALLAS-MATRICULA.md`.
+//
+// **Es la ruta que faltaba para que el aviso signifique algo.** El 20 sep se decidió
+// que al acudiente se le avisa en cada estación, y el propio diseño dice que el motivo
+// de una devolución «se lee abriendo la app» — pero las diecisiete rutas de este
+// dominio eran `auth.personal`, así que la familia recibía el aviso y abría la app a
+// nada. Un aviso que apunta a una pantalla que no existe es peor que no avisar.
+//
+// **Va con `boletin.propio:sin-paz-y-salvo` y NO con `auth.personal`**, que es lo
+// único de esta línea que hay que leer despacio antes de copiarla:
+//
+//   - ese middleware ya sabe la regla del negocio —un alumno sólo lo suyo; un
+//     acudiente, lo de sus acudidos— y la comprueba contra `parentescos`, que es donde
+//     vive. Escribirla otra vez dentro del método sería una copia que envejece sola.
+//   - `sin-paz-y-salvo` no es un descuido: retener el boletín de quien debe es una
+//     cosa, y esconderle a una familia en qué paso de la matrícula va es otra. Es el
+//     mismo razonamiento que ya lleva escrito `matriculas/prematricular`.
+//   - **el personal pasa de largo**, porque ese guard sólo mira a `Alumno` y
+//     `Acudiente`: secretaría abre esta misma vista para enseñársela a una madre por
+//     teléfono sin cambiar de pantalla.
+//
+// Devuelve cosas DISTINTAS de `recorrido`, no las mismas con menos campos: lleva
+// `motivo_devolucion` —la columna que se escribió aparte precisamente para esto— y no
+// lleva la observación interna ni el nombre del docente que atendió.
+Route::get('requisitos/mi-recorrido/{alumno_id}', [RequisitosController::class, 'getMiRecorrido'])
+    ->where('alumno_id', '[0-9]+')->middleware('boletin.propio:sin-paz-y-salvo');
 Route::post('requisitos/alumno', [RequisitosController::class, 'postAlumno'])->middleware('auth.personal');
 Route::put('requisitos/listado-observaciones', [RequisitosController::class, 'putListadoObservaciones'])->middleware('auth.personal');
 Route::post('requisitos/store', [RequisitosController::class, 'postStore'])->middleware('auth.personal');

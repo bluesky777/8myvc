@@ -58,6 +58,20 @@ Route::get('estaciones', [EstacionesController::class, 'getIndex'])
 Route::get('estaciones/huella', [EstacionesController::class, 'getHuella'])
     ->middleware('auth.personal');
 
+// EL TABLERO DEL DÍA. Pantalla 15 de `myvc_front/PANTALLAS-MATRICULA.md`, la única
+// de las quince que no tenía endpoint.
+//
+// **No devuelve el informe de campaña**, que esa misma pantalla también pide: eso ya
+// es `GET informes/formularios-inscripcion/campana` desde el 20 sep, con `sin_volver`
+// dentro. La pantalla llama a las dos; duplicarlo aquí serían dos cifras que algún
+// día se contradicen.
+//
+// `auth.personal` y nada dentro **aunque sea la pantalla del rector**, con el motivo:
+// no enseña nada que quien atiende no vea ya en `estaciones/{nro}/cola`. Un permiso
+// aquí no taparía ningún dato, sólo daría la impresión de que sí.
+Route::get('estaciones/tablero', [EstacionesController::class, 'getTablero'])
+    ->middleware('auth.personal');
+
 Route::get('estaciones/alumno/{alumno_id}', [EstacionesController::class, 'getAlumno'])
     ->middleware('auth.personal');
 

@@ -850,9 +850,40 @@ python3 tools/tests-que-tocan.py                 # contra el merge-base de main
 #   salida 2 -> no hay subconjunto seguro: PREGUNTAR a Joseth, no decidir solo
 ```
 
-**Cuándo SÍ va la suite entera, y son cinco ficheros y un momento:**
-`routes/`, `database/migrations/`, `database/schema/`, `config/`,
-`tests/TestCase.php` o `composer.json|lock` — y **antes de cada despliegue**.
+**CUÁNDO VA LA SUITE ENTERA: CUANDO JOSETH LO DIGA, Y PUNTO.**
+
+**Esta línea decía otra cosa hasta el 20 sep 2026** —*«cuándo SÍ va la suite
+entera, y son cinco ficheros y un momento: `routes/`, `database/migrations/`,
+`database/schema/`, `config/`, `tests/TestCase.php` o `composer.json|lock`»*— y
+**una sesión la leyó como una autorización y corrió la entera dos veces**, ~30
+minutos de una máquina compartida, hasta que Joseth la paró: *«te dejé claro que
+no quiero que corran tests completos a menos que yo les diga porque voy a
+deployar; solo hacen tests de la sección que modificaron»*.
+
+Esos seis ficheros **siguen siendo ciertos como diagnóstico**: cuando los tocas,
+**no hay subconjunto que cubra lo que cambiaste**. Lo que NO son es un permiso.
+La diferencia, que es toda:
+
+```
+tocar routes/  ->  «no hay subconjunto seguro»   <- un HECHO
+               ->  «corre la suite entera»       <- una DECISIÓN, y es de Joseth
+```
+
+**Lo que se hace en ese caso:** correr las clases del dominio que tocaste y
+**decírselo a él con las dos cifras delante** —lo que cubre el subconjunto y lo
+que costaría la entera— para que elija. Nunca lanzarla por cuenta propia.
+
+`tools/tests-que-tocan.py` devuelve **2** ahí, que es la salida de *«PREGUNTAR a
+Joseth»*; hasta ese día **imprimía la orden de la suite entera**, o sea que decía
+lo contrario de su propio código de salida — y lo que lee una persona es el
+texto, no el código. Corregido el mismo día.
+
+> **Y la otra mitad de por qué no se oyó, que es del lector y no del texto:** esa
+> sesión corrió `tests-que-tocan.py | tail -30` y leyó **`salida: 0`**. El código
+> de salida de una tubería es el del **último** comando, así que el `2` se lo
+> comió `tail`. Es la misma familia que el `| head` que trunca un censo, tres
+> secciones más arriba, y que la entrada `exit-code-de-una-tuberia-miente`. *Un
+> `$?` detrás de una tubería no habla del programa que te importa.*
 
 **Y cuando la herramienta no sabe mapear algo, se pregunta.** No se corre la
 entera «por si acaso» —cuesta 23 minutos de una máquina compartida— ni se recorta

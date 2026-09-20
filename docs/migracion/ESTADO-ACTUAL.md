@@ -8,6 +8,214 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+> ## ✅ LAS DOS RESPUESTAS DE JOSETH, APLICADAS — y la segunda destapó tres faltas (20 sep 2026)
+>
+> **La casilla que había aquí era un traspaso: `8myvc-6f` se quedó sin ventana con dos
+> decisiones suyas recién dadas y sin escribir.** Las dos están hechas, en la misma rama
+> `feat/el-proceso-de-matriculas` de `.worktrees/mat`. Lo que sigue **sin fundir** es todo,
+> incluido esto.
+>
+> ### 1 · ✅ EL COORDINADOR ACADÉMICO ADMITE
+>
+> *«el coordinador académico puede admitir estudiantes también.»* `puedeDecidirAdmision` deja
+> de ser `esAdministrativo()` y pasa a la forma de `puedeCambiarLaNotaNumerica` —lista de roles
+> contra `Role::getUserRoles()` en una consulta—.
+>
+> **Recontado aquí por `role_id`, no heredado del traspaso**: `Coord académico` tiene **1
+> titular y no es superusuario**, así que quien admite pasa de **12 a 13** de las **75** cuentas
+> de personal. `Rector` **no entró**: nombró un rol, y meterlo sería inerte (cero titulares) y
+> además nadie lo pidió. Lo fijan **dos** tests —uno que admite con el rol puesto sobre el mismo
+> sujeto que acaba de recibir un 403, y otro que se pondrá rojo el día que `Rector` se cuele—.
+>
+> ### 2 · ✅ LA PANTALLA 13 SE RETIRA… y el aviso al tesorero NO era «una fuente más»
+>
+> *«No entiendo lo del pagaré en papel…»* — con eso se cae la pantalla 13 y la **fase 4** entera,
+> que se queda sin contenido. Escrito en el [47](47-el-portal-de-la-familia.md) §9.
+>
+> **Y la pieza que él da por hecha —«le mandamos la notificación al tesorero»— se midió antes de
+> prometerla, que era el encargo. No falta un cable: faltan tres piezas.**
+>
+> | | medido |
+> |---|---|
+> | no hay ningún tema de **persona** | los temas son 4 por alumno + 2 de colegio; el nombre se deriva del **id del alumno**, y eso es la única puerta del diseño |
+> | la app **no puede recibir push** | `myvc_flutter` trae `firebase_core` y `firebase_analytics`, **no `firebase_messaging`**; `subscribeToTopic`, 0 veces en código |
+> | **no hay a quién avisar** | `years.tesorero_id` en NULL en los **9 años vivos**; su único lector es `Autoriza::puedeAprobarColilla`, que por eso lleva respaldo de secretaría |
+>
+> > **Y esto corrige una frase del [41](41-el-formulario-de-inscripcion.md) §7**, que decía que el
+> > tesorero *«tiene cuenta y tiene app, o sea push, que ya existe… no porque falte canal»*.
+> > **Falta el canal.** Corregida allí con la medición al lado.
+>
+> > **Además la bandeja no la abre nadie todavía**: `GET colillas-inscripcion/pendientes` existe
+> > desde el 19 sep y `colillas-inscripcion` aparece **0 veces** en los tres clientes. *Conectar un
+> > aviso a una bandeja sin pantalla sería avisar de algo que no se puede ir a mirar.*
+>
+> **✅ Y ELIGIÓ UNA CUARTA, mejor que las tres:** *«los tesoreros tienen cuenta administradora,
+> al entrar les aparece que hay cambios solicitados… reutilizar eso.»* Eso existe y es
+> **`GET ChangesAsked/to-me`**, que ya agrega siete bloques distintos. **No necesita push, ni
+> correo, ni pantalla nueva.** Medido antes de darlo por fácil, y salieron dos cosas:
+>
+> - **`getToMe` tiene cinco ramas por `tipo` y una no devuelve bandeja**: de las 22 cuentas
+>   `Usuario`, las **11 que no son superusuario** sólo reciben `publicaciones` y `eventos`. El
+>   bloque tiene que colgar de `Autoriza::puedeAprobarColilla`, **no de la rama del `switch`**.
+> - **Un tesorero con «cuenta administradora» NO puede ser nombrado tesorero**: `years.tesorero_id`
+>   es un `profesores.id` y **0 de 22 `Usuario` tienen ficha ahí**. El flujo de hoy funciona por
+>   el respaldo (`esAdministrativo`), no por esa columna.
+>
+> **Es la primera tarea de la tanda siguiente** —`ChangeAskedController` es legado de 1.400 líneas
+> y su respuesta la leen los tres clientes—, y con esto ya no queda nada que investigar.
+
+> ### 🔴 Y EL TEST DE ESTA TANDA DESTAPÓ UN DEFECTO VIVO EN `main`
+>
+> **«Con su nombre y su hora» — y el nombre sale vacío justo para quien atiende.**
+> `getRecorrido` saca `cerrado_por_nombres` de `profesores`, y **0 de las 22 cuentas `Usuario`
+> tienen ficha ahí** (0 de 20 en la base de tests). Cuando cierra el paso un administrativo el id
+> viaja y el nombre viaja en `NULL`. Es la trampa que el `CLAUDE.md` ya tiene escrita, cometida
+> en el módulo cuyo argumento entero es que quede el nombre.
+>
+> **No se arregla solo: `users` no tiene ninguna columna de nombre, sólo `username`**, así que
+> qué se enseña cuando no hay ficha es producto —«ADRIANA GÓMEZ» y «secretaria2» no se leen
+> igual—. **Espera a Joseth.** El test lo fija en el estado en que está, con la línea a cambiar
+> señalada, para que el arreglo salga en rojo en vez de pasar inadvertido. 47 §7.7.
+
+> ## ✅ EL PORTAL DE LA FAMILIA Y EL TABLERO DEL DÍA — DIEZ RUTAS (20 sep 2026)
+>
+> **Escrito en `.worktrees/mat`, rama `feat/el-proceso-de-matriculas`, base
+> `simonbolivar_testing_mat`.** Cierra el proceso de matrículas por el lado del backend:
+> **de las veintisiete pantallas diseñadas entre los dos clientes ya no le falta endpoint a
+> ninguna** — la 13 no es la excepción: se retiró (casilla de arriba), no se aplazó. Contrato y
+> porqués en [47](47-el-portal-de-la-familia.md).
+>
+> **Router en 644** contado con `route:list --json` en `.worktrees/mat`. **SIN FUNDIR: hay
+> que recontarlas en el ÁRBOL PRINCIPAL el día que entren** — la frase que lleva salvando
+> este número las últimas seis veces.
+>
+> ```
+> GET  estaciones/tablero                    el tablero del día (pantalla 15)
+> GET  requisitos/mi-recorrido/{alumno_id}   la familia ve lo suyo (pantalla 04)
+> GET  inscripcion/{codigo}                  PÚBLICA · el asistente
+> PUT  inscripcion/{codigo}                  PÚBLICA · guarda el formulario
+> POST inscripcion/{codigo}/documento/{id}   PÚBLICA · sube un documento
+> GET  aspirantes                            la bandeja
+> GET  aspirantes/{id}                       la ficha
+> PUT  aspirantes/{id}/documento/{doc_id}    revisar: recibido | devuelto con motivo
+> PUT  aspirantes/{id}/cita                  agendar Y resolver, la misma fila
+> PUT  aspirantes/{id}/decision              admitir — LA ÚNICA con permiso dentro
+> ```
+>
+> ### EL ALCANCE LO ELIGIÓ JOSETH, y lo que quedó fuera está bloqueado por él
+>
+> Se le pusieron tres delante y eligió el segundo: **cerrar lo decidido sin dueño más el
+> portal de la familia**. La firma y la pasarela no entran porque dependen de dos
+> preguntas suyas que siguen sin contestar (`INVESTIGACION-MATRICULAS.md` §10.2 y §10.3).
+>
+> ### 🔴 UN FALLO VIVO, encontrado midiendo y no revisando
+>
+> **Corregir una observación cerraba el paso y lo firmaba.**
+> `prematriculas.ts::guardarObservacion` manda `estado: observacion.estado ?? ''` al
+> guardar el texto, y en `postAlumno` la cadena vacía no era `falta` ni `devuelto`: entraba
+> por la rama de cerrar, con **el nombre de quien escribió la tilde y su hora**. Sin error
+> y con un `'Actualizado'` de vuelta.
+>
+> Es la misma familia que el fallo del 1 sep, cometido por el otro lado: *aquél borraba el
+> estado cuando no venía, éste lo cerraba cuando venía vacío.*
+>
+> **Y la premisa se corrigió al intentar reproducirla**: este documento decía «hay filas
+> con `estado` NULL» y es falso —la columna es `NOT NULL`—. Lo que aquel `UPDATE` dejó en
+> los dieciséis es **la cadena vacía**, que es lo que un servidor no estricto escribe en
+> una columna `NOT NULL`. *El test no pudo construir el caso, y por eso la premisa mejoró.*
+>
+> ### El vocabulario del 46 estaba MAL, y rechazar por él habría roto los dieciséis
+>
+> El 46 §2 proponía `Falta|Cumple|Observado|Devuelto`. **Ninguno de los cuatro es lo que
+> escriben las pantallas desplegadas**: mandan `falta`, `ya` y `n/a`, en minúscula.
+>
+> Y no se midió censando una base —hay dieciséis y sólo se ve una—: se midió **contando los
+> escritores**, que son tres y tienen los tres su lista cerrada en el fuente. *Una base dice
+> qué pasó en un colegio; los escritores dicen qué puede pasar en los dieciséis.*
+>
+> ### Las tres públicas suben a DIECINUEVE, y la llave es DOBLE
+>
+> `GET colillas-inscripcion/{codigo}` fijó que **un código no puede revelar el nombre de un
+> menor**. Este portal **sí tiene que devolver la persona** —la familia entra a seguir
+> llenando lo que dejó a medias—, así que el código solo abre un formulario **en blanco** y
+> en cuanto lleva nombre dentro pide además **el documento del aspirante**.
+>
+> *La llave no se entrega: la escribe quien la va a usar.* Lo fija un test que busca el
+> nombre, el documento y el teléfono **en el JSON entero**.
+>
+> ### UN CONTROL QUE NO SE PUSO ROJO — y es lo que más enseña de esta tanda
+>
+> Al romper `sinTerminar()` quitándole el marcador `tocado`, **el test que parecía cubrirlo
+> siguió en verde**. El caso que de verdad lo sostiene es el contrario: **a quien le
+> devuelven un paso no le queda nada cerrado** —devolver limpia `cerrado_at` a propósito— y
+> aun así sigue en el patio. Se escribió el test que nombra ese caso, y con él el control sí
+> cae, y sólo él.
+>
+> *Es la tercera vez que este repo escribe «un control vale por haberse visto en rojo», y la
+> primera en que lo encuentra por NO haberse puesto rojo.*
+>
+> ### Lo que mueve
+>
+> **Cinco instantáneas**, con el diff de las cinco mirado entero: `rutas.json` (634 → 644,
+> las diez y ninguna más), `guards-por-ruta.json`, `guard-por-familia.json`
+> (`aspirantes: 5/5`, `inscripcion: 3/0`, `estaciones: 9→10`, `requisitos: 7→8`),
+> `familias-que-nunca-entran-en-el-candado.json` (**una línea: `inscripcion: 0 de 3`**) y
+> `escrituras-donde-el-candado-no-llega.json` (26 → 28, y la diferencia de conjuntos son
+> exactamente las dos del portal).
+>
+> Más tres listas: `AutenticacionTest::SIN_GUARD` (+3 con motivo),
+> `RutasPreLoginTest::TOTAL_PUBLICAS` (**16 → 19**) y `FamiliasQueNuncaEntranTest` (26 → 28).
+>
+> **Y una que no estaba prevista**: `TemasDeNotificacion::TIPOS` pasa de tres a cuatro con
+> `matricula`, así que **`GET notificaciones/temas` devuelve cuatro claves en vez de tres**.
+> Una app vieja no se apunta al tema nuevo y no recibe estos avisos — degradarse bien.
+>
+> ### Estado — las cifras con la orden que las produjo
+>
+> | | |
+> |---|---|
+> | `ElPortalDeLaFamiliaTest`: **33 passed (278 aserciones)** | `--filter=ElPortalDeLaFamiliaTest --testsuite=Contrato` |
+> 
+> > **Este renglón decía 28 (225) y ya era falso antes de tocarlo**: en `a8d036d` el fichero
+> > tenía **30** métodos de prueba, o sea que la cifra se escribió y el commit siguiente la
+> > movió sin recontarla. Con los dos de la admisión son 32. *Recontado, no sumado* — que es
+> > lo que el propio traspaso mandaba hacer con cualquier cifra suya.
+> | `PASS 494 files` | `composer run pint:test` |
+> | `[OK] No errors`, 716 ficheros | `composer run stan` (nivel 7) |
+> | `0 imports en 0 ficheros, de 723` | `php tools/imports-de-facades.php --dry-run`, y **detrás `pint:test`** |
+>
+> > **`RequisitosController` NO entra en la lista curada de Pint, y se dice con su motivo**:
+> > esta tanda lo tocó, pero es legado con tabuladores y formatearlo enterraría el diff bajo
+> > un fichero reescrito entero. Es la misma decisión que tomó la tanda de las estaciones con
+> > este mismo fichero. Los dos controladores **nuevos** sí entran, y **gratis**: están
+> > escritos ya en el estilo de Pint, así que apuntarlos no reformatea ni una línea de legado.
+>
+> ### Lo que queda abierto — y lo primero es de Joseth
+>
+> 1. ~~**¿Qué pasarela tiene contratada cada colegio?**~~ — **CONTESTADA el 20 sep 2026**:
+>    *«cada colegio maneja su propio sistema de cartera y contabilidad, unos ni tienen pagos
+>    en línea. Eso no importa.»* Llevaba abierta desde `INVESTIGACION-MATRICULAS.md` §10.2 y
+>    se citaba como bloqueante: **no lo era**. La «pasarela» de este módulo es sólo la del
+>    **formulario** —el checkout del 19 sep—, y el colegio sin credenciales ya contesta 404.
+>
+>    **Y de ahí sale lo que sí importa: la PANTALLA 12 no se puede construir aquí.** Promete
+>    *«estado de cuenta de la familia entera, plan de pensiones y cobro»*, y medido en el
+>    esquema **no hay ni una tabla** de cartera, pagos, saldos, recibos ni pensiones: lo
+>    único que esta API sabe de deuda es `alumnos.pazysalvo`, un `tinyint`. La contabilidad
+>    vive fuera. *Se dice para que el front no la construya contra un dato que no existe.*
+> 2. **¿El contrato y el pagaré se quedan en papel?** Decide si hace falta proveedor de
+>    firma, y **es lo único que queda de la fase 4**.
+> 3. **¿Quién admite: el rector solo o un comité?** Hoy `puedeDecidirAdmision` es **secretaría
+>    o superusuario, y es provisional** — va dicho en el propio método para que dentro de un
+>    mes no se lea como una decisión que alguien tomó.
+> 4. **`tools/requisitos-de-matricula.php` sigue sin correrse en `lal`**, que es el colegio
+>    que de verdad usa esto.
+> 5. **Las pantallas 02, 04, 05, 06 y 15** (`myvc_front`) y **las doce de estaciones**
+>    (`myvc_flutter`). El backend está; sin ellas no lo usa nadie.
+> 6. **El vocabulario de `estado` MIGRADO** en los dieciséis sigue pendiente. Lo que se paga
+>    hoy es que **ninguna ruta pueda escribir fuera de la lista**, no que lo escrito antes se
+>    normalice.
+
 > ## ✅ LA FASE 2, VISTA FUNCIONANDO CON DATOS DE VERDAD (20 sep 2026, noche)
 >
 > **Ya no es «la lógica es correcta»: es el papel impreso.** Lo condujo `myvc-front-a7` contra el

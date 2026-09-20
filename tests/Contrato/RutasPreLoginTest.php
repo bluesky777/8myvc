@@ -66,7 +66,7 @@ class RutasPreLoginTest extends CasoDeContrato
      * La auditoria commit a commit de los tres numeros viejos:
      * `docs/migracion/noche-2026-08-25/pub-1.md`.
      */
-    public const TOTAL_PUBLICAS = 16;
+    public const TOTAL_PUBLICAS = 19;
 
     /**
      * Verbo y URI tal y como las llama el frontend.
@@ -93,6 +93,21 @@ class RutasPreLoginTest extends CasoDeContrato
         // docblock de `AutenticacionTest::SIN_GUARD` y en el doc 41 §7.
         ['POST', 'pagos-inscripcion/{codigo}/checkout'],
         ['POST', 'pagos-inscripcion/webhook'],
+
+        // **La 17, la 18 y la 19 (20 sep 2026): el portal de la familia.** Tampoco
+        // van del login. Mismo destinatario que las cuatro de arriba —la familia de un
+        // aspirante sin cuenta— y **llave doble**: el código abre un formulario en
+        // blanco, y en cuanto lleva el nombre de un menor dentro hace falta además el
+        // documento del aspirante. El porqué entero está en
+        // `AutenticacionTest::SIN_GUARD` y en el doc 47.
+        //
+        // **Y con éstas la familia del formulario pasa a tener tantas públicas de
+        // ESCRITURA como de lectura**, que es lo que obliga a leer la nota de arriba
+        // antes de copiarlas: lo que las sostiene no es el middleware que no llevan,
+        // es lo que comprueban dentro.
+        ['GET',  'inscripcion/{codigo}'],
+        ['PUT',  'inscripcion/{codigo}'],
+        ['POST', 'inscripcion/{codigo}/documento/{requisito_id}'],
         ['PUT',  'login/crear-prematricula'],
         ['PUT',  'publicaciones/ultimas'],
         // El GET no es scaffolding: fue el verbo REAL del front durante cinco años

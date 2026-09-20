@@ -127,6 +127,33 @@ class AutenticacionTest extends CasoDeContrato
         // Doc 41 §7; autorizadas por Joseth el 19 sep 2026.
         ['POST',   'pagos-inscripcion/{codigo}/checkout'],
         ['POST',   'pagos-inscripcion/webhook'],
+
+        // **La decimoséptima, la decimoctava y la decimonovena (20 sep 2026): el
+        // PORTAL de la familia.** Mismo destinatario que las cuatro de arriba —la
+        // familia de un aspirante que todavía no es alumno, sin cuenta y sin poder
+        // tenerla— y por tanto el mismo motivo: no hay guard de propiedad que
+        // aplicarle a quien no tiene fila en `users`.
+        //
+        // **Y aquí la llave es DOBLE, que es lo que las separa de sus hermanas.**
+        // `GET colillas-inscripcion/{codigo}` pudo quedarse en el código solo porque
+        // devuelve *el trámite y no la persona*. Este portal **tiene que devolver la
+        // persona**: la familia entra a seguir llenando el formulario que dejó a
+        // medias, y uno que no se puede releer no se puede terminar.
+        //
+        // Así que el código solo abre un formulario **en blanco** —donde no hay nada
+        // personal que revelar— y en cuanto lleva dentro el nombre de un menor hace
+        // falta además **el documento del aspirante**, que es un dato que escribió la
+        // familia y que no va impreso en el papel. *La llave no se entrega: la escribe
+        // quien la va a usar.* Y si el aspirante no tiene documento todavía —en
+        // preescolar el registro civil llega tarde— el segundo factor es su fecha de
+        // nacimiento.
+        //
+        // Lo fija `ElPortalDeLaFamiliaTest::test_el_codigo_solo_no_revela_los_datos_del_aspirante`,
+        // que busca el nombre, el documento y el teléfono **en el JSON entero** y no
+        // campo a campo. Doc 47.
+        ['GET',    'inscripcion/{codigo}'],
+        ['PUT',    'inscripcion/{codigo}'],
+        ['POST',   'inscripcion/{codigo}/documento/{requisito_id}'],
     ];
 
     /**
