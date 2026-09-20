@@ -8,7 +8,9 @@ use App\Models\Alumno;
 use App\Models\Debugging;
 use App\Models\Matricula;
 use App\Models\Role;
+use App\Services\EnsayoDeLaImportacion;
 use App\Services\PuntoDeControlDeImportacion;
+use App\Support\Reloj;
 use App\Support\SafeUpload;
 use App\User;
 use Carbon\Carbon;
@@ -64,6 +66,47 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
      */
     public $punto;
 
+    /**
+     * Qué hizo de verdad, contado mientras lo hace.
+     *
+     * Lo pide la pantalla del ensayo: el informe final **compara lo prometido
+     * con lo hecho**, y para eso los dos tienen que hablar de lo mismo. Hasta
+     * hoy la respuesta era la cadena `'Importados.'` y estos números no los
+     * sabía nadie — ni siquiera cuántas filas eran, que `importaciones` sí
+     * guarda pero sin repartirlas entre crear y actualizar.
+     *
+     * `reencontrados` va aparte de `actualizados` a propósito: son las filas
+     * que venían **sin `id`** y aun así no se crearon, porque su documento ya
+     * estaba. Es la idempotencia trabajando, y es el número que dice cuántos
+     * alumnos duplicados se habrían creado antes del 20 ago 2026.
+     *
+     * @var array<string, int>
+     */
+    public $hechos = [
+        'filas' => 0,
+        'creados' => 0,
+        'actualizados' => 0,
+        'reencontrados' => 0,
+        'usuarios_creados' => 0,
+        'matriculas_creadas' => 0,
+
+        // OJO CON ESTAS DOS, QUE SE LLAMABAN IGUAL Y NO SON LO MISMO.
+        //
+        // `ya_estaban_hechas` son las filas que el punto de control da por
+        // aplicadas en una tanda anterior: existen, están bien, y esta subida no
+        // vuelve a pasar por ellas. `sin_primer_nombre` son las que el
+        // importador NO ESCRIBE NUNCA, porque sin primer nombre no crea alumno.
+        //
+        // La primera versión llamaba `saltadas` a la primera, y el ensayo llama
+        // `se_saltan` a la segunda. La pantalla del escenario 9 compara lo
+        // prometido con lo hecho, así que restar esos dos números habría dado una
+        // diferencia inventada **y con aspecto de fallo real**. Se renombran el
+        // mismo día en que alguien fue a compararlos, y antes de que exista un
+        // solo cliente que los lea.
+        'ya_estaban_hechas' => 0,
+        'sin_primer_nombre' => 0,
+    ];
+
     public function __construct($year, $fixer, PuntoDeControlDeImportacion $punto)
     {
         $this->sheetNames = [];
@@ -91,6 +134,8 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
         // mirar siquiera qué grupo era. Reanudar un archivo de dieciséis
         // pestañas por la última no puede costar dieciséis consultas de grupo.
         if (count($array) > 0 && $this->punto->yaProcesada($abrev, count($array) - 1)) {
+            $this->hechos['ya_estaban_hechas'] += count($array);
+
             return;
         }
 
@@ -113,8 +158,12 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
         for ($f = 0; $f < count($results); $f++) {
 
             if ($this->punto->yaProcesada($abrev, $f)) {
+                $this->hechos['ya_estaban_hechas']++;
+
                 continue;
             }
+
+            $this->hechos['filas']++;
 
             // La fila entera y su marca de avance, en la MISMA transacción.
             //
@@ -176,7 +225,13 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
         // que hasta este arreglo cambiaba a 68 de los 68 alumnos del seed.
 
         if ($alumno['id']) {
-            $consulta = 'UPDATE alumnos SET no_matricula=?, nombres=?, apellidos=?, sexo=?, fecha_nac=?, 
+            $this->hechos['actualizados']++;
+
+            if ($reencontrado) {
+                $this->hechos['reencontrados']++;
+            }
+
+            $consulta = 'UPDATE alumnos SET no_matricula=?, nombres=?, apellidos=?, sexo=?, fecha_nac=?,
 					tipo_doc=?, documento=?, no_matricula=?, direccion=?, barrio=?, telefono=?, celular=?, estrato=?, 
 					tipo_sangre=?, eps=?, religion=?, nro_sisben=?, updated_at=?'.$res['consulta'].' WHERE id=?';
 
@@ -253,6 +308,15 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
         } else {
 
             $alumno_row = $alumno;
+
+            if (! $alumno_row['primer_nombre']) {
+                // La fila no crea nada y hasta hoy no dejaba rastro de ninguna
+                // clase: ni error, ni aviso, ni número. El ensayo la cuenta como
+                // `se_salta`, así que la subida tiene que contarla también o el
+                // informe final no cuadra con lo que se prometió.
+                $this->hechos['sin_primer_nombre']++;
+            }
+
             if ($alumno_row['primer_nombre']) {
                 $alumno = new Alumno;
                 $alumno->nombres = trim($alumno_row['primer_nombre'].' '.$alumno_row['segundo_nombre']);
@@ -273,6 +337,8 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
                 $alumno->nro_sisben = $alumno_row['sisben'];
                 $alumno->save();
 
+                $this->hechos['creados']++;
+
                 $alumno_row['id'] = $alumno->id;
 
                 $opera = new OperacionesAlumnos;
@@ -287,6 +353,8 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
                 $usuario->tipo = 'Alumno';
                 $usuario->save();
 
+                $this->hechos['usuarios_creados']++;
+
                 $role = Role::where('name', 'Alumno')->get();
                 // $usuario->attachRole($role[0]);
                 $usuario->roles()->attach($role[0]['id']);
@@ -300,6 +368,8 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
                 $matricula->estado = 'MATR';
                 $matricula->fecha_matricula = $now;
                 $matricula->save();
+
+                $this->hechos['matriculas_creadas']++;
 
                 // Acudiente 1
                 $this->modificar_acudiente1($alumno_row, $now, $res['consultaA1']);
@@ -517,12 +587,15 @@ class ImportarController extends Controller
      * App\Services\PuntoDeControlDeImportacion; el porqué de cada decisión está
      * ahí y no aquí.
      *
-     * **La respuesta no cambia.** Sigue siendo la cadena pelada 'Importados.',
-     * que es lo que leen hoy los cuatro clientes —uno de ellos la app de Flutter,
-     * que es UNA para los dieciséis colegios y por tanto no se puede escalonar—.
-     * Ese es justo el motivo de que se haya hecho reanudable y no encolado: la
-     * cola devuelve un identificador y obliga a preguntar después, y eso sí es
-     * cambiar el contrato (§3 del mismo documento).
+     * **La respuesta SÍ cambió, el 20 sep 2026**, y este bloque decía lo
+     * contrario: «sigue siendo la cadena pelada 'Importados.', que es lo que
+     * leen hoy los cuatro clientes». Lo segundo era falso y se midió: ninguno
+     * de los cuatro lee el cuerpo cuando la importación va bien, y los dos de
+     * `app2` lo piden como JSON, así que la cadena los mandaba por su rama de
+     * error **después de importar bien**. El motivo de fondo del párrafo sigue
+     * en pie —Flutter es UNA app para los dieciséis y por eso esto es
+     * reanudable y no encolado (§3 de 09-pendientes)—; lo que no valía era dar
+     * por conocido a un lector que no se había ido a mirar.
      */
     public function postAlgo($year)
     {
@@ -541,6 +614,13 @@ class ImportarController extends Controller
                 $this->user->user_id
             );
 
+            // Lo que la persona contestó en la pantalla viaja CON el fichero, no
+            // por una ruta propia: es parte de «sube esto con estas
+            // instrucciones», no un recurso aparte. Se guarda ANTES de leer una
+            // sola fila, porque el caso en que hacen falta es precisamente aquel
+            // en el que esto se corta a la mitad.
+            $punto->guardarRespuestas($this->respuestasDelCuerpo());
+
             $fixer = new ImporterFixer;
             $Import = new ExcelUtils($year, $fixer, $punto);
 
@@ -551,22 +631,468 @@ class ImportarController extends Controller
             try {
                 Excel::import($Import, $archivo);
             } catch (\Throwable $e) {
+                // Los avisos de lo que SÍ se escribió antes de reventar se
+                // guardan igual, y ése es el caso que más los necesita: la
+                // pantalla que retoma esta importación tiene que poder decir qué
+                // llevaban las filas que ya entraron.
+                $punto->guardarAvisos($fixer->avisos);
                 $punto->fallar($e);
                 throw $e;
             }
 
+            $punto->guardarAvisos($fixer->avisos);
+
             $punto->completar();
 
-            $data = [];
-            // Return an import object for every sheet
-            foreach ($Import->getSheetNames() as $index => $sheetName) {
-                $data[$index] = new AlumnosImport;
-            }
-
-            return 'Importados.';
+            // Aquí había un bucle que llenaba un `$data` que no devolvía nadie,
+            // instanciando `AlumnosImport` una vez por hoja. Se va con el
+            // cambio de respuesta: era lo único que instanciaba esa clase.
+            //
+            // LO QUE SE DEVOLVÍA HASTA HOY ERA LA CADENA `'Importados.'`, y eso
+            // no era inocuo. Medido el 20 sep 2026 contra el docker:
+            //
+            //     status 200 · Content-Type text/html · cuerpo 'Importados.'
+            //
+            // `app2` sube por `comunes/subida/subida.ts`, que llama a
+            // `http.post` **sin `responseType`** —o sea `'json'`—, y Angular
+            // convierte un 2xx cuyo cuerpo no parsea en un ERROR. Así que las
+            // dos pantallas nuevas enseñaban «no se pudieron importar» después
+            // de una importación que había funcionado. Lo dedujo la sesión del
+            // front leyendo su propio código y lo confirmó esta medición.
+            //
+            // Devolver JSON arregla ese camino además de abrir el contrato.
+            // **Los errores siguen siendo texto**, decidido por Joseth el 20
+            // sep: la pantalla vieja pinta `status + ': ' + data` y con un JSON
+            // ahí saldría `500: [object Object]`.
+            return response()->json([
+                'ok' => true,
+                'importacion_id' => $punto->id(),
+                'reanudada' => $punto->reanudada(),
+                'filas_del_archivo' => $punto->filas(),
+                'hechos' => $Import->hechos,
+                'avisos' => $fixer->avisos,
+            ]);
         }
 
+        // Se queda en texto a propósito, por lo mismo que los errores: es la
+        // rama de «no me mandaste fichero», y los cuatro llamadores mandan uno
+        // siempre.
         return 'No se encontró archivo.';
+    }
+
+    /**
+     * QUÉ VA A PASAR SI SE SUBE ESTA HOJA — y no pasa nada mientras se mira.
+     *
+     * Es la ruta que da sentido a la frase con la que Joseth pidió todo esto:
+     * *«preguntándole al usuario qué quiere hacer en tal y cual caso,
+     * **diciéndole qué va a pasar**»*. Hasta hoy la única forma de saber qué
+     * hacía una importación era hacerla, y lo que hace no es lo que parece: el
+     * importador **no valida, adivina** — un valor que no reconoce no da un 422,
+     * da otro valor plausible y equivocado, y sigue.
+     *
+     * **No escribe nada**, y eso no es una promesa del comentario: lo cuenta
+     * `EnsayoDeLaImportacionTest` mirando cinco tablas antes y después.
+     *
+     * El mismo guard que la subida —`auth.personal`— y ningún permiso dentro:
+     * quien puede importar puede preguntar antes qué pasaría. Darle menos
+     * alcance que a la subida sería empujar a la gente a subir para enterarse,
+     * que es exactamente lo que esto viene a evitar.
+     */
+    public function postEnsayo($year)
+    {
+        if (! Request::hasFile('file')) {
+            return response()->json(['ok' => false, 'msg' => 'No se encontró archivo.'], 422);
+        }
+
+        $fixer = new ImporterFixer;
+        $ensayo = new EnsayoDeLaImportacion((int) $year, $fixer);
+
+        // UN FICHERO QUE NO SE PUEDE LEER CONTESTA 422 EN JSON, NO UN 500 EN
+        // HTML, y aquí sí se puede hacer: **esto no escribe nada**, así que no
+        // hay nada a medias que explicar. En `postAlgo` el 500 se deja pasar a
+        // propósito —cambiarlo es tocar el contrato de una ruta viva— y aquí no
+        // hay contrato viejo que respetar.
+        //
+        // Lo pidió la sesión del front, y tenía razón por un motivo que no es
+        // suyo: su pantalla llama al ensayo con `responseType: 'json'`, así que
+        // un 500 en HTML se convierte en «no se pudo leer el archivo» y el
+        // motivo se pierde por el camino.
+        //
+        // Y hay un segundo motivo, más serio: con `APP_DEBUG=true` —que es lo
+        // que corre el contenedor, y colegio a colegio nadie lo ha mirado— el
+        // cuerpo de un 500 trae `Host`, `Port` y `Database`. Es el pendiente del
+        // [01] visto antes de abrirle otro camino.
+        //
+        // Del error viaja la clase y el mensaje, NO el fichero ni la línea: el
+        // mensaje de PhpSpreadsheet dice cosas útiles —«Invalid cell
+        // coordinate», «File not readable»— y la ruta del servidor no le sirve a
+        // nadie al otro lado.
+        try {
+            Excel::import($ensayo, request()->file('file'));
+        } catch (\Throwable $e) {
+            return response()->json([
+                'ok' => false,
+                'msg' => 'No se pudo leer el archivo.',
+                'detalle' => class_basename($e).': '.$this->sinRutasDelServidor($e->getMessage()),
+            ], 422);
+        }
+
+        $plan = $ensayo->plan;
+        $cuenta = fn (string $accion) => count(array_filter($plan, fn ($f) => $f['accion'] === $accion));
+
+        return response()->json([
+            'ok' => true,
+            'year' => (int) $year,
+
+            // LA HUELLA DEL FICHERO QUE SE ESTUDIÓ, y no es informativa: es lo
+            // que ata este plan a un fichero concreto.
+            //
+            // Todo lo que hay debajo —«se crean 12, se actualizan 25, a 11 no
+            // les cambia nada»— es cierto PARA ESTE LIBRO. Si luego se sube otro,
+            // aunque sea el mismo con una celda corregida, el plan que se enseñó
+            // ya no describe lo que va a pasar y **nadie se enteraría**: los
+            // números seguirían saliendo, sólo que serían otros.
+            //
+            // Con la huella delante, la pantalla puede decir «esto que te enseñé
+            // era de otro fichero» antes de que alguien pulse. Es el mismo sha256
+            // del contenido con el que `PuntoDeControlDeImportacion` reconoce «el
+            // mismo archivo», así que los dos hablan de lo mismo.
+            'huella' => hash_file('sha256', request()->file('file')->getRealPath()),
+
+            // Va en la respuesta y no sólo en la documentación porque es lo que
+            // la pantalla le promete a quien pulsa. Si algún día dejara de ser
+            // cierto, esta línea es una mentira que se lee.
+            'escribe' => false,
+
+            'hojas' => $ensayo->hojas,
+            'grupos_del_year' => $this->gruposDelYear((int) $year),
+            'columnas_destino' => $this->columnasDestino(),
+            'catalogos' => $this->catalogos(),
+
+            'valores_no_reconocidos' => $ensayo->valoresNoReconocidos(),
+
+            // Las celdas vacías, contadas por columna. No es lo mismo que «no lo
+            // entendí»: el traductor no avisa de un hueco, y por el defecto una
+            // celda vacía de `tipo_de_documento` se guarda como Tarjeta de
+            // Identidad. O sea que «no sé» acaba siendo una afirmación sobre un
+            // menor, y eso hay que poder decirlo con un número delante.
+            'vacios' => $ensayo->vacios(),
+            'truncados' => $ensayo->truncados(),
+            'posibles_repetidos' => $ensayo->posiblesRepetidos,
+            'duplicados_en_el_archivo' => $ensayo->duplicadosEnElArchivo(),
+            'filas_sin_documento' => $ensayo->filasSinDocumento,
+
+            'plan' => $plan,
+            'totales' => [
+                'filas' => count($plan),
+                'crear' => $cuenta('crear'),
+                'actualizar' => $cuenta('actualizar'),
+                'sin_cambios' => $cuenta('sin_cambios'),
+                'se_saltan' => $cuenta('se_salta'),
+                // Se enseña el cero a propósito: «y no se borra a nadie» es la
+                // mitad de la respuesta que la gente necesita antes de pulsar, y
+                // un campo ausente no dice eso.
+                'borrar' => 0,
+            ],
+            // Los mismos cinco números, hoja a hoja. La pantalla los enseña en
+            // una tabla porque una hoja puede ser inocente y la de al lado no, y
+            // un total de 800 filas no distingue las dos.
+            'por_hoja' => $this->porHoja($plan, $ensayo->hojas),
+
+            'efectos_colaterales' => [
+                'usuarios_a_crear' => $cuenta('crear'),
+                'matriculas_a_crear' => $cuenta('crear'),
+                'estado_de_las_matriculas_nuevas' => 'MATR',
+                'contrasena_de_los_usuarios_nuevos' => '123456',
+
+                // ESTE CAMPO DECÍA `acudientes_tocados: 0` Y ERA FALSO.
+                //
+                // La v1 del ensayo sólo estudia al alumno —decisión del 19 sep:
+                // el 24 % de los acudientes vivos comparte documento con otro, y
+                // tocarlos pide su propio estudio— pero **la subida SÍ escribe
+                // acudientes y parentescos**. O sea que un 0 ahí no decía «no se
+                // tocan»: decía «no los he mirado», y las dos se leen igual en
+                // una pantalla.
+                //
+                // Es exactamente el fallo que este módulo persigue —un número
+                // plausible que afirma algo que nadie comprobó— cometido en la
+                // respuesta que viene a evitarlo. Así que el campo dice lo que
+                // pasa y no un número que no significa lo que parece.
+                'acudientes' => [
+                    'los_estudia_el_ensayo' => false,
+                    'los_escribe_la_subida' => true,
+                    'nota' => 'La v1 del ensayo sólo estudia alumnos. Al importar SÍ se crean y '
+                            .'actualizan acudientes y parentescos, y eso no está en este plan.',
+                ],
+            ],
+
+            // Cambia el texto de la pantalla y el front no lo puede saber: en el
+            // docker un valor que no cabe se recorta en silencio, y en la
+            // MariaDB de producción **aborta la fila**. Es la misma hoja con dos
+            // finales distintos.
+            'servidor_estricto' => $this->servidorEstricto(),
+        ]);
+    }
+
+    /**
+     * Los cinco números repartidos por pestaña.
+     *
+     * Se calcula sobre el plan y no se cuenta aparte: dos cuentas del mismo
+     * número se separan, y aquí la que quedaría mal es la que la gente mira
+     * antes de pulsar.
+     */
+    private function porHoja(array $plan, array $hojas): array
+    {
+        $cuentas = [];
+
+        foreach ($hojas as $hoja) {
+            $cuentas[$hoja['nombre']] = [
+                'hoja' => $hoja['nombre'],
+                'coincide_con' => $hoja['coincide_con'],
+                'filas' => 0, 'crear' => 0, 'actualizar' => 0, 'sin_cambios' => 0, 'se_saltan' => 0,
+                // Cuántos documentos de esta hoja no están hoy en MyVc. Es el
+                // denominador del aviso de D4: en enero, que sea el 100 % es lo
+                // normal y no una alarma.
+                'documentos_nuevos' => 0,
+            ];
+        }
+
+        foreach ($plan as $fila) {
+            $hoja = $fila['hoja'];
+
+            if (! isset($cuentas[$hoja])) {
+                continue;
+            }
+
+            $cuentas[$hoja]['filas']++;
+            $cuentas[$hoja][$fila['accion'] === 'se_salta' ? 'se_saltan' : $fila['accion']]++;
+
+            if ($fila['alumno_existente'] === null) {
+                $cuentas[$hoja]['documentos_nuevos']++;
+            }
+        }
+
+        return array_values($cuentas);
+    }
+
+    /**
+     * El mensaje de un error, sin las rutas del servidor que traiga dentro.
+     *
+     * **Lo cazó el test que se escribió para esto**, que es la mitad que
+     * importa: la primera versión devolvía el mensaje tal cual y PhpSpreadsheet
+     * dice cosas como
+     * `Could not find zip member zip:///app/.worktrees/imp/storage/framework/…`.
+     * O sea que el 422 que se puso para NO filtrar el `.env` por el cuerpo de un
+     * 500 estaba filtrando la ruta del despliegue por su cuenta.
+     *
+     * Se queda el nombre del fichero y se va el camino: «Could not find zip
+     * member laravel-excel-….xlsx» le dice lo mismo a quien diagnostica, y en
+     * los dieciséis colegios esa ruta lleva dentro el subdominio del colegio.
+     */
+    private function sinRutasDelServidor(string $mensaje): string
+    {
+        $limpio = (string) preg_replace('#[a-z]*:?/{1,3}(?:[\w.\-]+/)+#i', '', $mensaje);
+
+        return mb_substr($limpio, 0, 500);
+    }
+
+    /** Los grupos del año, para poder ofrecer a cuál va una hoja que no casó. */
+    private function gruposDelYear(int $year): array
+    {
+        return DB::select(
+            'SELECT g.id, g.abrev, g.nombre,
+                    TRIM(CONCAT(COALESCE(p.nombres, ""), " ", COALESCE(p.apellidos, ""))) AS titular,
+                    (SELECT COUNT(*) FROM matriculas m WHERE m.grupo_id = g.id AND m.deleted_at IS NULL) AS matriculados
+             FROM grupos g
+             INNER JOIN years y ON y.id = g.year_id AND y.deleted_at IS NULL
+             LEFT JOIN profesores p ON p.id = g.titular_id AND p.deleted_at IS NULL
+             WHERE y.year = ? AND g.deleted_at IS NULL
+             ORDER BY g.orden',
+            [$year]
+        );
+    }
+
+    /**
+     * Las columnas que el importador lee, con su etiqueta humana.
+     *
+     * La etiqueta no es cosmética: hoy, cuando falta una columna, lo que se ve
+     * es un 500 con `Undefined array key "fecha_de_nacim"`.
+     */
+    private function columnasDestino(): array
+    {
+        $columnas = [];
+
+        foreach (EnsayoDeLaImportacion::COLUMNAS as $clave => $meta) {
+            $columnas[] = ['clave' => $clave, 'valor_por_defecto' => $this->valorPorDefecto($clave)] + $meta;
+        }
+
+        return $columnas;
+    }
+
+    /**
+     * Qué queda escrito cuando la celda viene vacía, **estructurado** y no sólo
+     * como frase.
+     *
+     * Va en una celda de la tabla, al lado del valor que trae el fichero, así
+     * que la frase de `si_falta` no sirve ahí: partirla en el front sería
+     * adivinar dónde.
+     *
+     * **El literal se lee del catálogo del colegio, no se escribe aquí.** El
+     * importador clava `tipo_doc = 3` —eso es código— pero qué es el 3 lo dice
+     * cada base, y `existe_en_el_catalogo` está para el caso que nadie ha
+     * mirado: **un colegio sin la fila 3 recibiría una referencia rota**, y hoy
+     * eso ocurriría en silencio.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function valorPorDefecto(string $clave): ?array
+    {
+        if ($clave === 'tipo_de_documento') {
+            $fila = DB::selectOne('SELECT id, tipo FROM tipos_documentos WHERE id = 3 AND deleted_at IS NULL');
+
+            return [
+                'id' => 3,
+                'literal' => $fila->tipo ?? null,
+                'existe_en_el_catalogo' => $fila !== null,
+            ];
+        }
+
+        if ($clave === 'sexo') {
+            // Sólo al CREAR. Al actualizar, una celda vacía borra el que hubiera,
+            // que es otra cosa y está en la frase.
+            return ['valor' => 'M', 'literal' => 'Masculino', 'solo_al_crear' => true];
+        }
+
+        return null;
+    }
+
+    /**
+     * Los vocabularios, que son TABLAS DE CADA COLEGIO y no constantes.
+     *
+     * Por eso los manda el servidor: una lista incrustada en el front acierta en
+     * un colegio y miente en los otros quince. Y con el tipo de documento hay
+     * una razón más fuerte — el importador compara **bytes**, así que lo que se
+     * elija tiene que ser la cadena del catálogo tal cual, con su tilde y su
+     * caja.
+     */
+    private function catalogos(): array
+    {
+        return [
+            'tipos_documento' => DB::select('SELECT id, tipo, abrev FROM tipos_documentos WHERE deleted_at IS NULL ORDER BY id'),
+
+            // Los siete códigos vivos. No se traducen solos —«Activo» podría ser
+            // MATR o ASIS y eso lo decide el colegio— así que la pantalla los
+            // ofrece y una persona elige.
+            'estados_matricula' => [
+                ['codigo' => 'MATR', 'nombre' => 'Matriculado'],
+                ['codigo' => 'ASIS', 'nombre' => 'Asistente'],
+                ['codigo' => 'PREM', 'nombre' => 'Prematriculado'],
+                ['codigo' => 'PREA', 'nombre' => 'Preinscrito'],
+                ['codigo' => 'FORM', 'nombre' => 'Con formulario'],
+                ['codigo' => 'RETI', 'nombre' => 'Retirado'],
+                ['codigo' => 'DESE', 'nombre' => 'Desertor'],
+            ],
+            'sexo' => [['codigo' => 'M', 'nombre' => 'Masculino'], ['codigo' => 'F', 'nombre' => 'Femenino']],
+        ];
+    }
+
+    /**
+     * Si esta base aborta lo que no cabe o lo recorta en silencio.
+     *
+     * Las dos son malas y **son distintas**: el docker recorta y la MariaDB de
+     * producción aborta a media hoja. La misma hoja tiene dos finales, y el
+     * front no puede saber cuál le toca sin preguntarlo.
+     */
+    private function servidorEstricto(): bool
+    {
+        $modo = (string) (DB::selectOne('SELECT @@SESSION.sql_mode AS modo')->modo ?? '');
+
+        return str_contains($modo, 'STRICT_TRANS_TABLES') || str_contains($modo, 'STRICT_ALL_TABLES');
+    }
+
+    /**
+     * Las instrucciones que la pantalla mandó con el fichero.
+     *
+     * Vienen en un `multipart/form-data` —el fichero manda—, así que un objeto
+     * llega como cadena y hay que decodificarlo. Lo que no sea un objeto se
+     * descarta en silencio y no se guarda: esto no valida la forma de las
+     * respuestas, sólo se niega a guardar algo que no lo sea. Quien las
+     * interpreta es la Fase 2, y validar aquí una forma que todavía se está
+     * dibujando sería fijarla antes de tiempo.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function respuestasDelCuerpo(): ?array
+    {
+        $crudo = Request::input('respuestas');
+
+        if (is_string($crudo)) {
+            $crudo = json_decode($crudo, true);
+        }
+
+        return is_array($crudo) && $crudo !== [] ? $crudo : null;
+    }
+
+    /**
+     * La importación de alumnos de este año que quedó a medias, si la hay.
+     *
+     * Es lo primero que pregunta la pantalla de importar **al entrar**, antes de
+     * que nadie elija fichero: si hay uno a medias, lo que toca no es subir otro
+     * sino decidir entre seguir donde se quedó o empezar de cero.
+     *
+     * Devuelve lo que esa decisión necesita y que hasta hoy no salía por ningún
+     * lado: por qué se cortó, por dónde iba hoja a hoja, **qué llevaban las
+     * filas que ya entraron** —los avisos— y **qué contestó quien la empezó**
+     * —las respuestas—. Sin los dos últimos, «seguir donde se quedó» obliga a
+     * contestarlo todo otra vez con pasos saltados, que es peor que empezar de
+     * cero.
+     *
+     * `auth.personal` como la subida: quien puede importar puede preguntar si
+     * hay algo a medias. No lleva permiso propio dentro porque **no decide
+     * nada** — lee lo que ya pasó en el año de trabajo del colegio.
+     */
+    public function getPendiente($year)
+    {
+        $pendiente = PuntoDeControlDeImportacion::pendienteDe('alumnos', (int) $year);
+
+        if ($pendiente === null) {
+            // Un `null` explícito y no un 404: «no hay ninguna a medias» es una
+            // respuesta buena a esta pregunta, y la más frecuente con mucho.
+            return response()->json(['pendiente' => null]);
+        }
+
+        // LAS FECHAS SE CONVIERTEN AL LEER, Y LA TABLA SE QUEDA EN UTC.
+        //
+        // `importaciones` escribe `inicio`, `fin` y `updated_at` con `now()`, o
+        // sea en UTC, y está declarado como excepción en `RelojUnicoTest` con
+        // este motivo: *«sólo se restan entre sí, nunca se comparan con otra
+        // tabla, así que unificar la zona no cambia ningún resultado — sólo
+        // desplaza cinco horas lo que se lee en pantalla»*.
+        //
+        // **Esa premisa caduca hoy**: esta ruta existe para que una pantalla
+        // diga «empezada el 14 de enero a las 9:41 por Marta Ospina», y con la
+        // hora cruda diría las 14:41. La salida no es cambiar la escritura —eso
+        // dejaría la columna con dos relojes en su historia, que es justo la
+        // enfermedad que la fase 1 del reloj vino a curar, y la decisión está
+        // anotada como de quien lleve las importaciones—: es convertir **al
+        // leer**. La tabla conserva una sola zona y la pantalla enseña la hora
+        // del colegio.
+        foreach (['inicio', 'fin', 'created_at', 'updated_at'] as $campo) {
+            if (! empty($pendiente->{$campo})) {
+                $pendiente->{$campo} = Carbon::parse($pendiente->{$campo}, 'UTC')
+                    ->setTimezone(Reloj::ZONA)
+                    ->format('Y-m-d H:i:s');
+            }
+        }
+
+        $pendiente->avance = json_decode((string) $pendiente->avance, true) ?: [];
+        $pendiente->avisos = json_decode((string) $pendiente->avisos, true) ?: [];
+        $pendiente->respuestas = json_decode((string) $pendiente->respuestas, true) ?: null;
+        $pendiente->empezada_por = $pendiente->empezada_por !== null && trim($pendiente->empezada_por) !== ''
+            ? $pendiente->empezada_por
+            : null;
+
+        return response()->json(['pendiente' => $pendiente]);
     }
 
     /**

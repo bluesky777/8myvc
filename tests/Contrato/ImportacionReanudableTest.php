@@ -48,8 +48,17 @@ class ImportacionReanudableTest extends CasoDeContrato
         $r = $this->importar($this->exportacionDeAlumnos($token), $token, $year);
 
         $r->assertStatus(200);
-        $this->assertSame('Importados.', $r->getContent(),
-            'La respuesta es el contrato con los cuatro clientes y no puede cambiar.');
+
+        // Esta línea decía `assertSame('Importados.', ...)` con el motivo «la
+        // respuesta es el contrato con los cuatro clientes y no puede cambiar»,
+        // y **frenó este cambio**, que es para lo que estaba. Se cambia con la
+        // decisión encima, no regenerándola: el 20 sep 2026 se midió que de los
+        // cuatro llamadores ninguno lee el cuerpo cuando la importación va bien
+        // —y que `app2`, que lo pide como JSON, enseñaba «no se pudieron
+        // importar» después de una importación buena, porque `'Importados.'` no
+        // parsea—. El contrato de esta ruta lo fija ahora
+        // `RespuestaDeLaImportacionTest`, que es donde vive el porqué entero.
+        $r->assertJson(['ok' => true]);
 
         $fila = $this->ultimaImportacion();
 

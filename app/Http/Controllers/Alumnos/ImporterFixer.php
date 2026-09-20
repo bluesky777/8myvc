@@ -28,7 +28,13 @@ class ImporterFixer
      * colegios sin avisar—: solo lo anota, para que la pantalla pueda
      * preguntar. Es el cimiento de la importacion que dice que va a pasar.
      *
-     * @var array<int, array{fila: mixed, campo: string, valor: string, motivo: string}>
+     * `hoja` y `fila_del_libro` son opcionales y NO las pone esta clase: las
+     * añade el ensayo, que sí sabe por qué pestaña y por qué fila del libro iba.
+     * Aquí sólo se declara que el aviso puede llevarlas, porque el que las lee
+     * —la pantalla— tiene que poder llevar a la celda, y `fila` no sirve para
+     * eso: es el `numero_matricula`, que puede venir vacío.
+     *
+     * @var array<int, array{fila?: mixed, campo?: string, valor?: string, motivo?: string, hoja?: string, fila_del_libro?: int}>
      */
     public $avisos = [];
 
@@ -46,7 +52,7 @@ class ImporterFixer
      * catalogo de un colegio puede tener `CEDULA` sin tilde y el Excel de otro
      * `Cedula` con ella, y las dos quieren decir lo mismo.
      */
-    private function normalizar($valor)
+    public function normalizar($valor)
     {
         if ($valor === null) {
             return '';

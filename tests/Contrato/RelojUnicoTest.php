@@ -73,7 +73,22 @@ class RelojUnicoTest extends TestCase
         // curar. Cambiar esto es elegir entre las dos cosas, y esa elección no
         // es de la fase 1: es de quien lleve las importaciones. Anotado aquí para
         // que se encuentre, no escondido.
-        'app/Services/PuntoDeControlDeImportacion.php' => 8,
+        // Y DIEZ desde el 20 sep 2026, con las dos de `guardarAvisos()` y
+        // `guardarRespuestas()`. Escriben `updated_at` de esa misma tabla, o sea
+        // LA MISMA COLUMNA que los otros ocho: ponerlas en Bogotá dejaría una
+        // columna con dos zonas y filas que nadie podría distinguir, que es
+        // exactamente la enfermedad. Van con `now()` por consistencia, no por
+        // inercia.
+        //
+        // **Y el motivo de arriba caducó a medias ese día, así que queda dicho:**
+        // «nunca sale por pantalla» dejó de ser cierto cuando
+        // `GET importar/alumnos/pendiente/{year}` empezó a devolver `inicio` para
+        // que una pantalla diga «empezada el 14 de enero a las 9:41». Se resolvió
+        // **convirtiendo al leer** —ese método pasa las fechas a `Reloj::ZONA`
+        // antes de devolverlas— y no cambiando la escritura, que habría metido el
+        // segundo reloj. La decisión de mover la tabla entera sigue siendo de
+        // quien lleve las importaciones, y ya no la fuerza ninguna pantalla.
+        'app/Services/PuntoDeControlDeImportacion.php' => 10,
     ];
 
     #[Test]

@@ -284,10 +284,15 @@ class ExcelTest extends CasoDeContrato
 
         $r->assertStatus(200);
 
-        // Devuelve la cadena pelada, no JSON: el controlador hace `return
-        // 'Importados.';` y Laravel la sirve como texto. Es lo que lee el
-        // frontend hoy.
-        $this->assertSame('Importados.', $r->getContent());
+        // Este comentario decía «devuelve la cadena pelada, no JSON … es lo que
+        // lee el frontend hoy», y la segunda mitad era falsa: medido el 20 sep
+        // 2026, ninguno de los cuatro llamadores lee el cuerpo cuando la
+        // importación va bien, y los dos de `app2` lo piden como JSON, así que
+        // la cadena los mandaba por su rama de error después de importar bien.
+        // Desde ese día devuelve JSON. Lo que este test comprueba no es la
+        // forma —de eso va `RespuestaDeLaImportacionTest`— sino que el viaje de
+        // ida y vuelta no cambia a nadie.
+        $r->assertJson(['ok' => true]);
 
         $this->assertEquals($antes, $this->alumnosDelGrupo(),
             'Reimportar la hoja recién exportada cambió los datos de algún alumno.');
