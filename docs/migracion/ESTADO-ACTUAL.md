@@ -73,6 +73,40 @@
 > decir desde qué árbol lo contó no ha dicho un número**, y ésta es la forma en que esa cifra
 > lleva envejeciendo desde agosto.
 
+> ## 🔧 `tools/correo-de-los-colegios.sh` — QUÉ INSTALACIONES NO PUEDEN MANDAR CORREO (20 sep 2026)
+
+> **Pedido por Joseth**: un guion para subir al shared host que diga **qué subdominios siguen sin
+> el bloque de correo arreglado**. Sólo lectura: no toca ningún `.env`, que es la regla del
+> [29](29-los-env-no-son-uniformes.md) y no una precaución del guion.
+>
+> **Cierra el pendiente nº 1 del §8 del 29** —«la instalación viva de `lal` no la alcanza el
+> censo»— del único modo en que se puede cerrar desde aquí: **haciendo que se note**. Mientras el
+> barrido no haya mirado nada fuera de `/home/micolev1/`, esa instalación cuenta como NO MEDIDA y
+> el guion **sale con código 2**. Un «17 de 17 correctos» en verde es exactamente la lectura falsa
+> contra la que existe.
+>
+> ### Las cuatro formas de estar roto que comprueba, y la cuarta no está en ningún `.env`
+>
+> `MAIL_FROM_ADDRESS=null` —la cadena se lee como null de verdad y `Mail` rechaza antes de
+> intentarlo—, `smtp` contra `mailhog`, el remitente en `lalvirtual.com` (NXDOMAIN) y
+> **`bootstrap/cache/config.php` más viejo que el `.env`**. La cuarta es la que mordió en `demo`
+> el 15 sep y **no se ve leyendo el fichero**: ahí el `.env` no es la fuente de la verdad, así que
+> sale NO MEDIDO y no «OK». *Un colegio con el bloque perfecto y la caché vieja se comporta como
+> uno sin arreglar.*
+>
+> **Y una que es del servidor y no del colegio**, por eso se imprime una vez y no por carpeta: el
+> `sendmail_path` del `php.ini` y si ese binario existe. Con `MAIL_MAILER=sendmail` bien escrito y
+> el binario ausente no sale nada igual, y ningún `.env` lo delata.
+>
+> ### Lo que NO contesta
+>
+> Que la configuración sea correcta **no es que el correo llegue**. Eso sólo lo dice
+> `php artisan correo:probar` y mirar la bandeja — y sigue abierta la cuenta del 3 sep: **de
+> diecisiete envíos volvieron cuatro rebotes** y de los otros trece no se sabe nada (§8 nº 2).
+>
+> **NO es un paso de despliegue**: el `.env` no viaja en el despliegue, así que desplegar no
+> rompe el correo ni lo arregla.
+
 > ## ✅ DEL PAPEL AL ALUMNO — LAS CUATRO QUE CIERRAN EL FORMULARIO, ROUTER EN 619 (20 sep 2026)
 >
 > **Encargo de Joseth**: *«terminemos lo del formulario de inscripción… lo del código único que no
