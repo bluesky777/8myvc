@@ -126,7 +126,13 @@ def mapa_rutas_a_tests(registro):
                 continue
             test, ruta = linea.rstrip('\n').split('\t', 1)
             uri = ruta.split(' ', 1)[1] if ' ' in ruta else ruta
-            por_uri[uri].add(test.split('::')[0])
+            # **El nombre va DESNUDO, sin el espacio de nombres, y no es cosmético.**
+            # El registrador escribe `Contrato\AutenticacionTest::test_x`, y eso
+            # metido en un `--filter` es una expresión regular donde `\A` es el
+            # ancla de principio de cadena: el patrón no casa con NADA y la corrida
+            # ejecuta CERO tests — que se lee exactamente igual que una suite en
+            # verde. Comprobado el 20 sep 2026 antes de que saliera de aquí.
+            por_uri[uri].add(test.split('::')[0].split('\\')[-1])
     return por_uri
 
 
