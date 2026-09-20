@@ -75,8 +75,13 @@
 
 > ## ✅ LA IMPORTACIÓN DINÁMICA — LAS TRES PIEZAS DE LA FASE 2, ROUTER EN 623 (20 sep 2026)
 >
-> **SIN FUNDIR: hay que recontar las rutas en el árbol principal el día que entren.** 623 contadas
-> con `route:list --json` en `.worktrees/imp` **después de traer `main`**.
+> **FUNDIDA** en `bdf3c89`. **623 recontadas en el árbol principal, sobre `main` y después de
+> fundir**, coincidiendo con las 623 contadas antes en `.worktrees/imp`. Suite entera sobre el árbol
+> fundido: **2.331 passed, 1 skipped** (`--testsuite=Contrato`).
+>
+> > *La condición de caducidad que esta casilla llevaba escrita —«hay que recontarlas en el árbol
+> > principal el día que entren»— se cumplió el mismo día en que se escribió, y es la cuarta vez
+> > seguida que esa frase salva el número.*
 >
 > > **Esta casilla decía 622 y era cierta cuando se escribió.** `main` estaba en 620; mientras esto
 > > se construía entró `GET requisitos/recorrido/{alumno_id}` —la casilla de abajo— y lo dejó en

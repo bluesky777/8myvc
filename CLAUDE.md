@@ -8,8 +8,9 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**623 rutas** (contadas con `route:list --json` el **20 sep 2026 en `.worktrees/imp` DESPUÉS de
-traer `main`** — *SIN FUNDIR: hay que recontarlas en el árbol principal el día que entren*). Las dos
+**623 rutas** (contadas con `route:list --json` el **20 sep 2026 en el ÁRBOL PRINCIPAL, sobre
+`main` y después de fundir** (`bdf3c89`) — y coincidieron con las 623 contadas antes en
+`.worktrees/imp` tras traer `main`, que es la única forma de saber que coincidía). Las dos
 que suben sobre las 621 son las de la **Fase 2 de la importación dinámica** —`GET
 importar/alumnos/pendiente/{year}`, que dice si hay una importación a medias, y **`POST
 importar/alumnos/ensayo/{year}`, que contesta qué va a pasar sin escribir una sola fila**—, las dos
