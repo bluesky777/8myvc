@@ -556,7 +556,7 @@ docker exec 8myvc-app-1 php artisan test --filter=NotasTest    # una clase
 >
 > | orden | cuánto tarda, sana | en qué condiciones se midió |
 > |---|---|---|
-> | `php artisan test --testsuite=Contrato` | **840–1.050 s** (841, 930, 1.000, 1.044 — cuatro, la noche del 20 sep) | base propia, **contenedor compartido con otras sesiones trabajando** |
+> | `php artisan test --testsuite=Contrato` | **840–1.360 s** (841, 930, 1.000, 1.044, **1.356** — cinco, 20 y 21 sep) | base propia, **contenedor compartido con otras sesiones trabajando** |
 > | `php artisan test` (las tres testsuites) | *sin medir* | — |
 > | `--filter=<una clase de contrato>` | **10–40 s** | lo mismo |
 >
