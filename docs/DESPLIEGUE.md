@@ -113,6 +113,22 @@ algún colegio tuviera un número ≥ 4 la app **ya estaría bloqueada allí aho
 > una premisa falsa es la que nadie vuelve a comprobar.** Remedido fichero a fichero, no de
 > memoria.
 
+> **Y el correo de los colegios NO se comprueba desde aquí ni con un bucle escrito a mano: hay
+> herramienta.** `tools/correo-de-los-colegios.sh` lee el `.env` de cada instalación y dice cuál
+> no puede mandar correo, con `--arreglo` para imprimir el bloque que hay que pegar. Es **de sólo
+> lectura**: tocar un `.env` lo decide y lo ejecuta Joseth, que es la regla del
+> [29](migracion/29-los-env-no-son-uniformes.md).
+>
+> **No es un paso del despliegue y por eso vive aquí como nota y no como casilla**: el `.env` no
+> viaja en el despliegue, así que desplegar ni rompe el correo ni lo arregla. Se corre el día que
+> se quiera saber en qué estado están, y **después de tocar un `.env`**.
+>
+> Tres cosas que conviene saber antes de leer su salida, y las tres están medidas en su cabecera:
+> los diecisiete se arreglaron el **3 sep 2026** —así que «el correo está roto» dejó de ser cierto
+> ese día—; **la configuración cacheada manda sobre el fichero**, y por eso ese caso sale
+> `NO MEDIDO` y nunca `OK`; y **la instalación viva de `lal` es la decimoctava y queda fuera del
+> bucle**, porque está en la otra cuenta de cPanel — su correo **no lo ha comprobado nadie**.
+
 Lo que ship el repo es seguro: `config/aplicacion-movil.php` hace `env('APP_MOVIL_VERSION_MINIMA')`
 **sin valor por defecto** —ausente = campo no enviado— y `.env.example` la trae **vacía**.
 
