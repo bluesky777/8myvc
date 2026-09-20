@@ -1,16 +1,20 @@
 `8myvc` es la API del sistema escolar MyVc: Laravel 13 + PHP 8.4, ~37.000 líneas
-en `app/`, **125 ficheros de controlador — 128 clases** (**recontados el 20 sep 2026** al entrar
-`EstacionesController`, y **el contador llevaba una semana de retraso**: decía 118 y 121, que era
-cierto el 13 sep y falso desde la primera familia nueva de la semana. Las órdenes que lo rehacen,
-porque una cifra sin su forma de rehacerla envejece sin que nada se ponga rojo:
+en `app/`, **127 ficheros de controlador — 130 clases** (**recontados el 20 sep 2026 en el ÁRBOL
+PRINCIPAL y después de fundir** el proceso de matrículas (`74d5028`), que entra con
+`AspirantesController` y `PortalInscripcionController`. Antes decían 125 y 128, recontados ese
+mismo día al entrar `EstacionesController`, cuando **el contador llevaba una semana de retraso**:
+decía 118 y 121, que era cierto el 13 sep y falso desde la primera familia nueva de la semana.
+Las órdenes que lo rehacen, porque una cifra sin su forma de rehacerla envejece sin que nada se
+ponga rojo:
 
 ```bash
-find app/Http/Controllers -name '*.php' | wc -l                                   # 126
-grep -rhoE '^[[:space:]]*(final )?(abstract )?class [A-Za-z_]+' app/Http/Controllers | wc -l  # 128
+find app/Http/Controllers -name '*.php' | wc -l                                   # 128
+grep -rhoE '^[[:space:]]*(final )?(abstract )?class [A-Za-z_]+' app/Http/Controllers | wc -l  # 130
 ```
 
-126 − 1 = **125**, porque `Concerns/ResuelveElUsuario.php` es un trait y no declara clase; y 128 −
-125 = 3 porque `Alumnos/ImportarController.php` declara cuatro. *Siete controladores entraron entre
+128 − 1 = **127**, porque `Concerns/ResuelveElUsuario.php` es un trait y no declara clase
+—**comprobado y no supuesto: sigue siendo el único fichero de la carpeta sin `class`**—; y 130 −
+127 = 3 porque `Alumnos/ImportarController.php` declara cuatro. *Siete controladores entraron entre
 el 13 y el 20 de septiembre y nadie tocó este número — que es exactamente por lo que se cuenta y no
 se supone.* Antes decía, y se conserva el rastro: recontados el 13 sep 2026 al
 entrar `CompetenciasController` y `DesempenosController`; el 5 sep eran 115 y 118 al entrar
@@ -21,8 +25,30 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**634 rutas** (**recontadas con `route:list --json` el 20 sep 2026 en el ÁRBOL PRINCIPAL, sobre
-`main` y después de fundir** (`98dfa73`) — y coincidieron con las 634 contadas antes en
+**644 rutas** (**recontadas con `route:list --json` el 20 sep 2026 en el ÁRBOL PRINCIPAL, sobre
+`main` y después de fundir** (`74d5028`) — y coincidieron con las 644 contadas antes en
+`.worktrees/mat`, que es la única forma de saber que coincidía. Esta línea decía *«SIN FUNDIR: hay
+que recontarlas en el ÁRBOL PRINCIPAL el día que entren»* y **aquél fue ese día**: van **siete**
+veces seguidas que esa condición de caducidad salva el número, y ésta la cumplió **una sesión que
+ni siquiera existía cuando se escribió**: llegó por un traspaso, con la frase dentro. *(Cuántas
+veces han sido «sesiones distintas» no se dice, porque no se contó — la línea de las 625 dice
+«la tercera» y nadie ha llevado la cuenta desde entonces.)*
+Las **diez** que suben sobre las 634 son el **proceso de matrículas** —el portal de la familia, el
+tablero del día y la bandeja de aspirantes—, con **tres públicas** entre ellas, así que
+`RutasPreLoginTest::TOTAL_PUBLICAS` pasa de **16 a 19**. Contrato en
+[47](docs/migracion/47-el-portal-de-la-familia.md).
+
+> **Y de esa tanda salió un defecto que NO es suyo y vive en `main` desde el 20 sep:**
+> `getRecorrido` promete *«quién cerró el paso»* y saca el nombre de `profesores`, donde **0 de
+> las 22 cuentas de tipo `Usuario` tienen ficha**. O sea que cuando cierra un administrativo
+> —que es quien atiende la ventanilla— el id viaja y el nombre viaja en `NULL`. Es la trampa que
+> este mismo fichero tiene escrita más abajo, cometida **en el módulo cuyo argumento entero es
+> que quede el nombre**. No se arregla solo: `users` no tiene ninguna columna de nombre, sólo
+> `username`. *Espera a Joseth, y un test lo fija en el estado en que está para que el arreglo
+> salga en rojo.*
+
+El número anterior era **634**, contado con `route:list --json` el 20 sep 2026 en el ÁRBOL
+PRINCIPAL, sobre `main` y después de fundir (`98dfa73`) — y coincidieron con las 634 contadas antes en
 `.worktrees/est`, que es la única forma de saber que coincidía. Esta línea decía *«SIN FUNDIR: hay
 que recontarlas en el ÁRBOL PRINCIPAL el día que entren»* y **aquél fue ese día**: van **seis**
 veces seguidas que esa condición de caducidad salva el número, y las dos últimas las escribió y las
