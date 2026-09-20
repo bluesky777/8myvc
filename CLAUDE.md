@@ -619,7 +619,7 @@ leyendo el código. Cada una lleva su uso en la cabecera.
 | `deriva-del-horario.php` | si las siete columnas de día siguen cuadrando con la versión oficial — **sin versión publicada sale `2`, NO MEDIDO**, porque ahí un `0` diría lo mismo que un año perfecto |
 | `ensayo-de-la-tanda.sh` | si la tanda de migraciones corre entera sobre una copia de un colegio de verdad y cuánto tarda — y **audita la comprobación de `DESPLIEGUE.md`**, que la saca del documento con `grep` en vez de copiarla |
 | `comprobar-el-horario.php` | si el módulo de horario **llegó** a un colegio: `200` con `total: 0` no es lo mismo que `404` ni que `500`, y desde la pantalla los tres son una rejilla vacía |
-| `imports-de-facades.php` | qué `use` resuelven por el array `aliases` en vez de por el nombre completo — **`--dry-run` NO es opcional: sin él ESCRIBE** |
+| `imports-de-facades.php` | qué `use` resuelven por el array `aliases` en vez de por el nombre completo — **`--dry-run` NO es opcional (sin él ESCRIBE) y NO mira el orden: detrás va `pint:test`** |
 | `requisitos-de-matricula.php` | cómo usa un colegio **de verdad** los requisitos: cuántos pasos, en qué orden, con qué dueño y cuántos se cierran — **imprime el nombre de la base en cada bloque**, porque en desarrollo sale 1 paso y 0 cerrados y eso contesta bien a otra pregunta |
 | `lo-que-reparte-una-columna.py` | qué instantáneas se mueven el día que una tabla gane una columna — **cobertura, no exposición**: son los ficheros que hay que regenerar, no las respuestas que ganan la columna |
 | `ensayo-del-alter-en-maria.sh` | si el `ALTER` de la casilla vacía bloquea el guardado de notas en **MariaDB**, que es lo que corre producción — **la señal no es que la escritura falle, es la LATENCIA**, así que trae su propio control que sí bloquea (`COPY, LOCK=SHARED`) |
@@ -931,6 +931,24 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
   > informe, es una reparación, y en un árbol compartido eso le deja a otro un fichero cambiado que
   > no tocó. Lo descubrió `8myvc-9a` el 20 sep corriéndola para *ver el alcance* y encontrándose el
   > fichero ya arreglado.
+  >
+  > ### Y **NO SUSTITUYE A `pint:test`**: arregla el alias y NO MIRA EL ORDEN
+  >
+  > La herramienta cambia `use Log;` por el nombre completo **en el mismo sitio donde estaba**. Pint
+  > ordena los imports alfabéticamente, así que el fichero queda **con el alias resuelto y el `use`
+  > en el sitio equivocado** — y entonces:
+  >
+  > ```
+  > imports-de-facades.php --dry-run   ->  0 imports en 0 ficheros, de 698     ✅
+  > composer run pint:test             ->  FAIL, 469 ficheros, 1 rojo          ❌
+  > ```
+  >
+  > **Las dos son ciertas y ninguna cubre a la otra.** Pasó el 20 sep 2026: el arreglo del `use Log;`
+  > dejó Pint en rojo para las cuatro sesiones, y **este `0 de 698` se publicó como prueba de que
+  > todo estaba bien**. Lo cazó `8myvc-9a` corriendo `pint:test`.
+  >
+  > Es la forma del día otra vez: *un instrumento que contesta bien a lo que le preguntas y no a lo
+  > que necesitas saber*. **Después de esta herramienta, `pint:test`. Siempre.**
 
   > ### Y LA FAMILIA ENTERA: UN TEST QUE LEE UN FICHERO COMO FUENTE SE ROMPE AL FORMATEARLO
   >
