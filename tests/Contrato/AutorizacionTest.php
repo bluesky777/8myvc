@@ -657,6 +657,17 @@ class AutorizacionTest extends CasoDeContrato
         // uno solo pendiente — que es el único que no se reinicia con el reloj.
         // Sus tres hermanas SÍ llevan guard y además el tesorero dentro. Doc 41 §5.
         'POST api/colillas-inscripcion/{codigo}' => 'la manda la familia de un aspirante, que no tiene cuenta; se acota por el código, el limitador y el tope por orden',
+
+        // **La misma familia y el mismo motivo, en la otra dirección** (20 sep 2026):
+        // la familia pregunta cómo va lo suyo. Sigue sin poder tener cuenta, así que
+        // sigue sin haber guard de propiedad que aplicarle.
+        //
+        // Aquí lo que la acota **no es lo que comprueba antes de contestar, sino lo
+        // que contesta**: el código no revela de quién es el formulario. Sin nombre,
+        // sin documento, sin teléfonos y sin el fichero del recibo. Un candado de
+        // autorización no puede ver eso, así que lo fija `LaFamiliaPreguntaTest`
+        // buscando el dato del alumno en el JSON entero. Doc 41 §10.
+        'GET api/colillas-inscripcion/{codigo}' => 'la pregunta la familia de un aspirante, que no tiene cuenta; lo que la acota es que la respuesta describe el trámite y no a la persona',
     ];
 
     public function test_ninguna_ruta_se_queda_sola_sin_el_guard_de_su_familia(): void

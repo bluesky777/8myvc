@@ -632,3 +632,127 @@ docblock— esta puerta se ensancharía con él **sin que nadie lo decidiera**.
   esto es donde encaja.
 - **No engancha en el flujo de matrícula**, por lo dicho arriba.
 - **No manda ningún aviso.** Sigue abierto, y sigue dependiendo del correo (§7).
+
+---
+
+## 10. LA FAMILIA PREGUNTA — la decimosexta pública, y la primera de LECTURA  *(20 sep 2026)*
+
+    GET colillas-inscripcion/{codigo}    PÚBLICA    la llama la familia, sin cuenta
+
+**Router 620.** Autorizada por Joseth el 20 sep 2026.
+
+### El hueco estaba medido, y era de forma, no de olvido
+
+De las catorce rutas del formulario, **las tres públicas eran las tres de ESCRITURA y ninguna
+lectura lo era**:
+
+```
+PÚBLICA  POST  colillas-inscripcion/{codigo}          la familia manda el comprobante
+PÚBLICA  POST  pagos-inscripcion/{codigo}/checkout    la familia paga en línea
+PÚBLICA  POST  pagos-inscripcion/webhook              la pasarela avisa
+```
+
+O sea que **la familia mandaba su comprobante y no tenía forma de saber si se lo aprobaron, se lo
+rechazaron ni por qué**. El motivo del rechazo ya se guardaba —`putRechazar` lo exige desde el 19
+sep, y no por formulismo: sin texto no se puede rechazar— pero **sólo lo veía el personal**.
+
+### No espera al correo, y ése es el punto
+
+El aviso que debía cerrar esto iba por correo, y el correo de esta API **está en rojo desde el 2
+sep**: `lalvirtual.com`, el `MAIL_FROM_ADDRESS` de quince colegios, no está registrado, y **falla
+callado**. Encima, de los 1.085 acudientes vivos **sólo el 9,2 % tiene correo** (doc 42).
+
+Así que esto es **_pull_ en vez de _push_**: la familia entra con el código que ya lleva impreso el
+papel. Para un destinatario que no tiene cuenta y puede no tener correo, es el único canal que
+funciona seguro. *Arreglar el correo sigue haciendo falta; lo que ya no hace falta es esperarlo.*
+
+### Lo que devuelve lo decide que sea PÚBLICA, no que le sirva a la familia
+
+La llave es el código, y el código **se dicta por teléfono y viaja en un papel que pasa de mano en
+mano**. Así que la pregunta de cada campo no fue *«¿le sirve?»* sino **«¿qué pasa si esto lo lee
+quien se encontró el papel?»**:
+
+| | |
+|---|---|
+| **sí** | el estado, el valor, la fecha límite, en qué va cada comprobante y **el motivo del rechazo** — que el tesorero escribe *para* la familia |
+| **no** | el nombre del alumno, su documento, sus teléfonos, de qué grupo es |
+| **no** | el nombre del fichero del recibo: **la URL es la llave** (§5), y saber un código no puede dar el recibo que subió otro |
+| **no** | quién lo resolvió, ni desde qué IP se subió |
+
+**Un código no puede revelar el nombre de un menor**, y ésa es la línea: lo que sale describe un
+trámite, no a una persona. El motivo de una colilla **aprobada** tampoco viaja — ahí no hay nada
+que corregir, y un texto interno del tesorero pegado a un «aprobado» es información que nadie
+decidió enseñar.
+
+> **Y por eso el test tiene más aserciones de lo que NO sale que de lo que sale**, y las hace
+> **sobre el JSON entero en vez de campo a campo**: lo que hay que impedir es que el dato aparezca,
+> esté donde esté. *Un campo de más en una respuesta pública no rompe nada, no pone nada en rojo y
+> no se nota hasta que importa.*
+
+También devuelve `puede_enviar_otro` y `comprobantes_restantes`, que son **las dos condiciones que
+`postSubir` comprueba de verdad, dichas antes de subir**. Sin eso la familia se entera con un 429
+después de elegir la foto, que es el peor momento para enterarse.
+
+### EL AGUJERO QUE ESTO DESTAPÓ, Y QUE ERA DE UNAS HORAS ANTES
+
+Al escribirla salió que **la §9 había dejado medio cerrado su propio invariante**. `putCodigo`
+guarda el código retirado en `codigo_anterior` para que el papel viejo no quede huérfano, y
+**sólo `getPorCodigo` —la ruta del PERSONAL— aprendió a buscar por él**. Las dos públicas, que son
+justo las que usa la familia, seguían con `WHERE codigo=?`:
+
+```
+POST colillas-inscripcion/{codigo}          subir el comprobante
+POST pagos-inscripcion/{codigo}/checkout    pagar en línea
+```
+
+**Corregir un código dejaba a la familia sin poder pagar.** Y lo que lo hacía peor es que era
+**silencioso para las dos partes**: secretaría corrige creyendo que es inocuo —nada le dice que
+acaba de invalidar un papel que está en una casa— y la familia se estrella contra un 404 que no
+puede reportarle a nadie, porque no tiene cuenta. Ni error, ni registro, ni llamada: sólo una
+inscripción que no se paga.
+
+**Se arregló con una clase compartida —`App\Services\OrdenDeInscripcion`— y no parcheando las dos
+consultas**, que era lo obvio y lo insuficiente: eso habría tapado el agujero de hoy y dejado el de
+mañana, porque la siguiente ruta que reciba un código —y este módulo lleva quince— se escribiría
+con la consulta obvia, que es la mala. *Un sitio compartido convierte «acordarse» en «no tener que
+acordarse».*
+
+Y su `SELECT` nombra las columnas en vez de `*`, a propósito: esta tabla la leen rutas públicas, y
+un `*` reparte a la respuesta cualquier columna que la tabla gane mañana **sin que nadie lo
+decida**.
+
+### Y LA TRAMPA Nº 3 DEL PROPIO MÓDULO, COMETIDA OTRA VEZ AL DÍA SIGUIENTE
+
+La ruta se registró primero **antes** de `GET colillas-inscripcion/pendientes`, y `{codigo}` es un
+comodín: **se tragaba la bandeja del tesorero**, que pasaba a contestar 422 «ese código no es
+válido».
+
+Medido, no supuesto — `getRoutes()->match()` sobre `/api/colillas-inscripcion/pendientes` devolvía
+**`getEstado`**. Y lo que lo hace difícil de ver es que **`route:list` NO lo enseña**: ordena
+alfabéticamente y no por orden de registro, así que la forma natural de comprobarlo miente.
+
+Es exactamente la trampa que este documento ya tenía escrita para `…/campos` antes que `…/{lote}`,
+cometida en la familia de al lado y al día siguiente. *Un aviso escrito no protege solo; sólo
+protege el día que alguien hace lo que dice.* Ahora lo fija un test que pide
+`…/pendientes` **sin token** y exige **401**: si se la tragara `getEstado`, daría 422.
+
+### Los cinco sitios que movió, que son los cinco de la regla
+
+Una ruta pública mueve cinco, y **ésta los mueve los cinco justos** porque **no escribe**:
+
+```
+AutenticacionTest::SIN_GUARD              declarada con su motivo
+RutasPreLoginTest::TOTAL_PUBLICAS         15 -> 16
+AutorizacionTest::EXCEPCIONES_DE_FAMILIA  declarada: sus hermanas llevan guard
+rutas.json                                619 -> 620
+guard-por-familia.json                    colillas-inscripcion 4 -> 5 (con_guard sigue en 3)
+```
+
+**Las dos que NO se movieron, y el porqué importa**: `guards-por-ruta.json` lista las que **llevan**
+guard, y ésta no lleva; y `familias-que-nunca-entran-en-el-candado.json` no la recoge porque
+`colillas-inscripcion` tiene **3 hermanas con guard**, o sea ≥ 2, así que el candado de familia
+sigue mirándola. *Ése fue el motivo de ponerla aquí y no en `pagos-inscripcion`, que está en ese
+censo como «0 de 2».*
+
+`FamiliasQueNuncaEntranTest` —las **escrituras** que viven donde el candado no llega— tampoco se
+mueve: sigue en **26**, porque esto lee.

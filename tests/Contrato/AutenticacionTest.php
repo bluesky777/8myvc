@@ -84,6 +84,26 @@ class AutenticacionTest extends CasoDeContrato
         // reinicia con el reloj. Doc 41 §5; autorizada por Joseth el 19 sep 2026.
         ['POST',   'colillas-inscripcion/{codigo}'],
 
+        // **La decimosexta (20 sep 2026), y la PRIMERA DE LECTURA de este módulo.**
+        // Hasta ella, las tres públicas del formulario eran las tres de escritura: la
+        // familia mandaba su comprobante y **no tenía forma de saber si se lo
+        // aprobaron, se lo rechazaron ni por qué**. El motivo del rechazo ya se
+        // guardaba —`putRechazar` lo exige— y sólo lo veía el personal.
+        //
+        // No espera al correo a propósito: el aviso que debía cerrarlo va por correo,
+        // y `lalvirtual.com` —el `MAIL_FROM_ADDRESS` de quince colegios— **no está
+        // registrado** desde el 2 sep y falla callado; además sólo el 9,2 % de los
+        // acudientes vivos tiene correo (doc 42). Es *pull* en vez de *push*, y para
+        // quien no tiene cuenta es el único canal que funciona seguro.
+        //
+        // **Lo que la hace aceptable no es el limitador: es lo que NO devuelve.** La
+        // llave es un código que se dicta por teléfono y viaja en un papel que pasa
+        // de mano en mano, así que no salen el nombre del alumno, su documento, sus
+        // teléfonos ni el fichero del recibo —la URL es la llave—. Sale el trámite,
+        // no la persona, y lo fija `LaFamiliaPreguntaTest` buscando el dato en el
+        // JSON entero, no campo a campo. Doc 41 §10.
+        ['GET',    'colillas-inscripcion/{codigo}'],
+
         // **La decimocuarta y la decimoquinta: el pago en línea del mismo
         // formulario.** La primera la abre la familia —el mismo aspirante sin
         // cuenta de la de arriba— y la segunda **no la llama una persona**: la

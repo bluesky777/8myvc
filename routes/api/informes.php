@@ -120,6 +120,39 @@ Route::get('informes/formularios-inscripcion/{lote}', [FormulariosInscripcionCon
 Route::post('colillas-inscripcion/{codigo}', [ColillasInscripcionController::class, 'postSubir'])
     ->withoutMiddleware('auth.token')->middleware('throttle:colilla');
 Route::get('colillas-inscripcion/pendientes', [ColillasInscripcionController::class, 'getPendientes'])->middleware('auth.personal');
+
+// **Y VA DESPUÉS DE `pendientes`, QUE NO ES ESTILO: ESTO SE VIO ROTO.** `{codigo}` es
+// un comodín, y registrado delante se traga `…/colillas-inscripcion/pendientes` — la
+// BANDEJA DEL TESORERO, que pasaría a contestar 422 «ese código no es válido».
+//
+// Medido, no supuesto: con el orden al revés, `getRoutes()->match()` sobre
+// `/api/colillas-inscripcion/pendientes` devolvía **`getEstado`**. Y `route:list` NO
+// lo enseña, porque ordena alfabéticamente y no por orden de registro — o sea que la
+// forma natural de comprobarlo miente. Lo fija un test.
+//
+// Es la MISMA trampa que `…/campos` antes que `…/{lote}`, cometida otra vez en la
+// familia de al lado y el día siguiente. Un aviso escrito no protege solo.
+// Y LA SEGUNDA PÚBLICA DE ESTA FAMILIA, autorizada por Joseth el 20 sep 2026: la
+// familia pregunta cómo va lo suyo. Es la DECIMOSEXTA pública y **la primera de
+// LECTURA de todo este módulo** — hasta hoy las tres públicas eran las tres de
+// escritura, así que la familia mandaba su comprobante y no tenía forma de saber si
+// se lo aprobaron, se lo rechazaron ni por qué.
+//
+// NO ESPERA AL CORREO, y ése es el punto: el aviso que debía cerrar esto va por
+// correo, y el correo de esta API está en rojo desde el 2 sep (`lalvirtual.com` no
+// está registrado, y falla callado). Además sólo el 9,2 % de los acudientes vivos
+// tiene correo (doc 42). Con una lectura, la familia entra con el código que ya
+// lleva impreso y lo ve — es *pull* en vez de *push*, y para quien no tiene cuenta
+// es el único canal que funciona seguro.
+//
+// LO QUE DEVUELVE LO DECIDE QUE SEA PÚBLICA, no que le sirva a la familia: el
+// código se dicta por teléfono y viaja en un papel que pasa de mano en mano, así
+// que **no sale el nombre del alumno, ni su documento, ni sus teléfonos, ni el
+// fichero del recibo** —la URL es la llave—. Sale el trámite, no la persona.
+//
+// Misma URI que el POST y mismo limitador: quien sube ahí es quien pregunta ahí.
+Route::get('colillas-inscripcion/{codigo}', [ColillasInscripcionController::class, 'getEstado'])
+    ->withoutMiddleware('auth.token')->middleware('throttle:colilla');
 Route::put('colillas-inscripcion/{id}/aprobar', [ColillasInscripcionController::class, 'putAprobar'])->middleware('auth.personal');
 Route::put('colillas-inscripcion/{id}/rechazar', [ColillasInscripcionController::class, 'putRechazar'])->middleware('auth.personal');
 
