@@ -167,11 +167,29 @@ def main():
     # 1 · los que obligan a la suite entera
     forzosos = [f for f in cambiados if any(f.startswith(x) or f == x for x in OBLIGAN_ENTERA)]
     if forzosos:
-        print('\nSUITE ENTERA, y el motivo no es prudencia genérica:')
+        # **NO IMPRIME LA ORDEN, Y ESO SE CORRIGIÓ EL 20 SEP 2026.**
+        #
+        # Esta rama devuelve 2, que en `CLAUDE.md` significa «no hay subconjunto
+        # seguro: PREGUNTAR a Joseth, no decidir solo». Pero hasta hoy el texto
+        # imprimía el `docker exec ... php artisan test` de la suite entera, o sea
+        # que **decía lo contrario de su propio código de salida** — y lo que lee
+        # una persona es el texto.
+        #
+        # Costó lo que tenía que costar: una sesión leyó «corre esto», lo corrió dos
+        # veces (~30 min de una máquina compartida) y Joseth tuvo que pararlo. La
+        # regla es suya y está en `CLAUDE.md`: *la suite entera se paga antes de
+        # desplegar, no antes de fundir*.
+        #
+        # *Un detector que contesta bien por el código de salida y mal por la
+        # pantalla contesta mal*, porque nadie lee el código de salida.
+        print('\nNO HAY SUBCONJUNTO SEGURO. Esto pide la suite entera por:')
         for f in forzosos:
             print(f'  {f}')
-        print('\n  docker exec -w /app -e DB_TEST_DATABASE=<la tuya> \\')
-        print('      -e COBERTURA_RUTAS=/tmp/rutas-tocadas.txt 8myvc-app-1 php artisan test')
+        print('\n  ⛔ NO la lances por tu cuenta: son ~15 min de una máquina que')
+        print('     comparten ocho sesiones, y la regla de Joseth es que la entera')
+        print('     se paga ANTES DE DESPLEGAR, no antes de fundir.')
+        print('\n  Lo que toca: correr las clases del dominio que tocaste, y')
+        print('  decírselo a Joseth con las dos cifras delante para que elija él.')
         return 2
 
     # 2 · los tests que cambiaron se corren siempre, mapeo o no

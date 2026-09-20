@@ -8,6 +8,88 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+> ## 🔴 TRASPASO A LA SESIÓN SIGUIENTE — DOS RESPUESTAS DE JOSETH SIN APLICAR (20 sep 2026)
+>
+> **`8myvc-6f` se quedó sin ventana con el trabajo fundible y DOS decisiones suyas recién
+> dadas todavía sin escribir en código.** Están aquí porque son lo primero que hay que
+> hacer, y porque las dijo en un chat que la sesión siguiente no ve.
+>
+> **Dónde está todo:** `.worktrees/mat`, rama `feat/el-proceso-de-matriculas`, base
+> `simonbolivar_testing_mat`, **tres commits y SIN FUNDIR**. Lo construido está en la
+> casilla de abajo y el contrato en [47](47-el-portal-de-la-familia.md).
+>
+> ### 1 · EL COORDINADOR ACADÉMICO PUEDE ADMITIR — falta la línea
+>
+> **Joseth, textual:** *«el coordinador académico puede admitir estudiantes también.»*
+>
+> `Autoriza::puedeDecidirAdmision()` hoy es `esAdministrativo()` —superusuario o
+> `Secretario`—. Hay que pasarlo a la forma de `puedeCambiarLaNotaNumerica()`: una lista
+> de nombres de rol cruzada contra `Role::getUserRoles()` **en una sola consulta**.
+>
+> **Medido por `role_id` y no por nombre**, que es la regla de
+> [33](33-la-tilde-que-sql-no-ve.md) —un `WHERE r.name IN ('Coord académico')` desde el
+> cliente `mysql` devuelve **cero filas teniendo titular**, por la tilde—:
+>
+> ```
+> rol 1  Admin             10 titulares, los 10 superusuarios
+> rol 9  Coord académico    1 titular,  NO superusuario   <- éste es el que añade
+> rol 10 Rector             0
+> rol 12 Secretario         0
+>
+> quien admite hoy (superusuario o Secretario) ....... 12
+> a quien añade `Coord académico` ..................... 1   -> 13
+> ```
+>
+> > **Y `Rector` NO se mete de paso, aunque parezca lo natural.** Joseth nombró **un**
+> > rol. Meterlo sería [[crear-rol-no-regala-permisos]] al revés: *lo que nadie pidió no
+> > se concede*. Hoy tiene cero titulares en desarrollo, así que **no cambiaría nada
+> > medible** y sí cambiaría la regla — es una línea el día que él lo diga.
+>
+> ### 2 · 🔴 EL PAGARÉ Y LA FIRMA NO EXISTEN — LA PANTALLA 13 SE RETIRA
+>
+> **Joseth, textual:** *«No entiendo lo del pagaré en papel. Nosotros solo le damos
+> opciones para que mande la colilla por foto o el número de recibo y le mandamos la
+> notificación al tesorero, él verifica, acepta y con eso le llega el formulario al
+> solicitante. No me importa si después le piden la colilla en físico.»*
+>
+> **Eso retira la pantalla 13 entera y con ella la «fase 4».** El contrato con firma
+> electrónica, el pagaré, la huella del PDF, la IP y la Ley 527 salieron de
+> `myvc_front/INVESTIGACION-MATRICULAS.md` §4 —una investigación de *qué hacen los
+> buenos*—, **no de un requisito suyo**. Él no lo reconoce como algo que su producto
+> haga. *Una pregunta que lleva días citada como «bloqueante» puede estar bloqueando una
+> pantalla que nadie pidió.*
+>
+> #### Y su frase describe un flujo que YA EXISTE… salvo una pieza
+>
+> | lo que él describe | qué hay |
+> |---|---|
+> | «que mande la colilla por foto **o el número de recibo**» | `POST colillas-inscripcion/{codigo}` — acepta fichero **o** referencia |
+> | «**le mandamos la notificación al tesorero**» | **NO EXISTE.** Ver abajo |
+> | «él verifica, acepta» | `PUT colillas-inscripcion/{id}/aprobar` · `…/rechazar` |
+> | «y con eso le llega el formulario al solicitante» | la orden pasa a `PAGADA`, y con eso `PUT inscripcion/{codigo}` ya deja llenar el formulario (esta tanda) |
+>
+> **El aviso al tesorero es el único hueco de lo que él da por hecho**, y lleva desde el
+> 19 sep escrito como abierto en el [41](41-el-formulario-de-inscripcion.md) §7: *«hoy la
+> bandeja hay que abrirla porque nadie ha conectado el aviso»*.
+>
+> **Lo que hay que medir antes de prometerlo** —y `8myvc-6f` no llegó—: las
+> notificaciones de esta casa son **temas por alumno** (`TemasDeNotificacion::TIPOS`,
+> hoy cuatro) más dos de colegio. **No hay ningún tema de PERSONAL**, así que avisar al
+> tesorero no es una fuente más del cron: es **un tema nuevo que la app tiene que
+> suscribir**, y `myvc_flutter` sigue sin `firebase_messaging`. *Antes de decir «es una
+> fuente más», comprobar a qué se suscribe la app — que es el otro repositorio.*
+>
+> ### 3 · Y lo que sí quedó hecho de esta conversación
+>
+> - **La pasarela deja de ser pregunta**: *«cada colegio maneja su propio sistema de
+>   cartera y contabilidad, unos ni tienen pagos en línea. Eso no importa.»* Escrito en
+>   el 47 §9, en el `TAREAS-PORTAL-MATRICULA.md` del front y en su `PANTALLAS-MATRICULA.md`.
+> - **La pantalla 12 no se puede construir aquí** — medido: **ni una tabla** de cartera,
+>   pagos, saldos, recibos ni pensiones; lo único que esta API sabe de deuda es
+>   `alumnos.pazysalvo`, un `tinyint`.
+> - **La regla de la suite entera, corregida en los dos sitios que la contradecían.**
+>   Ver la casilla de abajo.
+
 > ## ✅ EL PORTAL DE LA FAMILIA Y EL TABLERO DEL DÍA — DIEZ RUTAS (20 sep 2026)
 >
 > **Escrito en `.worktrees/mat`, rama `feat/el-proceso-de-matriculas`, base
@@ -118,8 +200,19 @@
 >
 > ### Lo que queda abierto — y lo primero es de Joseth
 >
-> 1. **¿Qué pasarela tiene contratada cada colegio?** Bloquea la fase 4 entera.
-> 2. **¿El contrato y el pagaré se quedan en papel?** Decide si hace falta proveedor de firma.
+> 1. ~~**¿Qué pasarela tiene contratada cada colegio?**~~ — **CONTESTADA el 20 sep 2026**:
+>    *«cada colegio maneja su propio sistema de cartera y contabilidad, unos ni tienen pagos
+>    en línea. Eso no importa.»* Llevaba abierta desde `INVESTIGACION-MATRICULAS.md` §10.2 y
+>    se citaba como bloqueante: **no lo era**. La «pasarela» de este módulo es sólo la del
+>    **formulario** —el checkout del 19 sep—, y el colegio sin credenciales ya contesta 404.
+>
+>    **Y de ahí sale lo que sí importa: la PANTALLA 12 no se puede construir aquí.** Promete
+>    *«estado de cuenta de la familia entera, plan de pensiones y cobro»*, y medido en el
+>    esquema **no hay ni una tabla** de cartera, pagos, saldos, recibos ni pensiones: lo
+>    único que esta API sabe de deuda es `alumnos.pazysalvo`, un `tinyint`. La contabilidad
+>    vive fuera. *Se dice para que el front no la construya contra un dato que no existe.*
+> 2. **¿El contrato y el pagaré se quedan en papel?** Decide si hace falta proveedor de
+>    firma, y **es lo único que queda de la fase 4**.
 > 3. **¿Quién admite: el rector solo o un comité?** Hoy `puedeDecidirAdmision` es **secretaría
 >    o superusuario, y es provisional** — va dicho en el propio método para que dentro de un
 >    mes no se lea como una decisión que alguien tomó.

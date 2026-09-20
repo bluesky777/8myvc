@@ -2,9 +2,13 @@
 
 **Autorizado por Joseth el 20 sep 2026** con el alcance delante, en respuesta a *«termina lo del
 proceso de matrículas, todos los endpoints que flutter y front necesitan»*. Se le pusieron tres
-alcances y eligió el segundo: **cerrar lo decidido sin dueño, más el portal de la familia**; la
-firma electrónica y la pasarela quedan fuera porque dependen de dos preguntas suyas que siguen sin
-contestar (`INVESTIGACION-MATRICULAS.md` §10.2 y §10.3).
+alcances y eligió el segundo: **cerrar lo decidido sin dueño, más el portal de la familia**.
+
+**Fuera queda una sola cosa: la firma del contrato** (pantalla 13), que espera su respuesta sobre
+si el papel se queda en papel (`INVESTIGACION-MATRICULAS.md` §10.3). *La pasarela ya no está en esa
+lista*: la retiró él mismo ese día —*«cada colegio maneja su propio sistema de cartera y
+contabilidad, unos ni tienen pagos en línea. Eso no importa»*—, y de esa respuesta sale además que
+**la pantalla 12 no se puede construir aquí**. Las dos cosas, en la §9.
 
 **Diez rutas.** El router queda en **644** contado con `route:list --json` en `.worktrees/mat`.
 **SIN FUNDIR: hay que recontarlas en el ÁRBOL PRINCIPAL el día que entren** — que es la frase que
@@ -297,10 +301,42 @@ número no es la garantía, el porqué de cada renglón sí.*
 
 ## 9. Lo que sigue abierto
 
+### ~~¿Qué pasarela tiene contratada cada colegio?~~ — CONTESTADA Y RETIRADA
+
+**Joseth, 20 sep 2026:** *«cada colegio maneja su propio sistema de cartera y
+contabilidad, unos ni tienen pagos en línea. Eso no importa.»*
+
+Esta pregunta llevaba abierta desde `INVESTIGACION-MATRICULAS.md` §10.2 y se ha estado
+citando como *«bloquea la fase 4 entera»*. **No bloquea nada**, y de paso aclara qué era:
+la «pasarela» de este módulo es **sólo la del formulario de inscripción** —el checkout de
+`pagos-inscripcion/{codigo}`, del 19 sep—, para que una familia pague **el papel** con
+tarjeta en vez de llevar la colilla al banco. Nunca fue de pensiones ni de matrícula. Y ya
+está construida de forma que **el colegio sin credenciales contesta 404**, así que el que
+no usa pagos en línea no ve nada (doc 40 §5, regla 1: *el back no publica lo que está
+apagado*).
+
+#### Y la consecuencia que sí importa: LA PANTALLA 12 NO SE PUEDE CONSTRUIR AQUÍ
+
+`PANTALLAS-MATRICULA.md` promete de la **Estación 5 · Tesorería**: *«estado de cuenta de
+la familia entera, descuento de segundo hijo aplicado por la regla, plan de pensiones y
+cobro»*.
+
+**Nada de eso sale de esta base.** Medido en `database/schema/mysql-schema.sql`: **no hay
+ni una tabla** de cartera, pagos, saldos, recibos, facturas ni pensiones. Lo único que
+esta API sabe de deuda es `alumnos.pazysalvo`, un `tinyint(1)`.
+
+Eso no es un hueco que haya que tapar: es que **la contabilidad vive fuera, en el sistema
+de cada colegio**, que es exactamente lo que él acaba de decir. Lo que MYVC hace en esa
+estación es lo mismo que en las otras —cerrar el paso con su nombre y su hora, y el globo
+de notas—, y el estado de cuenta lo mira el tesorero donde lo mira hoy.
+
+*Se dice para que el front no construya esa pantalla contra un dato que no existe.*
+
+---
+
 | | quién |
 |---|---|
-| **¿Qué pasarela tiene contratada cada colegio?** | **Joseth** — bloquea la fase 4 entera, y puede ser distinta colegio a colegio |
-| **¿El contrato y el pagaré se quedan en papel?** | **Joseth** — decide si hace falta proveedor de firma |
+| **¿El contrato y el pagaré se quedan en papel?** | **Joseth** — decide si hace falta proveedor de firma. **Es lo único que queda de la fase 4** |
 | **¿Quién admite: el rector solo o un comité?** | **Joseth** — hoy `puedeDecidirAdmision` es provisional (§6) |
 | Correr `tools/requisitos-de-matricula.php` en `lal` | **Joseth** — sigue sin correrse desde el 20 sep; dice qué se encuentra un colegio al desplegar |
 | Las pantallas 02, 04, 05, 06 y 15 | **`myvc_front`** — el backend está, y sin ellas no lo usa nadie |
