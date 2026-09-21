@@ -141,9 +141,54 @@ dan números distintos porque una fila puede valer más de una falta. Un total a
 mismo **no se filtra `tipo`**, y `fecha_hora` se devuelve como está aunque sea `NULL`:
 rellenarla con la fecha de creación sería inventarse el dato que el papel imprime.
 
-**El guard, que es lo que el front preguntó:** `auth.personal` y nada dentro. **No abre
-nada**: las mismas filas —y las de todos los demás alumnos del colegio— las sirve hoy
-`planillas/ver-ausencias` con ese mismo guard. **No lo alcanza un acudiente**, a propósito:
+> ### 🔴 Y AQUÍ ESTA SECCIÓN DECÍA UNA COSA FALSA, CORREGIDA EL 20 SEP CONDUCIENDO
+>
+> Decía que `planillas/ver-ausencias` sirve **las mismas filas** y que esto es
+> «estrictamente menos». Lo encontró `myvc-front-38` al conducir la citación, y es falso:
+>
+> ```sql
+> WHERE a.entrada=true      -- PlanillasController::getVerAusencias
+> ```
+>
+> Aquella consulta **sólo ve las faltas de portería**. Medido en la copia de desarrollo:
+>
+> | | |
+> |---|---|
+> | filas vivas de `ausencias` | **46.478** |
+> | con `entrada=1` — las que ve `ver-ausencias` | **17** (0,04 %) |
+> | con `entrada=0` — las de clase, invisibles para ella | **46.461** (44.393 `ausencia`, 2.068 `tardanza`) |
+>
+> Con el alumno 1 del año 9: esta ruta contesta **3** y aquélla **0**. Reproducido aquí
+> antes de aceptarlo, no copiado de su mensaje.
+>
+> **O sea que esta ruta no era la misma consulta más barata: es la única que ve las faltas
+> de clase de un alumno en su año**, que en una citación por inasistencia son justo las que
+> se discuten. Vale más de lo que dijimos los dos.
+>
+> Lo fija `InformesDelCatalogoTest::la_falta_de_clase_sale_por_la_citacion_y_no_por_la_planilla`,
+> que llama a **las dos** con la misma falta delante. **Y lleva su control**: mete también
+> una de portería y exige que la vieja SÍ la devuelva — sin eso, el seed no tiene ni una
+> fila de `ausencias` y el test pasaría por mirar una lista vacía, que es lo mismo que
+> pasaría si estuviera roto.
+>
+> *La frase estaba escrita con seguridad y no la sostenía ninguna medición: leí que las dos
+> consultan `ausencias` y di por hecho que veían lo mismo.*
+
+**El guard, que es lo que el front preguntó:** `auth.personal` y nada dentro — **pero no
+es «no abre nada», y eso hay que decirlo para que se pueda decidir**:
+
+- `ausencias/detailed/{asignatura_id}` ya sirve filas con `entrada=0` a cualquiera del
+  personal y **sin comprobar de quién es la asignatura**, pero **sólo del periodo del
+  token**.
+- `users.periodo_id` **no lo cambia ninguna ruta**: lo escriben `Login` y
+  `ContextoDeUsuario`, siempre al periodo `actual`.
+
+O sea que lo que esta ruta añade son **las filas de los periodos ya cerrados del año en
+curso**, que antes no devolvía ninguna. Mismo tipo de dato, misma población y sus recuentos
+ya viajan en cada boletín — pero es un **ensanche y no un atajo**, y queda escrito así en
+vez de repetir que no abre nada.
+
+**No lo alcanza un acudiente**, a propósito:
 la citación es el papel con el que el colegio llama a la familia, no lo que la familia
 consulta. El día que se decida lo contrario, eso es `persona.propia` sobre una ruta suya,
 no aflojar ésta.

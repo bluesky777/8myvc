@@ -338,6 +338,94 @@ class InformesDelCatalogoTest extends CasoDeContrato
             'La fila no aparece en su propio año: el control de este test no controla nada.');
     }
 
+    /**
+     * **La falta de CLASE sale por aquí y NO por `planillas/ver-ausencias`, y ésa es la
+     * razón de que esta ruta exista.**
+     *
+     * Hasta que `myvc-front-38` lo condujo, el 20 sep 2026, este módulo tenía escrito que
+     * la ruta vieja servía «las mismas filas» y que ésta era «estrictamente menos». Es
+     * falso: `getVerAusencias` lleva `WHERE a.entrada=true`, o sea que **sólo ve las
+     * faltas de portería**. En la copia de desarrollo eso son **17 filas de 46.478**.
+     *
+     * Este caso llama a **las dos** con la misma falta delante y compara el resultado, que
+     * es lo único que distingue «más barata» de «la única que la ve». Si alguien le quita
+     * el `entrada` a la vieja o se lo pone a ésta, se pone rojo.
+     */
+    #[Test]
+    public function la_falta_de_clase_sale_por_la_citacion_y_no_por_la_planilla(): void
+    {
+        [$grupo, $token] = $this->grupoYPersonal();
+
+        $alumno = DB::selectOne('SELECT m.alumno_id FROM matriculas m
+            WHERE m.grupo_id=? and m.deleted_at is null and m.estado in ("MATR","ASIS")
+            ORDER BY m.alumno_id LIMIT 1', [$grupo->id]);
+
+        $periodo = DB::selectOne('SELECT id FROM periodos WHERE year_id=? and deleted_at is null ORDER BY numero LIMIT 1',
+            [$grupo->year_id]);
+
+        // `entrada = 0` es una falta de CLASE, que es la que se discute en una citación.
+        // `created_by` se rellena porque la consulta vieja une con `users` por `INNER
+        // JOIN`: sin él la fila se le caería por un segundo motivo y el test probaría dos
+        // cosas a la vez sin distinguirlas.
+        $quien = DB::selectOne('SELECT id FROM users WHERE deleted_at is null ORDER BY id LIMIT 1');
+
+        DB::insert('INSERT INTO ausencias (alumno_id, periodo_id, cantidad_ausencia, entrada, tipo, fecha_hora, created_by, created_at, updated_at)
+            VALUES (?,?,?,?,?,?,?,NOW(),NOW())',
+            [$alumno->alumno_id, $periodo->id, 1, 0, 'ausencia', '2026-09-11 08:00:00', $quien->id]);
+
+        // **Y el CONTROL, que es lo que hace que el `assertFalse` de abajo signifique
+        // algo.** En el seed no hay ni una fila de `ausencias`, así que sin esto la ruta
+        // vieja devolvería una lista vacía y el test pasaría por no encontrar nada —que es
+        // lo mismo que pasaría si estuviera rota—. Ésta es idéntica salvo `entrada=1`, o
+        // sea de portería: la vieja SÍ tiene que verla.
+        DB::insert('INSERT INTO ausencias (alumno_id, periodo_id, cantidad_ausencia, entrada, tipo, fecha_hora, created_by, created_at, updated_at)
+            VALUES (?,?,?,?,?,?,?,NOW(),NOW())',
+            [$alumno->alumno_id, $periodo->id, 1, 1, 'ausencia', '2026-09-12 08:00:00', $quien->id]);
+
+        $mia = $this->putJson('/api/ausencias/de-alumno', [
+            'alumno_id' => $alumno->alumno_id,
+            'year_id' => $grupo->year_id,
+        ], ['Authorization' => 'Bearer '.$token]);
+
+        $mia->assertStatus(200);
+
+        $this->assertNotNull(collect($mia->json('ausencias'))->firstWhere('fecha_hora', '2026-09-11 08:00:00'),
+            'La citación no trae la falta de clase, que es para lo que existe.');
+
+        // Y la vieja, con la misma fila en la base: no la ve.
+        $vieja = $this->getJson('/api/planillas/ver-ausencias', ['Authorization' => 'Bearer '.$token]);
+
+        $vieja->assertStatus(200);
+
+        $encontrada = false;
+        $control = false;
+
+        foreach ($vieja->json() as $g) {
+            foreach ($g['alumnos'] ?? [] as $a) {
+                foreach ($a['periodos'] ?? [] as $per) {
+                    foreach ($per['ausencias'] ?? [] as $au) {
+                        if (($au['fecha_hora'] ?? null) === '2026-09-11 08:00:00') {
+                            $encontrada = true;
+                        }
+                        if (($au['fecha_hora'] ?? null) === '2026-09-12 08:00:00') {
+                            $control = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        // El control primero: si esto falla, lo de abajo no prueba nada.
+        $this->assertTrue($control,
+            '`planillas/ver-ausencias` no devolvió ni siquiera la falta de portería, así que '
+            .'este test no está comparando dos rutas: está mirando una lista vacía.');
+
+        $this->assertFalse($encontrada,
+            '`planillas/ver-ausencias` devolvió una falta con `entrada=0`. Si eso cambió, la '
+            .'razón de ser de `ausencias/de-alumno` cambió con ello y hay que releerla: este '
+            .'test es el que sostiene la frase «es la única que ve las faltas de clase».');
+    }
+
     /** Un alumno que no existe es 404. */
     #[Test]
     public function la_citacion_de_un_alumno_que_no_existe_es_404(): void

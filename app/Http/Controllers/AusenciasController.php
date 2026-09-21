@@ -136,11 +136,38 @@ class AusenciasController extends Controller {
 	 * totales y no están en ningún día. Rellenarlas con la fecha de creación sería
 	 * inventarse el dato que el papel imprime.
 	 *
-	 * ## EL GUARD, dicho porque el front preguntó por él
+	 * ## LO QUE SUSTITUYE NO VE LO MISMO, Y ESO SE ESCRIBIÓ MAL AQUÍ EL 20 SEP
 	 *
-	 * `auth.personal` y nada dentro, como sus seis hermanas. **No abre nada nuevo**: las
-	 * mismas filas —y las de todos los demás alumnos del colegio— las sirve hoy
-	 * `GET planillas/ver-ausencias` con ese mismo guard. Esto es estrictamente menos.
+	 * Este bloque decía que `planillas/ver-ausencias` sirve «las mismas filas» y que esto
+	 * es «estrictamente menos». **Es falso**, lo encontró `myvc-front-38` conduciendo, y
+	 * se corrige con la medición delante:
+	 *
+	 *     WHERE a.entrada=true      <- PlanillasController::getVerAusencias
+	 *
+	 * O sea que aquella consulta **sólo ve las faltas de portería**. En la copia de
+	 * desarrollo eso son **17 filas de 46.478** — el 0,04 %; las otras 46.461 (44.393
+	 * `ausencia` y 2.068 `tardanza`) son de clase y **no las devuelve jamás**. Con el
+	 * alumno 1 del año 9: esta ruta contesta 3 y aquélla 0.
+	 *
+	 * Así que esto no es la misma consulta más barata: **es la única que ve las faltas de
+	 * clase de un alumno en su año**, que en una citación por inasistencia son justo las
+	 * que se discuten.
+	 *
+	 * ## EL GUARD, dicho porque el front preguntó por él — y con el delta escrito
+	 *
+	 * `auth.personal` y nada dentro, como sus siete hermanas. Pero **no es «no abre
+	 * nada»**, y eso hay que decirlo para que se pueda decidir:
+	 *
+	 *   - `ausencias/detailed/{asignatura_id}` ya sirve filas con `entrada=0` a cualquiera
+	 *     del personal, sin comprobar de quién es la asignatura — pero **sólo del periodo
+	 *     del token** (`$user->periodo_id`).
+	 *   - `users.periodo_id` **no lo cambia ninguna ruta**: lo escriben `Login` y
+	 *     `ContextoDeUsuario`, y siempre al periodo `actual`.
+	 *
+	 * O sea que lo que esta ruta añade son **las filas de los periodos ya cerrados del año
+	 * en curso**, que antes no devolvía ninguna. Mismo tipo de dato y misma población —y
+	 * sus recuentos ya viajan en cada boletín—, pero es un ensanche y no un atajo.
+	 * *Se dice en vez de repetir que no abre nada, que es lo que hacía este bloque.*
 	 *
 	 * **No lo alcanza un acudiente**, y es a propósito: la citación es el papel con el
 	 * que el colegio llama a la familia, no lo que la familia consulta. El día que se
