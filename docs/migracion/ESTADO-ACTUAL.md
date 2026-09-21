@@ -8,6 +8,139 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+> ## 🟡 ESPERA A JOSETH — LA CITACIÓN DESTAPÓ QUE `ver-ausencias` VE EL 0,04 % (20 sep 2026)
+>
+> **No hay nada escrito y no se va a escribir hasta que él lo diga.** Salió de conducir
+> `ausencias/de-alumno` contra la rama, y lo midieron las dos sesiones por separado.
+>
+> `PlanillasController::getVerAusencias` lleva `WHERE a.entrada=true`, o sea que **sólo ve
+> las faltas de portería**. Medido en la copia de desarrollo, y reproducido en los dos
+> lados:
+>
+> | año | filas de `ausencias` | las que ve `ver-ausencias` |
+> |---|---|---|
+> | 2026 | 3 | **0** |
+> | 2025 | 1.379 | 15 |
+> | 2024 | 10.311 | **0** |
+> | 2023 | 10.192 | **0** |
+> | **total vivas** | **46.478** | **17** (0,04 %) |
+>
+> **El informe de inasistencias de `myvc_front` lee de ahí.** No engañaba —su pie ya decía
+> «sólo faltas a la institución»— pero **el recorte declarado resulta ser casi todo**, y una
+> nota que dice «una clase suelta» se lee como un caso de borde cuando es el 99,96 %. El
+> front ya endureció ese aviso (`3ec30747`). *No hay que reparar una hoja que engaña: hay
+> que decidir si se le cambia la fuente a una hoja honesta que no puede hacer su trabajo.*
+>
+> ### LAS TRES SALIDAS, con lo que cuesta cada una
+>
+> 1. **Una ruta de faltas por GRUPO**, hermana de `ausencias/de-alumno`. Arregla el papel
+>    **sin cambiarle la pantalla a nadie**. Cuesta una ruta (647 → 648) y tres instantáneas.
+>    Es lo que recomiendan las dos sesiones.
+> 2. **Quitarle el `entrada=true` a `ver-ausencias`.** Cero rutas nuevas, pero **cambia lo
+>    que ve hoy** la planilla del front viejo en los dieciséis colegios y **dos** pantallas
+>    de `app2`. Eso no lo decide una sesión.
+> 3. **Dejarlo**: el papel sigue declarando el recorte, ahora con el aviso fuerte.
+>
+> **Nadie ha tocado `ver-ausencias` ni ha escrito la ruta nueva.** El detalle y las opciones
+> del lado del front están en `myvc_front/INFORMES-NUEVOS-CIERRE.md` §3.
+>
+> > **Y de paso se cayó una premisa del relevo del front** —«no hay ni una ausencia en todo
+> > el año, 29 alumnos matriculados, cero registros»—: estaba medida **por esa misma puerta
+> > ciega**. Hay 3 en 2026 y 46.478 en la base. Retirada allí. *Es el caso de libro de una
+> > cifra correcta sobre la población equivocada.*
+
+> ## ✅ LOS TRES INFORMES DEL CATÁLOGO — TRES RUTAS, UNA COLUMNA Y EL CONSECUTIVO (20 sep 2026)
+>
+> **Escrito en `.worktrees/inf`, rama `feat/los-tres-informes-del-catalogo`, base
+> `simonbolivar_testing_inf`.** Lo pidió `myvc_front` —sesión `myvc-front-38`— con la
+> especificación medida contra este código, y **el alcance lo eligió Joseth con el precio
+> delante**: lo pidió todo, citación incluida, y quemar el consecutivo por hoja. Contrato y
+> porqués en [48](48-los-informes-del-catalogo.md).
+>
+> De los seis informes nuevos de `/informes` iban tres; los tres que faltaban —directorio del
+> grupo, citación al acudiente y acta de nivelación— **no estaban sin hacer por maquetación: les
+> faltaba el dato.**
+>
+> ```
+> PUT  informes/nivelaciones-del-grupo   la sección A del acta, de una vez
+> PUT  ausencias/de-alumno               las faltas de uno, para la citación
+> GET  informes/membrete                 lo que hace falta para firmar un papel
+> ```
+>
+> **Router en 647**, contado en `.worktrees/inf`. **SIN FUNDIR: hay que recontarlas en el ÁRBOL
+> PRINCIPAL el día que entren.** Ninguna es pública: `RutasPreLoginTest` no se mueve.
+>
+> Más, sin gastar ruta: `alumno_id` en los alumnos de un acudiente; las tres columnas del acta en
+> la consulta de recuperaciones; `years.titulo_constancia_estudio` (6 instantáneas); y el
+> consecutivo **uno por hoja**.
+>
+> ### 🔴 EL AVISO QUE ESTABA ESCRITO ENCIMA DE LA CONSULTA, CUMPLIDO
+>
+> Tres líneas por encima de la consulta de recuperaciones ponía desde el 2 sep: *«los metadatos de
+> acta que A9 le añada no salen impresos hasta que alguien los nombre aquí»*. **Eso es
+> exactamente lo que había pasado**: `nivelada_at`, `nivelada_por` y `observacion` se escribían
+> desde entonces y **no las leía nadie**, así que el acta salía con la nota y sin fecha, sin
+> responsable y sin actividad. Es `profesores.tono` con el aviso ya puesto al lado.
+>
+> **Y el nombre sale de `users` y no de `profesores`**, que es donde la petición ofrecía las dos:
+> `nivelada_por` guarda un id de `users` y **0 de las 22 cuentas `Usuario` tienen ficha** en
+> `profesores`. Unir contra la ficha dejaría sin nombre justo a secretaría. Es la misma trampa que
+> `getRecorrido` cometió ese día; aquí se evitó **yendo a mirar quién escribe la columna antes de
+> elegir con qué unirla**.
+>
+> ### ⚠️ EL CONSECUTIVO VA DETRÁS DE UNA LLAVE, Y ESO NO ES RECORTAR LA DECISIÓN
+>
+> Joseth mandó quemar por hoja. El reparto va detrás de `consecutivo_por_hoja` porque el número
+> viaja en `year.contador_certificados` —uno para toda la respuesta— y los dieciséis llevan fronts
+> de versiones distintas: sin la llave, un colegio con el front viejo **gastaría 37 folios
+> oficiales para imprimir 37 veces el mismo número**. Quemar es la dirección irreversible. *Es la
+> decisión sin el efecto que no pidió,* y lo protege
+> `ConsecutivoPorHojaTest::sin_pedirlo_se_sigue_quemando_exactamente_uno`.
+>
+> ### Lo que queda apuntado
+>
+> La **tabla de certificados emitidos** sigue sin existir —un número quemado por abrir la pantalla
+> es indistinguible de uno emitido— y **reimprimir un acta vieja tal como se firmó no se puede**:
+> la fila de `notas` sólo guarda la última nivelación y `auditoria` **no la lee nadie** (`FROM
+> auditoria` en `app/`: **0**, contado sin truncar).
+
+> ### ✅ CONDUCIDO POR EL FRONT CONTRA LA RAMA, no sólo tipado (20 sep 2026)
+>
+> `myvc-front-38` lo probó contra un servidor de esta rama, **no contra `main`**, y cerró
+> dos de los tres informes: citación 12/12 (`d25f0a14`) y acta 11/11 (`82d5be16`). El
+> **directorio del grupo** se queda **sin empezar** —decisión de Joseth de parar ahí—, y le
+> falta la pantalla, **no el dato**: `a.id as alumno_id` ya está en esta rama.
+>
+> **El entorno sigue vivo por si hay que mirarlo antes de decidir**, y se apaga con dos
+> órdenes:
+>
+> ```bash
+> docker rm -f 8myvc-inf                                    # el servidor en :8081
+> # y la copia de la base, 215 MB:
+> docker exec 8myvc-database-1 sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" \
+>     -e "DROP DATABASE simonbolivar_inf"'
+> ```
+>
+> **No se sirvió desde `8myvc-app-1`, y el motivo importa si alguien lo repite**: ese
+> contenedor **sólo publica el 80**, así que un `artisan serve` dentro es inalcanzable, y
+> publicar otro puerto exige recrearlo —tumbando a las demás sesiones—. Se levantó un
+> contenedor **aparte** con la misma imagen y montaje. Y **no contra `simonbolivar`**:
+> aquella base tiene tres migraciones pendientes y **dos son de otras sesiones**, así que
+> migrarla habría sido aplicar trabajo ajeno a la base que comparten ocho. Se copió.
+>
+> > **⚠️ La copia lleva datos FALSOS sembrados para poder conducir**, y uno está mal a
+> > propósito de nadie: **las 12 nivelaciones del grupo 117 van con `nota_original: 70` y
+> > `nota_nivelacion: 72`, que en este colegio son notas IMPOSIBLES.** Medido después:
+> > `nota_minima_aceptada` es **30** y en 2026, descontando la semilla, hay **70 notas ≤50 y
+> > ninguna >50** —en toda la tabla, 108 de 1.166.707 pasan de 50, el 0,009 %—. O sea que la
+> > escala es 0–50 y las sembré sobre 100.
+> >
+> > *Lo descubrí al sembrar las recuperaciones, avisé al front de esa misma trampa… y no
+> > volví a mirar lo que ya había sembrado una hora antes.* No hizo daño —el acta las marca
+> > las doce con «se registró bajo otra regla», que es literalmente cierto, y la copia se
+> > borra— pero es la forma exacta en que una cifra mala sobrevive: **se aprende la regla y
+> > no se repasa lo hecho antes de aprenderla.**
+
 > ## ✅ LAS DOS RESPUESTAS DE JOSETH, APLICADAS — y la segunda destapó tres faltas (20 sep 2026)
 >
 > **La casilla que había aquí era un traspaso: `8myvc-6f` se quedó sin ventana con dos

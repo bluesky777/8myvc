@@ -16,6 +16,8 @@ use App\Http\Controllers\Informes\ExcelListadoDocentesController;
 use App\Http\Controllers\Informes\FormulariosInscripcionController;
 use App\Http\Controllers\Informes\InformesController;
 use App\Http\Controllers\Informes\InformesRecientesController;
+use App\Http\Controllers\Informes\MembreteController;
+use App\Http\Controllers\Informes\NivelacionesController;
 use App\Http\Controllers\Informes\NotasPerdidasController;
 use App\Http\Controllers\Informes\ObservadorController;
 use App\Http\Controllers\Informes\ObservadorHorizontalController;
@@ -53,6 +55,29 @@ Route::put('historiales/sesion', [HistorialesController::class, 'putSesion'])->m
 // InformesController
 Route::put('informes/cumpleanos-por-meses', [InformesController::class, 'putCumpleanosPorMeses'])->middleware('auth.personal');
 Route::put('informes/datos', [InformesController::class, 'putDatos'])->middleware('auth.personal');
+
+// MembreteController
+//
+// Lo que hace falta para encabezar y firmar un papel: `Year::datos()` y nada más.
+// Existe porque esos datos —el rector, su cédula, su firma, la ciudad, la resolución—
+// **sólo viven ahí** y `Year::datos()` no tenía ruta propia, así que la constancia de
+// estudio se los pedía a `GET piars-config`, que es la configuración de la ruta de
+// inclusión. Funcionaba; el nombre mentía, y estrechar aquel permiso rompería una
+// constancia. `auth.personal`, como sus vecinas de esta familia.
+Route::get('informes/membrete', [MembreteController::class, 'getIndex'])->middleware('auth.personal');
+
+// NivelacionesController
+//
+// La sección A del acta de nivelación: las filas de `notas` niveladas de un grupo y un
+// periodo, de una vez. **Las cinco rutas que tocan nivelar son de ESCRITURA sobre una
+// fila**, así que «¿quién presentó nivelación en el grupo X?» no la contestaba ninguna:
+// había que barrer asignatura por asignatura con `PUT notas/detailed` —la consulta más
+// pesada del proyecto— y en serie, porque paralelizarla tumba el backend del colegio.
+//
+// `auth.personal` **y nada dentro**, dicho a propósito: son exactamente las filas que
+// `notas/detailed` ya sirve con ese mismo guard, sólo que en un viaje en vez de doce.
+// Estrechar aquí y no allí sería un cartel y no un candado.
+Route::put('informes/nivelaciones-del-grupo', [NivelacionesController::class, 'putDelGrupo'])->middleware('auth.personal');
 
 // FormulariosInscripcionController
 //

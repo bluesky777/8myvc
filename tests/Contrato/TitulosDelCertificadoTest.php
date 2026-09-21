@@ -47,7 +47,14 @@ class TitulosDelCertificadoTest extends CasoDeContrato
      * Los nombres sí están, y se comparan con los del modelo en el primer caso: es lo
      * que hace que añadir un tercer título **no** pase inadvertido por aquí.
      */
-    private const COLUMNAS = ['titulo_certificado_final', 'titulo_certificado_periodos'];
+    private const COLUMNAS = [
+        'titulo_certificado_final', 'titulo_certificado_periodos',
+        // **La tercera entró el 20 sep 2026 y este renglón se puso rojo solo**, que es
+        // literalmente lo que promete el párrafo de arriba. La pidió `myvc_front` al
+        // entregar el informe de constancia de estudio, cuyo título era un literal
+        // dentro de la plantilla — el mismo defecto que tenían las dos primeras.
+        'titulo_constancia_estudio',
+    ];
 
     private function personal(): object
     {
@@ -227,6 +234,45 @@ class TitulosDelCertificadoTest extends CasoDeContrato
             'Guardar un título borró el encabezado del certificado.');
         $this->assertSame(Year::TITULOS_POR_DEFECTO['titulo_certificado_periodos'],
             $fila->titulo_certificado_periodos, 'Guardar un título pisó el otro.');
+    }
+
+    /**
+     * **Ningún título se puede escribir por `years/toggle-cambiar-valor`, y se
+     * comprueba columna a columna en vez de fiarse de la lista.**
+     *
+     * El conmutador genérico escribe **cualquier columna de `years` que exista** con
+     * sólo `auth.personal`, así que el invariante de «un título no puede quedarse
+     * vacío» que `putEncabezado` mantiene sería un cartel de «no hagas X» con la puerta
+     * de al lado abierta. `YearsController` corta los tres por nombre.
+     *
+     * Lo que este test añade es el **mecanismo**: recorre `Year::TITULOS_POR_DEFECTO`,
+     * o sea que **un título nuevo entra en el bucle solo**. Hasta hoy la lista del corte
+     * se escribía a mano y nada comprobaba que estuviera completa — la tercera columna
+     * habría entrado con la puerta abierta y en silencio, que es la forma exacta en que
+     * se cuela un agujero de éstos.
+     */
+    #[Test]
+    public function ningun_titulo_se_puede_vaciar_por_el_conmutador_generico(): void
+    {
+        $p = $this->personal();
+
+        foreach (array_keys(Year::TITULOS_POR_DEFECTO) as $columna) {
+            $antes = DB::table('years')->where('id', $p->year_id)->value($columna);
+
+            $r = $this->putJson('/api/years/toggle-cambiar-valor', [
+                'year_id' => $p->year_id,
+                'campo' => $columna,
+                'valor' => '',
+            ], ['Authorization' => 'Bearer '.$p->token]);
+
+            $r->assertStatus(422);
+
+            // Y el efecto, que es lo que importa: no basta con el código: la fila tiene
+            // que seguir como estaba. Un 422 con la escritura hecha es la respuesta que
+            // miente, que es la familia que `respuestas-que-mienten.py` persigue.
+            $this->assertSame($antes, DB::table('years')->where('id', $p->year_id)->value($columna),
+                "`{$columna}` se vació por `toggle-cambiar-valor` a pesar del 422.");
+        }
     }
 
     /** Y al revés: escribir el encabezado no toca los títulos. */

@@ -70,6 +70,25 @@ Route::post('ausencias/store', [AusenciasController::class, 'postStore'])->middl
 Route::delete('ausencias/destroy/{id}', [AusenciasController::class, 'deleteDestroy'])->middleware('auth.personal');
 Route::get('ausencias/detailed/{asignatura_id}', [AusenciasController::class, 'getDetailed'])->middleware('auth.personal');
 
+// Las faltas de UN alumno en UN año, para la citación al acudiente.
+//
+// **Ruta nueva y no un retoque de las siete de arriba**, y eso no es estilo: esta
+// familia la comparte `myvc_flutter`, que es una sola app para los dieciséis colegios y
+// cuya versión vieja convive con este backend durante meses. Es la misma razón por la
+// que nivelar estrenó endpoints en vez de enseñarle a `notas/update`.
+//
+// Lo que sustituye es `GET planillas/ver-ausencias`, que devuelve **todos los grupos del
+// año con todos sus alumnos y todos sus periodos** para citar a uno — **y aun así no ve lo
+// mismo**: aquella consulta lleva `WHERE a.entrada=true`, o sea **sólo las faltas de
+// portería**, que en la copia de desarrollo son 17 de 46.478. Las de clase no las devuelve
+// nunca. Esto no es aquélla más barata: es la única que ve las faltas de clase del año.
+//
+// El guard es el mismo `auth.personal` de sus siete hermanas, pero **no es «no abre
+// nada»**: lo que añade son las filas de los periodos ya cerrados del año, porque
+// `ausencias/detailed` sólo mira el periodo del token y ninguna ruta lo cambia. El porqué
+// entero, en la cabecera del método.
+Route::put('ausencias/de-alumno', [AusenciasController::class, 'putDeAlumno'])->middleware('auth.personal');
+
 // PlanillasAusenciasController
 Route::put('planillas-ausencias/tardanza-entrada', [PlanillasAusenciasController::class, 'putTardanzaEntrada'])->middleware('auth.personal');
 Route::get('planillas-ausencias/show-profesor/{profesor_id}', [PlanillasAusenciasController::class, 'getShowProfesor'])->middleware('auth.personal');

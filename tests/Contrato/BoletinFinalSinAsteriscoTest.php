@@ -80,9 +80,33 @@ class BoletinFinalSinAsteriscoTest extends CasoDeContrato
         'DefMateria', 'cantidad_ausencia', 'cantidad_tardanza', 'notas_perdidas',
     ];
 
-    /** Las ocho columnas de `recuperacion_final` que la consulta nombra. @var list<string> */
+    /**
+     * Las columnas de `recuperacion_final` que la consulta nombra, más el `username` de
+     * quien niveló.
+     *
+     * **Eran ocho y son doce desde el 20 sep 2026**, y las cuatro que entran son la razón
+     * entera de este test: el comentario de la consulta avisaba de que «los metadatos de
+     * acta que A9 le añada no salen impresos hasta que alguien los nombre aquí», y eso es
+     * exactamente lo que había pasado. `nivelada_at`, `nivelada_por` y `observacion` se
+     * escriben desde el 2 sep en las dos ramas de `putUpdateRecuperacion` y **no las leía
+     * nadie**, así que el acta de nivelación salía con la nota y sin fecha, sin
+     * responsable y sin actividad.
+     *
+     * `nivelada_por_username` **no es columna de la tabla**: sale del `LEFT JOIN users`, y
+     * va en esta lista y no en las calculadas porque **viaja siempre**, con `null` cuando
+     * la fila es anterior al acta — la misma razón que las tres de la definitiva de
+     * arriba (22 §3.1).
+     *
+     * **Y sale de `users` y no de `profesores` a propósito**: `nivelada_por` guarda un id
+     * de `users` y ninguna de las 22 cuentas de tipo `Usuario` tiene ficha en
+     * `profesores`, así que un `JOIN` contra la ficha dejaría sin nombre justo a
+     * secretaría, que es quien firma las actas.
+     *
+     * @var list<string>
+     */
     private const COLUMNAS_DE_UNA_RECUPERACION = [
         'alumno_id', 'asignatura_id', 'created_at', 'id', 'nota', 'updated_at', 'updated_by', 'year',
+        'nivelada_at', 'nivelada_por', 'nivelada_por_username', 'observacion',
     ];
 
     /**

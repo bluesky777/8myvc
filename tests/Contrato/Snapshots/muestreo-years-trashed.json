@@ -68,6 +68,7 @@
         "texto_acta_eval": "null",
         "titulo_certificado_final": "string",
         "titulo_certificado_periodos": "string",
+        "titulo_constancia_estudio": "string",
         "titulo_rector": "null",
         "unidad_displayname": "string",
         "unidades_displayname": "string",

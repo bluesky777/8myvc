@@ -60,8 +60,8 @@
         "con_guard": 5
     },
     "ausencias": {
-        "total": 7,
-        "con_guard": 7
+        "total": 8,
+        "con_guard": 8
     },
     "auth": {
         "total": 5,
@@ -232,8 +232,8 @@
         "con_guard": 6
     },
     "informes": {
-        "total": 10,
-        "con_guard": 10
+        "total": 12,
+        "con_guard": 12
     },
     "informes-recientes": {
         "total": 3,

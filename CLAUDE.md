@@ -1,6 +1,11 @@
 `8myvc` es la API del sistema escolar MyVc: Laravel 13 + PHP 8.4, ~37.000 líneas
-en `app/`, **127 ficheros de controlador — 130 clases** (**recontados el 20 sep 2026 en el ÁRBOL
-PRINCIPAL y después de fundir** el proceso de matrículas (`74d5028`), que entra con
+en `app/`, **129 ficheros de controlador — 132 clases** (**contados el 20 sep 2026 en
+`.worktrees/inf`**, con los tres informes del catálogo dentro: entran `MembreteController` y
+`NivelacionesController`. **SIN FUNDIR: hay que recontarlos en el ÁRBOL PRINCIPAL el día que
+entren** — la frase que lleva salvando el contador de rutas siete veces seguidas, aplicada por
+primera vez a éste, que es el que lleva semanas de retraso cada vez que se mira.
+Antes decían **127 y 130**, recontados el 20 sep 2026 en el ÁRBOL
+PRINCIPAL y después de fundir el proceso de matrículas (`74d5028`), que entra con
 `AspirantesController` y `PortalInscripcionController`. Antes decían 125 y 128, recontados ese
 mismo día al entrar `EstacionesController`, cuando **el contador llevaba una semana de retraso**:
 decía 118 y 121, que era cierto el 13 sep y falso desde la primera familia nueva de la semana.
@@ -8,13 +13,13 @@ Las órdenes que lo rehacen, porque una cifra sin su forma de rehacerla envejece
 ponga rojo:
 
 ```bash
-find app/Http/Controllers -name '*.php' | wc -l                                   # 128
-grep -rhoE '^[[:space:]]*(final )?(abstract )?class [A-Za-z_]+' app/Http/Controllers | wc -l  # 130
+find app/Http/Controllers -name '*.php' | wc -l                                   # 130
+grep -rhoE '^[[:space:]]*(final )?(abstract )?class [A-Za-z_]+' app/Http/Controllers | wc -l  # 132
 ```
 
-128 − 1 = **127**, porque `Concerns/ResuelveElUsuario.php` es un trait y no declara clase
-—**comprobado y no supuesto: sigue siendo el único fichero de la carpeta sin `class`**—; y 130 −
-127 = 3 porque `Alumnos/ImportarController.php` declara cuatro. *Siete controladores entraron entre
+130 − 1 = **129**, porque `Concerns/ResuelveElUsuario.php` es un trait y no declara clase
+—**comprobado y no supuesto: sigue siendo el único fichero de la carpeta sin `class`**—; y 132 −
+129 = 3 porque `Alumnos/ImportarController.php` declara cuatro. *Siete controladores entraron entre
 el 13 y el 20 de septiembre y nadie tocó este número — que es exactamente por lo que se cuenta y no
 se supone.* Antes decía, y se conserva el rastro: recontados el 13 sep 2026 al
 entrar `CompetenciasController` y `DesempenosController`; el 5 sep eran 115 y 118 al entrar
@@ -25,7 +30,36 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**644 rutas** (**recontadas con `route:list --json` el 20 sep 2026 en el ÁRBOL PRINCIPAL, sobre
+**647 rutas** (**contadas con `route:list --json` el 20 sep 2026 en `.worktrees/inf`. SIN FUNDIR:
+hay que recontarlas en el ÁRBOL PRINCIPAL el día que entren** — la frase que lleva salvando este
+número siete veces seguidas, puesta aquí por quien la escribe y no por quien la cumple.) Las
+**tres** que suben sobre las 644 son las de **los tres informes del catálogo** que le faltaban a
+`/informes` —`PUT informes/nivelaciones-del-grupo`, la sección A del acta; `PUT
+ausencias/de-alumno`, la citación; y `GET informes/membrete`, lo que hace falta para firmar un
+papel—, las tres con `auth.personal` y **ninguna pública**, así que `RutasPreLoginTest` no se
+mueve. Contrato en [48](docs/migracion/48-los-informes-del-catalogo.md).
+
+> **Y son TRES donde la petición y yo dijimos CUATRO.** Al ponerle el precio delante a Joseth
+> esta tanda se contó «cuatro rutas nuevas» sumando de memoria: son `nivelaciones-del-grupo`,
+> `de-alumno` y `membrete`, y la cuarta no existía — la columna `titulo_constancia_estudio` no
+> gasta ruta, y las dos consultas más anchas tampoco. *El número que se le enseña a alguien para
+> que decida se cuenta igual que el que se publica*, y éste se corrigió contando el router, no
+> discutiendo.
+
+> **Mueven TRES instantáneas y ni una más, comprobado y no supuesto**: las tres de siempre.
+> `informes` va **10 de 10** con guard y `ausencias` **7 de 7**, o sea las dos con más de dos
+> hermanas guardadas, así que `familias-que-nunca-entran-en-el-candado.json` **no se toca** y
+> `FamiliasQueNuncaEntranTest` sigue en **26**: ninguna de las tres escribe.
+
+> **Y esta tanda trae además una columna y una conducta nueva, que no gastan ruta y sí cuestan.**
+> `years.titulo_constancia_estudio` mueve **6 instantáneas** —medidas antes de escribirla con
+> `tools/lo-que-reparte-una-columna.py`—, y el consecutivo de certificados pasa a quemarse **uno
+> por hoja** en vez de uno por petición (decisión de Joseth del 20 sep, con el precio delante),
+> **detrás de la llave `consecutivo_por_hoja`**: sin ella un colegio con el front viejo gastaría
+> 37 folios oficiales para imprimir 37 veces el mismo número. La llave no es ceremonia — es lo
+> que hace que los dieciséis sigan exactamente como estaban hasta que su front se despliegue.
+
+El número anterior era **644**, **recontadas con `route:list --json` el 20 sep 2026 en el ÁRBOL PRINCIPAL, sobre
 `main` y después de fundir** (`74d5028`) — y coincidieron con las 644 contadas antes en
 `.worktrees/mat`, que es la única forma de saber que coincidía. Esta línea decía *«SIN FUNDIR: hay
 que recontarlas en el ÁRBOL PRINCIPAL el día que entren»* y **aquél fue ese día**: van **siete**
