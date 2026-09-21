@@ -57,6 +57,116 @@ class ImportacionReanudableTest extends CasoDeContrato
      * y hasta hoy no existía: «tardaba mucho» era todo lo que se sabía. Por eso
      * el test mira `inicio`, `fin` y `filas` y no solo el estado.
      */
+    /**
+     * **Sin tiempo, la importación PARA, lo dice, y no miente sobre lo hecho.**
+     *
+     * Es la pieza que Joseth pidió el 20 sep 2026 —*«lo más failover posible»*— y
+     * la única forma de conseguirlo en esta casa: **no hay cola**
+     * (`QUEUE_CONNECTION=sync`, cero `app/Jobs`) porque el hosting es cPanel
+     * compartido, así que una importación grande no puede irse a segundo plano. O
+     * cabe en la petición o se pierde. Lo que sí puede es caber en **varias**.
+     *
+     * Con el presupuesto en cero se agota antes del primer lote, que es el caso
+     * extremo y el único que se puede reproducir sin depender del reloj.
+     */
+    public function test_sin_tiempo_para_y_lo_dice_sin_cerrar_la_importacion(): void
+    {
+        [$token, $year] = $this->credenciales();
+        $archivo = $this->exportacionDeAlumnos($token);
+
+        config(['importacion.segundos_por_peticion' => 0]);
+
+        $r = $this->importar($archivo, $token, $year)->assertStatus(200);
+
+        $this->assertFalse($r->json('terminado'),
+            'Se quedó sin tiempo y dijo que había terminado: el front no volvería a llamar.');
+        $this->assertSame(0, $r->json('filas_hechas'));
+        $this->assertGreaterThan(0, $r->json('filas_totales'),
+            'No contó las filas del archivo, así que no puede decir cuántas faltan.');
+        $this->assertSame($r->json('filas_totales'), $r->json('faltan'));
+
+        $fila = $this->ultimaImportacion();
+
+        $this->assertNotSame(PuntoDeControlDeImportacion::COMPLETADA, $fila->estado,
+            'Cerró la importación sin haberla hecho: la siguiente subida creería que no hay nada pendiente.');
+    }
+
+    /**
+     * Y la otra mitad, que es la que de verdad importa: **volver a llamar
+     * termina el trabajo**, sin repetir lo hecho y sin duplicar a nadie.
+     *
+     * Este caso es el flujo entero del contrato nuevo, y por eso no se conforma
+     * con el 200: cuenta los alumnos antes y después de la segunda llamada, que
+     * es lo único que distingue «reanudó» de «volvió a empezar».
+     */
+    public function test_volver_a_llamar_termina_lo_que_quedo_a_medias(): void
+    {
+        [$token, $year] = $this->credenciales();
+        $archivo = $this->exportacionDeAlumnos($token);
+
+        // Primera pasada: sin tiempo, no escribe nada.
+        config(['importacion.segundos_por_peticion' => 0]);
+        $this->importar($archivo, $token, $year)->assertStatus(200);
+
+        $importacion = (int) $this->ultimaImportacion()->id;
+        $alumnosAntes = $this->cuantosAlumnos();
+
+        // Segunda: con tiempo de sobra, termina.
+        config(['importacion.segundos_por_peticion' => 120]);
+        $r = $this->importar($archivo, $token, $year)->assertStatus(200);
+
+        $this->assertTrue($r->json('terminado'), 'Con tiempo de sobra no terminó.');
+        $this->assertSame(0, $r->json('faltan'));
+        $this->assertTrue($r->json('reanudada'),
+            'Abrió una importación nueva en vez de continuar la que quedó a medias.');
+
+        $fila = $this->ultimaImportacion();
+
+        $this->assertSame($importacion, (int) $fila->id,
+            'La segunda llamada creó otra fila de `importaciones` en vez de seguir la misma.');
+        $this->assertSame(PuntoDeControlDeImportacion::COMPLETADA, $fila->estado);
+
+        $this->assertSame($alumnosAntes, $this->cuantosAlumnos(),
+            'Reanudar creó alumnos nuevos: el archivo es el export de los que ya están.');
+    }
+
+    /**
+     * **La marca se escribe una vez por LOTE, no una por fila.**
+     *
+     * Era 1 de las 6,7 consultas por fila que se midieron el 20 sep 2026, o sea
+     * el 15 % del coste del importador, y no hacía falta: dentro de la
+     * transacción del lote, escribirla al final da la misma garantía —si el lote
+     * cae, se van las filas y la marca juntas—.
+     *
+     * Se cuenta la consulta concreta y no el total, porque el total lo mueve
+     * cualquier cosa y entonces el test se volvería un adivino.
+     */
+    public function test_la_marca_se_escribe_una_vez_por_lote(): void
+    {
+        [$token, $year] = $this->credenciales();
+        $archivo = $this->exportacionDeAlumnos($token);
+
+        config(['importacion.segundos_por_peticion' => 120, 'importacion.filas_por_lote' => 25]);
+
+        $marcas = 0;
+        DB::listen(function ($q) use (&$marcas) {
+            if (str_contains($q->sql, 'UPDATE importaciones SET avance')) {
+                $marcas++;
+            }
+        });
+
+        $r = $this->importar($archivo, $token, $year)->assertStatus(200);
+
+        $filas = (int) $r->json('filas_hechas');
+        $esperadas = (int) ceil($filas / 25);
+
+        $this->assertGreaterThan(0, $filas, 'No se aplicó ninguna fila: esto no mide nada.');
+        $this->assertSame($esperadas, $marcas,
+            "Se escribió la marca {$marcas} veces para {$filas} filas en lotes de 25.\n"
+            .'Con una por fila ha vuelto el coste que este cambio quitó; con menos de las '
+            .'esperadas, hay un lote que escribió filas y no dejó marca — y ése se repetiría al reanudar.');
+    }
+
     public function test_la_importacion_no_va_dentro_de_una_transaccion_global(): void
     {
         [$token, $year] = $this->credenciales();
@@ -86,18 +196,26 @@ class ImportacionReanudableTest extends CasoDeContrato
     }
 
     /**
-     * Y la otra mitad del mismo mecanismo: la transacción POR FILA sigue estando.
+     * Y la otra mitad del mismo mecanismo: **hay una transacción por LOTE, y la
+     * hay**.
      *
-     * Sin ella, quitar el manejador global **sí** dejaría medio alumno en la base
+     * Sin ninguna, quitar el manejador global sí dejaría medio alumno en la base
      * —una fila son ocho escrituras—. O sea que estos dos casos no son el mismo
-     * medido dos veces: uno exige que no haya una envolvente, y el otro que sí haya
-     * la de dentro. *Un `+1` exacto es lo único que dice las dos cosas a la vez, y
-     * por eso se afirma con `assertSame` y no con `assertLessThan`.*
+     * medido dos veces: uno exige que **no** haya una envolvente de fichero, y el
+     * otro que **sí** haya la de dentro.
+     *
+     * > **Esta prueba se escribió por la mañana diciendo «una por FILA» y la puso
+     * > en rojo el cambio de la tarde, que fue a lotes. Se reescribe al invariante
+     * > nuevo, no se relaja**: sigue siendo un `assertSame` contra un número
+     * > calculado, porque *de menos* significa que algún lote escribió filas sin
+     * > dejar marca —y ésas se repetirían al reanudar—.
      */
-    public function test_cada_fila_va_en_su_propia_transaccion(): void
+    public function test_cada_lote_va_en_su_propia_transaccion(): void
     {
         [$token, $year] = $this->credenciales();
         $archivo = $this->exportacionDeAlumnos($token);
+
+        config(['importacion.segundos_por_peticion' => 120, 'importacion.filas_por_lote' => 25]);
 
         $abiertas = 0;
 
@@ -108,11 +226,13 @@ class ImportacionReanudableTest extends CasoDeContrato
         $this->importar($archivo, $token, $year)->assertStatus(200);
 
         $filas = (int) $this->ultimaImportacion()->filas;
+        $esperadas = (int) ceil($filas / 25);
 
         $this->assertGreaterThan(0, $filas, 'La importación no aplicó ninguna fila: esto no mide nada.');
-        $this->assertSame($filas, $abiertas,
-            'Se abrieron '.$abiertas." transacciones para {$filas} filas. Tiene que haber una por\n"
-            .'fila: si son menos, alguna fila y su marca dejaron de entrar juntas.');
+        $this->assertSame($esperadas, $abiertas,
+            'Se abrieron '.$abiertas." transacciones para {$filas} filas en lotes de 25.\n"
+            .'De más, se perdió el agrupado; de menos, hay filas que entraron fuera de toda '
+            ."transacción\ny pueden dejar medio alumno en la base.");
     }
 
     public function test_una_importacion_deja_su_rastro_medible(): void

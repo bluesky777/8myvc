@@ -5,6 +5,7 @@ namespace Tests\Contrato;
 use App\Models\Asignatura;
 use App\Models\Subunidad;
 use App\Models\Unidad;
+use App\Support\RepartoDeLaNota;
 use Illuminate\Support\Facades\DB;
 use Tests\Contrato\Concerns\LaPlanillaDelLienzo;
 
@@ -222,7 +223,7 @@ class LaParcialEnElBoletinTest extends CasoDeContrato
         $ctx = $this->laPlanillaDelLienzo();
 
         DB::table('years')->where('id', $ctx['year'])
-            ->update(['reparto_subunidades' => \App\Support\RepartoDeLaNota::PROMEDIO]);
+            ->update(['reparto_subunidades' => RepartoDeLaNota::PROMEDIO]);
 
         // La condición real de un año en `promedio`: la columna del peso, sin usar.
         $aCero = DB::table('subunidades')

@@ -108,13 +108,66 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
         'sin_primer_nombre' => 0,
     ];
 
-    public function __construct($year, $fixer, PuntoDeControlDeImportacion $punto)
+    /**
+     * Cuántas filas entran en una transacción, y por tanto **cada cuánto se
+     * escribe la marca**.
+     *
+     * No es un número de rendimiento suelto: es **el grano del failover**. Con
+     * 25, un corte pierde como mucho 25 filas de trabajo —que se rehacen solas
+     * al reanudar, porque el importador es idempotente por documento— y la marca
+     * se escribe 25 veces menos. Con 1 se vuelve al comportamiento anterior.
+     *
+     * Se queda corto a propósito: rehacer 25 filas cuesta milisegundos, y una
+     * transacción larga sobre `alumnos` en una MariaDB compartida la pagan los
+     * demás.
+     */
+    public const FILAS_POR_LOTE = 25;
+
+    /** El de verdad, que el colegio puede estrechar por `.env`. Ver `config/importacion.php`. */
+    private function filasPorLote(): int
+    {
+        return max(1, (int) config('importacion.filas_por_lote', self::FILAS_POR_LOTE));
+    }
+
+    /**
+     * Cuándo hay que parar y devolver el control, en segundos desde que empezó.
+     *
+     * **Es lo que convierte esto en algo que no se puede cortar.** cPanel tiene
+     * `max_execution_time` en 300 s y **no hay cola** —`QUEUE_CONNECTION` es
+     * `sync` y no existe un solo `app/Jobs`—, así que una importación grande no
+     * puede irse a segundo plano: o cabe en la petición o se pierde. Lo que sí
+     * puede es **caber en varias**.
+     *
+     * 20 s deja margen bajo cualquier tope razonable —el de PHP, el del proxy,
+     * el del navegador— y hace que el peor caso de un corte sea perder 20 s de
+     * trabajo en vez de los 300 que tardaba en morir.
+     */
+    public const SEGUNDOS_POR_PETICION = 20;
+
+    /** Cuándo se acaba el tiempo de esta petición. */
+    private float $limite;
+
+    /** Si se paró por tiempo: es lo que hace que la respuesta diga «falta». */
+    public bool $agotado = false;
+
+    /** Filas de datos que tiene el archivo, contadas hoja a hoja según se leen. */
+    public int $filasDelArchivo = 0;
+
+    public function __construct($year, $fixer, PuntoDeControlDeImportacion $punto, ?float $segundos = null)
     {
         $this->sheetNames = [];
         $this->sheetData = [];
         $this->year = $year;
         $this->fixer = $fixer;
         $this->punto = $punto;
+        $this->limite = microtime(true)
+            + ($segundos ?? (float) config('importacion.segundos_por_peticion', self::SEGUNDOS_POR_PETICION));
+    }
+
+    /** Si ya no queda tiempo en esta petición. */
+    private function sinTiempo(): bool
+    {
+        return microtime(true) >= $this->limite;
     }
 
     /**
@@ -130,6 +183,21 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
         $this->sheetData[$sheetName] = $array;
         $now = Carbon::now('America/Bogota');
         $abrev = $sheetName;
+
+        // **El total se cuenta SIEMPRE, incluso agotado el tiempo.** maatwebsite
+        // llama a este método para todas las pestañas aunque nosotros ya no
+        // escribamos, así que aquí es donde se sabe cuántas filas tiene el
+        // archivo entero — y sin ese número la respuesta no puede decir «faltan
+        // 1.200», que es lo único que le dice al front si tiene que volver.
+        $this->filasDelArchivo += count($array);
+
+        // Se acabó el tiempo en una pestaña anterior: ésta ni se mira. Y NO se
+        // cuentan como `ya_estaban_hechas`, que significa otra cosa —aplicadas en
+        // una tanda anterior— y confundirlas haría que el informe final dijera
+        // que se hizo un trabajo que no se hizo.
+        if ($this->agotado) {
+            return;
+        }
 
         // Una hoja que quedó entera detrás del punto de control se salta sin
         // mirar siquiera qué grupo era. Reanudar un archivo de dieciséis
@@ -156,27 +224,59 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
         $grupo = $grupos[0];
         $results = $array;
 
-        for ($f = 0; $f < count($results); $f++) {
+        $total = count($results);
 
-            if ($this->punto->yaProcesada($abrev, $f)) {
-                $this->hechos['ya_estaban_hechas']++;
+        $porLote = $this->filasPorLote();
 
-                continue;
+        for ($desde = 0; $desde < $total; $desde += $porLote) {
+            $hasta = min($desde + $porLote, $total) - 1;
+
+            // **El tiempo se mira ENTRE lotes y no dentro.** Un lote empezado se
+            // termina: cortarlo por la mitad no ahorra nada —la transacción haría
+            // rollback y ese trabajo se perdería— y en cambio rompe el
+            // invariante. Lo que cuesta mirarlo aquí es que la petición se pasa,
+            // como mucho, lo que tarde un lote.
+            if ($this->sinTiempo()) {
+                $this->agotado = true;
+
+                return;
             }
 
-            $this->hechos['filas']++;
-
-            // La fila entera y su marca de avance, en la MISMA transacción.
+            // Las filas del lote y su marca, en la MISMA transacción.
             //
             // Ahí está toda la garantía: una fila de alumno son ocho escrituras
             // —alumno, usuario, rol, matrícula y los dos acudientes con sus
             // parentescos— y sin transacción el proceso puede morir con tres
             // hechas. Antes eso dejaba medio alumno en la base y nadie sabía
-            // cuál; ahora la fila entra entera o no entra, y el punto de control
-            // no puede mentir porque se guarda con ella.
-            DB::transaction(function () use ($results, $f, $grupo, $abrev, $now) {
-                $this->procesarFila($results[$f], $grupo, $abrev, $now);
-                $this->punto->anotar($abrev, $f);
+            // cuál; ahora **el lote entero entra o no entra**, y el punto de
+            // control no puede mentir porque se guarda con él.
+            //
+            // La marca se escribe **una vez por lote** y no una por fila:
+            // `apuntar()` la mueve en memoria y `volcar()` la escribe al final,
+            // dentro de la misma transacción. Si el lote falla se van las filas y
+            // la marca a la vez, que es exactamente lo que tiene que pasar.
+            DB::transaction(function () use ($results, $desde, $hasta, $grupo, $abrev, $now) {
+                $huboAlguna = false;
+
+                for ($f = $desde; $f <= $hasta; $f++) {
+                    if ($this->punto->yaProcesada($abrev, $f)) {
+                        $this->hechos['ya_estaban_hechas']++;
+
+                        continue;
+                    }
+
+                    $this->hechos['filas']++;
+                    $this->procesarFila($results[$f], $grupo, $abrev, $now);
+                    $this->punto->apuntar($abrev, $f);
+                    $huboAlguna = true;
+                }
+
+                // Un lote entero ya aplicado no reescribe la marca: reanudar un
+                // archivo por la última pestaña no puede costar una escritura por
+                // cada lote que ya estaba hecho.
+                if ($huboAlguna) {
+                    $this->punto->volcar();
+                }
             });
         }
     }
@@ -279,17 +379,24 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
                 ];
             }
 
-            // El «no eliminar» de esta línea era literal, y decía la verdad:
-            // esto ERA el punto de control. Dejaba en `debugging` una fila por
-            // alumno para poder mirar a mano por dónde iba la importación
-            // cuando el servidor la cortaba.
+            // **Aquí había un `Debugging::pin()` por alumno, y se retira el 20 sep
+            // 2026 con la decisión de Joseth de hacer esto rápido y reanudable.**
             //
-            // Ya no hace ese trabajo —lo hace `importaciones`, que el código
-            // sabe leer y esto no— y se queda porque es el único rastro de las
-            // importaciones anteriores a hoy en las dieciséis bases. Borrarla
-            // es una limpieza aparte, con su decisión: `debugging` crece una
-            // fila por alumno importado y no se limpia nunca.
-            Debugging::pin('Alum_id: '.$alumno['id'], 'Grupo: '.$abrev, 'Grupo_id: '.$grupo->id);
+            // Su propio comentario ya decía que era el punto de control *de
+            // antes* —una fila en `debugging` por alumno, para mirar a mano por
+            // dónde iba la importación cuando el servidor la cortaba— y que ya no
+            // hacía ese trabajo, porque lo hace `importaciones`, que el código
+            // sabe leer y aquello no.
+            //
+            // Lo que faltaba era el precio, medido ese día: **una consulta por
+            // fila, el 15 % de las del importador** —6,7 por fila, de las que 6
+            // son las escrituras útiles— y **17.457 filas acumuladas** sólo en la
+            // copia de desarrollo, que no se limpian nunca.
+            //
+            // **La tabla NO se borra y lo escrito sigue ahí**: es el único rastro
+            // de las importaciones anteriores a hoy en las dieciséis bases, y
+            // vaciarla es una limpieza aparte con su propia decisión. Lo que para
+            // es que siga creciendo por un trabajo que ya hace otro.
 
             // Acudiente 1
             $this->modificar_acudiente1($alumno, $now, $res['consultaA1']);
@@ -660,7 +767,13 @@ class ImportarController extends Controller
 
             $punto->guardarAvisos($fixer->avisos);
 
-            $punto->completar();
+            // **Sólo se cierra si de verdad terminó.** Si se acabó el tiempo, la
+            // fila se queda en `en_proceso` con su avance, que es justo lo que
+            // `abrir()` sabe reanudar en la petición siguiente. Cerrarla aquí
+            // sería decirle a la próxima subida que no hay nada pendiente.
+            if (! $Import->agotado) {
+                $punto->completar();
+            }
 
             // Aquí había un bucle que llenaba un `$data` que no devolvía nadie,
             // instanciando `AlumnosImport` una vez por hoja. Se va con el
@@ -689,6 +802,29 @@ class ImportarController extends Controller
                 'filas_del_archivo' => $punto->filas(),
                 'hechos' => $Import->hechos,
                 'avisos' => $fixer->avisos,
+
+                // **EL CONTRATO NUEVO DEL 20 SEP 2026: `terminado` decide si el
+                // cliente tiene que volver a llamar.**
+                //
+                // No hay cola en esta casa —`QUEUE_CONNECTION` es `sync` y no hay
+                // un solo `app/Jobs`— y cPanel corta a los 300 s, así que una
+                // importación grande no puede irse a segundo plano. Lo que hace es
+                // caber en varias peticiones: cada una escribe lo que le da tiempo
+                // (`SEGUNDOS_POR_PETICION`), deja el punto de control y dice si
+                // falta.
+                //
+                // **`terminado: false` no es un error**: es «vuelve a subir el
+                // mismo archivo». Se reanuda solo, porque la huella es del
+                // contenido y `abrir()` continúa la fila pendiente.
+                //
+                // Una pantalla vieja que no lea este campo **no se rompe**: ve un
+                // 200 con sus `hechos` y, como antes, sigue necesitando que
+                // alguien vuelva a subir — sólo que ahora al volver a subir no
+                // repite lo hecho. *Degradarse bien.*
+                'terminado' => ! $Import->agotado,
+                'filas_totales' => $Import->filasDelArchivo,
+                'filas_hechas' => $punto->filas(),
+                'faltan' => max(0, $Import->filasDelArchivo - $punto->filas()),
 
                 // Qué se hizo con lo que la persona decidió. Sin esto, una
                 // respuesta ignorada en silencio no la vería nadie — y el
