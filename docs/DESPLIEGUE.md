@@ -237,11 +237,23 @@ contexto contesta `SQLSTATE[42S22] Unknown column 'y.regla_nivelacion' in 'field
 > **Medido el 19 sep 2026 por la noche en el árbol principal, sobre `main` tras vaciar la cola de
 > ramas (`8279c62`):**
 >
-> | | decía (5 sep, `24967af`) | es hoy (19 sep) |
-> |---|---|---|
-> | commits | **321** | **632** |
-> | migraciones | **SIETE**, cuatro bloqueantes | **25** |
-> | rutas | 578 | **615** |
+> | | decía (5 sep, `24967af`) | es hoy (19 sep) | **REMEDIDO el 20 sep (`f4177a7`)** |
+> |---|---|---|---|
+> | commits | **321** | **632** | **771** |
+> | migraciones | **SIETE**, cuatro bloqueantes | **25** | **34** |
+> | rutas | 578 | **615** | **647** |
+>
+> **Y la tercera columna trae lo que ninguna de las otras dos midió: el esquema.** Comparadas dos
+> bases —una con la tanda y otra con las migraciones que había en `9474b50`—, la tanda son
+> **23 tablas nuevas, 43 columnas nuevas y DOS columnas que se retiran**:
+> `matriculas.boletin_independiente`, la que ya estaba escrita aquí, y **`areas.jefe_id`**, que no
+> lo estaba. Cero lectores de `jefe_id` en los cuatro clientes, comprobado uno a uno.
+>
+> **Y las rutas: 543 → 647, y sigue yéndose UNA SOLA**, la del aviso L. O sea que las dos filas de
+> «lo único que un cliente puede perder» aguantan quince días y trescientos commits después,
+> restando los 61 snapshots de contrato del rango: sólo pierden claves `ChangesAsked/to-me` (las
+> siete de auditoría de **K**, que Flutter no lee) y `areas`/`materias` (`jefe_id`). Las demás
+> **sólo ganan**.
 >
 > **No se rehace la tabla de abajo aquí, y es a propósito**: lo que hay debajo es *lo que se midió
 > el día de aquel despliegue*, y la regla de `CLAUDE.md` es que se remide **el día del siguiente**,
@@ -814,19 +826,31 @@ colegio se arregla antes de tocar el siguiente.**
 `git pull` → `php artisan migrate --force` → **la comprobación de abajo** → un boletín y un login
 **antes de pasar al siguiente colegio**.
 
-### La comprobación de diez segundos, que ahora son siete migraciones y no una
+### La comprobación de diez segundos, que ya no son siete migraciones sino treinta y cuatro
 
 `php artisan migrate:status` **no basta**: dice que la migración corrió, no que la columna esté.
 Esto pregunta por el esquema, que es lo que leen las consultas:
 
 ```bash
-php artisan tinker --execute='$f=[]; foreach ([["years","regla_nivelacion"],["years","puestos_con_bol_independiente"],["years","horario_version_id"],["notas","nota_original"],["notas_finales","nota_nivelacion"],["recuperacion_final","nivelada_at"],["subunidades","rubrica_id"],["profesores","tono"],["unidades_por_defecto","nivel_educativo_id"],["unidades_por_defecto","materia_id"]] as $c) { if (!Schema::hasColumn($c[0],$c[1])) $f[]=$c[0].".".$c[1]; } foreach (["rubricas","rubrica_criterios","rubrica_niveles","rubrica_descriptores","rubrica_valoraciones","horario_versiones","horario_lecciones","horario_pieza_docente"] as $t) { if (!Schema::hasTable($t)) $f[]="tabla ".$t; } if (!DB::table("permissions")->where("name","can_edit_plantilla_notas")->exists()) $f[]="permiso can_edit_plantilla_notas"; if (Schema::hasColumn("matriculas","boletin_independiente")) $f[]="matriculas.boletin_independiente SIGUE AHI"; echo ($f ? "FALTA -> ".implode(" | ",$f) : "OK - la tanda entera dentro").PHP_EOL;'
+php artisan tinker --execute='$f=[]; foreach ([["asignaturas","porcentaje_area"],["calendario","descripcion"],["calendario","recordatorio_enviado_at"],["calendario","recordatorio_minutos"],["grupos","ih"],["importaciones","avisos"],["importaciones","filas_totales"],["importaciones","respuestas"],["notas","nivelacion_obs"],["notas","nivelada_at"],["notas","nivelada_por"],["notas","nota_nivelacion"],["notas","nota_original"],["notas_finales","nivelacion_obs"],["notas_finales","nivelada_at"],["notas_finales","nivelada_por"],["notas_finales","nota_nivelacion"],["notas_finales","nota_original"],["periodos","cierre_sin_calificar"],["profesores","tono"],["recuperacion_final","nivelada_at"],["recuperacion_final","nivelada_por"],["recuperacion_final","observacion"],["requisitos_alumno","cerrado_at"],["requisitos_alumno","cerrado_por"],["requisitos_alumno","motivo_devolucion"],["requisitos_matricula","bloquea"],["subunidades","rubrica_id"],["unidades_por_defecto","materia_id"],["unidades_por_defecto","nivel_educativo_id"],["years","cierre_sin_calificar"],["years","desempeno_displayname"],["years","desempenos_displayname"],["years","genero_desempeno"],["years","horario_version_id"],["years","modelo_evaluacion"],["years","mostrar_nota_numerica_boletin"],["years","puestos_con_bol_independiente"],["years","regla_nivelacion"],["years","reparto_subunidades"],["years","titulo_certificado_final"],["years","titulo_certificado_periodos"],["years","titulo_constancia_estudio"]] as $c) { if (!Schema::hasColumn($c[0],$c[1])) $f[]=$c[0].".".$c[1]; } foreach (["accesos_favoritos","aspirantes","calendario_destinatarios","citas_admision","colillas_inscripcion","config_formulario_inscripcion","config_pasarela","desempenos_por_defecto","documentos_admision","envios_estacion","horario_lecciones","horario_pieza_docente","horario_versiones","informes_recientes","jefes_de_area","notas_estacion","ordenes_inscripcion","pagos_inscripcion","rubrica_criterios","rubrica_descriptores","rubrica_niveles","rubrica_valoraciones","rubricas"] as $t) { if (!Schema::hasTable($t)) $f[]="tabla ".$t; } if (Schema::hasColumn("matriculas","boletin_independiente")) $f[]="matriculas.boletin_independiente SIGUE AHI"; if (Schema::hasColumn("areas","jefe_id")) $f[]="areas.jefe_id SIGUE AHI"; if (!DB::table("permissions")->where("name","can_edit_plantilla_notas")->exists()) $f[]="permiso can_edit_plantilla_notas"; echo ($f ? "FALTA -> ".implode(" | ",$f) : "OK - la tanda entera dentro").PHP_EOL;' 
 ```
 
 > **Esto pregunta por COSAS, no por migraciones, y desde la consolidación no son lo mismo.** La
-> tanda son **siete ficheros** y esta comprobación hace **veinte preguntas**: diez columnas, ocho
-> tablas, **una fila de `permissions`** y **una columna que tiene que haber DESAPARECIDO**
-> (`matriculas.boletin_independiente`, la única de la tanda que se retira). Se toca **esto** en
+> tanda son **treinta y cuatro ficheros** y esta comprobación hace **sesenta y nueve preguntas**:
+> **43 columnas**, **23 tablas**, **una fila de `permissions`** y **DOS columnas que tienen que
+> haber DESAPARECIDO** — `matriculas.boletin_independiente` y **`areas.jefe_id`**, que se retira
+> con `2026_09_17_200000_jefe_de_area_por_anio` y a la que nadie había puesto una línea aquí.
+>
+> **Y desde el 20 sep 2026 la lista no se escribe a mano: se genera.** Se montan dos bases —el
+> esquema congelado con las migraciones que hay en `9474b50`, y el mismo con las 34— y se restan
+> sus `information_schema`. Una lista escrita a mano se queda corta en silencio, que es lo que le
+> pasó a `areas.jefe_id`; una restada no puede. **Con su control negativo**: contra la base sin la
+> tanda imprime las 66 que faltan, y contra la migrada sólo el permiso —que en una base de TESTS
+> siempre falta por lo que dice el aviso de abajo—.
+>
+> *Lo que decía antes de ese día, cuando la tanda eran siete ficheros: «veinte preguntas: diez
+> columnas, ocho tablas, una fila de `permissions` y una columna que tiene que haber
+> DESAPARECIDO».* Se toca **esto** en
 > cuanto la tanda añade algo, y no
 > se espera al día del despliegue como las tablas de arriba: aquéllas son lo que se midió el día
 > que se midió; **este fragmento es una comprobación que alguien va a ejecutar**, y una que no
