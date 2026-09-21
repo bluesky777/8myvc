@@ -547,8 +547,17 @@ class PlantillaNotasController extends Controller
                     // sabiendas de que mueve definitivas de alumnos ya calificados, y lo que
                     // hacía peligrosa esa combinación era el borrado, no el cambio de peso:
                     // desde que `fundirEn()` actualiza en vez de rehacer, las notas se quedan
-                    // donde están y lo único que se mueve es el reparto. El contador se queda
-                    // en el sitio —a cero— porque es contrato de tres pantallas.
+                    // donde están y lo único que se mueve es el reparto.
+                    //
+                    // **`saltadas_por_notas` se queda en la respuesta, a cero, y eso NO es un
+                    // descuido**: lo leen tres pantallas y quitarlo las rompería. Lo que sí
+                    // hizo el front el 20 sep 2026 es **dejar de pintarlo** —un renglón que ya
+                    // no puede decir nada ocupa el sitio de otro que sí—, y lo sujeta allí una
+                    // prueba que **manda 99 a propósito y exige que no salga**.
+                    //
+                    // O sea que **volver a llenar este contador pone `myvc_front` en rojo**, a
+                    // propósito y no por accidente: obliga a decidir otra vez en vez de
+                    // enseñarlo sin pensar. Quien lo repueble tiene que hablar con el front.
                 }
 
                 $candidatas[] = [
