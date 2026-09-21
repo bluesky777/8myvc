@@ -358,3 +358,8 @@ Joseth decidió el 20 sep quemarlo por hoja.
   > mirar.*
 
   Es una tarea, no un hueco de este lote.
+
+- **La fuente del informe de inasistencias.** `ver-ausencias` ve 17 de 46.478 filas, y ese
+  informe lee de ahí. Las tres salidas —ruta por grupo, quitarle el filtro, o dejarlo— y
+  lo que cuesta cada una están en [`ESTADO-ACTUAL.md`](ESTADO-ACTUAL.md). **Espera a
+  Joseth: no se ha escrito nada.**

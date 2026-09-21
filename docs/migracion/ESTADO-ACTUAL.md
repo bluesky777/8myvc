@@ -8,6 +8,47 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+> ## 🟡 ESPERA A JOSETH — LA CITACIÓN DESTAPÓ QUE `ver-ausencias` VE EL 0,04 % (20 sep 2026)
+>
+> **No hay nada escrito y no se va a escribir hasta que él lo diga.** Salió de conducir
+> `ausencias/de-alumno` contra la rama, y lo midieron las dos sesiones por separado.
+>
+> `PlanillasController::getVerAusencias` lleva `WHERE a.entrada=true`, o sea que **sólo ve
+> las faltas de portería**. Medido en la copia de desarrollo, y reproducido en los dos
+> lados:
+>
+> | año | filas de `ausencias` | las que ve `ver-ausencias` |
+> |---|---|---|
+> | 2026 | 3 | **0** |
+> | 2025 | 1.379 | 15 |
+> | 2024 | 10.311 | **0** |
+> | 2023 | 10.192 | **0** |
+> | **total vivas** | **46.478** | **17** (0,04 %) |
+>
+> **El informe de inasistencias de `myvc_front` lee de ahí.** No engañaba —su pie ya decía
+> «sólo faltas a la institución»— pero **el recorte declarado resulta ser casi todo**, y una
+> nota que dice «una clase suelta» se lee como un caso de borde cuando es el 99,96 %. El
+> front ya endureció ese aviso (`3ec30747`). *No hay que reparar una hoja que engaña: hay
+> que decidir si se le cambia la fuente a una hoja honesta que no puede hacer su trabajo.*
+>
+> ### LAS TRES SALIDAS, con lo que cuesta cada una
+>
+> 1. **Una ruta de faltas por GRUPO**, hermana de `ausencias/de-alumno`. Arregla el papel
+>    **sin cambiarle la pantalla a nadie**. Cuesta una ruta (647 → 648) y tres instantáneas.
+>    Es lo que recomiendan las dos sesiones.
+> 2. **Quitarle el `entrada=true` a `ver-ausencias`.** Cero rutas nuevas, pero **cambia lo
+>    que ve hoy** la planilla del front viejo en los dieciséis colegios y **dos** pantallas
+>    de `app2`. Eso no lo decide una sesión.
+> 3. **Dejarlo**: el papel sigue declarando el recorte, ahora con el aviso fuerte.
+>
+> **Nadie ha tocado `ver-ausencias` ni ha escrito la ruta nueva.** El detalle y las opciones
+> del lado del front están en `myvc_front/INFORMES-NUEVOS-CIERRE.md` §3.
+>
+> > **Y de paso se cayó una premisa del relevo del front** —«no hay ni una ausencia en todo
+> > el año, 29 alumnos matriculados, cero registros»—: estaba medida **por esa misma puerta
+> > ciega**. Hay 3 en 2026 y 46.478 en la base. Retirada allí. *Es el caso de libro de una
+> > cifra correcta sobre la población equivocada.*
+
 > ## ✅ LOS TRES INFORMES DEL CATÁLOGO — TRES RUTAS, UNA COLUMNA Y EL CONSECUTIVO (20 sep 2026)
 >
 > **Escrito en `.worktrees/inf`, rama `feat/los-tres-informes-del-catalogo`, base
