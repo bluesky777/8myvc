@@ -351,6 +351,10 @@
         "total": 3,
         "con_guard": 3
     },
+    "planilla-offline": {
+        "total": 5,
+        "con_guard": 5
+    },
     "planillas": {
         "total": 5,
         "con_guard": 5

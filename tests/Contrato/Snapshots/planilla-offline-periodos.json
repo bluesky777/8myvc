@@ -1,0 +1,36 @@
+{
+    "escala_maxima": "int",
+    "escala_minima": "int",
+    "nota_minima": "int",
+    "periodo_actual_id": "int",
+    "periodos": [
+        {
+            "abierto": "bool",
+            "asignaturas": [
+                {
+                    "abrev_grupo": "string",
+                    "alias_materia": "string",
+                    "alumnos": "int",
+                    "asignatura_id": "int",
+                    "grupo_id": "int",
+                    "indicadores": "int",
+                    "materia": "string",
+                    "nombre_grupo": "string",
+                    "sin_pasar": "int"
+                }
+            ],
+            "id": "int",
+            "numero": "int"
+        }
+    ],
+    "profesor": {
+        "id": "int",
+        "nombre": "string"
+    },
+    "reparto": "string",
+    "subunidad_displayname": "string",
+    "subunidades_displayname": "string",
+    "unidad_displayname": "string",
+    "unidades_displayname": "string",
+    "year_id": "int"
+}

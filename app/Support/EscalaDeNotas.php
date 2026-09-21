@@ -78,16 +78,35 @@ final class EscalaDeNotas
         return self::$cache[$yearId] = $fila?->mx === null ? null : (int) $fila->mx;
     }
 
+    /**
+     * Los suelos ya resueltos, por año. Ver {@see $cache}.
+     *
+     * **Faltaba, y no era gratis.** `maximo()` se cacheó desde el primer día por
+     * `putLote`; `minimo()` se quedó fuera y lo llama el mismo `motivoSiNoCabeEnAnio`
+     * en cada valor que estudia. Medido el 21 sep 2026 contra `caz_zaragoza` con el
+     * ensayo de la planilla sin internet —26 hojas, 893 casillas, **todas**
+     * reescritas—: **1.130 consultas antes y 240 después**. Las 890 que se van son
+     * exactamente una por casilla con valor, y el mismo ahorro se lo lleva `putLote`,
+     * que valida hasta 200 notas por petición.
+     *
+     * @var array<int, ?int>
+     */
+    private static array $suelos = [];
+
     /** El suelo, por el mismo camino. Hoy es 0 en todos los años de esta base. */
     public static function minimo(int $yearId): ?int
     {
+        if (array_key_exists($yearId, self::$suelos)) {
+            return self::$suelos[$yearId];
+        }
+
         $fila = DB::selectOne(
             'SELECT MIN(porc_inicial) AS mn FROM escalas_de_valoracion
               WHERE year_id = ? AND deleted_at IS NULL',
             [$yearId]
         );
 
-        return $fila?->mn === null ? null : (int) $fila->mn;
+        return self::$suelos[$yearId] = $fila?->mn === null ? null : (int) $fila->mn;
     }
 
     /**
@@ -174,9 +193,16 @@ final class EscalaDeNotas
         }
     }
 
-    /** Sólo para los tests: la caché es de la petición y ellos hacen varias. */
+    /**
+     * Sólo para los tests: la caché es de la petición y ellos hacen varias.
+     *
+     * **Las dos, y tiene que seguir siendo las dos.** Un `olvidar()` que limpiara
+     * sólo el techo dejaría el suelo del año anterior vivo, y eso no da error: da un
+     * rango que mezcla dos años y sólo se nota en el test que estrena una escala.
+     */
     public static function olvidar(): void
     {
         self::$cache = [];
+        self::$suelos = [];
     }
 }

@@ -996,6 +996,61 @@ class Autoriza
     }
 
     /**
+     * **Bajarse el libro de Excel de OTRO docente** — las tres rutas de
+     * `planilla-offline/*` con `?profesor_id=` distinto del propio.
+     *
+     * Fase 1 de `myvc_front/PLAN-NOTAS-SIN-INTERNET.md`, y nace de su §3.4, que es
+     * una medición y no una opinión:
+     *
+     * ```php
+     * // app/User.php:377 — pueden_editar_notas
+     * if ($user->tipo == 'Profesor' && $user->profes_pueden_editar_notas == 0) abort(400, ...);
+     * else if (($user->is_superuser) || $user->tipo == 'Profesor') { }
+     * else abort(403, 'No tienes permiso.');
+     * ```
+     *
+     * Ahí pasan **el tipo `Profesor` y el superusuario, y nadie más**. Un
+     * coordinador con rol de admin que no sea superusuario recibe 403 tenga el rol
+     * que tenga. O sea que la D4 —*coordinación puede subir el libro de cualquier
+     * docente*— **no es una casilla: es un camino de autorización que no existía**,
+     * y por eso se escribe aquí y no parcheando `pueden_editar_notas`, de donde
+     * cuelgan los cuatro clientes.
+     *
+     * ## Por qué esta puerta es MÁS ancha que la de escribir, y puede serlo
+     *
+     * Las tres rutas son de **lectura**. Lo que sale por ellas es la planilla que
+     * esa persona ya puede ver por la web —`notas/detailed`, `planillas/*`,
+     * `bolfinales/*` van todas con `auth.personal`— sólo que en un `.xlsx`. La
+     * escritura de la fase 2 **volverá a autorizar cada nota** contra «¿es esta
+     * asignatura de este docente?» y contra el periodo, así que un libro bajado por
+     * coordinación no permite escribir nada que su dueño no pudiera escribir.
+     *
+     * Verdad si se cumple **una** de las dos, y las dos están escritas ya:
+     *
+     *  1. {@see esAdministrativo} — superusuario o `Secretario`. Es quien administra
+     *     la estructura del colegio.
+     *  2. {@see puedeEditarPlantillaNotas} — superusuario o `can_edit_plantilla_notas`,
+     *     que es **el permiso de coordinación académica** (D13 y D28 del doc 28). Es
+     *     exactamente el alcance que la D4 nombra.
+     *
+     * ## Lo que NO entra, y es la mitad del método
+     *
+     * **Un docente cualquiera no pasa por ninguna de las dos ramas.** Ni por ser
+     * `Profesor`, ni por ser titular de un grupo, ni por dar clase en él. Es la
+     * diferencia con `pueden_editar_notas`, que deja pasar a los 53 docentes por el
+     * tipo: aquí *tipo `Profesor`* no es un permiso, y por eso pedir el libro de un
+     * compañero da 403.
+     *
+     * **Y no incluye `auth.personal`**, que es lo que ya pone la ruta: esto se
+     * pregunta **además**, dentro del método, siguiendo la regla del `CLAUDE.md`
+     * para cuando lo que decide la ruta es un dato del colegio entero y no del aula.
+     */
+    public static function puedeDescargarLaPlanillaDeOtro($user): bool
+    {
+        return self::esAdministrativo($user) || self::puedeEditarPlantillaNotas($user);
+    }
+
+    /**
      * Corta con 403 si no se cumple.
      */
     public static function exigir(bool $condicion, string $mensaje): void

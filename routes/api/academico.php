@@ -13,6 +13,7 @@ use App\Http\Controllers\MateriasController;
 use App\Http\Controllers\NotaComportamientoController;
 use App\Http\Controllers\NotasController;
 use App\Http\Controllers\Piars\PiarsAsignaturasController;
+use App\Http\Controllers\PlanillaOfflineController;
 use App\Http\Controllers\PlanillasController;
 use App\Http\Controllers\SubunidadesController;
 use App\Http\Controllers\UnidadesController;
@@ -131,6 +132,52 @@ Route::get('notas/alumno/{alumno_id?}/{grupo_id?}', [NotasController::class, 'ge
 Route::delete('notas/destroy/{id}', [NotasController::class, 'deleteDestroy'])->middleware('auth.personal');
 Route::get('notas/show/{nota_id}', [NotasController::class, 'getShow'])->middleware('auth.personal');
 Route::put('notas/update/{id}', [NotasController::class, 'putUpdate'])->middleware('auth.personal');
+
+// PlanillaOfflineController — «notas sin internet»: la descarga (fase 1) y la
+// subida (fase 2).
+//
+// Rutas NUEVAS y no banderas sobre `notas/detailed` ni sobre `notas/lote` (D8 del
+// plan `myvc_front/PLAN-NOTAS-SIN-INTERNET.md`). El motivo es el de siempre en esta
+// familia: `PUT notas/detailed` tiene instantánea de contrato con **cuatro
+// clientes**, uno de ellos versiones viejas de `myvc_flutter` que conviven meses.
+// Es exactamente el caso de `notas/nivelar/*`, veinte líneas más arriba.
+//
+// **Las tres de lectura van con `auth.personal` y NINGUNA exige el periodo
+// abierto.** Es la D1: el docente quiere guardarse el año entero en su carpeta, y
+// para eso tiene que poder bajar periodos cerrados. Lo que cambia con el periodo
+// cerrado es el archivo —banda roja y `-consulta` en el nombre—, no el permiso.
+//
+// Quién puede pedir la planilla de OTRO docente se decide **dentro del método**
+// (`Autoriza::puedeDescargarLaPlanillaDeOtro`), que es la regla del CLAUDE.md para
+// cuando lo que decide la ruta no lo distingue `auth.personal`: aquí deja pasar a
+// los 53 docentes, y un docente no puede bajarse el libro de un compañero.
+//
+// `periodos` va antes que las dos con parámetro por la regla de la cabecera de
+// este fichero.
+Route::get('planilla-offline/periodos', [PlanillaOfflineController::class, 'getPeriodos'])->middleware('auth.personal');
+Route::get('planilla-offline/libro/{periodo_id}', [PlanillaOfflineController::class, 'getLibro'])->middleware('auth.personal');
+Route::get('planilla-offline/planilla/{asignatura_id}/{periodo_id}', [PlanillaOfflineController::class, 'getPlanilla'])->middleware('auth.personal');
+
+// Y las dos de la FASE 2, que son las que suben. `auth.personal` igual que las de
+// arriba, y **el permiso de verdad va dentro**, que es donde está el dato que lo
+// decide: de quién es el libro —lo dice la hoja oculta del propio fichero, no la
+// URL— y si su periodo sigue abierto.
+//
+// Las dos diferencias con las tres de arriba, escritas aquí porque son las que se
+// copian mal:
+//
+//   - **`ensayo` no escribe nada** y por eso no lleva más guarda que la sesión:
+//     mirar qué pasaría con un archivo no cambia el colegio.
+//   - **`importar` SÍ exige periodo abierto**, y lo exige **por hoja**: la F3 del
+//     plan dice que un periodo cerrado se lleva por delante sus hojas *y nada
+//     más*. Un docente que baja las cuatro planillas y sube el libro después del
+//     cierre tiene el resto entrando. Tirarlo entero por una es la clase de error
+//     que hace que la gente deje de usar una función.
+//
+// La D4 —que coordinación suba por otro docente— es la **fase 5** y hoy da 403 con
+// el motivo dentro (`exigirQueElLibroSeaSuyo`).
+Route::post('planilla-offline/ensayo', [PlanillaOfflineController::class, 'postEnsayo'])->middleware('auth.personal');
+Route::post('planilla-offline/importar', [PlanillaOfflineController::class, 'postImportar'])->middleware('auth.personal');
 
 // BoletinIndependienteController
 //
