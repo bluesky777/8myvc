@@ -1186,15 +1186,46 @@ class ImportarController extends Controller
 
         $bloqueos = [];
 
+        $resueltos = [];
+
         foreach ($ensayo->hojas as $hoja) {
-            if ($hoja['coincide_con'] === null) {
-                $bloqueos[] = [
-                    'tipo' => 'hoja_sin_grupo',
-                    'hoja' => $hoja['nombre'],
-                    'motivo' => "La pestaña «{$hoja['nombre']}» no es ningún grupo del año, y el importador se "
-                              .'detiene al llegar a ella. Las hojas anteriores ya habrán quedado escritas.',
-                ];
+            if ($hoja['coincide_con'] !== null) {
+                continue;
             }
+
+            // **Una hoja que la persona mandó omitir YA NO BLOQUEA.**
+            //
+            // Lo midió `myvc-front-51` el 21 sep 2026: el servidor decía que
+            // había aplicado la decisión, cambiaba la consecuencia a «se salta
+            // entera» y **seguía contestando que el libro no se puede importar**.
+            // En la pantalla eso sale como «arregla lo de arriba» y el botón
+            // escondido, **debajo de la fila donde la persona acaba de resolver
+            // ese mismo problema**. Es el fallo de `consecuencia` un piso más
+            // arriba: ahora el que se quedaba viejo era el veredicto.
+            //
+            // Y omitir sí llega al importador —`ExcelUtils::array()` la salta en
+            // vez de lanzar—, así que esto no es maquillaje: el libro de verdad
+            // se puede importar.
+            $bloqueo = [
+                'tipo' => 'hoja_sin_grupo',
+                'hoja' => $hoja['nombre'],
+                'motivo' => "La pestaña «{$hoja['nombre']}» no es ningún grupo del año, y el importador se "
+                          .'detiene al llegar a ella. Las hojas anteriores ya habrán quedado escritas.',
+            ];
+
+            if (($hoja['decision'] ?? null) === RespuestasDeLaImportacion::HOJA_OMITIR) {
+                // **Resuelto, no desaparecido.** Que se caiga de `bloqueos` sin
+                // dejar rastro haría imposible enseñar «esto era un problema y lo
+                // resolviste», que es lo que hace entendible que el botón vuelva.
+                $bloqueo['resuelto_por'] = 'omitir';
+                $bloqueo['motivo'] = "La pestaña «{$hoja['nombre']}» no es ningún grupo del año, y se salta "
+                                   .'entera: ninguno de sus alumnos se importa, y la respuesta dirá cuáles se saltaron.';
+                $resueltos[] = $bloqueo;
+
+                continue;
+            }
+
+            $bloqueos[] = $bloqueo;
         }
 
         return response()->json([
@@ -1256,6 +1287,11 @@ class ImportarController extends Controller
             // dos frases distintas para la persona que decide.
             'puede_importarse' => $ensayo->recortado ? null : $bloqueos === [],
             'bloqueos' => $bloqueos,
+
+            // Los que lo eran y dejaron de serlo porque la persona los resolvió.
+            // Sin esta lista, un bloqueo que se cae en silencio deja a la pantalla
+            // sin poder decir POR QUÉ vuelve el botón.
+            'bloqueos_resueltos' => $resueltos,
 
             // EL PLAN SE DECLARA COMPLETO O NO, y es lo que impide leerlo mal.
             //

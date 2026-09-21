@@ -473,6 +473,51 @@ class QueElImportadorObedezcaTest extends CasoDeContrato
             'Se perdió lo que pasaría sin decidir, que es lo que da sentido a la decisión.');
     }
 
+    /**
+     * **Y EL VEREDICTO TAMBIÉN se entera: omitir la hoja desbloquea el libro.**
+     *
+     * Lo midió `myvc-front-51` el 21 sep 2026: el servidor decía que había
+     * aplicado la decisión, cambiaba la consecuencia a «se salta entera» y
+     * **seguía contestando `puede_importarse: false`**. En la pantalla eso sale
+     * como «arregla lo de arriba» con el botón escondido, **debajo de la fila
+     * donde la persona acaba de resolver ese mismo problema**.
+     *
+     * Es el fallo de `consecuencia` un piso más arriba, y por eso este caso mira
+     * el veredicto y no la frase.
+     *
+     * El bloqueo **no desaparece, se muda** a `bloqueos_resueltos`: uno que se
+     * cae en silencio deja a la pantalla sin poder decir por qué vuelve el botón.
+     */
+    public function test_omitir_la_hoja_desbloquea_el_libro(): void
+    {
+        [$token, $year] = $this->personalYSuYear();
+
+        $libro = IOFactory::load($this->exportacionDeAlumnos($token));
+        $libro->getSheet(0)->setTitle('NO-EXISTE');
+        $archivo = $this->guardar($libro);
+
+        $sinDecidir = $this->ensayar($archivo, $token, $year)->assertStatus(200);
+
+        $this->assertFalse($sinDecidir->json('puede_importarse'));
+        $this->assertCount(1, $sinDecidir->json('bloqueos'));
+
+        $decidido = $this->ensayar($archivo, $token, $year, [
+            'hojas' => [['nombre' => 'NO-EXISTE', 'decision' => 'omitir']],
+        ])->assertStatus(200);
+
+        $this->assertTrue($decidido->json('puede_importarse'),
+            'La persona resolvió el único bloqueo y el ensayo sigue diciendo que el libro no se '
+            .'puede importar: la pantalla esconde el botón debajo de la fila que lo arregla.');
+
+        $this->assertSame([], $decidido->json('bloqueos'));
+        $this->assertSame('omitir', $decidido->json('bloqueos_resueltos.0.resuelto_por'));
+
+        // Y lo que hace que esto no sea maquillaje: la importación de verdad pasa.
+        $this->importar($archivo, $token, $year, [
+            'hojas' => [['nombre' => 'NO-EXISTE', 'decision' => 'omitir']],
+        ])->assertStatus(200);
+    }
+
     /** Y sin respuestas el campo es null, no un resumen de ceros que parece que hubo. */
     public function test_sin_respuestas_el_campo_va_nulo(): void
     {
