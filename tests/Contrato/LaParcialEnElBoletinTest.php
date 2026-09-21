@@ -182,6 +182,74 @@ class LaParcialEnElBoletinTest extends CasoDeContrato
      * @param  array<string, mixed>  $ctx
      * @return array<string, mixed>
      */
+    /**
+     * **En modo `promedio` el boletín tiene que seguir diciendo algo.**
+     *
+     * Hasta el 20 sep 2026 decía `null` en los dos campos, que no es una convención sino una
+     * afirmación falsa: *«esta asignatura no tiene nada que calificar»* de una asignatura con
+     * casillas puestas. Lo vio Joseth probando, en Ética de Once —nueve exámenes calificados y
+     * el semáforo en blanco—, y lo diagnosticó `myvc-front-a7`.
+     *
+     * ## Por qué pasaba, y por qué el caso hay que montarlo con los pesos a CERO
+     *
+     * `LaParcialYLaCobertura` pesaba `s.porcentaje` crudo. En `promedio` esa columna **no se
+     * usa** —el peso lo pone `1/n`— así que el colegio la deja a 0 o a `NULL`, y entonces
+     * `peso_total = Σ(porc_unidad × 0) = 0` y las dos guardas devuelven `null`.
+     *
+     * Por eso este caso **pone los porcentajes a cero**: con los del lienzo intactos pasaría
+     * también con el fallo puesto, porque el peso crudo seguiría sumando. El cero es la
+     * condición real —medida en `simonbolivar`, donde las 2.205 subunidades de 2026 lo
+     * están— y es lo que hace que este test se ponga rojo si alguien vuelve a leer la columna.
+     *
+     * ## De dónde salen los dos números, para que no se lean como copiados de la salida
+     *
+     * Unidad 1 al 70 % con **cuatro** indicadores —dos calificados, 48 y 47— y unidad 2 al
+     * 30 % con **uno**, sin calificar. Con `1/n`: cada uno de la primera pesa `100/4 = 25` y
+     * el de la segunda `100/1 = 100`.
+     *
+     *     peso_total     = 70×25×4 + 30×100      = 7.000 + 3.000 = 10.000
+     *     peso_evaluado  = 70×25×2               = 3.500          -> cobertura 0,35
+     *     numerador      = (48×25 + 47×25)/100 × 70/100           = 16,625
+     *     parcial        = 16,625 × 10.000 / 3.500                = 47,5
+     *
+     * **Y la parcial es lo que distingue los dos modos**: en `porcentaje` el mismo lienzo da
+     * **47,6** (los pesos son 30 y 20, no 25 y 25). La cobertura sale 0,35 en los dos por
+     * casualidad aritmética —lo calificado es la mitad del peso de la unidad 1 por los dos
+     * caminos—, así que **afirmar sólo la cobertura no distinguiría los modos**.
+     */
+    public function test_en_modo_promedio_el_boletin_no_dice_que_no_hay_nada_que_calificar(): void
+    {
+        $ctx = $this->laPlanillaDelLienzo();
+
+        DB::table('years')->where('id', $ctx['year'])
+            ->update(['reparto_subunidades' => \App\Support\RepartoDeLaNota::PROMEDIO]);
+
+        // La condición real de un año en `promedio`: la columna del peso, sin usar.
+        $aCero = DB::table('subunidades')
+            ->whereIn('unidad_id', [$ctx['unidad_1'], $ctx['unidad_2']])
+            ->update(['porcentaje' => 0]);
+
+        $this->assertSame(5, $aCero,
+            'El lienzo ya no tiene cinco indicadores: los números de abajo se calcularon sobre '
+            .'cuatro en la unidad 1 y uno en la 2, y dejan de valer.');
+
+        $asignatura = $this->asignaturaDelLienzoEnElBoletin($ctx);
+
+        $this->assertNotNull($asignatura['cobertura'],
+            'La API dice `cobertura: null` —«aquí no hay nada que calificar»— de una asignatura '
+            .'con dos casillas calificadas, porque pesa `s.porcentaje` crudo y en `promedio` esa '
+            .'columna vale 0. El front lo pinta fielmente y el boletín sale con rayas.');
+
+        $this->assertNotNull($asignatura['nota_parcial'],
+            'Sin parcial la casilla imprime una raya donde el alumno tiene un 48 y un 47.');
+
+        $this->assertEqualsWithDelta(0.35, (float) $asignatura['cobertura'], 0.001);
+
+        $this->assertEqualsWithDelta(47.5, (float) $asignatura['nota_parcial'], 0.001,
+            'La parcial no está repartiendo por `1/n`: con los pesos del lienzo daría 47,6, que '
+            .'es el número del modo `porcentaje` y significa que el modo no se está mirando.');
+    }
+
     private function asignaturaDelLienzoEnElBoletin(array $ctx, ?int $alumnoId = null): array
     {
         $alumnoId ??= $ctx['alumno'];

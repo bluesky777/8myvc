@@ -3,8 +3,10 @@
 namespace Tests\Contrato;
 
 use App\Services\PuntoDeControlDeImportacion;
+use Illuminate\Database\Events\TransactionBeginning;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx as EscritorXlsx;
 
@@ -29,8 +31,22 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx as EscritorXlsx;
  *
  * Los tests no matan el proceso a media importación, que no se puede hacer
  * desde PHPUnit: escriben a mano el punto de control que habría dejado un corte
- * y comprueban qué hace el importador con él. Es la misma fila, con los mismos
- * valores, que la que deja un `kill`.
+ * y comprueban qué hace el importador con él.
+ *
+ * ## ⚠️ Y esa última frase decía algo FALSO, que es lo que dejó pasar el fallo
+ *
+ * Decía: *«Es la misma fila, con los mismos valores, que la que deja un `kill`»*.
+ * **No lo era.** Hasta el 20 sep 2026, `config/excel.php` dejaba el manejador de
+ * transacciones de maatwebsite en `'db'`, que envuelve la importación **entera**
+ * (`Reader.php:111`); `anotar()` escribía dentro, así que un corte real hacía
+ * ROLLBACK de las filas **y del avance a la vez**. Medido por `myvc-front-a6`
+ * cortando en la fila 150 de 421: `filas` → **0**, `avance` → **`{}`**.
+ *
+ * O sea que la fila que estos tests escribían a mano era la de un corte que **no
+ * podía ocurrir**, y por eso los dos verdes de aquí no dijeron nada: *un test que
+ * construye su propio punto de partida nunca comprueba que ese punto de partida
+ * exista*. El que sí lo comprueba es
+ * `test_la_importacion_no_va_dentro_de_una_transaccion_global`.
  */
 class ImportacionReanudableTest extends CasoDeContrato
 {
@@ -41,6 +57,64 @@ class ImportacionReanudableTest extends CasoDeContrato
      * y hasta hoy no existía: «tardaba mucho» era todo lo que se sabía. Por eso
      * el test mira `inicio`, `fin` y `filas` y no solo el estado.
      */
+    public function test_la_importacion_no_va_dentro_de_una_transaccion_global(): void
+    {
+        [$token, $year] = $this->credenciales();
+        $archivo = $this->exportacionDeAlumnos($token);
+
+        // El test ya corre dentro de su propia transacción, así que lo que se mide
+        // es la PROFUNDIDAD RELATIVA y no el número absoluto.
+        $base = DB::transactionLevel();
+        $maximo = $base;
+
+        // `TransactionBeginning` se dispara **después** de incrementar el contador
+        // (`ManagesTransactions.php:132`), así que dentro del oyente el nivel ya es
+        // el nuevo.
+        Event::listen(TransactionBeginning::class, function () use (&$maximo) {
+            $maximo = max($maximo, DB::transactionLevel());
+        });
+
+        $this->importar($archivo, $token, $year)->assertStatus(200);
+
+        $this->assertSame($base + 1, $maximo,
+            "La importación abrió transacciones hasta el nivel {$maximo} sobre {$base}.\n"
+            ."Con +1 sólo está la de CADA FILA (`ImportarController:177`), que es la que\n"
+            ."hace que la fila y su marca entren juntas. Con +2 ha vuelto el manejador de\n"
+            ."maatwebsite (`config/excel.php`, `'handler' => 'db'`), y entonces la de la fila\n"
+            .'es un savepoint: al fallar, el ROLLBACK se lleva las filas Y el avance, y '
+            ."reanudar\nno puede reanudar nada.");
+    }
+
+    /**
+     * Y la otra mitad del mismo mecanismo: la transacción POR FILA sigue estando.
+     *
+     * Sin ella, quitar el manejador global **sí** dejaría medio alumno en la base
+     * —una fila son ocho escrituras—. O sea que estos dos casos no son el mismo
+     * medido dos veces: uno exige que no haya una envolvente, y el otro que sí haya
+     * la de dentro. *Un `+1` exacto es lo único que dice las dos cosas a la vez, y
+     * por eso se afirma con `assertSame` y no con `assertLessThan`.*
+     */
+    public function test_cada_fila_va_en_su_propia_transaccion(): void
+    {
+        [$token, $year] = $this->credenciales();
+        $archivo = $this->exportacionDeAlumnos($token);
+
+        $abiertas = 0;
+
+        Event::listen(TransactionBeginning::class, function () use (&$abiertas) {
+            $abiertas++;
+        });
+
+        $this->importar($archivo, $token, $year)->assertStatus(200);
+
+        $filas = (int) $this->ultimaImportacion()->filas;
+
+        $this->assertGreaterThan(0, $filas, 'La importación no aplicó ninguna fila: esto no mide nada.');
+        $this->assertSame($filas, $abiertas,
+            'Se abrieron '.$abiertas." transacciones para {$filas} filas. Tiene que haber una por\n"
+            .'fila: si son menos, alguna fila y su marca dejaron de entrar juntas.');
+    }
+
     public function test_una_importacion_deja_su_rastro_medible(): void
     {
         [$token, $year] = $this->credenciales();

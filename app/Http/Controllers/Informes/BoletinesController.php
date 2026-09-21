@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 use App\Support\LaParcialYLaCobertura;
+use App\Support\RepartoDeLaNota;
 use App\Models\Grupo;
 use App\Models\Periodo;
 use App\Models\Year;
@@ -405,7 +406,7 @@ class BoletinesController extends Controller {
 			// decisión de Joseth del 20 sep 2026—: tras la Fase 4, un periodo cerrado con
 			// `fuera` guarda la definitiva ya normalizada, y dividirla otra vez normalizaría
 			// dos veces. El porqué entero y su precio están en el helper.
-			$medida = LaParcialYLaCobertura::deLasUnidades($asignaturas[$i]->unidades);
+			$medida = LaParcialYLaCobertura::deLasUnidades($asignaturas[$i]->unidades, RepartoDeLaNota::modoDelAnio($this->user->year_id));
 
 			$asignaturas[$i]->nota_parcial = LaParcialYLaCobertura::parcial($medida['nota_asignatura'], $medida['peso_evaluado']);
 			$asignaturas[$i]->cobertura = LaParcialYLaCobertura::cobertura($medida['peso_evaluado'], $medida['peso_total']);

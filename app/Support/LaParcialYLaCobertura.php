@@ -121,9 +121,9 @@ final class LaParcialYLaCobertura
      * divisor real es `$pesoEvaluado / 10000`, así que dividir por él es multiplicar por
      * 10.000 y dividir por el entero. Una operación de coma flotante en vez de cincuenta.
      */
-    public static function parcial(float|int $notaAsignatura, int $pesoEvaluado): ?float
+    public static function parcial(float|int $notaAsignatura, float|int $pesoEvaluado): ?float
     {
-        return $pesoEvaluado === 0
+        return $pesoEvaluado <= 0
             ? null
             : (float) (($notaAsignatura * 10000) / $pesoEvaluado);
     }
@@ -141,9 +141,9 @@ final class LaParcialYLaCobertura
      * `1`, así que al cliente le llegan enteros en los extremos. Quien lo lea en el front
      * **compara valores, no tipos**.
      */
-    public static function cobertura(int $pesoEvaluado, int $pesoTotal): ?float
+    public static function cobertura(float|int $pesoEvaluado, float|int $pesoTotal): ?float
     {
-        return $pesoTotal === 0
+        return $pesoTotal <= 0
             ? null
             : (float) ($pesoEvaluado / $pesoTotal);
     }
@@ -161,16 +161,28 @@ final class LaParcialYLaCobertura
      * fila; aquí el divisor tiene que seguir a la acumulada, no al otro camino.
      *
      * @param  array<int, \stdClass>  $unidades
-     * @return array{nota_asignatura: float, peso_evaluado: int, peso_total: int}
+     * @param  string  $modo  El reparto del AÑO (`RepartoDeLaNota::modoDelAnio`). El defecto
+     *                        conserva el comportamiento de antes del 20 sep 2026.
+     * @return array{nota_asignatura: float, peso_evaluado: float, peso_total: float}
      */
-    public static function deLasUnidades(array $unidades): array
+    public static function deLasUnidades(array $unidades, string $modo = RepartoDeLaNota::PORCENTAJE): array
     {
         $notaAsignatura = 0.0;
-        $pesoEvaluado = 0;
-        $pesoTotal = 0;
+        $pesoEvaluado = 0.0;
+        $pesoTotal = 0.0;
 
         foreach ($unidades as $unidad) {
             $notaUnidad = 0;
+
+            // **`n` se cuenta sobre las filas ya cargadas y no con otra consulta**, porque
+            // `Subunidad::deUnidadCalculada` filtra `s.unidad_id = ? AND s.deleted_at IS NULL`,
+            // que es **el mismo predicado** que `RepartoDeLaNota::cuantasSubunidades()` usa en
+            // SQL. `array_unique` sobre `subunidad_id` y no `count()` a secas: esa consulta
+            // lleva un `LEFT JOIN` a `escalas_de_valoracion` que duplicaría la fila si dos
+            // escalas solaparan, y un `n` inflado repartiría de menos sin que nada se queje.
+            $n = $modo === RepartoDeLaNota::PROMEDIO
+                ? count(array_unique(array_column($unidad->subunidades, 'subunidad_id')))
+                : 0;
 
             foreach ($unidad->subunidades as $subunidad) {
                 // No hay fila en `notas` para este alumno: la subunidad no le toca. Ver la
@@ -179,9 +191,22 @@ final class LaParcialYLaCobertura
                     continue;
                 }
 
-                $notaUnidad += ($subunidad->nota * $subunidad->porcentaje_subunidad) / 100;
+                // **El peso lo decide el reparto del año, no `s.porcentaje` a secas.** En
+                // `promedio` esa columna no se usa —vale 0 o `NULL`— y pesarla crudo hacía
+                // `peso_total = 0`, o sea que los dos campos salían `null` y la API afirmaba
+                // «aquí no hay nada que calificar» de asignaturas con todo calificado.
+                //
+                // Se queda en la escala de PUNTOS PORCENTUALES (0–100) y no en factor 0–1
+                // para que `parcial()` siga reponiendo sus dos `/100` con el mismo `* 10000`
+                // y para que en `porcentaje` esto sea **el mismo número que antes**: ahí
+                // `100/100 × s.porcentaje` es `s.porcentaje`.
+                $pesoSub = $modo === RepartoDeLaNota::PROMEDIO
+                    ? 100.0 / $n
+                    : (float) $subunidad->porcentaje_subunidad;
 
-                $peso = (int) $unidad->porcentaje_unidad * (int) $subunidad->porcentaje_subunidad;
+                $notaUnidad += ($subunidad->nota * $pesoSub) / 100;
+
+                $peso = (float) $unidad->porcentaje_unidad * $pesoSub;
 
                 $pesoTotal += $peso;
 

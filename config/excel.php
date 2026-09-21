@@ -275,7 +275,57 @@ return [
     |
     */
     'transactions' => [
-        'handler' => 'db',
+        // **`null` y no `'db'`, decidido por Joseth el 20 sep 2026 — y es lo que
+        // hace que el punto de control sirva para algo.**
+        //
+        // Con `'db'`, `Reader.php:111` envuelve la importación ENTERA en una
+        // transacción. `PuntoDeControlDeImportacion::anotar()` escribe dentro, así
+        // que al fallar el ROLLBACK **se lleva las filas y el avance a la vez**:
+        // «reanudar» sólo podía significar «se cortó y no se escribió nada».
+        // Medido por `myvc-front-a6` cortando en la fila 150 de 421 con un
+        // disparador: `filas` → 0, `avance` → `{}`, y los `alumnos.updated_at` sin
+        // moverse.
+        //
+        // ## Lo que NO se pierde al quitarlo, que es lo que casi lo bloquea
+        //
+        // No es «ahora un fallo deja medio alumno». Eso lo impide
+        // `ImportarController:177`, un `DB::transaction` **por fila** que envuelve
+        // `procesarFila()` y `anotar()` juntos. Anidada dentro de la global,
+        // Laravel la convertía en un **savepoint** y su commit no comprometía
+        // nada; suelta, es una transacción de verdad. Lo único que se pierde es la
+        // atomicidad del **fichero entero** — que es justo lo que impedía
+        // reanudar.
+        //
+        // Y por eso **no** se hizo lo otro que se propuso, anotar el avance por
+        // una segunda conexión: el avance sobreviviría diciendo «150 hechas» con
+        // cero filas escritas, y al reanudar se saltarían 150 alumnos que nunca
+        // entraron. Rompe el invariante que nombra el comentario de la 177 —*el
+        // punto de control no puede mentir porque se guarda con ella*— y cambia
+        // perder el avance sabiéndolo por perder alumnos sin saberlo.
+        //
+        // ## A quién más alcanza: medido, y a nadie
+        //
+        // `Excel::import` tiene **cinco** llamadas y todas viven en
+        // `ImportarController`. Las tres viejas —`postCartera`, `getIndex`,
+        // `getModificar`— usan la firma de maatwebsite 2.x y **dan 500 antes de
+        // escribir nada**, desde años antes de esta migración; lo fija
+        // `ExcelTest`. Y el ensayo (`postEnsayo`) **no depende de esta transacción
+        // para no escribir**: `EnsayoDeLaImportacion` tiene cero escrituras.
+        //
+        // *El alcance se contó por LLAMADA y no por fichero, porque contado por
+        // fichero daba «uno» y la pregunta era otra — lo levantó `myvc-front-a6`.*
+        //
+        // ## ⚠️ Y es la CADENA `'null'`, no el `null` de PHP — el comentario de
+        // arriba, que es el del vendor, dice «setting this to null» y engaña
+        //
+        // `TransactionManager` extiende el `Manager` de Laravel, que compone el
+        // nombre del método con `'create'.Str::studly($driver).'Driver'`. Con la
+        // cadena sale `createNullDriver()`, que existe y devuelve un
+        // `NullTransactionHandler` —invoca el callback y ya—. Con el `null` de PHP
+        // sale `createDriver()` y revienta: *«Unable to resolve NULL driver»*, un
+        // **500 en cada importación**. Costó 55 tests rojos el 20 sep 2026 al
+        // escribir esto siguiendo el comentario de arriba al pie de la letra.
+        'handler' => 'null',
     ],
 
     'temporary_files' => [
