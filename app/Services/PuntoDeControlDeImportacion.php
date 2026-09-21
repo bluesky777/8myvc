@@ -86,6 +86,58 @@ class PuntoDeControlDeImportacion
      * hace para corregir cuatro celdas— así que esa arranca de cero, como
      * siempre.
      */
+    /**
+     * El nombre del cerrojo que impide que dos peticiones reanuden lo mismo.
+     *
+     * **Cabe en 64 caracteres, que es el tope de `GET_LOCK` en MySQL y MariaDB**
+     * — por eso la huella va recortada a 32: son 128 bits de un sha256, que no
+     * se adivinan y no colisionan por accidente entre dos archivos de un mismo
+     * colegio. Pasarse del tope no da error: **trunca**, y dos nombres distintos
+     * pasarían a ser el mismo cerrojo.
+     */
+    public static function cerrojo(string $tipo, string $huella, int $year): string
+    {
+        return 'myvc:imp:'.$tipo.':'.$year.':'.substr($huella, 0, 32);
+    }
+
+    /**
+     * Toma el cerrojo, o dice que no pudo. **No espera.**
+     *
+     * ## Por qué un cerrojo de MySQL y no una columna
+     *
+     * Porque **se suelta solo cuando se cae la conexión**, que es justo el caso
+     * que hay que cubrir: si el proceso muere a media importación, el cerrojo
+     * desaparece con él y la siguiente petición puede continuar. Una columna
+     * `tomada_at` haría falta limpiarla con un cron —que en cPanel no hay— y el
+     * primer corte dejaría la importación bloqueada hasta que alguien lo mirara
+     * a mano.
+     *
+     * Y no cuesta migración, ni instantánea, ni tocar las dieciséis bases.
+     *
+     * ## Por qué no espera (`0` de tiempo de espera)
+     *
+     * Porque quien llega segundo es **otra pestaña del mismo navegador o la
+     * misma persona con doble clic**, no una cola de trabajo. Esperar sería
+     * dejarla colgada hasta 20 s para acabar haciendo un trabajo que ya está
+     * hecho; decirlo de inmediato deja que el cliente reintente cuando quiera.
+     */
+    public static function tomarCerrojo(string $tipo, string $huella, int $year): bool
+    {
+        $fila = DB::selectOne('SELECT GET_LOCK(?, 0) AS tomado',
+            [self::cerrojo($tipo, $huella, $year)]);
+
+        // `GET_LOCK` devuelve 1 si lo tomó, 0 si no pudo y NULL si hubo error.
+        // Un NULL se trata como «no pudo»: importar dos veces a la vez es peor
+        // que no importar, y quien reintenta no pierde nada.
+        return $fila !== null && (int) $fila->tomado === 1;
+    }
+
+    public static function soltarCerrojo(string $tipo, string $huella, int $year): void
+    {
+        DB::selectOne('SELECT RELEASE_LOCK(?) AS soltado',
+            [self::cerrojo($tipo, $huella, $year)]);
+    }
+
     public static function abrir(string $tipo, string $huella, int $year, ?string $archivo, ?int $usuario): self
     {
         $anterior = DB::selectOne(

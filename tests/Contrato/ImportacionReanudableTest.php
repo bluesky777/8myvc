@@ -58,6 +58,143 @@ class ImportacionReanudableTest extends CasoDeContrato
      * el test mira `inicio`, `fin` y `filas` y no solo el estado.
      */
     /**
+     * **Sin tiempo NUNCA se para en seco: cada petición escribe al menos un lote.**
+     *
+     * Es el borde que casi se queda sin tapar. El presupuesto se cuenta desde
+     * antes de leer el libro —a propósito: leer también gasta—, así que un libro
+     * grande en un servidor lento puede agotarlo **antes del primer lote**. Sin
+     * esta garantía la petición contestaría «hice 0, faltan N», la siguiente
+     * haría lo mismo, y el importador diría «falta» **para siempre**.
+     *
+     * Lo cazó `myvc-front-a6` al cablear el bucle en la pantalla: su guarda de
+     * «para si una vuelta no escribe ni una fila» **era la única red**. Un
+     * cliente no puede ser lo que impide que el servidor entre en bucle.
+     *
+     * Con el presupuesto en cero —el peor caso posible— tiene que escribir un
+     * lote igual.
+     */
+    public function test_con_el_presupuesto_agotado_escribe_un_lote_igual(): void
+    {
+        [$token, $year] = $this->credenciales();
+        $archivo = $this->exportacionDeAlumnos($token);
+
+        config(['importacion.segundos_por_peticion' => 0, 'importacion.filas_por_lote' => 5]);
+
+        $r = $this->importar($archivo, $token, $year)->assertStatus(200);
+
+        $this->assertFalse($r->json('terminado'), 'Con presupuesto cero no puede haber terminado.');
+        $this->assertSame(5, $r->json('filas_hechas'),
+            'Escribió '.$r->json('filas_hechas')." filas con el presupuesto en cero.\n"
+            .'Tiene que escribir exactamente un lote: con 0 el importador nunca avanza y el '
+            ."cliente\nse queda pidiendo lo mismo para siempre; con más, el presupuesto no se está mirando.");
+    }
+
+    /**
+     * Y la prueba de que eso **termina**: a base de lotes de uno en uno, llega.
+     *
+     * Es la otra mitad del caso de arriba. Que escriba un lote no sirve de nada
+     * si el avance no se acumula entre peticiones — y eso es justo lo que el
+     * ROLLBACK global rompía esta mañana.
+     */
+    public function test_a_lotes_minimos_la_importacion_acaba_llegando(): void
+    {
+        [$token, $year] = $this->credenciales();
+        $archivo = $this->exportacionDeAlumnos($token);
+
+        config(['importacion.segundos_por_peticion' => 0, 'importacion.filas_por_lote' => 10]);
+
+        $vueltas = 0;
+        $anterior = -1;
+
+        do {
+            $r = $this->importar($archivo, $token, $year)->assertStatus(200);
+            $hechas = (int) $r->json('filas_hechas');
+
+            $this->assertGreaterThan($anterior, $hechas,
+                "La vuelta {$vueltas} no avanzó ni una fila: esto es el bucle infinito.");
+
+            $anterior = $hechas;
+            $vueltas++;
+        } while (! $r->json('terminado') && $vueltas < 50);
+
+        $this->assertTrue($r->json('terminado'),
+            "No terminó en {$vueltas} vueltas de diez filas.");
+        $this->assertSame(0, $r->json('faltan'));
+        $this->assertSame(PuntoDeControlDeImportacion::COMPLETADA, $this->ultimaImportacion()->estado);
+    }
+
+    /**
+     * **Dos peticiones a la vez con el mismo archivo: la segunda no entra.**
+     *
+     * El troceado convirtió «reenviar» en el funcionamiento normal, así que dos
+     * pestañas abiertas o un doble clic dejaron de ser un caso raro. Sin cerrojo
+     * las dos reanudan la misma fila: los datos sobreviven —idempotencia por
+     * documento— pero `filas` cuenta de más y el progreso que ve la pantalla
+     * miente.
+     *
+     * Aquí el cerrojo se toma a mano para simular a la otra petición, porque dos
+     * peticiones de verdad en paralelo no se pueden montar desde PHPUnit. **Lo
+     * que se comprueba es lo mismo que vería la segunda ventana: un 409, no un
+     * 200 que duplica trabajo.**
+     */
+    public function test_dos_a_la_vez_con_el_mismo_archivo_no_entran_las_dos(): void
+    {
+        [$token, $year] = $this->credenciales();
+        $archivo = $this->exportacionDeAlumnos($token);
+        $huella = hash_file('sha256', $archivo);
+
+        // **El cerrojo se toma desde OTRA CONEXIÓN, y no es un detalle del test:
+        // es la definición del mecanismo.** `GET_LOCK` es por sesión de MySQL y
+        // **reentrante dentro de ella**, así que tomarlo desde la conexión del
+        // test no bloquea a la petición —que usa esa misma— y el caso saldría
+        // verde sin haber probado nada. La primera versión de esto lo hacía así y
+        // devolvió 200: *un test que no puede fallar por el motivo que dice.*
+        config(['database.connections.cerrojo_de_prueba' => config('database.connections.'.config('database.default'))]);
+        $otra = DB::connection('cerrojo_de_prueba');
+
+        $nombre = PuntoDeControlDeImportacion::cerrojo('alumnos', $huella, (int) $year);
+
+        $this->assertSame(1, (int) $otra->selectOne('SELECT GET_LOCK(?, 0) AS t', [$nombre])->t,
+            'La otra conexión no pudo tomar el cerrojo, así que este test no mide nada.');
+
+        try {
+            $this->importar($archivo, $token, $year)->assertStatus(409);
+        } finally {
+            $otra->selectOne('SELECT RELEASE_LOCK(?) AS s', [$nombre]);
+            $otra->disconnect();
+        }
+
+        // Y soltado, la misma petición entra: el cerrojo cierra mientras dura, no
+        // para siempre.
+        $this->importar($archivo, $token, $year)->assertStatus(200);
+    }
+
+    /**
+     * El cerrojo es **por archivo y por año**, no por colegio.
+     *
+     * Dos secretarías subiendo hojas distintas a la vez es trabajo normal, y un
+     * cerrojo global las pondría en fila sin motivo. Se comprueba con el nombre,
+     * que es donde vive esa decisión — y **cabe en 64 caracteres**, que es el
+     * tope de `GET_LOCK`: pasarse no da error, trunca, y dos archivos pasarían a
+     * compartir cerrojo sin que nadie lo notara.
+     */
+    public function test_el_cerrojo_es_por_archivo_y_cabe_en_el_tope(): void
+    {
+        $a = PuntoDeControlDeImportacion::cerrojo('alumnos', str_repeat('a', 64), 2026);
+        $b = PuntoDeControlDeImportacion::cerrojo('alumnos', str_repeat('b', 64), 2026);
+        $c = PuntoDeControlDeImportacion::cerrojo('alumnos', str_repeat('a', 64), 2025);
+
+        $this->assertNotSame($a, $b, 'Dos archivos distintos comparten cerrojo.');
+        $this->assertNotSame($a, $c, 'Dos años distintos comparten cerrojo.');
+
+        foreach ([$a, $b, $c] as $nombre) {
+            $this->assertLessThanOrEqual(64, strlen($nombre),
+                'El nombre del cerrojo mide '.strlen($nombre)." y MySQL trunca a 64: dos archivos\n"
+                .'distintos pasarían a ser el mismo cerrojo sin dar ningún error.');
+        }
+    }
+
+    /**
      * **Sin tiempo, la importación PARA, lo dice, y no miente sobre lo hecho.**
      *
      * Es la pieza que Joseth pidió el 20 sep 2026 —*«lo más failover posible»*— y
@@ -74,16 +211,22 @@ class ImportacionReanudableTest extends CasoDeContrato
         [$token, $year] = $this->credenciales();
         $archivo = $this->exportacionDeAlumnos($token);
 
-        config(['importacion.segundos_por_peticion' => 0]);
+        config(['importacion.segundos_por_peticion' => 0, 'importacion.filas_por_lote' => 25]);
 
         $r = $this->importar($archivo, $token, $year)->assertStatus(200);
 
         $this->assertFalse($r->json('terminado'),
             'Se quedó sin tiempo y dijo que había terminado: el front no volvería a llamar.');
-        $this->assertSame(0, $r->json('filas_hechas'));
+
+        // **Escribe UN lote y para.** Este renglón decía `0` cuando se escribió,
+        // y lo cambió a propósito la garantía de avance mínimo: sin ella la
+        // petición no escribía nada y el cliente pedía lo mismo para siempre. Se
+        // reescribe al comportamiento nuevo, que es el que se quiso.
+        $this->assertSame(25, $r->json('filas_hechas'));
+
         $this->assertGreaterThan(0, $r->json('filas_totales'),
             'No contó las filas del archivo, así que no puede decir cuántas faltan.');
-        $this->assertSame($r->json('filas_totales'), $r->json('faltan'));
+        $this->assertSame($r->json('filas_totales') - 25, $r->json('faltan'));
 
         $fila = $this->ultimaImportacion();
 
@@ -104,9 +247,12 @@ class ImportacionReanudableTest extends CasoDeContrato
         [$token, $year] = $this->credenciales();
         $archivo = $this->exportacionDeAlumnos($token);
 
-        // Primera pasada: sin tiempo, no escribe nada.
-        config(['importacion.segundos_por_peticion' => 0]);
-        $this->importar($archivo, $token, $year)->assertStatus(200);
+        // Primera pasada: sin tiempo, escribe un lote y para.
+        config(['importacion.segundos_por_peticion' => 0, 'importacion.filas_por_lote' => 10]);
+        $primera = $this->importar($archivo, $token, $year)->assertStatus(200);
+
+        $this->assertFalse($primera->json('terminado'));
+        $this->assertSame(10, $primera->json('filas_hechas'));
 
         $importacion = (int) $this->ultimaImportacion()->id;
         $alumnosAntes = $this->cuantosAlumnos();

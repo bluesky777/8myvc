@@ -236,7 +236,26 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
             // rollback y ese trabajo se perdería— y en cambio rompe el
             // invariante. Lo que cuesta mirarlo aquí es que la petición se pasa,
             // como mucho, lo que tarde un lote.
-            if ($this->sinTiempo()) {
+            //
+            // ## Y NUNCA SE PARA SIN HABER ESCRITO NADA, que es un bucle infinito
+            //
+            // El presupuesto se cuenta **desde antes de leer el libro** —a
+            // propósito: leer también gasta—, así que un libro grande en un
+            // servidor lento puede agotarlo **antes del primer lote**. Sin esta
+            // segunda condición la petición contestaría «hice 0, faltan N», la
+            // siguiente haría exactamente lo mismo, y el importador diría «falta»
+            // para siempre sin avanzar una fila.
+            //
+            // Lo cazó `myvc-front-a6` al cablear el bucle: su pantalla lleva una
+            // guarda que para cuando una vuelta no escribe nada, y **esa guarda
+            // era la única red**. Un cliente no puede ser lo que impide que el
+            // servidor se quede en bucle.
+            //
+            // Con esto, cada petición escribe **al menos un lote** pase lo que
+            // pase con el reloj: si va lenta avanzará de 25 en 25, pero avanza.
+            // *Lo único que no puede arreglarse aquí es que un solo lote no quepa
+            // en el tope de PHP; para eso está `filas_por_lote` en el `.env`.*
+            if ($this->sinTiempo() && $this->hechos['filas'] > 0) {
                 $this->agotado = true;
 
                 return;
@@ -727,6 +746,29 @@ class ImportarController extends Controller
                 ], 422);
             }
 
+            // EL CERROJO, y es lo que el troceado hizo necesario.
+            //
+            // `abrir()` busca la importación pendiente y sigue por donde iba, sin
+            // bloquear nada: dos peticiones a la vez con el mismo archivo
+            // **reanudan la misma fila**. Los datos sobreviven —el importador es
+            // idempotente por documento— pero `filas` cuenta de más y el progreso
+            // que ve la pantalla miente.
+            //
+            // El agujero ya existía; lo que cambia es que ahora **reenviar es el
+            // funcionamiento normal**, así que dos pestañas abiertas o un doble
+            // clic dejan de ser un caso raro.
+            //
+            // Se suelta en el `finally` de más abajo, y si el proceso muere se
+            // suelta solo al caerse la conexión — que es justo lo que hace falta
+            // en un importador que existe para sobrevivir a los cortes.
+            if (! PuntoDeControlDeImportacion::tomarCerrojo('alumnos', $huella, (int) $year)) {
+                return response()->json([
+                    'ok' => false,
+                    'msg' => 'Ese mismo archivo se está importando ahora mismo en otra ventana. '
+                           .'Espera a que termine antes de volver a subirlo.',
+                ], 409);
+            }
+
             // La huella es del CONTENIDO del archivo, no de su nombre: la
             // secretaría sube tres veces `alumnos.xlsx` y son tres archivos
             // distintos. Es lo que hace que «volver a subir el mismo» tenga un
@@ -756,6 +798,8 @@ class ImportarController extends Controller
             try {
                 Excel::import($Import, $archivo);
             } catch (\Throwable $e) {
+                PuntoDeControlDeImportacion::soltarCerrojo('alumnos', $huella, (int) $year);
+
                 // Los avisos de lo que SÍ se escribió antes de reventar se
                 // guardan igual, y ése es el caso que más los necesita: la
                 // pantalla que retoma esta importación tiene que poder decir qué
@@ -774,6 +818,17 @@ class ImportarController extends Controller
             if (! $Import->agotado) {
                 $punto->completar();
             }
+
+            // **Se suelta DESPUÉS de cerrar la importación, no antes.** Soltarlo
+            // al salir del `try` dejaría que otra petición entrara, encontrara la
+            // fila todavía en `en_proceso` y la reanudara mientras ésta la está
+            // cerrando.
+            //
+            // Y si esto no llega a ejecutarse —un fatal por tiempo, el proceso
+            // muerto—, **el cerrojo se suelta solo al caerse la conexión**. Ésa es
+            // la propiedad por la que se eligió `GET_LOCK` y no una columna: aquí
+            // no hay cron que limpie lo que un corte deje a medias.
+            PuntoDeControlDeImportacion::soltarCerrojo('alumnos', $huella, (int) $year);
 
             // Aquí había un bucle que llenaba un `$data` que no devolvía nadie,
             // instanciando `AlumnosImport` una vez por hoja. Se va con el
