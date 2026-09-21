@@ -8,6 +8,43 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+> ## 🔜 EL HISTORIAL DE TODO: ES LA FASE 5 DEL 18, NO UN DISEÑO NUEVO (21 sep 2026)
+>
+> **Joseth pidió «historial de prácticamente todo cambio», con una columna `Historial`
+> en casi todas las pantallas.** Lo primero que hay que saber es que **eso ya está
+> diseñado y medio construido**: [`18-auditoria.md`](18-auditoria.md), 8 fases y seis
+> decisiones suyas. Hay tabla `auditoria`, escritor único `App\Services\Auditoria`,
+> **71 llamadas en 27 ficheros**, reloj único y el permiso `can_view_auditoria`
+> sembrado. **Lo que no hay es un solo lector**: `grep "FROM auditoria" app` → **0**.
+> Se lleva escribiendo rastro desde agosto y nadie lo puede ver.
+>
+> **Dos decisiones nuevas, contestadas el 21 sep** (`18-auditoria.md`, «La quinta y la
+> sexta»): una tabla **no estrena** la columna `Historial` hasta que todos los caminos
+> que la escriben pongan `updated_at` y `updated_by`; y el alcance va **por dominio, en
+> orden de reclamo**, no en un barrido de los 178 métodos. Y queda escrito por qué NO se
+> hace una tabla `_history` por tabla.
+>
+> **La columna es gratis y yo dije que no lo era.** Sale de `updated_at`, que ya viaja
+> en la fila; el modal es `auditoria/entidad/{tipo}/{id}`, ya especificada. **Cero rutas
+> nuevas, cero instantáneas movidas.** Lo caro es que `updated_at` sea cierto: **102 de
+> los 169 `DB::update(` de `app/` no lo escriben**, y las **83 de 83** columnas
+> `updated_at` del volcado son `timestamp`, que convierte, contra el `DATETIME(3)` de
+> Bogotá de la auditoría — la celda y el modal pueden discrepar en cinco horas.
+>
+> ### El orden, y lo que bloquea a qué
+>
+> | | Qué | Estado |
+> |---|---|---|
+> | **L0a** | `CentinelaDeLosEscritoresDeBitacoraTest` **está rojo en `main`**: espera 12 escritores de `bitacoras` y hay **14** — `app/Services/EscrituraDeNotasImportadas.php` entró con `3e16747` y no se declaró ni en el test ni en `tools/salud-de-la-bitacora.php`, que hay que mover a la vez | **pendiente, y es de quien tocó la planilla** |
+> | **L0b** | Fase 0 en los dieciséis (`tools/fase-cero-de-los-dieciseis.php`): sin ese número, la retención de la fase 6 y cualquier índice nuevo son adivinanza | pendiente |
+> | **L1** | **Fase 5: las cuatro rutas de lectura.** Es lo que desbloquea todo lo demás | pendiente |
+> | **L2** | El contrato con `myvc_front`: la columna y el modal | tras L1 |
+> | **L3…** | Ensanchar la fase 4 por dominio. Hoy **42 de 221 métodos con rastro; 178 sin ninguno** (`tools/escrituras-sin-auditoria.php`, que **no ve Eloquent**: 178 es suelo) | en curso |
+>
+> Las tres reglas de respuesta que no vuelven a preguntarse: las rutas nuevas son
+> **aditivas** (no retiran nada hasta la fase 7), **un vacío es `200` con lista vacía y
+> nunca un `400`**, y el modal lee de `auditoria`, jamás de `bitacoras`.
+
 > ## ✅ LA IMPORTACIÓN DE ALUMNOS, REHECHA ENTERA (20–21 sep 2026)
 >
 > **Joseth pidió «rápido, confiable y lo más failover posible» y está en `main`.** Cinco

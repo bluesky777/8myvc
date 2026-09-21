@@ -817,6 +817,12 @@ secundario**: mueven el contador de 542 a 546, tres documentos y dos snapshots.
 Sin `INNER JOIN` a las tablas de datos: la fila de auditoría ya trae lo que hace
 falta para pintarla (§4.2). Es lo que hoy vacía `putSesion`.
 
+**Y una quinta cosa que no es una ruta: la columna `Historial` de los listados.**
+La celda sale de `updated_at`, que **ya viaja en la fila** que el listado devuelve, y
+el enlace abre `auditoria/entidad/{tipo}/{id}`, que es la tercera de esta tabla. Así
+que la columna **no añade ni una ruta ni una consulta**; lo que añade es la condición
+de la decisión 5 —que `updated_at` sea cierto en esa tabla antes de publicarla—.
+
 > **El estado vacío es el caso normal, no el borde.** En la copia de producción
 > hay **4 filas de tipo `Nota` y 3 de `NF_UPDATE`. En total** — el mismo número
 > que da el seed, así que no es un artefacto de la rebanada. Con 3.229 ingresos y
@@ -1019,6 +1025,74 @@ el suyo**. La auditoría deja de tener botón de borrar en ninguna parte.
 **Lo demás no espera a nadie.** Lo siguiente es la fase 0: correr
 `tools/salud-de-la-bitacora.php` colegio por colegio, igual que el `for` de una
 línea de la fase 0 del [10](10-definitivas.md).
+
+### La quinta y la sexta, contestadas el 21 sep 2026 — las trajo la columna «Historial»
+
+Joseth pidió **una columna `Historial` en casi todas las pantallas de listado**: la
+celda enseña la fecha y la hora de la última edición y es un enlace que abre el
+detalle de esa fila. Es la petición que cierra el círculo de la fase 5.
+
+**La corrección primero, porque cambia el precio de la pantalla entera.** Esta
+sesión sostuvo que la columna costaría una consulta por fila —«cincuenta consultas
+por listado»— y **era falso**: `updated_at` ya viaja dentro de la fila que el
+listado devuelve, así que **la columna no cuesta ni una consulta más**. El modal
+tampoco estrena ruta: es `GET auditoria/entidad/{tipo}/{id}`, ya especificada en la
+fase 5. **Cero rutas nuevas y cero instantáneas movidas** — lo corrigió Joseth en el
+sitio, y es la diferencia entre una pantalla cara y una gratis.
+
+Lo que sí cuesta está en el otro lado. Tres cosas, medidas el 21 sep 2026:
+
+| Lo que hereda la celda al salir de `updated_at` | Medido |
+|---|---|
+| **el SQL crudo no lo escribe** | de los **169** `DB::update(` de `app/`, **102 no mencionan `updated_at`** en su consulta. Eloquent lo pone solo; el crudo no. Concentrados en `ChangeAskedController` (15), `LoginController`, `AsignaturasController`, `FusionDeAlumnos`. Una fila editada hoy puede enseñar la fecha de hace dos años, o nada |
+| **las columnas convierten con la zona** | **83 de 83** columnas `updated_at` del volcado son `timestamp`. `auditoria.ocurrido_en` es `DATETIME(3)` en Bogotá (decisión 1). **La celda y el modal pueden discrepar en cinco horas**, que es exactamente la queja de «las horas salen raras» con la que nació este documento (§1.2, §1.3) |
+| **dice «la fila cambió», no «hay algo que enseñar»** | todo lo editado antes de que la fase 4 llegara a ese dominio abre un modal vacío. Es el estado vacío que la fase 5 ya trata como el caso normal y no como el borde |
+
+```bash
+# rehace la primera cifra. Ventana de 8 líneas desde la llamada: es aproximada,
+# y se equivoca por arriba (cuenta como «sí» un updated_at de otra consulta cercana).
+docker exec 8myvc-app-1 php -r '$t=0;$c=0;
+$it=new RecursiveIteratorIterator(new RecursiveDirectoryIterator("/app/app"));
+foreach($it as $f){ if(!$f->isFile()||$f->getExtension()!=="php")continue;
+  $l=file($f->getPathname());
+  for($i=0;$i<count($l);$i++){ if(!preg_match("/DB::update\(/",$l[$i]))continue; $t++;
+    if(stripos(implode("",array_slice($l,$i,8)),"updated_at")!==false)$c++; } }
+echo "$t crudos, $c con updated_at, ",$t-$c," sin\n";'
+```
+
+**[DECISIÓN 5] Una tabla no estrena la columna `Historial` hasta que TODOS los
+caminos que la escriben pongan `updated_at` y `updated_by`.** No se pinta la columna
+con lo que haya. El motivo es que una celda que a veces miente es peor que no tener
+celda: quien la mira no puede distinguir *«esta fila no se editó nunca»* de *«se
+editó y no lo anotamos»*, y las dos se ven igual.
+
+Es la regla de la columna sin dueño del `CLAUDE.md` aplicada al revés —allí se
+repasan todos los caminos **antes de darle dueño a una columna**; aquí se repasan
+antes de **publicar** lo que esa columna dice—. El repaso es **por tabla y acotado**,
+no un barrido global: entra en el mismo lote que la columna, con `tools/`
+enseñando los caminos, y sale con su test.
+
+**[DECISIÓN 6] El alcance va por dominio, en orden de reclamo, no de una vez.** La
+fase 4 sigue como está: cada lote instrumenta un dominio entero, se despliega solo, y
+`tools/escrituras-sin-auditoria.php` dice cuánto queda. Hoy dice **42 de 221 métodos
+con rastro nuevo, 178 sin ninguno** — y su cabecera avisa de que **no ve Eloquent**,
+así que 178 es un suelo, no el total. Un barrido de los 178 de golpe tocaría 84
+ficheros en un commit: es justo la forma de lote que peor se revisa y peor se
+deshace en dieciséis colegios.
+
+**Y lo que NO se hace, preguntado el 21 sep: una tabla `_history` por cada tabla.**
+Se descartó con la comparación delante, y queda escrito para no re-litigarlo:
+
+| | 90 tablas `notas_history`, `users_history`… | la tabla única `auditoria` |
+|---|---|---|
+| «qué hizo este usuario en este ingreso» | `UNION` de noventa tablas | una consulta por `sesion_id`, con su índice |
+| el esquema | noventa espejos que hay que re-sincronizar en **cada** `ALTER`, × 16 producciones | una tabla de columnas fijas |
+| la línea sobrevive al borrado del alumno | no: o `FK`/`CASCADE`, o queda huérfana e ilegible | sí, `alumno_nombre` y `actor_nombre` van copiados dentro (§4.2) |
+| intentos denegados y logins fallidos | no caben en ninguna tabla espejo | sí: `accion='denegado'`, sin actor |
+
+Lo único que el espejo compra de verdad es *reconstruir la fila entera tal cual
+estaba*. Eso ya cabe donde está: `valor_anterior` y `valor_nuevo` son `json`, y una
+fila completa entra. **Se hace en la tabla que lo necesite, no en noventa.**
 
 ## Lo que se arregla de camino, y no cuesta aparte
 
