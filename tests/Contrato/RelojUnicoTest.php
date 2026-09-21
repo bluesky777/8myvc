@@ -116,7 +116,14 @@ class RelojUnicoTest extends TestCase
         // > **La decisión de moverla sigue siendo de quien lleve las
         // > importaciones**, y ahora tiene la evidencia al lado en vez de la
         // > suposición.
-        'app/Services/PuntoDeControlDeImportacion.php' => 10,
+        //
+        // Y ONCE esa misma noche, con la de `anotarElTotal()`: escribe
+        // `filas_totales` —el denominador del aviso de «a medias»— y, en el mismo
+        // `UPDATE`, `updated_at`. **La misma columna que las otras diez**, así que
+        // vale palabra por palabra lo de arriba: ponerla en Bogotá sería meter la
+        // segunda zona en la columna que la fase 1 quiere con una sola. La tabla
+        // se mueve entera o no se mueve.
+        'app/Services/PuntoDeControlDeImportacion.php' => 11,
     ];
 
     #[Test]
