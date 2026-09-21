@@ -11,6 +11,7 @@ use App\Models\Role;
 use App\Services\EnsayoDeLaImportacion;
 use App\Services\PuntoDeControlDeImportacion;
 use App\Services\RespuestasDeLaImportacion;
+use App\Support\EstadosDeMatricula;
 use App\Support\Reloj;
 use App\Support\SafeUpload;
 use App\User;
@@ -378,10 +379,19 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
             // escribir es peor que escribir bien y mucho mejor que escribir
             // mal, porque un estado corrupto no se nota hasta que alguien echa
             // en falta a un alumno.
-            $estadoCabe = $alumno['estado_matricula'] === null
-                || mb_strlen(trim((string) $alumno['estado_matricula'])) <= 4;
+            // **Dos puertas, no una.** La Fase 1 cerró la del tamaño; la del
+            // catálogo la encontró `myvc-front-51` el 21 sep 2026: `ACTV` cabe en
+            // cuatro caracteres, se escribía tal cual y dejaba al alumno en un
+            // estado que **no consulta ninguna query** — el mismo síntoma que el
+            // truncado, por el camino contrario.
+            $estadoCrudo = $alumno['estado_matricula'] === null
+                ? null
+                : (string) $alumno['estado_matricula'];
 
-            if ($estadoCabe) {
+            $cabe = EstadosDeMatricula::cabe($estadoCrudo);
+            $existe = $cabe && EstadosDeMatricula::existe($estadoCrudo);
+
+            if ($cabe && $existe) {
                 DB::update('UPDATE matriculas m INNER JOIN grupos g ON g.id=m.grupo_id and g.year_id=? and g.deleted_at is null SET m.nuevo=?, m.estado=?, m.updated_at=? WHERE m.alumno_id=? and m.deleted_at is null', [$grupo->year_id, $alumno['es_nuevo'], $alumno['estado_matricula'], $now, $alumno['id']]);
             } else {
                 // `nuevo` si se escribe: no tiene nada que ver con el estado y
@@ -392,9 +402,14 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
                     'fila' => $alumno['numero_matricula'] ?? null,
                     'campo' => 'estado_matricula',
                     'valor' => (string) $alumno['estado_matricula'],
-                    'motivo' => 'No cabe en matriculas.estado (4 caracteres) y se habria '
-                              .'guardado cortado, dejando al alumno fuera de las listas. '
-                              .'La matricula conserva el estado que ya tenia.',
+                    'motivo' => $cabe
+                        ? 'No es ninguno de los estados que usa este colegio ('
+                          .implode(', ', EstadosDeMatricula::delColegio()).'), asi que el alumno '
+                          .'habria quedado en un estado que no consulta ninguna lista. '
+                          .'La matricula conserva el estado que ya tenia.'
+                        : 'No cabe en matriculas.estado (4 caracteres) y se habria '
+                          .'guardado cortado, dejando al alumno fuera de las listas. '
+                          .'La matricula conserva el estado que ya tenia.',
                 ];
             }
 
@@ -726,6 +741,11 @@ class ImportarController extends Controller
      */
     public function postAlgo($year)
     {
+        // El catálogo de estados se cachea por petición —la importación pregunta
+        // una vez por fila y son miles— y aquí se olvida, porque en los tests el
+        // proceso es uno solo y un caso que estrena un estado tiene que verlo.
+        EstadosDeMatricula::olvidar();
+
         if (Request::hasFile('file')) {
             $archivo = request()->file('file');
             $huella = hash_file('sha256', $archivo->getRealPath());
@@ -922,6 +942,8 @@ class ImportarController extends Controller
      */
     public function postEnsayo($year)
     {
+        EstadosDeMatricula::olvidar();
+
         if (! Request::hasFile('file')) {
             return response()->json(['ok' => false, 'msg' => 'No se encontró archivo.'], 422);
         }
@@ -1038,8 +1060,28 @@ class ImportarController extends Controller
             // resuelve la pestaña contra `grupos` **antes** de mirar si trae
             // filas (`ExcelUtils::array()`), así que «no tiene alumnos» no la
             // hace inofensiva.
-            'puede_importarse' => $bloqueos === [],
+            // **UN PLAN RECORTADO NO PUEDE DECIR QUE SÍ.**
+            //
+            // Si el ensayo se quedó sin tiempo, las filas que no miró pueden
+            // traer la hoja sin grupo que hace reventar la importación entera.
+            // Un `true` aquí sería la peor forma de este fallo: la pantalla
+            // dejaría pulsar «Importar» con un aval que nadie dio.
+            //
+            // `null` y no `false`: no es «va a fallar», es «no se sabe», y son
+            // dos frases distintas para la persona que decide.
+            'puede_importarse' => $ensayo->recortado ? null : $bloqueos === [],
             'bloqueos' => $bloqueos,
+
+            // EL PLAN SE DECLARA COMPLETO O NO, y es lo que impide leerlo mal.
+            //
+            // El ensayo no escribe, así que no puede reanudarse: o cabe en la
+            // petición o se recorta. Antes de esto un libro grande daba 500 por
+            // `max_execution_time` —medido por `myvc-front-51`: 4.133 filas—, y
+            // ese 500 llega al navegador sin cabeceras de CORS, así que la
+            // pantalla no lo distinguía de un fichero ilegible.
+            'completo' => ! $ensayo->recortado,
+            'filas_estudiadas' => $ensayo->filasEstudiadas,
+            'filas_del_libro' => $ensayo->filasDelLibro,
             'grupos_del_year' => $this->gruposDelYear((int) $year),
             'columnas_destino' => $this->columnasDestino(),
             'catalogos' => $this->catalogos(),

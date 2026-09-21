@@ -159,6 +159,70 @@ class EnsayoDeLaImportacionTest extends CasoDeContrato
     }
 
     /**
+     * **Y el que CABE pero no existe, que es la otra puerta.**
+     *
+     * Lo encontró `myvc-front-51` el 21 sep 2026: `ACTV` pasa los cuatro
+     * caracteres, se escribía tal cual y dejaba al alumno en un estado que **no
+     * consulta ninguna query**. El síntoma es el mismo que el del truncado —
+     * desaparece de las listas— y el camino es el contrario: no se estropea al
+     * guardarlo, se guarda entero y no significa nada.
+     *
+     * La consecuencia va con **su propia palabra** y no reusa `no_se_escribe`:
+     * lo que la persona hace con cada uno no es lo mismo — uno se acorta y el
+     * otro se traduce—, y la pantalla tiene que poder decirlo.
+     */
+    public function test_el_estado_que_cabe_pero_no_existe_tambien_sale(): void
+    {
+        [$token, $year] = $this->personalYSuYear();
+        $archivo = $this->hojaConUnEstadoQueCabeYNoExiste($this->exportacionDeAlumnos($token));
+
+        $truncados = $this->ensayar($archivo, $token, $year)->assertStatus(200)->json('truncados');
+
+        $estado = collect($truncados)->firstWhere('valor', 'ACTV');
+
+        $this->assertNotNull($estado,
+            'Un estado de cuatro caracteres que no existe pasó el ensayo sin que nadie lo nombrara: '
+            .'el alumno se queda invisible en las listas y nadie se entera.');
+
+        $this->assertSame('no_esta_en_el_catalogo', $estado['consecuencia']);
+
+        $this->assertContains('MATR', $estado['catalogo'],
+            'El aviso no lleva el catálogo dentro, así que la persona no puede saber contra qué elegir.');
+        $this->assertNotContains('ACTV', $estado['catalogo']);
+    }
+
+    /**
+     * Y la otra mitad, que es la que impide que este arreglo sea el fallo de
+     * enfrente: **un estado que el colegio SÍ usa no se marca**.
+     *
+     * No hay tabla de estados —son convenciones repartidas por el SQL—, así que
+     * el catálogo se mide: lo que el código nombra más lo que este colegio ya
+     * tiene escrito. Una lista corta declarada a mano marcaría como error las
+     * matrículas legítimas de un colegio con un octavo estado.
+     */
+    public function test_un_estado_que_el_colegio_ya_usa_no_se_marca(): void
+    {
+        [$token, $year] = $this->personalYSuYear();
+
+        $suyo = DB::selectOne("SELECT estado FROM matriculas
+            WHERE deleted_at IS NULL AND estado IS NOT NULL AND TRIM(estado) <> ''
+            GROUP BY estado ORDER BY COUNT(*) DESC LIMIT 1");
+
+        $this->assertNotNull($suyo, 'El seed no tiene ninguna matrícula con estado: esto no mide nada.');
+
+        $libro = IOFactory::load($this->exportacionDeAlumnos($token));
+        $hoja = $libro->getSheet(0);
+        $hoja->setCellValue($this->columnasDe($hoja)['estado_matricula'].'3', $suyo->estado);
+
+        $truncados = $this->ensayar($this->guardar($libro), $token, $year)
+            ->assertStatus(200)->json('truncados');
+
+        $this->assertNull(collect($truncados)->firstWhere('valor', $suyo->estado),
+            "El estado `{$suyo->estado}` lo usa este colegio en sus propias matrículas y el ensayo "
+            .'lo marcó como desconocido.');
+    }
+
+    /**
      * Los catálogos viajan con el ensayo, con sus tildes.
      *
      * Son tablas de cada colegio y no constantes: una lista incrustada en el
@@ -680,6 +744,64 @@ class EnsayoDeLaImportacionTest extends CasoDeContrato
 
         $hoja->setCellValue($columnas['tipo_de_documento'].'3', 'CARNÉ DIPLOMÁTICO');
         $hoja->setCellValue($columnas['estado_matricula'].'3', 'Activo');
+
+        return $this->guardar($libro);
+    }
+
+    /**
+     * **Sin tiempo, el ensayo se recorta y lo DICE — no revienta.**
+     *
+     * Antes de esto un libro grande daba 500 por `max_execution_time` (medido
+     * por `myvc-front-51`: 421 filas 2 s, 2.085 12 s, 4.133 **500**), y ese 500
+     * llega al navegador **sin cabeceras de CORS**, así que la pantalla lo
+     * confundía con un fichero ilegible y decía «no se pudo leer el archivo» de
+     * un fichero perfectamente legible.
+     *
+     * Lo que se comprueba no es el 200: es que **`puede_importarse` no diga que
+     * sí**. Las filas que no se miraron pueden traer la hoja sin grupo que hace
+     * reventar la importación entera, y un aval que nadie dio es peor que un
+     * error.
+     */
+    public function test_sin_tiempo_el_ensayo_se_recorta_y_no_avala_nada(): void
+    {
+        [$token, $year] = $this->personalYSuYear();
+        $archivo = $this->exportacionDeAlumnos($token);
+
+        config(['importacion.segundos_del_ensayo' => 0]);
+
+        $r = $this->ensayar($archivo, $token, $year)->assertStatus(200);
+
+        $this->assertFalse($r->json('completo'), 'Se recortó y dijo que el plan estaba completo.');
+        $this->assertSame(0, $r->json('filas_estudiadas'));
+        $this->assertGreaterThan(0, $r->json('filas_del_libro'),
+            'No contó las filas del libro, así que no puede decir sobre cuántas se pronuncia.');
+
+        $this->assertNull($r->json('puede_importarse'),
+            'Un plan recortado avaló la importación. `null` es «no se sabe» y `false` es «va a '
+            .'fallar»: son dos frases distintas, y `true` aquí deja pulsar Importar sin aval.');
+    }
+
+    /** Y con tiempo de sobra el plan se declara completo, que es el caso normal. */
+    public function test_con_tiempo_el_plan_se_declara_completo(): void
+    {
+        [$token, $year] = $this->personalYSuYear();
+
+        config(['importacion.segundos_del_ensayo' => 120]);
+
+        $r = $this->ensayar($this->exportacionDeAlumnos($token), $token, $year)->assertStatus(200);
+
+        $this->assertTrue($r->json('completo'));
+        $this->assertSame($r->json('filas_del_libro'), $r->json('filas_estudiadas'));
+        $this->assertNotNull($r->json('puede_importarse'));
+    }
+
+    /** Un estado de cuatro caracteres que no es ninguno de los del colegio. */
+    private function hojaConUnEstadoQueCabeYNoExiste(string $archivo): string
+    {
+        $libro = IOFactory::load($archivo);
+        $hoja = $libro->getSheet(0);
+
+        $hoja->setCellValue($this->columnasDe($hoja)['estado_matricula'].'3', 'ACTV');
 
         return $this->guardar($libro);
     }

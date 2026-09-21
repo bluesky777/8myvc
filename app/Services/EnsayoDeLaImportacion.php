@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Http\Controllers\Alumnos\ImporterFixer;
+use App\Support\EstadosDeMatricula;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Concerns\ToArray;
 use Maatwebsite\Excel\Concerns\WithEvents;
@@ -136,6 +137,36 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
         'nro_sisben' => 'SISBEN',
     ];
 
+    /**
+     * Cuándo hay que dejar de estudiar filas, en segundos desde que empezó.
+     *
+     * **El ensayo no escribe, así que no puede reanudarse: o cabe o se recorta.**
+     * Esa es la diferencia con la importación, que guarda por dónde iba. Aquí lo
+     * que se guarda es un plan en memoria, y partirlo en peticiones exigiría
+     * persistirlo — para una pantalla que sólo mira antes de decidir.
+     *
+     * Así que lo que se hace es **parar a tiempo y decirlo**: un plan sobre las
+     * primeras N filas, marcado como incompleto, es infinitamente mejor que un
+     * 500. Medido por `myvc-front-51` el 21 sep 2026: 421 filas 2 s, 2.085 filas
+     * 12 s, y 4.133 filas **500 por `max_execution_time`** — que además llega al
+     * navegador sin cabeceras de CORS, así que la pantalla no puede distinguirlo
+     * de un fichero ilegible y dice «no se pudo leer el archivo» de un fichero
+     * perfectamente legible.
+     */
+    public const SEGUNDOS = 20;
+
+    /** Cuándo se acaba el tiempo. */
+    private float $limite;
+
+    /** Si se recortó por tiempo. Lo que hace que el plan se declare incompleto. */
+    public bool $recortado = false;
+
+    /** Filas estudiadas de verdad, que con `$recortado` son menos que las del libro. */
+    public int $filasEstudiadas = 0;
+
+    /** Filas que tiene el libro, contadas hoja a hoja aunque ya no se estudien. */
+    public int $filasDelLibro = 0;
+
     public array $sheetNames = [];
 
     /** @var array<int, array<string, mixed>> */
@@ -162,7 +193,11 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
     /** @var array<string, array<string, mixed>> */
     private array $truncados = [];
 
-    public function __construct(private int $year, private ImporterFixer $fixer) {}
+    public function __construct(private int $year, private ImporterFixer $fixer, ?float $segundos = null)
+    {
+        $this->limite = microtime(true)
+            + ($segundos ?? (float) config('importacion.segundos_del_ensayo', self::SEGUNDOS));
+    }
 
     public function registerEvents(): array
     {
@@ -200,6 +235,11 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
 
         $encabezados = $this->encabezadosDe($array);
 
+        // El total se cuenta SIEMPRE, también después de recortar: sin él la
+        // respuesta no puede decir «se estudiaron 2.000 de 4.133», que es lo
+        // único que convierte un plan parcial en un plan legible.
+        $this->filasDelLibro += count($array);
+
         $this->hojas[] = [
             'nombre' => $nombre,
             'filas' => count($array),
@@ -224,7 +264,17 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
         }
 
         foreach ($array as $i => $fila) {
+            // **Se mira fila a fila y no por lotes**, al revés que la
+            // importación: aquí no hay transacción que respetar, así que cortar
+            // en cualquier fila no deja nada a medias.
+            if (microtime(true) >= $this->limite) {
+                $this->recortado = true;
+
+                return;
+            }
+
             $this->estudiarFila($fila, $nombre, $i, $grupo);
+            $this->filasEstudiadas++;
         }
     }
 
@@ -419,7 +469,12 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
         // Se aplica la misma regla que el importador: lo que NO CABE en
         // `varchar(4)` no se escribe, y entonces tampoco es un cambio.
         $estadoNuevo = $traducido['estado_matricula'] ?? null;
-        $cabe = $estadoNuevo === null || mb_strlen(trim((string) $estadoNuevo)) <= 4;
+        // **El ensayo promete lo que va a pasar, no lo que dice la hoja.** Un
+        // estado que no cabe o que no está en el catálogo no lo escribe el
+        // importador, así que anunciarlo como cambio sería mentir en el informe
+        // final — que es exactamente lo que este servicio existe para no hacer.
+        $cabe = EstadosDeMatricula::cabe($estadoNuevo === null ? null : (string) $estadoNuevo)
+            && EstadosDeMatricula::existe($estadoNuevo === null ? null : (string) $estadoNuevo);
 
         if ($cabe && $estadoNuevo !== null && (string) $estadoNuevo !== (string) ($existente->estado_matricula ?? '')) {
             $cambios[] = [
@@ -648,7 +703,22 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
         foreach (['estado_matricula' => 4, 'sexo' => 1] as $columna => $tope) {
             $valor = $fila[$columna] ?? null;
 
-            if ($valor === null || mb_strlen(trim((string) $valor)) <= $tope) {
+            if ($valor === null || trim((string) $valor) === '') {
+                continue;
+            }
+
+            $noCabe = mb_strlen(trim((string) $valor)) > $tope;
+
+            // **La segunda puerta, y sólo la tiene `estado_matricula`.** Un valor
+            // que cabe pero no es ninguno de los que usa el colegio se escribía
+            // tal cual y dejaba al alumno en un estado que no consulta ninguna
+            // lista: el mismo síntoma que el truncado por el camino contrario.
+            // `sexo` no entra aquí porque su vocabulario lo traduce el fixer.
+            $noExiste = ! $noCabe
+                && $columna === 'estado_matricula'
+                && ! EstadosDeMatricula::existe((string) $valor);
+
+            if (! $noCabe && ! $noExiste) {
                 continue;
             }
 
@@ -658,9 +728,19 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
                 'columna' => $columna,
                 'etiqueta' => self::COLUMNAS[$columna]['etiqueta'],
                 'valor' => $valor,
-                'se_guardaria' => $columna === 'estado_matricula' ? null : mb_substr((string) $valor, 0, $tope),
+                'se_guardaria' => $noExiste || $columna === 'estado_matricula'
+                    ? null
+                    : mb_substr((string) $valor, 0, $tope),
                 'longitud_maxima' => $tope,
-                'consecuencia' => $columna === 'estado_matricula' ? 'no_se_escribe' : 'se_corta',
+
+                // Tres valores y no dos: la pantalla tiene que poder decir «no
+                // cabe» y «no existe» con palabras distintas, porque lo que la
+                // persona hace con cada uno no es lo mismo — uno se acorta y el
+                // otro se traduce.
+                'consecuencia' => $noExiste
+                    ? 'no_esta_en_el_catalogo'
+                    : ($columna === 'estado_matricula' ? 'no_se_escribe' : 'se_corta'),
+                'catalogo' => $noExiste ? EstadosDeMatricula::delColegio() : null,
                 'veces' => 0,
                 'filas' => [],
             ];

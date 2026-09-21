@@ -53,4 +53,18 @@ return [
     */
     'filas_por_lote' => (int) env('IMPORTACION_FILAS_POR_LOTE', 25),
 
+    /*
+    | Y lo mismo para el ENSAYO, que es otra cosa y por eso tiene su propio valor.
+    |
+    | El ensayo no escribe, así que **no puede reanudarse: o cabe o se recorta**.
+    | Lo que hace al agotarse es devolver un plan sobre las primeras N filas
+    | marcado como incompleto, que es infinitamente mejor que el 500 por
+    | `max_execution_time` que daba antes — y que además llegaba al navegador sin
+    | cabeceras de CORS, así que la pantalla lo confundía con un fichero ilegible.
+    |
+    | Va aparte del de la importación porque los topes que los aprietan son
+    | distintos: aquél se parte en varias peticiones y éste se conforma con una.
+    */
+    'segundos_del_ensayo' => (float) env('IMPORTACION_SEGUNDOS_DEL_ENSAYO', 20),
+
 ];
