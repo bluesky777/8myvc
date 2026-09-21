@@ -141,6 +141,49 @@ class BolfinalesController extends Controller {
 
 	}
 
+	/**
+	 * **Las hojas que el informe va a imprimir de verdad.**
+	 *
+	 * Este filtro vivia al final del metodo, despues de rellenar a todos los alumnos, y
+	 * subio aqui el 20 sep 2026 por una razon concreta: **para quemar un consecutivo por
+	 * hoja hay que saber cuantas hojas son antes de quemar**. No es una copia del que
+	 * habia abajo -- es el mismo, movido -- porque dos copias del mismo filtro son dos
+	 * criterios en cuanto alguien toque uno.
+	 *
+	 * Conserva el bucle anidado y no un `in_array`: si `requested_alumnos` trae el mismo
+	 * alumno dos veces, sale dos veces, que es lo que hacia antes. Cambiarlo aqui seria
+	 * arreglar en silencio algo que nadie ha medido, dentro de un cambio que va de otra
+	 * cosa.
+	 *
+	 * @param  array<int, object>  $alumnos
+	 * @param  array<int, array<string, mixed>>|string  $requested_alumnos
+	 * @return array<int, object>
+	 */
+	private function alumnosDeLaRespuesta($alumnos, $requested_alumnos)
+	{
+		// **`is_array` y no `== ''`, que es lo que ponía abajo.** No es cosmético: sin
+		// estrechar el tipo, larastan marca el `foreach` de abajo —el parámetro es
+		// `array|string`— y tiene razón, porque una cadena NO vacía caería en el bucle y
+		// reventaría. Con esto no cambia nada de lo alcanzable: `''` y cualquier
+		// no-array devuelven el grupo entero, igual que antes, y un array vacío sigue
+		// entrando al bucle y saliendo vacío.
+		if (! is_array($requested_alumnos)) {
+			return array_values($alumnos);
+		}
+
+		$hojas = [];
+
+		foreach ($alumnos as $alumno) {
+			foreach ($requested_alumnos as $req_alumno) {
+				if ($req_alumno['alumno_id'] == $alumno->alumno_id) {
+					array_push($hojas, $alumno);
+				}
+			}
+		}
+
+		return $hojas;
+	}
+
 	public function detailedNotasGrupo($grupo_id, $user, $requested_alumnos='')
 	{
 
@@ -156,6 +199,27 @@ class BolfinalesController extends Controller {
 		}
 		
 		
+		// **Los alumnos se resuelven ANTES de quemar, y ese orden es el cambio.**
+		//
+		// Hasta el 20 sep 2026 el consecutivo se quemaba aqui arriba, sin saber cuantas
+		// hojas iban a salir -- porque no hacia falta: se quemaba UNO por peticion. Al
+		// pasar a uno por hoja hay que saber cuantas son, y quien lo dice es esta
+		// consulta. Subirla no cambia nada mas: no depende de `$grupo` ni de `$year`, y
+		// `$year` se sigue leyendo DESPUES de la quema, que es lo que hace que
+		// `year.contador_certificados` siga siendo el numero de despues y no el de antes.
+		$alumnos		= Grupo::alumnos($grupo_id, $requested_alumnos);
+
+		// **Las HOJAS son estos y no `$alumnos`**: cuando el cliente pide alumnos
+		// sueltos, el informe imprime esos. Quemar por `count($alumnos)` gastaria un
+		// numero por cada companero que no se imprime.
+		$response_alumnos = $this->alumnosDeLaRespuesta($alumnos, $requested_alumnos);
+
+		// **Las dos se declaran AQUI y no dentro del `if`**: la respuesta las lee
+		// siempre, y en PHP 8 leer una variable que no se declaro es un aviso, no un
+		// `null` -- o sea ruido en el log de los dieciseis por una rama que es la normal.
+		$porHoja           = false;
+		$primerConsecutivo = null;
+
 		if (Request::has('aumentar_contador')) {
 			// **`==` quemaba un folio oficial por creer que le decian «si».** En PHP
 			// cualquier cadena no vacia que no sea `'0'` es cierta, asi que la cadena
@@ -177,7 +241,35 @@ class BolfinalesController extends Controller {
 			// OMITIR la clave, no mandar `false` --: la respalda, porque las copias de
 			// `myvc_front` desplegadas en los dieciseis colegios pueden ir a versiones
 			// distintas y esta medicion no las ve.
-			if (filter_var(Request::input('aumentar_contador'), FILTER_VALIDATE_BOOLEAN)) {
+			/*
+			 * **UNO POR HOJA, y va detras de una llave que el cliente tiene que pedir.**
+			 *
+			 * Decision de Joseth del 20 sep 2026. El defecto medido: el consecutivo se
+			 * quema **una vez por PETICION**, asi que un grupo de 37 sale con 37 papeles
+			 * que dicen todos «No. 144». Por eso la constancia de estudio nueva **no
+			 * imprime numero**: antes sin numero que con uno repetido.
+			 *
+			 * **La llave no es ceremonia, y esto es lo unico delicado del cambio.** El
+			 * numero viaja hoy en `year.contador_certificados`, uno solo para toda la
+			 * respuesta, y los dieciseis colegios llevan copias de `myvc_front` en
+			 * versiones distintas. Si esto quemara N sin mas, un colegio con el front
+			 * viejo **gastaria 37 numeros para imprimir 37 veces el mismo**: repetido
+			 * igual que antes y con 36 folios oficiales tirados. En una cuenta de papel
+			 * oficial la direccion irreversible es quemar. Asi que el reparto por hoja lo
+			 * pide quien sabe leerlo, y quien no lo pida sigue exactamente como estaba.
+			 *
+			 * Es la misma forma que nivelar: `myvc_flutter` es una sola app para los
+			 * dieciseis y su version vieja convive meses con este backend.
+			 */
+			$porHoja = filter_var(Request::input('consecutivo_por_hoja'), FILTER_VALIDATE_BOOLEAN);
+
+			// **Cero hojas no quema nada.** Sin esto, pedir el informe de un grupo vacio
+			// -- o de un alumno que ya no esta -- gastaria un numero por un papel que no
+			// existe. La rama de siempre sigue quemando uno pase lo que pase, porque
+			// cambiar eso seria estrenar conducta en el camino que ya usan los dieciseis.
+			$hojas = $porHoja ? count($response_alumnos) : 1;
+
+			if (filter_var(Request::input('aumentar_contador'), FILTER_VALIDATE_BOOLEAN) && $hojas > 0) {
 				// **Leer y escribir el consecutivo van en UNA transaccion, con `FOR UPDATE`
 				// sobre la fila del year.** Sin eso son dos sentencias sueltas: dos
 				// secretarias abriendo el "Certificado periodos" a la vez leen las dos 143 y
@@ -189,7 +281,7 @@ class BolfinalesController extends Controller {
 				// `DefinitivasPeriodosController::putUpdate`: `DB::transaction` + `SELECT ...
 				// FOR UPDATE` sobre la fila que se va a pisar. Se copia de ahi a proposito y
 				// no se inventa otro.
-				DB::transaction(function () {
+				DB::transaction(function () use ($hojas, &$primerConsecutivo) {
 					// Sigue siendo `DB::select(...)[0]` y no `selectOne`: si no hubiera year
 					// `actual=1` esto falla igual que antes. Cambiarlo a un null-check haria
 					// que el endpoint contestara 200 sin subir el contador, que es una
@@ -238,8 +330,15 @@ class BolfinalesController extends Controller {
 					// que el endpoint devolvia 500 antes incluso de ejecutar el UPDATE -- el array
 					// de argumentos se evalua primero. (int)'' es 0, asi que el contador arranca
 					// en 1 donde estaba vacio, y (int)'12' sigue siendo 12 donde ya tenia valor.
-					$anterior = $contador->contador_certificados;
-					$nuevo    = (int)$anterior + 1;
+					// **Se reserva el BLOQUE entero en la misma escritura**, y ese es el
+					// motivo de que esto siga siendo una sola transaccion con `FOR UPDATE`
+					// en vez de un bucle de incrementos: N sentencias sueltas son N
+					// carreras, y dos secretarias imprimiendo a la vez se llevarian
+					// bloques entrelazados. Un `UPDATE` que suma N deja los N numeros
+					// seguidos y de un solo dueno.
+					$anterior          = $contador->contador_certificados;
+					$primerConsecutivo = (int)$anterior + 1;
+					$nuevo             = (int)$anterior + $hojas;
 
 					DB::update('UPDATE years SET contador_certificados=? WHERE id=?', [$nuevo, $contador->id]);
 
@@ -278,12 +377,32 @@ class BolfinalesController extends Controller {
 				});
 			}
 		}
+
+		/*
+		 * **El numero de cada hoja, y va SIEMPRE aunque valga `null`.**
+		 *
+		 * Una clave que unas veces viene y otras no obliga a quien la lee a distinguir
+		 * «vacio» de «no vino», y esas dos cosas se parecen demasiado en una plantilla
+		 * (22 §3.1). Asi que las hojas salen todas con `consecutivo_certificado`: con su
+		 * numero cuando se reservo un bloque, y en `null` cuando no -- porque el cliente
+		 * no lo pidio, porque el colegio no numera (`usa_consecutivo_certificados`) o
+		 * porque no se pidio aumentar el contador.
+		 *
+		 * **`null` quiere decir «no imprimas numero», no «numero desconocido»**: es
+		 * exactamente lo que hace hoy el front cuando `contador_certificados` viene
+		 * vacio, y lo que hace que una constancia salga sin «No.» en vez de salir con uno
+		 * que nadie reservo.
+		 */
+		foreach ($response_alumnos as $indice => $alumnoDeLaHoja) {
+			$alumnoDeLaHoja->consecutivo_certificado = $porHoja && $primerConsecutivo !== null
+				? $primerConsecutivo + $indice
+				: null;
+		}
 		
 		
 		
 		$grupo			= Grupo::datos($grupo_id);
 		$year			= Year::datos($user->year_id, $year_actual);
-		$alumnos		= Grupo::alumnos($grupo_id, $requested_alumnos);
 		
 		
 		$year_notas		= Year::datos($user->year_id);
@@ -346,9 +465,6 @@ class BolfinalesController extends Controller {
 
 		$grupo->cantidad_alumnos = count($alumnos);
 
-		$response_alumnos = [];
-		
-
 		foreach ($alumnos as $alumno) {
 
 			// Todas las materias con sus unidades y subunides
@@ -361,9 +477,29 @@ class BolfinalesController extends Controller {
 			// impresos hasta que alguien los nombre aquí. Y ésta es la que ningún snapshot
 			// veía: en el seed no hay ni una fila de recuperación, así que la forma guardada
 			// dice `[]`. Por eso su test **inserta una**.
-			$consulta = 'SELECT r.id, r.alumno_id, r.asignatura_id, r.year, r.nota, r.updated_by, r.created_at, r.updated_at, m.materia, m.alias, m.area_id FROM recuperacion_final r 
+			//
+			// **Y el aviso de arriba se cumplió: A9 añadió las tres del acta y llevaban
+			// desde entonces sin salir impresas.** `nivelada_at`, `nivelada_por` y
+			// `observacion` las escriben las dos ramas de
+			// `DefinitivasPeriodosController::putUpdateRecuperacion` —la fila entera de
+			// esta tabla *es* el acta— y aquí no las nombraba nadie, así que el acta de
+			// nivelación salía con la nota y sin fecha, sin responsable y sin actividad.
+			// Las pide el informe «acta de nivelación» de `myvc_front` (20 sep 2026).
+			//
+			// **El nombre sale de `users.username` y NO de `profesores`**, y eso no es
+			// estilo: `nivelada_por` guarda `$user->user_id` —un id de `users`, mírese el
+			// `INSERT` de `putUpdateRecuperacion`—, y de las 22 cuentas de tipo `Usuario`
+			// **ninguna tiene ficha en `profesores`**. Un `JOIN` contra `profesores`
+			// dejaría sin nombre justo a secretaría, que es quien firma las actas. Es la
+			// trampa que el CLAUDE.md tiene escrita y que `getRecorrido` acaba de cometer.
+			// El alias es el mismo que ya usan `NotasController`, `EditnotaController` y
+			// `DefinitivasPeriodosController`: `nivelada_por_username`.
+			$consulta = 'SELECT r.id, r.alumno_id, r.asignatura_id, r.year, r.nota, r.updated_by, r.created_at, r.updated_at,
+					r.nivelada_at, r.nivelada_por, uNiv.username as nivelada_por_username, r.observacion,
+					m.materia, m.alias, m.area_id FROM recuperacion_final r 
 				INNER JOIN asignaturas a ON a.id=r.asignatura_id and a.deleted_at is null
 				INNER JOIN materias m ON m.id=a.materia_id and m.deleted_at is null
+				LEFT JOIN users uNiv ON uNiv.id=r.nivelada_por
 				WHERE alumno_id=? and year=?';
 				
 			$alumno->recuperaciones = DB::select($consulta, [$alumno->alumno_id, $user->year]);
@@ -459,26 +595,11 @@ class BolfinalesController extends Controller {
 			(int) $user->year_id
 		);
 
-		foreach ($alumnos as $alumno) {
-
-			if ($requested_alumnos == '') {
-
-				array_push($response_alumnos, $alumno);
-
-			}else{
-
-				foreach ($requested_alumnos as $req_alumno) {
-					
-					if ($req_alumno['alumno_id'] == $alumno->alumno_id) {
-						array_push($response_alumnos, $alumno);
-					}
-				}
-			}
-			
-
-		}
-
-
+		// **El filtrado que habia aqui vive ahora en `alumnosDeLaRespuesta()`, arriba.**
+		// No se duplico: se movio. Tenia que correr antes para poder contar las hojas, y
+		// dos copias del mismo filtro serian dos criterios en cuanto alguien tocara uno.
+		// Estos son los mismos objetos que el bucle de arriba fue rellenando -- PHP los
+		// pasa por handle --, asi que adelantar el filtro no adelanta el contenido.
 		return [$grupo, $year, $response_alumnos, $this->escalas_val];
 	}
 

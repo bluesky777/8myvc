@@ -97,6 +97,106 @@ class AusenciasController extends Controller {
 	}
 
 	/**
+	 * **Las faltas de UN alumno en UN año, para citar al acudiente.**
+	 *
+	 *     PUT ausencias/de-alumno   auth.personal
+	 *
+	 * La pidió `myvc_front` el 20 sep 2026 para el informe de *citación al acudiente*,
+	 * y **no porque no se pudiera hacer**: hoy se saca de `GET planillas/ver-ausencias`,
+	 * que es lo que ya usa el informe de inasistencias. Lo que pasa es que aquélla
+	 * devuelve **todos los grupos del año, con todos sus alumnos y todos sus periodos**
+	 * para citar a uno, y su forma es N alumnos x 4 periodos con una consulta cada una,
+	 * o sea que crece lineal con el colegio. Medida en el docker dio 150 ms y 108 KB,
+	 * **pero esa copia tiene 42 alumnos y CERO filas de ausencia**, así que ese número
+	 * no predice un colegio de verdad — va dicho porque una medición sobre una población
+	 * vacía no es una medición.
+	 *
+	 * ## RUTA NUEVA Y NO UN RETOQUE DE LAS SEIS DE `ausencias/*`
+	 *
+	 * Esa familia la comparte `myvc_flutter`, que es **una sola app para los dieciséis
+	 * colegios** y cuya versión vieja convive con este backend durante meses. Es la
+	 * misma razón por la que nivelar estrenó endpoints en vez de enseñarle a
+	 * `notas/update`: lo que se le añade a una ruta que ya usa la móvil viaja a una app
+	 * que no se puede actualizar a la vez.
+	 *
+	 * ## NO AGREGA, Y ESO ES LA DECISIÓN
+	 *
+	 * Devuelve **las filas**, no un total. En este proyecto conviven dos criterios de
+	 * recuento sobre estos mismos datos —unos endpoints cuentan filas con `COUNT(*)` y
+	 * otros suman `cantidad_ausencia`, y **dan números distintos** porque una fila puede
+	 * valer más de una falta—. Un total aquí sería un **tercer** número, y el papel que
+	 * lo imprimiera no podría decir cuál de los tres es. Quien lo imprime elige, y la
+	 * hoja dice qué contó.
+	 *
+	 * Por lo mismo **no se filtra `tipo`**: `ausencia` y `tardanza` viajan las dos con su
+	 * etiqueta. La columna «Total» del informe viejo suma las dos sin decirlo, y ése es
+	 * justamente el número que el informe nuevo viene a contar bien.
+	 *
+	 * `fecha_hora` **es nullable y se devuelve como está**: hay filas que cuentan en los
+	 * totales y no están en ningún día. Rellenarlas con la fecha de creación sería
+	 * inventarse el dato que el papel imprime.
+	 *
+	 * ## EL GUARD, dicho porque el front preguntó por él
+	 *
+	 * `auth.personal` y nada dentro, como sus seis hermanas. **No abre nada nuevo**: las
+	 * mismas filas —y las de todos los demás alumnos del colegio— las sirve hoy
+	 * `GET planillas/ver-ausencias` con ese mismo guard. Esto es estrictamente menos.
+	 *
+	 * **No lo alcanza un acudiente**, y es a propósito: la citación es el papel con el
+	 * que el colegio llama a la familia, no lo que la familia consulta. El día que se
+	 * decida que un acudiente vea las faltas de su acudido, eso es `persona.propia` o
+	 * `boletin.propio` sobre una ruta suya, no aflojar ésta.
+	 */
+	public function putDeAlumno()
+	{
+		$user = User::fromToken();
+
+		$alumno_id = (int) Request::input('alumno_id');
+
+		if ($alumno_id <= 0) {
+			abort(422, 'Falta el alumno del que se piden las faltas.');
+		}
+
+		// 404 y no una lista vacía: un alumno que no existe y un alumno sin ninguna
+		// falta se leen igual desde la pantalla, y sólo uno de los dos es un error de
+		// quien llama.
+		$alumno = DB::selectOne('SELECT id FROM alumnos WHERE id=? and deleted_at is null', [$alumno_id]);
+
+		if ($alumno === null) {
+			abort(404, 'Ese alumno no existe.');
+		}
+
+		$year_id = Request::has('year_id') ? (int) Request::input('year_id') : (int) $user->year_id;
+
+		// **El año entra por `periodos` y no por una columna de `ausencias`**, que no la
+		// tiene: la falta cuelga del periodo y el periodo del año. Por eso el `INNER
+		// JOIN` con `periodos` no es adorno — es lo único que ata la fila a un año.
+		$consulta = 'SELECT au.id, au.alumno_id, au.asignatura_id, au.periodo_id, p.numero as periodo,
+						au.tipo, au.fecha_hora, au.cantidad_ausencia, au.cantidad_tardanza, au.entrada,
+						m.materia, m.alias, asi.grupo_id,
+						au.created_by, uCre.username as created_by_username, au.created_at, au.updated_at
+					FROM ausencias au
+					INNER JOIN periodos p ON p.id=au.periodo_id and p.deleted_at is null and p.year_id=:year_id
+					LEFT JOIN asignaturas asi ON asi.id=au.asignatura_id and asi.deleted_at is null
+					LEFT JOIN materias m ON m.id=asi.materia_id and m.deleted_at is null
+					LEFT JOIN users uCre ON uCre.id=au.created_by
+					WHERE au.alumno_id=:alumno_id and au.deleted_at is null
+					ORDER BY p.numero, au.fecha_hora, au.id';
+
+		$ausencias = DB::select($consulta, [':year_id' => $year_id, ':alumno_id' => $alumno_id]);
+
+		// Se devuelve con qué se contestó: `year_id` puede haberlo puesto el servidor, y
+		// una citación que imprime «año lectivo 2026» tiene que saber que le contestaron
+		// de 2026 en vez de suponerlo del token.
+		return [
+			'alumno_id' => $alumno_id,
+			'year_id' => $year_id,
+			'ausencias' => $ausencias,
+		];
+	}
+
+
+	/**
 	 * La línea de auditoría de una falta, que es idéntica en las seis rutas.
 	 *
 	 * Se saca a un ayudante y no se copia seis veces por el motivo que este

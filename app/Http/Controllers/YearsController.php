@@ -188,6 +188,9 @@ class YearsController extends Controller {
 			// (§4 del 38): sin esta copia lo corregirían **otra vez cada año**.
 			$year->titulo_certificado_final      = $pasado->titulo_certificado_final;
 			$year->titulo_certificado_periodos   = $pasado->titulo_certificado_periodos;
+			// La tercera hermana, del 20 sep 2026. Se copia como las otras dos: el año
+			// que se abre hereda el título que el colegio venía usando, no el defecto.
+			$year->titulo_constancia_estudio     = $pasado->titulo_constancia_estudio;
 			$year->compromiso_familiar_label     = $pasado->compromiso_familiar_label;
 			$year->mensaje_aprobo_con_pendientes = $pasado->mensaje_aprobo_con_pendientes;
 			$year->minu_hora_clase     		 	 = $pasado->minu_hora_clase;
@@ -1974,9 +1977,18 @@ class YearsController extends Controller {
 		// no*. Y no es teórico — es la lección de `modelo_evaluacion` aplicada antes de
 		// cometerla: al ponerle una regla a una columna se repasan **todos** los caminos
 		// que escriben esa tabla, no sólo el que se está tocando.
+		//
+		// **Las claves de esta lista tienen que ser las de `Year::TITULOS_POR_DEFECTO`,
+		// y eso lo ata `TitulosDelCertificadoTest`** en vez de dejarlo a que alguien se
+		// acuerde: el rótulo se escribe a mano porque es lo que lee una persona en el
+		// 422, pero **el conjunto no puede quedarse corto**. La tercera —el título de la
+		// constancia de estudio— entró el 20 sep 2026 y es justo el caso que el test
+		// existe para cazar: la columna se añade en la constante, y sin este renglón
+		// `toggle-cambiar-valor` la dejaría vaciar por la puerta de al lado.
 		$conInvarianteDeValor = [
 			'titulo_certificado_final' => 'El título del certificado final',
 			'titulo_certificado_periodos' => 'El título del certificado por periodos',
+			'titulo_constancia_estudio' => 'El título de la constancia de estudio',
 		];
 
 		if (isset($conInvarianteDeValor[$normalizado])) {

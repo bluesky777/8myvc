@@ -186,6 +186,7 @@ use App\Models\Periodo;
  *
  * @property string $titulo_certificado_final
  * @property string $titulo_certificado_periodos
+ * @property string $titulo_constancia_estudio
  *
  * Y **qué pasa al cerrar el periodo con lo que nadie calificó**, por migración
  * (`2026_09_20_600000_el_cierre_y_lo_no_calificado`, fase 4 del doc 43, **D3** de
@@ -292,6 +293,12 @@ class Year extends Model {
 	public const TITULOS_POR_DEFECTO = [
 		'titulo_certificado_final' => 'CONSTANCIA DE DESEMPEÑO ACADÉMICO',
 		'titulo_certificado_periodos' => 'CONSTANCIA DE DESEMPEÑO ACADÉMICO PARCIAL',
+		// La tercera, del 20 sep 2026: el título de la constancia de estudio. Entra
+		// **sólo aquí** y con eso queda validada y escribible, porque `putEncabezado`
+		// recorre esta constante en vez de repetir la lista — que es exactamente para
+		// lo que se dejó escrito así el 15 sep. Lo que no se deriva solo es el corte de
+		// `years/toggle-cambiar-valor`, y eso lo ata un test.
+		'titulo_constancia_estudio' => 'CONSTANCIA DE ESTUDIO',
 	];
 
 	/**
@@ -343,7 +350,7 @@ class Year extends Model {
 		if ($actual) {
 			$consulta = 'SELECT y.id as year_id, y.year, y.nombre_colegio, y.abrev_colegio, y.ciudad_id, c.ciudad, c.departamento, y.resolucion, y.codigo_dane, y.mostrar_puesto_boletin, y.puestos_alfabeticamente, y.show_fortaleza_bol, y.mostrar_nota_comport_boletin,
 							y.logo_id, iL.nombre as logo, y.img_encabezado_id, iE.nombre as img_encabezado, y.nota_minima_aceptada, y.minu_hora_clase, y.encabezado_certificado, y.config_certificado_estudio_id, y.si_recupera_materia_recup_indicador, y.cant_areas_pierde_year, y.cant_asignatura_pierde_year,
-							y.caracter, y.calendario, y.jornada, y.contador_certificados, y.usa_consecutivo_certificados, y.frase_final_certificado, y.titulo_certificado_final, y.titulo_certificado_periodos, y.contador_folios, y.usa_folio_certificados, y.texto_acta_eval, y.show_subasignaturas_en_finales, y.mensaje_aprobo_con_pendientes,
+							y.caracter, y.calendario, y.jornada, y.contador_certificados, y.usa_consecutivo_certificados, y.frase_final_certificado, y.titulo_certificado_final, y.titulo_certificado_periodos, y.titulo_constancia_estudio, y.contador_folios, y.usa_folio_certificados, y.texto_acta_eval, y.show_subasignaturas_en_finales, y.mensaje_aprobo_con_pendientes,
 							y.msg_when_students_blocked, y.titulo_rector, y.compromiso_familiar_label, y.solo_escalas_valorativas, y.mostrar_nota_numerica_boletin,
 							
 							y.secretario_id, pSec.nombres as nombres_secretario, pSec.apellidos as apellidos_secretario, pSec.sexo as sexo_secretario, pSec.num_doc as secretario_documento,
@@ -375,7 +382,7 @@ class Year extends Model {
 		}else{
 			$consulta = 'SELECT y.id as year_id, y.year, y.nombre_colegio, y.abrev_colegio, y.ciudad_id, c.ciudad, c.departamento, y.resolucion, y.codigo_dane, y.mostrar_puesto_boletin, y.puestos_alfabeticamente, y.show_fortaleza_bol, y.mostrar_nota_comport_boletin, 
 							y.logo_id, iL.nombre as logo, y.img_encabezado_id, y.nota_minima_aceptada, y.minu_hora_clase, iE.nombre as img_encabezado, y.encabezado_certificado, y.config_certificado_estudio_id, y.si_recupera_materia_recup_indicador, y.cant_areas_pierde_year, y.cant_asignatura_pierde_year,
-							y.caracter, y.calendario, y.jornada, y.contador_certificados, y.usa_consecutivo_certificados, y.frase_final_certificado, y.titulo_certificado_final, y.titulo_certificado_periodos, y.contador_folios, y.usa_folio_certificados, y.texto_acta_eval, y.show_subasignaturas_en_finales, y.mensaje_aprobo_con_pendientes,
+							y.caracter, y.calendario, y.jornada, y.contador_certificados, y.usa_consecutivo_certificados, y.frase_final_certificado, y.titulo_certificado_final, y.titulo_certificado_periodos, y.titulo_constancia_estudio, y.contador_folios, y.usa_folio_certificados, y.texto_acta_eval, y.show_subasignaturas_en_finales, y.mensaje_aprobo_con_pendientes,
 							y.msg_when_students_blocked, y.titulo_rector, y.compromiso_familiar_label, y.solo_escalas_valorativas, y.mostrar_nota_numerica_boletin,
 
 							y.secretario_id, pSec.nombres as nombres_secretario, pSec.apellidos as apellidos_secretario, pSec.sexo as sexo_secretario, pSec.num_doc as secretario_documento,

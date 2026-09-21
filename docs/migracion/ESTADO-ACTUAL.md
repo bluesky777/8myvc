@@ -8,6 +8,61 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+> ## ✅ LOS TRES INFORMES DEL CATÁLOGO — TRES RUTAS, UNA COLUMNA Y EL CONSECUTIVO (20 sep 2026)
+>
+> **Escrito en `.worktrees/inf`, rama `feat/los-tres-informes-del-catalogo`, base
+> `simonbolivar_testing_inf`.** Lo pidió `myvc_front` —sesión `myvc-front-38`— con la
+> especificación medida contra este código, y **el alcance lo eligió Joseth con el precio
+> delante**: lo pidió todo, citación incluida, y quemar el consecutivo por hoja. Contrato y
+> porqués en [48](48-los-informes-del-catalogo.md).
+>
+> De los seis informes nuevos de `/informes` iban tres; los tres que faltaban —directorio del
+> grupo, citación al acudiente y acta de nivelación— **no estaban sin hacer por maquetación: les
+> faltaba el dato.**
+>
+> ```
+> PUT  informes/nivelaciones-del-grupo   la sección A del acta, de una vez
+> PUT  ausencias/de-alumno               las faltas de uno, para la citación
+> GET  informes/membrete                 lo que hace falta para firmar un papel
+> ```
+>
+> **Router en 647**, contado en `.worktrees/inf`. **SIN FUNDIR: hay que recontarlas en el ÁRBOL
+> PRINCIPAL el día que entren.** Ninguna es pública: `RutasPreLoginTest` no se mueve.
+>
+> Más, sin gastar ruta: `alumno_id` en los alumnos de un acudiente; las tres columnas del acta en
+> la consulta de recuperaciones; `years.titulo_constancia_estudio` (6 instantáneas); y el
+> consecutivo **uno por hoja**.
+>
+> ### 🔴 EL AVISO QUE ESTABA ESCRITO ENCIMA DE LA CONSULTA, CUMPLIDO
+>
+> Tres líneas por encima de la consulta de recuperaciones ponía desde el 2 sep: *«los metadatos de
+> acta que A9 le añada no salen impresos hasta que alguien los nombre aquí»*. **Eso es
+> exactamente lo que había pasado**: `nivelada_at`, `nivelada_por` y `observacion` se escribían
+> desde entonces y **no las leía nadie**, así que el acta salía con la nota y sin fecha, sin
+> responsable y sin actividad. Es `profesores.tono` con el aviso ya puesto al lado.
+>
+> **Y el nombre sale de `users` y no de `profesores`**, que es donde la petición ofrecía las dos:
+> `nivelada_por` guarda un id de `users` y **0 de las 22 cuentas `Usuario` tienen ficha** en
+> `profesores`. Unir contra la ficha dejaría sin nombre justo a secretaría. Es la misma trampa que
+> `getRecorrido` cometió ese día; aquí se evitó **yendo a mirar quién escribe la columna antes de
+> elegir con qué unirla**.
+>
+> ### ⚠️ EL CONSECUTIVO VA DETRÁS DE UNA LLAVE, Y ESO NO ES RECORTAR LA DECISIÓN
+>
+> Joseth mandó quemar por hoja. El reparto va detrás de `consecutivo_por_hoja` porque el número
+> viaja en `year.contador_certificados` —uno para toda la respuesta— y los dieciséis llevan fronts
+> de versiones distintas: sin la llave, un colegio con el front viejo **gastaría 37 folios
+> oficiales para imprimir 37 veces el mismo número**. Quemar es la dirección irreversible. *Es la
+> decisión sin el efecto que no pidió,* y lo protege
+> `ConsecutivoPorHojaTest::sin_pedirlo_se_sigue_quemando_exactamente_uno`.
+>
+> ### Lo que queda apuntado
+>
+> La **tabla de certificados emitidos** sigue sin existir —un número quemado por abrir la pantalla
+> es indistinguible de uno emitido— y **reimprimir un acta vieja tal como se firmó no se puede**:
+> la fila de `notas` sólo guarda la última nivelación y `auditoria` **no la lee nadie** (`FROM
+> auditoria` en `app/`: **0**, contado sin truncar).
+
 > ## ✅ LAS DOS RESPUESTAS DE JOSETH, APLICADAS — y la segunda destapó tres faltas (20 sep 2026)
 >
 > **La casilla que había aquí era un traspaso: `8myvc-6f` se quedó sin ventana con dos

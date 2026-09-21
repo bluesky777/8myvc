@@ -70,6 +70,18 @@ Route::post('ausencias/store', [AusenciasController::class, 'postStore'])->middl
 Route::delete('ausencias/destroy/{id}', [AusenciasController::class, 'deleteDestroy'])->middleware('auth.personal');
 Route::get('ausencias/detailed/{asignatura_id}', [AusenciasController::class, 'getDetailed'])->middleware('auth.personal');
 
+// Las faltas de UN alumno en UN año, para la citación al acudiente.
+//
+// **Ruta nueva y no un retoque de las siete de arriba**, y eso no es estilo: esta
+// familia la comparte `myvc_flutter`, que es una sola app para los dieciséis colegios y
+// cuya versión vieja convive con este backend durante meses. Es la misma razón por la
+// que nivelar estrenó endpoints en vez de enseñarle a `notas/update`.
+//
+// Lo que sustituye es `GET planillas/ver-ausencias`, que devuelve **todos los grupos del
+// año con todos sus alumnos y todos sus periodos** para citar a uno. O sea que esto no
+// abre nada: es estrictamente menos, con el mismo `auth.personal`.
+Route::put('ausencias/de-alumno', [AusenciasController::class, 'putDeAlumno'])->middleware('auth.personal');
+
 // PlanillasAusenciasController
 Route::put('planillas-ausencias/tardanza-entrada', [PlanillasAusenciasController::class, 'putTardanzaEntrada'])->middleware('auth.personal');
 Route::get('planillas-ausencias/show-profesor/{profesor_id}', [PlanillasAusenciasController::class, 'getShowProfesor'])->middleware('auth.personal');

@@ -58,7 +58,24 @@ class Acudiente extends Model {
 						WHERE pa.alumno_id=? and pa.deleted_at is null';
 						
 
-	public static $consulta_alumnos_de_acudiente = 'SELECT a.no_matricula, a.nombres, a.apellidos, a.sexo, a.user_id, 
+	// **`a.id as alumno_id` va el primero y es la clave de la fila**, que es lo
+	// único que esta consulta no daba. Devuelve acudientes con sus alumnos
+	// colgando, así que para invertirla a «alumno -> su acudiente» —el directorio
+	// del grupo— hace falta la llave del alumno, y **cruzar por `documento` no
+	// vale**: en el docker, 68 de los 378 alumnos con matrícula viva de 2025 no
+	// tienen documento (18%), o sea 68 renglones sin teléfono de casa y en
+	// silencio. Medido por `myvc-front-38` el 20 sep 2026.
+	//
+	// Se llama `alumno_id` y no `id` a propósito: los dos consumidores cuelgan
+	// estas filas de un acudiente que **ya tiene su propio `id`**, y una clave
+	// `id` dentro de `->alumnos` se lee como la del acudiente. Es además el
+	// nombre que usa el resto del proyecto (`$alumno->alumno_id` en Bolfinales).
+	//
+	// **No la ve el Excel**: `AcudientesSheet` es `FromView` y su plantilla pinta
+	// nueve campos nombrados uno a uno (`resources/views/acudientes.blade.php`
+	// 60-68), así que una clave de más no le cambia ni una celda. Comprobado, no
+	// supuesto — era lo único de la petición que el front no podía verificar.
+	public static $consulta_alumnos_de_acudiente = 'SELECT a.id as alumno_id, a.no_matricula, a.nombres, a.apellidos, a.sexo, a.user_id, 
 							a.fecha_nac, a.tipo_doc, a.documento, a.tipo_sangre, a.eps, a.telefono, a.celular, 
 							a.direccion, a.barrio, a.estrato, a.religion, a.email, a.facebook, a.created_by, a.updated_by,
 							a.pazysalvo, a.deuda, 
