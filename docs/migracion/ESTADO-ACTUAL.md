@@ -104,6 +104,43 @@
 > la fila de `notas` sólo guarda la última nivelación y `auditoria` **no la lee nadie** (`FROM
 > auditoria` en `app/`: **0**, contado sin truncar).
 
+> ### ✅ CONDUCIDO POR EL FRONT CONTRA LA RAMA, no sólo tipado (20 sep 2026)
+>
+> `myvc-front-38` lo probó contra un servidor de esta rama, **no contra `main`**, y cerró
+> dos de los tres informes: citación 12/12 (`d25f0a14`) y acta 11/11 (`82d5be16`). El
+> **directorio del grupo** se queda **sin empezar** —decisión de Joseth de parar ahí—, y le
+> falta la pantalla, **no el dato**: `a.id as alumno_id` ya está en esta rama.
+>
+> **El entorno sigue vivo por si hay que mirarlo antes de decidir**, y se apaga con dos
+> órdenes:
+>
+> ```bash
+> docker rm -f 8myvc-inf                                    # el servidor en :8081
+> # y la copia de la base, 215 MB:
+> docker exec 8myvc-database-1 sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" \
+>     -e "DROP DATABASE simonbolivar_inf"'
+> ```
+>
+> **No se sirvió desde `8myvc-app-1`, y el motivo importa si alguien lo repite**: ese
+> contenedor **sólo publica el 80**, así que un `artisan serve` dentro es inalcanzable, y
+> publicar otro puerto exige recrearlo —tumbando a las demás sesiones—. Se levantó un
+> contenedor **aparte** con la misma imagen y montaje. Y **no contra `simonbolivar`**:
+> aquella base tiene tres migraciones pendientes y **dos son de otras sesiones**, así que
+> migrarla habría sido aplicar trabajo ajeno a la base que comparten ocho. Se copió.
+>
+> > **⚠️ La copia lleva datos FALSOS sembrados para poder conducir**, y uno está mal a
+> > propósito de nadie: **las 12 nivelaciones del grupo 117 van con `nota_original: 70` y
+> > `nota_nivelacion: 72`, que en este colegio son notas IMPOSIBLES.** Medido después:
+> > `nota_minima_aceptada` es **30** y en 2026, descontando la semilla, hay **70 notas ≤50 y
+> > ninguna >50** —en toda la tabla, 108 de 1.166.707 pasan de 50, el 0,009 %—. O sea que la
+> > escala es 0–50 y las sembré sobre 100.
+> >
+> > *Lo descubrí al sembrar las recuperaciones, avisé al front de esa misma trampa… y no
+> > volví a mirar lo que ya había sembrado una hora antes.* No hizo daño —el acta las marca
+> > las doce con «se registró bajo otra regla», que es literalmente cierto, y la copia se
+> > borra— pero es la forma exacta en que una cifra mala sobrevive: **se aprende la regla y
+> > no se repasa lo hecho antes de aprenderla.**
+
 > ## ✅ LAS DOS RESPUESTAS DE JOSETH, APLICADAS — y la segunda destapó tres faltas (20 sep 2026)
 >
 > **La casilla que había aquí era un traspaso: `8myvc-6f` se quedó sin ventana con dos
