@@ -14,6 +14,133 @@ la copia de desarrollo, no los dieciséis.**
 
 ---
 
+> # ⛔ INCIDENTE DEL 21 SEP 2026 — EL RELLENO DE LA FASE 0 BORRÓ NOTAS DE VERDAD EN CATORCE COLEGIOS
+>
+> **Esto va antes que todo lo de abajo, porque lo de abajo es lo que lo dejó pasar.** La tanda se
+> desplegó el **20 sep 2026 a las 23:51 -0400** en los dieciséis de `micolev1` y a las **23:59** en
+> `micolevi` —`e7ed5e75`, `git pull` + `migrate --force`—. A la mañana siguiente **CADS-Itagüí**
+> reportó *«se perdieron notas»*. **Era cierto**, y no sólo allí.
+>
+> ## Lo que se borró, contado base por base
+>
+> Censo del 21 sep 2026 por la mañana, con el predicado exacto del `UPDATE` de la migración
+> (`nota IS NULL AND updated_by IS NULL AND created_at <=> updated_at`). La columna de la derecha
+> son las filas cuya subunidad tiene **`nota_default <> 0`**, o sea las que **no** valían cero:
+>
+> | base | vaciadas | con `nota_default <> 0` |
+> |---|---:|---:|
+> | `coljordan` | 79.223 | 20.848 |
+> | `arauca_maranatha` | 71.143 | 10.695 |
+> | `cads_itagui` | 47.832 | **45.952** |
+> | `bethel_arauquita` | 39.694 | **37.216** |
+> | `fortul_adventista` | 26.512 | 17.455 |
+> | `comad_san_andres` | 25.888 | 13.372 |
+> | `lal` | 24.392 | 17.166 |
+> | `micolevi_lalvirtual` | 19.390 | 17.128 |
+> | `la_hermosa` | 18.150 | 16.077 |
+> | `caz_zaragoza` | 12.603 | 7.091 |
+> | `amiguitosdejesus` | 10.115 | 8.970 |
+> | `demo` | 9.843 | 7.073 |
+> | `quibdo` | 6.970 | 781 |
+> | `simonbolivar_medellin` | 5.807 | 682 |
+> | `coab_saravena` | 5.440 | 3.640 |
+> | `colbosque_tame` | 3.340 | 973 |
+> | `semillitas` | 1.567 | 128 |
+> | `coal_bucara` | 0 | 0 |
+> | **total** | **407.909** | **225.247** |
+>
+> `coal_bucara` sale en cero porque **ya no usa el sistema** (Joseth, 21 sep): no es una migración
+> sin correr. `edilson_feryz` no tiene tabla `notas`.
+>
+> **En Itagüí el 96 % de lo vaciado llevaba un valor**, y en `bethel` el 94 %. En la copia de
+> desarrollo de este documento era el **6 %** (1.299 de 20.755). Ésa es toda la distancia entre
+> «inocuo» y «planillas enteras en blanco el día de los boletines».
+>
+> ## Por qué falló, que no es donde parece
+>
+> **El proxy es correcto.** `updated_by IS NULL AND created_at <=> updated_at` dice exactamente lo
+> que promete: *nadie ha tocado esta fila desde que se sembró*. Lo que era falso es la **conclusión**
+> que se le colgó encima: *«una casilla que nadie tocó no vale nada»*.
+>
+> En Itagüí, `coljordan`, `bethel` y `lal` **la forma de calificar es sembrar el techo y bajarle al
+> que pierde**. La subunidad nace con `nota_default` = 50 o 100 —el máximo de la escala de ese
+> colegio— y el docente **sólo teclea las excepciones**. Una casilla sin tocar no es una casilla sin
+> calificar: es un alumno que lo hizo todo bien. El `UPDATE` no mira el valor, así que se llevó por
+> delante las dos poblaciones a la vez.
+>
+> ### Y la §3.bis a) de este documento es donde se decidió no verlo
+>
+> Allí se descartó la regla *«si `nota_default > 0` es que el docente ya decidió»* con este
+> argumento, que sigue escrito más abajo:
+>
+> > *«Un `nota_default` de 100 en una escala de 0 a 50 no es una decisión del docente: es basura que
+> > nadie validó.»*
+>
+> **Es verdad en `simonbolivar`, cuya escala va de 0 a 50 en los nueve años. Y es falso en un
+> colegio cuya escala llega a 100**, donde ese mismo 100 es el método de trabajo. El mismo número,
+> la misma columna, y el significado contrario según el colegio — y la frase se escribió mirando
+> una sola base.
+>
+> **La comprobación que habría bastado, y que no se hizo:** cruzar `subunidades.nota_default` con el
+> techo de `escalas_de_valoracion` **de ese colegio y ese año**. Cuando el defecto **es** el máximo
+> de la escala, no es basura: es la decisión del docente sembrada de antemano.
+>
+> ## Lo irreversible que no lo era, y cómo se recuperó
+>
+> El `down()` de la migración dice que el valor anterior *«se perdió al vaciarla»*. **No se había
+> perdido**: la fila nace con `subunidades.nota_default` y el propio proxy garantiza que nadie la
+> cambió desde entonces, así que **el defecto de la subunidad ES el valor que tenía** — salvo que el
+> defecto se editara después, que se puede editar (`SubunidadesController:41`,
+> `PlantillaNotasController:786`).
+>
+> La recuperación fue en dos pasadas, y la segunda es la que cubre ese salvo:
+>
+> 1. `UPDATE notas n JOIN subunidades s … SET n.nota = s.nota_default` sobre el mismo predicado, más
+>    `created_at <` el momento del despliegue —para no rellenar las casillas nacidas ya vacías
+>    después—. En Itagüí: **47.832 filas, el mismo número que el censo**.
+> 2. Donde **todas** las casillas de un alumno en una asignatura estaban intactas, la **definitiva
+>    guardada antes del despliegue** es, por aritmética, el valor de esas casillas. Cuando contradecía
+>    al defecto, ganó ella. En `coljordan` fueron **2.196 casillas de 6.519 comprobables — el 34 %**,
+>    porque allí el 75 % de las subunidades se había editado después de sembrar.
+> 3. `DefinitivasDeAsignatura::recalcular` sobre los pares `(asignatura, periodo)` cuya definitiva se
+>    hubiera reescrito después del despliegue: en Itagüí **4.052** filas de `notas_finales` que ya se
+>    habían recalculado con las casillas vacías —4.000 de ellas la misma mañana, mientras los
+>    docentes trabajaban—.
+>
+> **El testigo de la verificación fue `notas_finales`**, y por poco: cada guardado de un docente
+> dispara un recálculo que lo sobreescribe. La prueba que cerró el diagnóstico fue que **3.221 de
+> 3.234 alumnos** con todas las casillas vaciadas tenían definitiva guardada **exactamente igual al
+> defecto** (los trece restantes, `manual` o `recuperada`).
+>
+> ## Lo que NO volvió
+>
+> - **950 casillas** cuya subunidad tiene `nota_default` en NULL —584 en `quibdo`, 144 en
+>   `caz_zaragoza`, 114 en `la_hermosa`, 107 en `coab_saravena`, 1 en `bethel`—: nacieron con un
+>   valor que alguien puso después en NULL, y no hay de dónde sacarlo.
+> - Las que un **cierre** hubiera pasado a 0 entre el despliegue y el arreglo:
+>   `CierreDeLoNoCalificado::pasarACero` escribe `updated_by`, y eso las saca del predicado **para
+>   siempre**. No se detectó ninguna, pero nadie puede demostrar que no la hubiera.
+> - **Ninguna copia de seguridad previa al despliegue existía.** La del 21 sep a las 09:52 se hizo
+>   con el estropicio ya dentro; sirvió de red para el arreglo, no para deshacerlo.
+>
+> ## La decisión que sale de aquí — 21 sep 2026
+>
+> **`nota_default` deja de poder escribirse al crear una subunidad** (Joseth, 21 sep): el campo sale
+> del formulario de alta de la aplicación vieja, `app/scripts/unidades/unidades.html`. Con las tres
+> siembras ya en `NULL`, ese campo no alimentaba nada — sólo dejaba a mano el valor que hoy ha hecho
+> ambigua la recuperación. El sustituto ya existe y está escrito en la §3.bis a): **la nota rápida**,
+> que escribe notas de verdad, con autor y fecha.
+>
+> **Y eso cambia el método de trabajo de los colegios que sembraban el techo.** A partir del próximo
+> indicador, en Itagüí o `coljordan` la casilla nace vacía y hay que poner el 50 con la nota rápida.
+> No es un efecto secundario: es la consecuencia buscada, y **hay que avisarles**.
+>
+> **Sigue abierto:** el formulario de **editar** subunidad todavía lleva el campo, y además
+> `required` (`unidades.html:118`). Es el que permite cambiar el defecto **después** de sembrar, que
+> es exactamente lo que en `coljordan` obligó a la segunda pasada.
+
+---
+
 ## 1 · La causa: un cero que nadie puso y un cero del docente valen lo mismo
 
 `notas.nota` es `int NOT NULL DEFAULT 0`, y la fila **nace con la subunidad**:
@@ -124,6 +251,11 @@ escala del año**.
 > **Un `nota_default` de 100 en una escala de 0 a 50 no es una decisión del docente: es basura que
 > nadie validó.** Si esa regla hubiera entrado, marcaría 1.653 casillas como «calificadas con 100»
 > en el año en curso — y las marcaría como **verdad**, que es peor que el cero de hoy.
+
+> **⛔ Y ESTE PÁRRAFO ES DONDE SE PERDIÓ EL 21 SEP.** Vale para `simonbolivar`, cuya escala va de 0 a
+> 50. En un colegio cuya escala llega a 100, un `nota_default` de 100 **es** la decisión del docente:
+> es su forma de calificar —sembrar el techo y bajarle al que pierde—, y el relleno de la fase 0 se
+> la borró a catorce colegios. El incidente entero está arriba del todo.
 
 Así que la regla es la simple: **una casilla sembrada y nunca tocada no cuenta, valga lo que
 valga.** Y la forma de escribir eso la propuso Joseth el 19 sep, contra la que yo traía:
@@ -419,6 +551,10 @@ UPDATE notas n
    AND p.profes_pueden_editar_notas = 1          -- el periodo sigue abierto
    AND n.updated_by IS NULL AND n.created_at <=> n.updated_at;
 ```
+
+> **⛔ Este `UPDATE` borró notas de verdad el 21 sep 2026 en catorce colegios: no filtra por valor y
+> se lleva la fila entera valga lo que valga.** Las cifras, el porqué y cómo se recuperó, arriba del
+> todo.
 
 | | filas |
 |---|---:|
