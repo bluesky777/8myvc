@@ -193,8 +193,14 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
     /** @var array<string, array<string, mixed>> */
     private array $truncados = [];
 
-    public function __construct(private int $year, private ImporterFixer $fixer, ?float $segundos = null)
+    /** Lo que la persona decidió. Nunca null: sin ella, los defectos de siempre. */
+    private RespuestasDeLaImportacion $respuestas;
+
+    public function __construct(private int $year, private ImporterFixer $fixer, ?float $segundos = null,
+        ?RespuestasDeLaImportacion $respuestas = null)
     {
+        $this->respuestas = $respuestas ?? new RespuestasDeLaImportacion([]);
+
         $this->limite = microtime(true)
             + ($segundos ?? (float) config('importacion.segundos_del_ensayo', self::SEGUNDOS));
     }
@@ -254,6 +260,16 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
             // que crean personas.
             'sobran' => $this->loQueNoSeEstudia($encabezados)['sobran'],
             'de_acudiente_no_estudiadas' => $this->loQueNoSeEstudia($encabezados)['de_acudiente'],
+
+            // Qué va a pasar con una hoja que no casa con ningún grupo, según lo
+            // que la persona haya decidido. Por defecto **para la importación
+            // entera**, que es lo que hace desde siempre.
+            'decision' => $grupo === null ? $this->respuestas->queHacerConHoja($nombre) : null,
+            'consecuencia' => $grupo === null
+                ? ($this->respuestas->queHacerConHoja($nombre) === RespuestasDeLaImportacion::HOJA_OMITIR
+                    ? 'Se salta entera: ninguno de sus alumnos se importa, y la respuesta lo dirá.'
+                    : 'DETIENE la importación entera: no entra nadie, ni de las otras hojas.')
+                : null,
         ];
 
         // Una hoja que no es de ningún grupo del año no se estudia fila a fila:
@@ -556,6 +572,11 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
             'fila_del_libro' => $indice + 3,
             'nombre' => trim($nombres.' '.$apellidos),
             'documento_en_la_hoja' => $fila['nro_de_documento'] ?? null,
+            'decision' => $this->respuestas->queHacerConRepetido((string) ($fila['nro_de_documento'] ?? '')),
+            'consecuencia' => $this->respuestas->queHacerConRepetido((string) ($fila['nro_de_documento'] ?? ''))
+                === RespuestasDeLaImportacion::REPETIDO_OMITIR
+                ? 'No se toca la ficha que ya estaba: esta fila no escribe nada.'
+                : 'Se actualiza la ficha que ya estaba con lo que traiga esta fila.',
             'coincide_en' => array_values(array_unique($coincideEn)),
             'candidatos' => $candidatos,
         ];
@@ -583,7 +604,16 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
             $duplicados[] = [
                 'documento' => $documento,
                 'filas' => $filas,
+
+                // `cual_ganaria_hoy` es literal y se queda: es la que gana SIN
+                // decidir nada. `cual_gana` es la que va a ganar de verdad, que
+                // es lo que la pantalla tiene que pintar.
                 'cual_ganaria_hoy' => $filas[count($filas) - 1],
+                'decision' => $this->respuestas->cualGanaEnDuplicado((string) $documento),
+                'cual_gana' => $this->respuestas->cualGanaEnDuplicado((string) $documento)
+                    === RespuestasDeLaImportacion::DUPLICADO_PRIMERA
+                    ? $filas[0]
+                    : $filas[count($filas) - 1],
             ];
         }
 
@@ -678,11 +708,26 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
         $salida = [];
 
         foreach ($this->vacios as $columna => $veces) {
+            // **`consecuencia` es lo que VA A PASAR, no lo que pasaría sin
+            // decidir nada.** Lo levantó `myvc-front-51` el 21 sep 2026: la
+            // pantalla pintaba «Se BORRA el que hubiera» en la fila donde la
+            // persona acababa de elegir «conservar» — el fallo del que va esta
+            // pantalla, cometido por ella.
+            //
+            // El defecto viaja aparte y no se pierde: la pantalla puede enseñar
+            // «antes esto borraba» al lado de lo que ahora hará.
+            $decision = $this->respuestas->queHacerConVacio($columna);
+            $conserva = $decision === RespuestasDeLaImportacion::VACIO_CONSERVAR;
+
             $salida[] = [
                 'columna' => $columna,
                 'etiqueta' => self::COLUMNAS[$columna]['etiqueta'],
                 'veces' => $veces,
-                'consecuencia' => self::COLUMNAS[$columna]['si_falta'],
+                'decision' => $decision,
+                'consecuencia' => $conserva
+                    ? 'No se toca: conserva lo que ya hubiera en la ficha.'
+                    : self::COLUMNAS[$columna]['si_falta'],
+                'consecuencia_por_defecto' => self::COLUMNAS[$columna]['si_falta'],
             ];
         }
 

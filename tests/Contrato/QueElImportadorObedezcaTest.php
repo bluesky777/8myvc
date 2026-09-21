@@ -430,6 +430,49 @@ class QueElImportadorObedezcaTest extends CasoDeContrato
             'Se machacó la ficha buena con una fila que se pidió omitir.');
     }
 
+    /**
+     * **EL ENSAYO PROMETE LO DECIDIDO, no lo que pasaría sin decidir nada.**
+     *
+     * Lo levantó `myvc-front-51` el 21 sep 2026 midiendo contra el docker: mandó
+     * `vacios: conservar` para `barrio`, el servidor contestó
+     * `aplicadas: ["vacios"]` y en el mismo cuerpo seguía diciendo *«Se BORRA el
+     * que hubiera»* — byte por byte igual que sin mandar nada.
+     *
+     * Es el fallo del que va esta pantalla, cometido por ella: **enseñaba el plan
+     * de antes de corregir**. Y la salida fácil —que el front escriba la frase a
+     * partir de la decisión— deja dos sitios diciendo qué pasa con esa columna y
+     * sólo uno enterándose.
+     *
+     * El defecto viaja aparte en `consecuencia_por_defecto`, para que la pantalla
+     * pueda enseñar «antes esto borraba» al lado de lo que ahora hará.
+     */
+    public function test_el_ensayo_cuenta_la_consecuencia_de_lo_decidido(): void
+    {
+        [$token, $year] = $this->personalYSuYear();
+
+        $archivo = $this->escribir($this->exportacionDeAlumnos($token), 'barrio', '');
+
+        $sinDecidir = $this->ensayar($archivo, $token, $year)->assertStatus(200);
+        $barrio = collect($sinDecidir->json('vacios'))->firstWhere('columna', 'barrio');
+
+        $this->assertNotNull($barrio, 'El ensayo no vio la celda vacía: esto no mide nada.');
+        $this->assertStringContainsString('BORRA', $barrio['consecuencia'],
+            'Cambió el comportamiento por defecto sin que nadie lo pidiera.');
+
+        $decidido = $this->ensayar($archivo, $token, $year, [
+            'vacios' => [['columna' => 'barrio', 'decision' => 'conservar']],
+        ])->assertStatus(200);
+
+        $barrio = collect($decidido->json('vacios'))->firstWhere('columna', 'barrio');
+
+        $this->assertSame('conservar', $barrio['decision']);
+        $this->assertStringNotContainsString('BORRA', $barrio['consecuencia'],
+            'El ensayo sigue prometiendo que se borra en la fila donde la persona eligió '
+            .'conservar: la pantalla se contradice consigo misma.');
+        $this->assertStringContainsString('BORRA', $barrio['consecuencia_por_defecto'],
+            'Se perdió lo que pasaría sin decidir, que es lo que da sentido a la decisión.');
+    }
+
     /** Y sin respuestas el campo es null, no un resumen de ceros que parece que hubo. */
     public function test_sin_respuestas_el_campo_va_nulo(): void
     {

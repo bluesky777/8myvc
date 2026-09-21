@@ -1145,7 +1145,11 @@ class ImportarController extends Controller
         }
 
         $fixer = new ImporterFixer($respuestas->equivalencias());
-        $ensayo = new EnsayoDeLaImportacion((int) $year, $fixer);
+        // **El ensayo recibe las decisiones**, porque su contrato es prometer lo
+        // que va a pasar y no lo que pasaría sin decidir nada. Sin esto la
+        // pantalla pinta «Se BORRA el que hubiera» en la fila donde la persona
+        // acaba de elegir «conservar».
+        $ensayo = new EnsayoDeLaImportacion((int) $year, $fixer, null, $respuestas);
 
         // UN FICHERO QUE NO SE PUEDE LEER CONTESTA 422 EN JSON, NO UN 500 EN
         // HTML, y aquí sí se puede hacer: **esto no escribe nada**, así que no
