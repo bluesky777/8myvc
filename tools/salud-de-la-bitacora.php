@@ -163,7 +163,8 @@ const ESCRITOS_EN_UTC = [
 /**
  * Los tipos que escribe un sitio con el reloj en Bogotá.
  *
- * Los otros siete INSERT del proyecto, repartidos en seis ficheros. Se enumeran en vez de decir «todo lo que
+ * Los otros INSERT del proyecto —siete en seis ficheros el 24 ago 2026, **nueve en siete desde el
+ * 21 sep**, que es cuando entró la planilla sin internet—. Se enumeran en vez de decir «todo lo que
  * no esté arriba» para que un tipo nuevo no se cuele en el saco bueno sin que
  * nadie lo mire.
  */
@@ -174,10 +175,14 @@ const ESCRITOS_EN_BOGOTA = [
     // Reutilizan el tipo a propósito: dos pantallas del front buscan el historial de
     // una nota por tipo, y una nivelación con tipo nuevo desaparecería de ahí. Ver
     // docs/migracion/22-nivelaciones.md §1.7.
-    'Nota' => 'NotasController::putUpdate, ::putLote y los tres de nivelar (::bitacoraDeNota)',
+    // Y desde el 21 sep 2026 también la planilla sin internet, que **reutiliza estos dos tipos a
+    // propósito** —el front busca el historial de una nota por tipo— y escribe con `Reloj::ahora()`,
+    // o sea en Bogotá: sus filas se leen seguidas con las de `putLote` y dos relojes ahí serían
+    // cinco horas entre dos renglones que cuentan lo mismo. Ver docs/migracion/50 §8.bis.
+    'Nota' => 'NotasController::putUpdate, ::putLote, los tres de nivelar (::bitacoraDeNota) y EscrituraDeNotasImportadas::escribirLaNota',
     'NF_UPDATE' => 'DefinitivasPeriodosController::putUpdate y ::putNivelar',
     'RF_UPDATE' => 'DefinitivasPeriodosController:329',
-    'Nueva subunidad' => 'SubunidadesController:68',
+    'Nueva subunidad' => 'SubunidadesController:68 y EscrituraDeNotasImportadas::crearElIndicador (F9 de la planilla sin internet)',
     'YEAR CONFIGURACION' => 'YearsController:359',
     'intento_login' => 'Services/Login.php:126',
 ];

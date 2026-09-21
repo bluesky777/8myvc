@@ -6,13 +6,14 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /**
- * Los diez escritores de `bitacoras`, fijados — y con ellos su reloj.
+ * Los siete escritores de `bitacoras`, fijados — y con ellos su reloj.
  *
  * `tools/salud-de-la-bitacora.php` es la fase 0 del plan de
  * [docs/migracion/18-auditoria.md](../../docs/migracion/18-auditoria.md), y
  * clasifica cada fila en «escrita en UTC» o «escrita en Bogotá» **por su
  * `affected_element_type`**, con una lista escrita a mano en dos constantes. Esa
- * lista sale de leer los diez `INSERT INTO bitacoras` del proyecto, uno a uno.
+ * lista sale de leer los `INSERT INTO bitacoras` del proyecto, uno a uno: eran diez
+ * el 24 ago 2026 y son **catorce** desde el 21 sep.
  *
  * **Una lista a mano sin centinela dura hasta el siguiente que escriba.** Y el
  * modo en que fallaría es el peor de los dos posibles: un escritor nuevo con el
@@ -32,7 +33,8 @@ use Tests\TestCase;
 class CentinelaDeLosEscritoresDeBitacoraTest extends TestCase
 {
     /**
-     * Los diez, con el reloj que usa cada uno. Medido el 24 ago 2026.
+     * Los ficheros que escriben una sola vez, con el reloj que usa cada uno.
+     * Medido el 24 ago 2026.
      *
      * Diez y no nueve: el primer recuento sumó mal ocho ficheros y publicó 9.
      * Lo cazó este test en su primera ejecución, que es exactamente para lo que
@@ -63,10 +65,30 @@ class CentinelaDeLosEscritoresDeBitacoraTest extends TestCase
     private const CON_VARIOS = [
         'app/Http/Controllers/NotasController.php' => 3,
         'app/Http/Controllers/DefinitivasPeriodosController.php' => 3,
+
+        // «Notas sin internet» (fase 2, commit `3e16747`). **Escribe en Bogotá**
+        // —usa `Reloj::ahora()`, comprobado y no supuesto— y con los tipos que ya
+        // existían, `Nota` y `Nueva subunidad`, por lo mismo que las nivelaciones:
+        // las dos pantallas del front que buscan el historial de una nota lo buscan
+        // **por tipo**, y una importación con tipo nuevo desaparecería de ahí.
+        'app/Services/EscrituraDeNotasImportadas.php' => 2,
     ];
 
     /**
-     * Doce desde el 2 sep 2026, y las dos nuevas son de nivelaciones (22 §1.7):
+     * **Catorce desde el 21 sep 2026**, y las dos últimas son de la planilla sin
+     * internet (`EscrituraDeNotasImportadas`, docs 49 y 50): una por nota escrita y
+     * otra por indicador creado desde una columna de reserva. Las dos van en
+     * **Bogotá**, que es la decisión del coordinador y no una casualidad del código:
+     * esas filas acaban en la misma tabla y en la misma pantalla que las de
+     * `putLote`, y se leen seguidas — dos relojes ahí son cinco horas de diferencia
+     * entre dos renglones que describen la misma clase de hecho.
+     *
+     * *Cuidado con la de al lado, que dice lo contrario y también es correcta:*
+     * `PuntoDeControlDeImportacion` **se queda en UTC** (ver `RelojUnicoTest`)
+     * porque sus marcas sólo se restan entre sí. Una escribe algo que una persona
+     * lee junto a otra cosa; la otra escribe algo que sólo se compara consigo mismo.
+     *
+     * Doce desde el 2 sep 2026, y las dos de entonces son de nivelaciones (22 §1.7):
      * `NotasController::bitacoraDeNota` —que sirve a los tres endpoints de nivelar
      * un indicador— y `DefinitivasPeriodosController::putNivelar`.
      *
@@ -77,10 +99,10 @@ class CentinelaDeLosEscritoresDeBitacoraTest extends TestCase
      * entre corregir y nivelar vive en `auditoria`, que es donde hay vocabulario
      * cerrado para tenerla.
      */
-    private const TOTAL_ESPERADO = 12;
+    private const TOTAL_ESPERADO = 14;
 
     #[Test]
-    public function los_escritores_de_bitacora_siguen_siendo_diez(): void
+    public function los_escritores_de_bitacora_siguen_siendo_los_mismos(): void
     {
         $encontrados = $this->insertsPorFichero();
         $total = array_sum($encontrados);

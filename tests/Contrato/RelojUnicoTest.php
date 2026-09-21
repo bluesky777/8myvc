@@ -128,7 +128,25 @@ class RelojUnicoTest extends TestCase
         // vale palabra por palabra lo de arriba: ponerla en Bogotá sería meter la
         // segunda zona en la columna que la fase 1 quiere con una sola. La tabla
         // se mueve entera o no se mueve.
-        'app/Services/PuntoDeControlDeImportacion.php' => 11,
+        //
+        // **TRECE desde el commit `b1978b8`** (20 sep 2026), y las dos que entran
+        // son las de `marcarAbandonadas()`: el `now()->subMinutes()` que calcula el
+        // corte y el `now()` del `UPDATE` que marca `fallida`. **Se quedan en `now()`
+        // a propósito**, y el motivo es el que ya lleva escrito la cabecera de la
+        // clase:
+        //
+        // > `inicio` y `fin` solo se restan entre sí, nunca se comparan con una
+        // > fecha de otra tabla, así que unificar las zonas no cambia ningún
+        // > resultado — solo desplaza cinco horas lo que se lee en pantalla.
+        //
+        // Y aquí se cumple **más fuerte todavía**: el corte y la columna con la que
+        // se compara (`updated_at`, escrita por esta misma clase) salen los dos de
+        // `now()`, así que los diez minutos son diez minutos pase lo que pase con la
+        // zona. Ponerle Bogotá sólo a una de las dos puntas sería el fallo de verdad.
+        //
+        // *Esto se dejó rojo desde `b1978b8` hasta el 21 sep 2026 porque la suite
+        // entera no se corrió antes de commitear. No se coló: se contó tarde.*
+        'app/Services/PuntoDeControlDeImportacion.php' => 13,
     ];
 
     #[Test]

@@ -288,6 +288,20 @@ class CentinelaDeLasTablasDelAnioNuevoTest extends TestCase
         // Con sus fechas, su `locked` y su `actual` dentro: una votación copiada
         // nacería abierta o cerrada según cómo acabó la del año pasado.
         'vt_votaciones' => 'la elección que se convocó ESE año, con sus fechas y su estado',
+
+        // **«Notas sin internet», fase 1** (migración `2026_09_21_100000`, commit
+        // `3e16747`). Cada fila es **un libro que salió del colegio**: qué docente lo
+        // bajó, cuándo, de qué periodo, con qué asignaturas dentro y con la firma de
+        // esa descarga. Es de auditoría, que es justo lo que no se debe duplicar —el
+        // mismo motivo que `auditoria` dos listas más arriba: copiarla diría que
+        // alguien se llevó planillas de un año que acaba de empezar.
+        //
+        // Y hay una segunda razón que la haría **ilegible** aunque se copiara: sus
+        // filas apuntan a periodos y asignaturas **del año viejo**, y con el `year_id`
+        // cambiado cada renglón prometería una descarga de este año con los
+        // identificadores del anterior. Un año nuevo empieza sin que nadie haya
+        // descargado nada, y eso es lo correcto.
+        'descargas_de_planilla' => 'el rastro de qué libros salieron del colegio ESE año, con sus alumnos, periodos y asignaturas dentro; es de auditoría y copiarla fabricaría descargas que nadie hizo (21 sep 2026, docs 49 y 50)',
     ];
 
     /**

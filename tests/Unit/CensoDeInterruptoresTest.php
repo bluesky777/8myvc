@@ -44,11 +44,34 @@ class CensoDeInterruptoresTest extends TestCase
     private const CENSO = [
         'columnas tinyint(1) distintas' => 157,
         'ni se nombran' => 64,
-        'no deciden nada' => 27,
-        'alguien decide con ellas' => 66,
+        'no deciden nada' => 26,
+        'alguien decide con ellas' => 67,
     ];
 
     /*
+     * ## 21 sep 2026 — `perdido` cruzó de «no decide nada» a «alguien decide con
+     * ella», y esta vez el centinela lo cazó TARDE
+     *
+     * `27 / 66` pasa a `26 / 67`, y la suma sin lector de **91 a 90**. La columna es
+     * `perdido` —`escalas_de_valoracion`—, y **está comprobado cuál es y no deducido**:
+     * el censo se corrió sobre tres árboles (`3e16747~1`, `3e16747` y el de trabajo) y
+     * el único nombre que se movió es ése.
+     *
+     * Quien le dio el lector es la fase 1 de «notas sin internet» (doc
+     * [49](../../docs/migracion/49-la-planilla-sin-internet.md)):
+     * `LaPlanillaQueSeDescarga` la trae en el `SELECT` de las bandas y
+     * `HojaDeAsignatura:885` decide con ella —`if ($banda->perdido)`— para pintar la
+     * banda reprobatoria en rojo **y además en negrita**, porque una planilla tiene que
+     * poder leerse fotocopiada en blanco y negro y un color solo no sobrevive a eso.
+     *
+     * **Es el movimiento bueno**: una columna menos sin lector. Y aun así el centinela
+     * tiene razón en ponerse rojo, porque el 49 y el 53 del §105 salen de cruzar esta
+     * población con los cuatro clientes y ya no hablan de la misma.
+     *
+     * *Lo que sí es un fallo: esto estuvo rojo desde el commit `3e16747` porque la
+     * suite entera no se corrió antes de commitear. La columna no se coló — se contó
+     * tarde.*
+     *
      * ## 13 sep 2026 — `por_defecto` cruzó de «no decide nada» a «alguien decide con
      * ella», y este centinela cazó el momento exacto
      *
@@ -186,7 +209,7 @@ class CensoDeInterruptoresTest extends TestCase
      * > hace aquí porque tocar el criterio mueve los tres montones a la vez y eso
      * > es una medición entera, no el arreglo de un CI. Queda dicho y fechado.
      */
-    private const SIN_LECTOR_EN_EL_BACKEND = 91;
+    private const SIN_LECTOR_EN_EL_BACKEND = 90;
 
     /** Las `tinyint(1)` del volcado, con las tablas donde están. Igual que la herramienta. */
     private function columnasBooleanas(): array
