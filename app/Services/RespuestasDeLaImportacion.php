@@ -34,20 +34,71 @@ namespace App\Services;
  */
 class RespuestasDeLaImportacion
 {
-    /** Las secciones que hoy cambian lo que hace el importador. */
-    private const APLICADAS = ['vocabularios'];
+    /**
+     * Las secciones que cambian lo que hace el importador.
+     *
+     * **Las cinco desde el 21 sep 2026.** Hasta ese día sólo se aplicaban los
+     * vocabularios y las otras cuatro se guardaban y se declaraban como no
+     * aplicadas — media funcionalidad, dicha en su propia cara para no prometer
+     * nada falso. Lo levantó `myvc-front-51` y lo autorizó Joseth.
+     *
+     * @var list<string>
+     */
+    private const APLICADAS = ['vocabularios', 'vacios', 'repetidos', 'duplicados', 'hojas'];
 
     /**
-     * Las que se aceptan, se guardan y **todavía no se interpretan**, con el
-     * motivo que la respuesta enseña. No es una lista de pendientes: es lo que
-     * impide que la pantalla prometa algo que no ocurre.
+     * Las que se aceptarían y no se interpretarían, con el motivo que la
+     * respuesta enseña. **Hoy no queda ninguna**, y la constante se queda porque
+     * es el mecanismo que impide que la pantalla prometa algo que no ocurre: la
+     * siguiente sección que entre a medias se declara aquí.
+     *
+     * @var array<string, string>
      */
-    private const NO_APLICADAS = [
-        'vacios' => 'Todavía no se interpretan: una celda vacía sigue cayendo en el valor por defecto.',
-        'repetidos' => 'Todavía no se interpretan: el importador sigue decidiendo por documento.',
-        'duplicados' => 'Todavía no se interpretan: dentro del fichero sigue ganando la última fila.',
-        'hojas' => 'Todavía no se interpretan: una hoja que no casa con un grupo sigue parando la importación.',
-    ];
+    private const NO_APLICADAS = [];
+
+    /**
+     * La misma lista, leída como array cualquiera.
+     *
+     * **Existe sólo para que larastan no la trate como «siempre vacía»** y
+     * marque el `foreach` de abajo como muerto: hoy lo está, y el día que entre
+     * una sección a medias dejará de estarlo. Silenciar el aviso en
+     * `phpstan.neon` escondería el único sitio donde eso se declara.
+     *
+     * @return array<string, string>
+     */
+    private static function noAplicadas(): array
+    {
+        return self::NO_APLICADAS;
+    }
+
+    /**
+     * Lo que se hace con una celda vacía, y es la sección que más data pierde
+     * hoy.
+     *
+     * El `UPDATE` del importador **escribe todas las columnas**, así que una
+     * celda vacía no es «no dice nada»: es «bórralo». Lo dice el propio catálogo
+     * del ensayo —*«Se BORRA la que hubiera, porque el UPDATE escribe todas las
+     * columnas»*— y es el comportamiento de siempre, así que **`defecto` sigue
+     * siendo lo que pasa si nadie decide nada**.
+     */
+    public const VACIO_DEFECTO = 'defecto';
+
+    public const VACIO_CONSERVAR = 'conservar';
+
+    /** Qué gana cuando el mismo documento sale dos veces en el fichero. */
+    public const DUPLICADO_ULTIMA = 'ultima';
+
+    public const DUPLICADO_PRIMERA = 'primera';
+
+    /** Qué se hace con un alumno cuyo documento ya está en la base. */
+    public const REPETIDO_ACTUALIZAR = 'actualizar';
+
+    public const REPETIDO_OMITIR = 'omitir';
+
+    /** Qué se hace con una hoja que no casa con ningún grupo del año. */
+    public const HOJA_PARAR = 'parar';
+
+    public const HOJA_OMITIR = 'omitir';
 
     /** @param array<string, mixed> $crudas */
     public function __construct(private array $crudas) {}
@@ -109,6 +160,129 @@ class RespuestasDeLaImportacion
     }
 
     /**
+     * Qué hacer con la celda vacía de esta columna.
+     *
+     * **La llave es la COLUMNA, nunca la fila** — es la regla del §5.5 del 45, y
+     * es el punto de todo esto: una decisión y no ochocientas.
+     *
+     * `a_revisar` devuelve el defecto a propósito: significa «no lo decido
+     * todavía», y lo que pasa mientras tanto es lo que pasaba antes. Decidir por
+     * alguien y no decirlo es lo que este módulo vino a quitar.
+     */
+    public function queHacerConVacio(string $columna): string
+    {
+        foreach ($this->seccion('vacios') as $renglon) {
+            if (($renglon['columna'] ?? null) !== $columna) {
+                continue;
+            }
+
+            return ($renglon['decision'] ?? null) === self::VACIO_CONSERVAR
+                ? self::VACIO_CONSERVAR
+                : self::VACIO_DEFECTO;
+        }
+
+        return self::VACIO_DEFECTO;
+    }
+
+    /** Las columnas cuya celda vacía hay que conservar. @return list<string> */
+    public function columnasAConservar(): array
+    {
+        $columnas = [];
+
+        foreach ($this->seccion('vacios') as $renglon) {
+            if (($renglon['decision'] ?? null) === self::VACIO_CONSERVAR
+                && is_string($renglon['columna'] ?? null)) {
+                $columnas[] = $renglon['columna'];
+            }
+        }
+
+        return array_values(array_unique($columnas));
+    }
+
+    /**
+     * Qué se hace con un alumno cuyo documento ya existe en la base.
+     *
+     * Por defecto se actualiza, que es lo que hace la idempotencia desde el
+     * 20 ago 2026 y lo que evita crear duplicados. `omitir` es para el caso
+     * contrario: una hoja de alumnos NUEVOS en la que un documento repetido es
+     * un error de quien la llenó, y machacar la ficha buena sería el daño.
+     */
+    public function queHacerConRepetido(string $documento): string
+    {
+        foreach ($this->seccion('repetidos') as $renglon) {
+            // **La respuesta espeja la pregunta, y la pregunta emite
+            // `documento_en_la_hoja`** (`EnsayoDeLaImportacion::posiblesRepetidos`).
+            // Se acepta también `documento` porque es el nombre que sale solo al
+            // escribirlo a mano, y rechazar por el nombre de una llave sería
+            // perder una decisión que la persona sí tomó.
+            $suyo = (string) ($renglon['documento_en_la_hoja'] ?? $renglon['documento'] ?? '');
+
+            if ($suyo !== $documento) {
+                continue;
+            }
+
+            return ($renglon['decision'] ?? null) === self::REPETIDO_OMITIR
+                ? self::REPETIDO_OMITIR
+                : self::REPETIDO_ACTUALIZAR;
+        }
+
+        return self::REPETIDO_ACTUALIZAR;
+    }
+
+    /**
+     * Cuál gana cuando el mismo documento sale dos veces DENTRO del fichero.
+     *
+     * Hoy gana la última porque el importador procesa en orden y la segunda
+     * pasada pisa a la primera — no porque nadie lo eligiera. Que se pueda decir
+     * `primera` es lo que convierte ese accidente en una decisión.
+     */
+    public function cualGanaEnDuplicado(string $documento): string
+    {
+        foreach ($this->seccion('duplicados') as $renglon) {
+            if ((string) ($renglon['documento'] ?? '') !== $documento) {
+                continue;
+            }
+
+            return ($renglon['decision'] ?? null) === self::DUPLICADO_PRIMERA
+                ? self::DUPLICADO_PRIMERA
+                : self::DUPLICADO_ULTIMA;
+        }
+
+        return self::DUPLICADO_ULTIMA;
+    }
+
+    /**
+     * Qué se hace con una hoja que no casa con ningún grupo del año.
+     *
+     * Por defecto **para la importación entera**, que es lo que pasa hoy: el
+     * importador resuelve la pestaña contra `grupos` antes de mirar si trae
+     * filas, así que una hoja mal nombrada revienta con 500 y no entra nadie.
+     *
+     * `omitir` es la salida para el caso corriente que eso castiga: la hoja de
+     * notas, la de instrucciones o la del año pasado que alguien dejó dentro del
+     * libro. **Y omitir se declara**, no se calla: la respuesta dice cuántas
+     * hojas se saltaron y cuáles.
+     */
+    public function queHacerConHoja(string $hoja): string
+    {
+        foreach ($this->seccion('hojas') as $renglon) {
+            // El ensayo emite las hojas con la llave `nombre`, así que es la que
+            // manda; `hoja` se acepta por lo mismo que arriba.
+            $suya = (string) ($renglon['nombre'] ?? $renglon['hoja'] ?? '');
+
+            if ($suya !== $hoja) {
+                continue;
+            }
+
+            return ($renglon['decision'] ?? null) === self::HOJA_OMITIR
+                ? self::HOJA_OMITIR
+                : self::HOJA_PARAR;
+        }
+
+        return self::HOJA_PARAR;
+    }
+
+    /**
      * Qué llegó, qué se aplicó y qué no — con el motivo al lado.
      *
      * `usadas` no se cuenta aquí: lo cuenta el traductor mientras traduce, que
@@ -131,7 +305,7 @@ class RespuestasDeLaImportacion
 
         $noAplicadas = [];
 
-        foreach (self::NO_APLICADAS as $seccion => $motivo) {
+        foreach (self::noAplicadas() as $seccion => $motivo) {
             $cuantas = count($this->seccion($seccion));
 
             if ($cuantas > 0) {
@@ -146,6 +320,15 @@ class RespuestasDeLaImportacion
             'veces_que_se_usaron' => array_sum($usadas),
             'por_campo' => $usadas,
             'no_aplicadas' => $noAplicadas,
+
+            // Qué secciones de las que llegaron SÍ cambian lo que hace el
+            // importador. Es el reverso de `no_aplicadas` y hace falta desde que
+            // esa lista puede venir vacía: sin él, «vacía» se lee igual que «no
+            // se calculó».
+            'aplicadas' => array_values(array_filter(
+                self::APLICADAS,
+                fn (string $seccion) => count($this->seccion($seccion)) > 0
+            )),
         ];
     }
 

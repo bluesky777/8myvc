@@ -68,6 +68,9 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
      */
     public $punto;
 
+    /** Lo que la persona decidió en la pantalla. Nunca es null: sin ella, los defectos de siempre. */
+    public RespuestasDeLaImportacion $respuestas;
+
     /**
      * Qué hizo de verdad, contado mientras lo hace.
      *
@@ -107,7 +110,19 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
         // solo cliente que los lea.
         'ya_estaban_hechas' => 0,
         'sin_primer_nombre' => 0,
+
+        // Lo que las cuatro secciones nuevas de decisiones hacen de verdad, para
+        // que el informe final pueda cerrar la frase «se aplicaron las que
+        // aprobaste». Una decisión que no se puede contar es una decisión que
+        // nadie puede comprobar.
+        'hojas_omitidas' => 0,
+        'repetidos_omitidos' => 0,
+        'duplicados_descartados' => 0,
+        'columnas_conservadas' => 0,
     ];
+
+    /** Las hojas que se saltaron porque la persona lo pidió, con su nombre. @var list<string> */
+    public array $hojasOmitidas = [];
 
     /**
      * Cuántas filas entran en una transacción, y por tanto **cada cuánto se
@@ -154,13 +169,19 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
     /** Filas de datos que tiene el archivo, contadas hoja a hoja según se leen. */
     public int $filasDelArchivo = 0;
 
-    public function __construct($year, $fixer, PuntoDeControlDeImportacion $punto, ?float $segundos = null)
+    public function __construct($year, $fixer, PuntoDeControlDeImportacion $punto, ?float $segundos = null,
+        ?RespuestasDeLaImportacion $respuestas = null)
     {
         $this->sheetNames = [];
         $this->sheetData = [];
         $this->year = $year;
         $this->fixer = $fixer;
         $this->punto = $punto;
+
+        // **Sin respuestas se comporta como siempre**, que es lo que hace que
+        // esto sea aditivo: cada `queHacerCon…()` devuelve el defecto de la Fase
+        // 1 cuando nadie decidió nada.
+        $this->respuestas = $respuestas ?? new RespuestasDeLaImportacion([]);
         $this->limite = microtime(true)
             + ($segundos ?? (float) config('importacion.segundos_por_peticion', self::SEGUNDOS_POR_PETICION));
     }
@@ -219,6 +240,22 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
         // el contrato de la pantalla; lo que cambia es que ahora se puede leer
         // en `importaciones.error` con el nombre dentro.
         if (count($grupos) === 0) {
+            // **Saltarla es una decisión de la persona, no del código.** Por
+            // defecto sigue parando la importación entera, que es lo que hace
+            // desde siempre; `omitir` es la salida para el caso corriente que eso
+            // castiga —la hoja de notas, la de instrucciones o la del año pasado
+            // que alguien dejó dentro del libro—.
+            //
+            // Y se declara: la respuesta dice cuáles se saltaron. Una hoja que
+            // desaparece en silencio es un grupo entero sin importar y nadie
+            // enterándose.
+            if ($this->respuestas->queHacerConHoja($abrev) === RespuestasDeLaImportacion::HOJA_OMITIR) {
+                $this->hechos['hojas_omitidas']++;
+                $this->hojasOmitidas[] = $abrev;
+
+                return;
+            }
+
             throw new \RuntimeException("La hoja '".$abrev."' no corresponde a ningún grupo del año ".$this->year.'.');
         }
 
@@ -226,6 +263,12 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
         $results = $array;
 
         $total = count($results);
+
+        // **Los duplicados se resuelven ANTES de escribir, no mientras se
+        // escribe.** Saber cuál gana exige haber visto la hoja entera, y el
+        // bucle va por lotes: decidirlo sobre la marcha haría que la respuesta
+        // dependiera de dónde cayó el corte del lote.
+        $descartadas = $this->filasQueDescartaElDuplicado($results);
 
         $porLote = $this->filasPorLote();
 
@@ -275,12 +318,27 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
             // `apuntar()` la mueve en memoria y `volcar()` la escribe al final,
             // dentro de la misma transacción. Si el lote falla se van las filas y
             // la marca a la vez, que es exactamente lo que tiene que pasar.
-            DB::transaction(function () use ($results, $desde, $hasta, $grupo, $abrev, $now) {
+            // `$descartadas` va en el `use` y no es un detalle: un closure no captura
+            // nada por su cuenta, así que sin esto `isset($descartadas[$f])` mira una
+            // variable indefinida, **da falso sin error** y la decisión de la persona
+            // no se aplica en silencio. Costó un rojo que no señalaba a este sitio.
+            DB::transaction(function () use ($results, $desde, $hasta, $grupo, $abrev, $now, $descartadas) {
                 $huboAlguna = false;
 
                 for ($f = $desde; $f <= $hasta; $f++) {
                     if ($this->punto->yaProcesada($abrev, $f)) {
                         $this->hechos['ya_estaban_hechas']++;
+
+                        continue;
+                    }
+
+                    // La fila perdedora de un duplicado **se marca igual**: si no
+                    // se apuntara, reanudar volvería a pasar por ella y la
+                    // decisión duraría lo que durase la petición.
+                    if (isset($descartadas[$f])) {
+                        $this->hechos['duplicados_descartados']++;
+                        $this->punto->apuntar($abrev, $f);
+                        $huboAlguna = true;
 
                         continue;
                     }
@@ -299,6 +357,53 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
                 }
             });
         }
+    }
+
+    /**
+     * Qué filas de esta hoja pierden por ser el duplicado de otra.
+     *
+     * Hoy gana **la última** porque el importador procesa en orden y la segunda
+     * pasada pisa a la primera — no porque nadie lo eligiera. Que se pueda pedir
+     * `primera` es lo que convierte ese accidente en una decisión.
+     *
+     * Con `ultima` no se descarta nada y el comportamiento es idéntico al de
+     * siempre: la última sigue ganando porque escribe la última. Lo que cambia
+     * con `primera` es que **las siguientes no llegan a escribir**, que es lo
+     * único que impide que la de abajo pise a la de arriba.
+     *
+     * @param  array<int, array<string, mixed>>  $filas
+     * @return array<int, true> índices de las filas que no se escriben
+     */
+    private function filasQueDescartaElDuplicado(array $filas): array
+    {
+        $vistos = [];
+        $descartadas = [];
+
+        foreach ($filas as $i => $fila) {
+            $documento = trim((string) ($fila['nro_de_documento'] ?? ''));
+
+            if ($documento === '') {
+                continue;
+            }
+
+            if (! isset($vistos[$documento])) {
+                $vistos[$documento] = $i;
+
+                continue;
+            }
+
+            // Ya salió antes. Con `primera` pierde ésta; con `ultima` —el
+            // defecto— pierde la anterior, que es lo que ya pasaba de hecho.
+            if ($this->respuestas->cualGanaEnDuplicado($documento) === RespuestasDeLaImportacion::DUPLICADO_PRIMERA) {
+                $descartadas[$i] = true;
+
+                continue;
+            }
+
+            $vistos[$documento] = $i;
+        }
+
+        return $descartadas;
     }
 
     /**
@@ -334,6 +439,18 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
             $id = $this->idPorDocumento($alumno['nro_de_documento']);
 
             if ($id !== null) {
+                // **Y la persona puede decir que no lo toque.** Por defecto se
+                // actualiza —es la idempotencia del 20 ago y lo que evita crear
+                // duplicados—, pero en una hoja de alumnos NUEVOS un documento
+                // que ya existe es un error de quien la llenó, y machacar la
+                // ficha buena con esa fila es el daño, no el arreglo.
+                if ($this->respuestas->queHacerConRepetido((string) $alumno['nro_de_documento'])
+                    === RespuestasDeLaImportacion::REPETIDO_OMITIR) {
+                    $this->hechos['repetidos_omitidos']++;
+
+                    return;
+                }
+
                 $alumno['id'] = $id;
                 $reencontrado = true;
             }
@@ -352,16 +469,74 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
                 $this->hechos['reencontrados']++;
             }
 
-            $consulta = 'UPDATE alumnos SET no_matricula=?, nombres=?, apellidos=?, sexo=?, fecha_nac=?,
-					tipo_doc=?, documento=?, no_matricula=?, direccion=?, barrio=?, telefono=?, celular=?, estrato=?, 
-					tipo_sangre=?, eps=?, religion=?, nro_sisben=?, updated_at=?'.$res['consulta'].' WHERE id=?';
+            // **UNA CELDA VACÍA NO DICE «no sé», DICE «bórralo».**
+            //
+            // Este `UPDATE` escribe todas las columnas, así que una celda en
+            // blanco vacía la que hubiera — lo dice el propio catálogo del
+            // ensayo: *«Se BORRA la que hubiera, porque el UPDATE escribe todas
+            // las columnas»*. Es el comportamiento de siempre y **se conserva por
+            // defecto**: cambiarlo sin que nadie lo pida sería decidir por el
+            // colegio.
+            //
+            // Lo que entra el 21 sep 2026 es poder decir **`conservar`** por
+            // columna, y entonces esa columna sale del `SET`. No se escribe el
+            // valor viejo —eso exigiría leerlo antes y sería otra consulta por
+            // fila—: simplemente **no se toca**, que es más barato y no puede
+            // equivocarse.
+            $columnas = [
+                // **`no_matricula` se escribía DOS VECES en el mismo `SET`** —una
+                // con `$alumno['no_matricula']` y otra con
+                // `$alumno['numero_matricula']`— y ganaba la segunda. Es el mismo
+                // defecto que el `nro_sisben` que ya está documentado, en la misma
+                // consulta y por la misma puerta.
+                //
+                // Al colapsarlo se conserva **el valor que ganaba**, no el que se
+                // escribía primero: cambiar cuál gana mientras se reordena una
+                // consulta sería colar una decisión dentro de un refactor.
+                'numero_matricula' => ['no_matricula', $alumno['numero_matricula']],
+                'primer_nombre' => ['nombres', trim($alumno['primer_nombre'].' '.$alumno['segundo_nombre'])],
+                'primer_apellido' => ['apellidos', trim($alumno['primer_apellido'].' '.$alumno['segundo_apellido'])],
+                'sexo' => ['sexo', $alumno['sexo']],
+                'fecha_de_nacim' => ['fecha_nac', $alumno['fecha_de_nacim']],
+                'tipo_de_documento' => ['tipo_doc', $alumno['tipo_doc']],
+                'nro_de_documento' => ['documento', $alumno['nro_de_documento']],
+                'direccion_residencia' => ['direccion', $alumno['direccion_residencia']],
+                'barrio' => ['barrio', $alumno['barrio']],
+                'telefono' => ['telefono', $alumno['telefono']],
+                'celular' => ['celular', $alumno['celular']],
+                'estrato' => ['estrato', $alumno['estrato']],
+                'rh' => ['tipo_sangre', $alumno['rh']],
+                'eps' => ['eps', $alumno['eps']],
+                'religion' => ['religion', $alumno['religion']],
+                'sisben' => ['nro_sisben', $alumno['sisben']],
+            ];
+
+            $aConservar = $this->respuestas->columnasAConservar();
+            $sets = [];
+            $valores = [];
+
+            foreach ($columnas as $deLaHoja => [$enLaBase, $valor]) {
+                $vacia = $valor === null || trim((string) $valor) === '';
+
+                if ($vacia && in_array($deLaHoja, $aConservar, true)) {
+                    $this->hechos['columnas_conservadas']++;
+
+                    continue;
+                }
+
+                $sets[] = $enLaBase.'=?';
+                $valores[] = $valor;
+            }
+
+            $sets[] = 'updated_at=?';
+            $valores[] = $now;
 
             // Los valores del fragmento van en medio: entra detras de `updated_at=?`
             // y delante del `WHERE id=?`, asi que el orden del array tiene que ser
             // el mismo. Ver 05 §60.
-            DB::update($consulta, array_merge([$alumno['no_matricula'], trim($alumno['primer_nombre'].' '.$alumno['segundo_nombre']), trim($alumno['primer_apellido'].' '.$alumno['segundo_apellido']), $alumno['sexo'], $alumno['fecha_de_nacim'],
-                $alumno['tipo_doc'], $alumno['nro_de_documento'], $alumno['numero_matricula'], $alumno['direccion_residencia'], $alumno['barrio'], $alumno['telefono'], $alumno['celular'], $alumno['estrato'],
-                $alumno['rh'], $alumno['eps'], $alumno['religion'], $alumno['sisben'], $now], $res['valores'], [$alumno['id']]));
+            $consulta = 'UPDATE alumnos SET '.implode(', ', $sets).$res['consulta'].' WHERE id=?';
+
+            DB::update($consulta, array_merge($valores, $res['valores'], [$alumno['id']]));
 
             // `matriculas.estado` es varchar(4), y lo que llega aqui es texto de
             // una hoja de calculo. Un «Activo» se guardaba como «Acti», que NO
@@ -809,7 +984,7 @@ class ImportarController extends Controller
             $punto->guardarRespuestas($this->respuestasDelCuerpo());
 
             $fixer = new ImporterFixer($respuestas->equivalencias());
-            $Import = new ExcelUtils($year, $fixer, $punto);
+            $Import = new ExcelUtils($year, $fixer, $punto, null, $respuestas);
 
             // El error se guarda y se vuelve a lanzar: el 500 que ve el cliente
             // es el mismo de siempre —cambiarlo es tocar el contrato— pero deja
@@ -901,6 +1076,12 @@ class ImportarController extends Controller
                 // 200 con sus `hechos` y, como antes, sigue necesitando que
                 // alguien vuelva a subir — sólo que ahora al volver a subir no
                 // repite lo hecho. *Degradarse bien.*
+                // Lo que las cuatro secciones nuevas hicieron de verdad. Va en la
+                // respuesta porque una decisión que no se puede contar es una
+                // decisión que nadie puede comprobar — y porque una hoja saltada
+                // es un grupo entero sin importar.
+                'hojas_omitidas' => $Import->hojasOmitidas,
+
                 'terminado' => ! $Import->agotado,
                 'filas_totales' => $Import->filasDelArchivo,
                 'filas_hechas' => $punto->filas(),

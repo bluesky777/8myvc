@@ -244,27 +244,190 @@ class QueElImportadorObedezcaTest extends CasoDeContrato
     }
 
     /**
-     * LO QUE NO SE APLICA TODAVÍA SE DICE, con el motivo.
+     * **YA NO QUEDA NINGUNA SECCIÓN SIN APLICAR** — y el mecanismo que lo decía
+     * se queda.
      *
-     * Aceptar una sección y no interpretarla sin decirlo es el mismo silencio
-     * que este módulo empezó quitando: la pantalla prometería algo que no
-     * ocurre.
+     * Hasta el 21 sep 2026 sólo se aplicaban los vocabularios, y las otras cuatro
+     * se aceptaban, se guardaban y se declaraban en `no_aplicadas` con su motivo:
+     * aceptar una sección y no interpretarla sin decirlo es el mismo silencio que
+     * este módulo empezó quitando.
+     *
+     * Ahora se aplican las cinco. **Lo que este caso fija no es que la lista esté
+     * vacía por casualidad**: es que si mañana entra una sección a medias, tenga
+     * que declararse aquí en vez de aceptarse en silencio.
      */
-    public function test_lo_que_no_se_interpreta_se_declara(): void
+    public function test_ya_no_queda_ninguna_seccion_sin_aplicar(): void
     {
         [$token, $year] = $this->personalYSuYear();
 
         $r = $this->ensayar($this->exportacionDeAlumnos($token), $token, $year, [
-            'repetidos' => [['hoja' => '6', 'fila_del_libro' => 15, 'decision' => 'es_el_mismo', 'alumno_id' => 1055]],
+            'repetidos' => [['hoja' => '6', 'fila_del_libro' => 15, 'decision' => 'actualizar', 'alumno_id' => 1055]],
             'hojas' => [['nombre' => 'Consolidado', 'decision' => 'omitir']],
         ])->assertStatus(200);
 
-        $secciones = array_column($r->json('respuestas.no_aplicadas'), 'seccion');
+        $this->assertSame([], $r->json('respuestas.no_aplicadas'),
+            'Hay una sección que se acepta y no se interpreta: tiene que decirlo con su motivo, '
+            .'o la pantalla promete algo que no ocurre.');
 
-        $this->assertContains('repetidos', $secciones);
-        $this->assertContains('hojas', $secciones);
-        $this->assertNotEmpty($r->json('respuestas.no_aplicadas')[0]['motivo'],
-            'Sin motivo, «no aplicada» no se distingue de «se perdió».');
+        $this->assertContains('hojas', $r->json('respuestas.aplicadas'));
+        $this->assertContains('repetidos', $r->json('respuestas.aplicadas'));
+    }
+
+    /**
+     * **`vacios: conservar` deja de borrar, y es la sección que más datos salva.**
+     *
+     * El `UPDATE` del importador escribe todas las columnas, así que una celda
+     * vacía no dice «no sé»: dice «bórralo». Lo dice el propio catálogo del
+     * ensayo —*«Se BORRA la que hubiera»*— y era el comportamiento de siempre.
+     *
+     * Se comprueba **contra la base**, no contra la respuesta: lo que importa es
+     * que el teléfono siga ahí.
+     */
+    public function test_conservar_una_columna_vacia_no_borra_lo_que_habia(): void
+    {
+        [$token, $year] = $this->personalYSuYear();
+
+        // **El alumno es el de la FILA 3**, que es la que `escribir()` toca. Con
+        // uno cualquiera el caso pasaría por no haberlo tocado nadie, que es
+        // verde por el motivo equivocado.
+        $exportado = $this->exportacionDeAlumnos($token);
+        $documento = $this->documentoDeLaPrimeraFila($exportado);
+
+        DB::update('UPDATE alumnos SET telefono = ? WHERE documento = ?', ['3001112233', $documento]);
+
+        $archivo = $this->escribir($exportado, 'telefono', '');
+
+        $this->importar($archivo, $token, $year, [
+            'vacios' => [['columna' => 'telefono', 'decision' => 'conservar']],
+        ])->assertStatus(200);
+
+        $this->assertSame('3001112233',
+            DB::selectOne('SELECT telefono FROM alumnos WHERE documento = ?', [$documento])->telefono,
+            'Una celda vacía borró el teléfono a pesar de que se pidió conservarlo.');
+    }
+
+    /** Y sin decir nada se sigue borrando, que es el comportamiento de siempre. */
+    public function test_sin_decir_nada_la_celda_vacia_sigue_borrando(): void
+    {
+        [$token, $year] = $this->personalYSuYear();
+
+        $exportado = $this->exportacionDeAlumnos($token);
+        $documento = $this->documentoDeLaPrimeraFila($exportado);
+
+        DB::update('UPDATE alumnos SET telefono = ? WHERE documento = ?', ['3001112233', $documento]);
+
+        $this->importar($this->escribir($exportado, 'telefono', ''), $token, $year)->assertStatus(200);
+
+        $this->assertNotSame('3001112233',
+            DB::selectOne('SELECT telefono FROM alumnos WHERE documento = ?', [$documento])->telefono,
+            'Cambió el comportamiento por defecto sin que nadie lo pidiera: eso es decidir por '
+            .'el colegio.');
+    }
+
+    /**
+     * **`hojas: omitir` salta la hoja en vez de reventar la importación entera.**
+     *
+     * Hoy una pestaña que no casa con ningún grupo del año hace 500 y no entra
+     * nadie — ni siquiera los grupos de las otras hojas. Es el caso corriente de
+     * la hoja de notas o la del año pasado que alguien dejó dentro del libro.
+     *
+     * Y omitir **se declara**: la respuesta dice cuáles se saltaron. Una hoja que
+     * desaparece en silencio es un grupo entero sin importar.
+     */
+    public function test_una_hoja_que_no_casa_se_puede_omitir_en_vez_de_parar(): void
+    {
+        [$token, $year] = $this->personalYSuYear();
+
+        $libro = IOFactory::load($this->exportacionDeAlumnos($token));
+        $libro->getSheet(0)->setTitle('NO-EXISTE');
+        $archivo = $this->guardar($libro);
+
+        $this->importar($archivo, $token, $year)->assertStatus(500);
+
+        $r = $this->importar($archivo, $token, $year, [
+            'hojas' => [['nombre' => 'NO-EXISTE', 'decision' => 'omitir']],
+        ])->assertStatus(200);
+
+        $this->assertSame(['NO-EXISTE'], $r->json('hojas_omitidas'),
+            'La hoja se saltó y la respuesta no lo dice: un grupo entero sin importar y nadie '
+            .'enterándose.');
+    }
+
+    /**
+     * **`duplicados: primera` cambia cuál gana dentro del fichero.**
+     *
+     * Hoy gana la última porque el importador procesa en orden y la segunda
+     * pasada pisa a la primera — no porque nadie lo eligiera. Esto convierte ese
+     * accidente en una decisión.
+     */
+    public function test_con_duplicados_se_puede_elegir_que_gane_la_primera(): void
+    {
+        [$token, $year] = $this->personalYSuYear();
+
+        $libro = IOFactory::load($this->exportacionDeAlumnos($token));
+        $hoja = $libro->getSheet(0);
+        $columnas = $this->columnasDe($hoja);
+
+        $documento = (string) $hoja->getCell($columnas['nro_de_documento'].'3')->getValue();
+
+        // **La pareja es la ÚLTIMA fila con datos, no la 4 a ciegas**: la primera
+        // pestaña del export puede traer un solo alumno, y entonces escribir en
+        // la 4 inventa una fila suelta en vez de un duplicado.
+        $ultima = $hoja->getHighestDataRow();
+
+        $this->assertGreaterThan(3, $ultima,
+            'La primera hoja del export trae un solo alumno: sin dos filas no hay duplicado que probar.');
+
+        $hoja->setCellValue($columnas['nro_de_documento'].$ultima, $documento);
+        $hoja->setCellValue($columnas['primer_nombre'].'3', 'GANALAPRIMERA');
+        $hoja->setCellValue($columnas['primer_nombre'].$ultima, 'GANALAULTIMA');
+
+        $archivo = $this->guardar($libro);
+
+        $r = $this->importar($archivo, $token, $year, [
+            'duplicados' => [['documento' => $documento, 'decision' => 'primera']],
+        ])->assertStatus(200);
+
+        $this->assertSame(1, $r->json('hechos.duplicados_descartados'),
+            'No se descartó la fila perdedora, así que la última siguió pisando a la primera.');
+
+        $this->assertStringStartsWith('GANALAPRIMERA',
+            DB::selectOne('SELECT nombres FROM alumnos WHERE documento = ?', [$documento])->nombres,
+            'Ganó la última a pesar de haber elegido la primera.');
+    }
+
+    /**
+     * **`repetidos: omitir` no toca la ficha que ya estaba.**
+     *
+     * Por defecto se actualiza, que es la idempotencia del 20 ago y lo que evita
+     * crear duplicados. `omitir` es para el caso contrario: una hoja de alumnos
+     * NUEVOS donde un documento que ya existe es un error de quien la llenó, y
+     * machacar la ficha buena con esa fila es el daño, no el arreglo.
+     */
+    public function test_un_repetido_se_puede_omitir_en_vez_de_machacar(): void
+    {
+        [$token, $year] = $this->personalYSuYear();
+
+        $libro = IOFactory::load($this->exportacionDeAlumnos($token));
+        $hoja = $libro->getSheet(0);
+        $columnas = $this->columnasDe($hoja);
+
+        $documento = (string) $hoja->getCell($columnas['nro_de_documento'].'3')->getValue();
+
+        // Sin `id` la fila entra por el documento, que es el camino del repetido.
+        $hoja->setCellValue($columnas['id'].'3', null);
+        $hoja->setCellValue($columnas['primer_nombre'].'3', 'NOMEDEBERIAESCRIBIR');
+
+        $antes = DB::selectOne('SELECT nombres FROM alumnos WHERE documento = ?', [$documento])->nombres;
+
+        $r = $this->importar($this->guardar($libro), $token, $year, [
+            'repetidos' => [['documento_en_la_hoja' => $documento, 'decision' => 'omitir']],
+        ])->assertStatus(200);
+
+        $this->assertSame(1, $r->json('hechos.repetidos_omitidos'));
+        $this->assertSame($antes,
+            DB::selectOne('SELECT nombres FROM alumnos WHERE documento = ?', [$documento])->nombres,
+            'Se machacó la ficha buena con una fila que se pidió omitir.');
     }
 
     /** Y sin respuestas el campo es null, no un resumen de ceros que parece que hubo. */
@@ -332,6 +495,22 @@ class QueElImportadorObedezcaTest extends CasoDeContrato
     private function conEstado(string $archivo, string $valor): string
     {
         return $this->escribir($archivo, 'estado_matricula', $valor);
+    }
+
+    private function guardar($libro): string
+    {
+        $ruta = tempnam(sys_get_temp_dir(), 'obe').'.xlsx';
+        (new EscritorXlsx($libro))->save($ruta);
+
+        return $ruta;
+    }
+
+    /** El documento que trae la primera fila de datos: el alumno que estos casos tocan. */
+    private function documentoDeLaPrimeraFila(string $archivo): string
+    {
+        $hoja = IOFactory::load($archivo)->getSheet(0);
+
+        return (string) $hoja->getCell($this->columnasDe($hoja)['nro_de_documento'].'3')->getValue();
     }
 
     private function escribir(string $archivo, string $columna, string $valor): string
