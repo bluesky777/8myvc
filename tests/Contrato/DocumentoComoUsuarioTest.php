@@ -26,6 +26,7 @@ use Illuminate\Support\Facades\DB;
 class DocumentoComoUsuarioTest extends CasoDeContrato
 {
     private const REVISAR = '/api/cambiar-usuarios/revisar-documento-como-username';
+
     private const APLICAR = '/api/cambiar-usuarios/documento-como-username';
 
     private function tokenDelSuperusuario(): string

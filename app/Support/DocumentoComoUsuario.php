@@ -79,7 +79,7 @@ class DocumentoComoUsuario
      */
     public static function aplicar(string $destino, ?int $grupoId, ?int $quien): array
     {
-        $plan   = self::clasificar($destino, $grupoId);
+        $plan = self::clasificar($destino, $grupoId);
         $nuevos = $plan['por_cambiar'];
 
         if ($nuevos !== []) {
@@ -110,10 +110,10 @@ class DocumentoComoUsuario
         $candidatos = self::candidatos($destino, $grupoId);
 
         $sinDocumento = [];
-        $sinCuenta    = [];
-        $yaLoTenian   = 0;
-        $enConflicto  = [];
-        $aspirantes   = [];   // documento => list<fila>
+        $sinCuenta = [];
+        $yaLoTenian = 0;
+        $enConflicto = [];
+        $aspirantes = [];   // documento => list<fila>
 
         foreach ($candidatos as $fila) {
             $documento = trim((string) $fila->documento);
@@ -126,11 +126,13 @@ class DocumentoComoUsuario
             // distintos en dos pantallas distintas.
             if ($fila->user_id === null) {
                 $sinCuenta[] = $fila->nombre;
+
                 continue;
             }
 
             if ($documento === '') {
                 $sinDocumento[] = $fila->nombre;
+
                 continue;
             }
 
@@ -138,13 +140,14 @@ class DocumentoComoUsuario
             // hacía que «7 alumnos» pareciera el trabajo pendiente cuando eran 3.
             if ((string) $fila->username === $documento) {
                 $yaLoTenian++;
+
                 continue;
             }
 
             $aspirantes[$documento][] = $fila;
         }
 
-        $ocupados   = self::usuariosYaTomados(array_keys($aspirantes));
+        $ocupados = self::usuariosYaTomados(array_keys($aspirantes));
         $porCambiar = [];
 
         foreach ($aspirantes as $documento => $filas) {
@@ -154,10 +157,11 @@ class DocumentoComoUsuario
                     $enConflicto[] = self::conflicto($f, $documento,
                         'Hay '.count($filas).' personas con este mismo documento.');
                 }
+
                 continue;
             }
 
-            $fila  = $filas[0];
+            $fila = $filas[0];
             $dueno = $ocupados[$documento] ?? null;
 
             // El índice `users_username_unique` no mira `deleted_at`, así que una
@@ -168,6 +172,7 @@ class DocumentoComoUsuario
                     $dueno->borrado
                         ? 'Ese usuario lo tiene una cuenta borrada.'
                         : 'Ese usuario ya lo tiene otra persona.');
+
                 continue;
             }
 
@@ -176,19 +181,19 @@ class DocumentoComoUsuario
 
         return [
             'por_cambiar' => $porCambiar,
-            'resumen'     => [
-                'destino'             => $destino,
-                'ambito'              => $grupoId === null ? 'colegio' : 'grupo',
-                'grupo_id'            => $grupoId,
-                'total'               => count($candidatos),
-                'por_cambiar'         => count($porCambiar),
-                'ya_lo_tenian'        => $yaLoTenian,
-                'sin_cuenta'          => count($sinCuenta),
-                'sin_cuenta_lista'    => array_slice($sinCuenta, 0, self::TOPE_DE_LA_LISTA),
-                'sin_documento'       => count($sinDocumento),
+            'resumen' => [
+                'destino' => $destino,
+                'ambito' => $grupoId === null ? 'colegio' : 'grupo',
+                'grupo_id' => $grupoId,
+                'total' => count($candidatos),
+                'por_cambiar' => count($porCambiar),
+                'ya_lo_tenian' => $yaLoTenian,
+                'sin_cuenta' => count($sinCuenta),
+                'sin_cuenta_lista' => array_slice($sinCuenta, 0, self::TOPE_DE_LA_LISTA),
+                'sin_documento' => count($sinDocumento),
                 'sin_documento_lista' => array_slice($sinDocumento, 0, self::TOPE_DE_LA_LISTA),
-                'en_conflicto'        => count($enConflicto),
-                'en_conflicto_lista'  => array_slice($enConflicto, 0, self::TOPE_DE_LA_LISTA),
+                'en_conflicto' => count($enConflicto),
+                'en_conflicto_lista' => array_slice($enConflicto, 0, self::TOPE_DE_LA_LISTA),
             ],
         ];
     }
@@ -197,9 +202,9 @@ class DocumentoComoUsuario
     private static function conflicto(object $fila, string $documento, string $motivo): array
     {
         return [
-            'nombre'    => (string) $fila->nombre,
+            'nombre' => (string) $fila->nombre,
             'documento' => $documento,
-            'motivo'    => $motivo,
+            'motivo' => $motivo,
         ];
     }
 
@@ -228,14 +233,14 @@ class DocumentoComoUsuario
         $delGrupo = $grupoId !== null;
 
         if ($destino === 'profesores') {
-            return DB::select('SELECT u.id AS user_id, u.username,
+            return array_values(DB::select('SELECT u.id AS user_id, u.username,
                     TRIM(COALESCE(p.num_doc, "")) AS documento,
                     TRIM(CONCAT(p.nombres, " ", COALESCE(p.apellidos, ""))) AS nombre
                 FROM profesores p
                 LEFT JOIN users u ON u.id = p.user_id AND u.deleted_at IS NULL AND u.tipo = "Profesor"
                 WHERE p.deleted_at IS NULL
                 GROUP BY p.id, u.id, u.username, documento, nombre
-                ORDER BY nombre');
+                ORDER BY nombre'));
         }
 
         if ($destino === 'alumnos') {
@@ -252,7 +257,7 @@ class DocumentoComoUsuario
                 GROUP BY a.id, u.id, u.username, documento, nombre
                 ORDER BY nombre';
 
-            return DB::select($sql, $delGrupo ? ['grupo' => $grupoId] : []);
+            return array_values(DB::select($sql, $delGrupo ? ['grupo' => $grupoId] : []));
         }
 
         $sql = 'SELECT u.id AS user_id, u.username,
@@ -270,7 +275,7 @@ class DocumentoComoUsuario
             GROUP BY ac.id, u.id, u.username, documento, nombre
             ORDER BY nombre';
 
-        return DB::select($sql, $delGrupo ? ['grupo' => $grupoId] : []);
+        return array_values(DB::select($sql, $delGrupo ? ['grupo' => $grupoId] : []));
     }
 
     /**
@@ -282,7 +287,7 @@ class DocumentoComoUsuario
      * cambio de uno en uno, y se dice ahí con las mismas palabras.
      *
      * @param  list<string>  $documentos
-     * @return array<string,object>  documento => la cuenta que lo tiene
+     * @return array<string,object> documento => la cuenta que lo tiene
      */
     private static function usuariosYaTomados(array $documentos): array
     {
@@ -312,7 +317,7 @@ class DocumentoComoUsuario
      */
     private static function escribirLote(array $lote, ?int $quien): void
     {
-        $casos   = '';
+        $casos = '';
         $valores = [];
 
         foreach ($lote as $userId => $documento) {
@@ -321,7 +326,7 @@ class DocumentoComoUsuario
             $valores[] = $documento;
         }
 
-        $ids    = array_keys($lote);
+        $ids = array_keys($lote);
         $huecos = implode(',', array_fill(0, count($ids), '?'));
 
         DB::update(

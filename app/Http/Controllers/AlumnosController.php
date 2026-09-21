@@ -14,11 +14,11 @@ use App\Models\Role;
 use App\Models\Unidad;
 use App\Models\Year;
 use App\Support\AlumnosParecidos;
-use App\Support\DuplicadosDeAlumnos;
-use App\Support\FusionDeAlumnos;
 use App\Support\Autoriza;
 use App\Support\CamposQueVinieron;
 use App\Support\CorreoDeLaCuenta;
+use App\Support\DuplicadosDeAlumnos;
+use App\Support\FusionDeAlumnos;
 use App\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -1179,7 +1179,6 @@ class AlumnosController extends Controller
         return DuplicadosDeAlumnos::listar();
     }
 
-
     /** Qué pasaría al unir dos fichas. NO escribe: es lo que se mira antes de decidir. */
     public function putRevisarFusion()
     {
@@ -1191,7 +1190,6 @@ class AlumnosController extends Controller
             (int) Request::input('destino_id'),
         );
     }
-
 
     /**
      * Y las une.
@@ -1216,7 +1214,6 @@ class AlumnosController extends Controller
         );
     }
 
-
     public function putAlumnosParecidos()
     {
         return AlumnosParecidos::buscar(
@@ -1225,7 +1222,6 @@ class AlumnosController extends Controller
             Request::input('documento'),
         );
     }
-
 
     public function putPersonasCheck()
     {

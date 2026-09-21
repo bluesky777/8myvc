@@ -84,7 +84,7 @@ class FusionDeAlumnos
      * a la vez. Cuando pasa, se arrastra sin más y la pantalla lo cuenta como fila movida.
      */
     private const A_MANO = [
-        'notas_finales'       => ['asignatura_id', 'periodo_id'],
+        'notas_finales' => ['asignatura_id', 'periodo_id'],
         'nota_comportamiento' => ['periodo_id'],
     ];
 
@@ -106,7 +106,9 @@ class FusionDeAlumnos
         }
 
         foreach (self::LAS_DE_OTRO_NOMBRE as $otra) {
-            if (! self::existeTabla($otra['tabla'])) { continue; }
+            if (! self::existeTabla($otra['tabla'])) {
+                continue;
+            }
 
             $sql = "SELECT COUNT(*) AS n FROM `{$otra['tabla']}` WHERE {$otra['columna']} = ?";
             $valores = [$origen];
@@ -122,13 +124,13 @@ class FusionDeAlumnos
         }
 
         return [
-            'origen'          => $fichaOrigen,
-            'destino'         => $fichaDestino,
-            'mueve'           => $mueve,
-            'filas_totales'   => array_sum(array_column($mueve, 'filas')),
-            'choques'         => self::choques($origen, $destino),
-            'matriculas'      => self::matriculasQueChocan($origen, $destino),
-            'cuenta_de_acceso'=> self::quePasaConLaCuenta($fichaOrigen, $fichaDestino),
+            'origen' => $fichaOrigen,
+            'destino' => $fichaDestino,
+            'mueve' => $mueve,
+            'filas_totales' => array_sum(array_column($mueve, 'filas')),
+            'choques' => self::choques($origen, $destino),
+            'matriculas' => self::matriculasQueChocan($origen, $destino),
+            'cuenta_de_acceso' => self::quePasaConLaCuenta($fichaOrigen, $fichaDestino),
         ];
     }
 
@@ -154,7 +156,9 @@ class FusionDeAlumnos
         DB::transaction(function () use ($origen, $destino, $decisiones, $quien, &$movidas, &$resueltos) {
             // 1. Los choques que decide una persona, ANTES de mover nada.
             foreach (self::A_MANO as $tabla => $columnas) {
-                if (! self::existeTabla($tabla)) { continue; }
+                if (! self::existeTabla($tabla)) {
+                    continue;
+                }
 
                 foreach (self::choquesDe($tabla, $columnas, $origen, $destino) as $choque) {
                     $gana = $decisiones[$tabla][$choque['clave']] ?? 'destino';
@@ -172,7 +176,9 @@ class FusionDeAlumnos
 
             // 2. Las de índice único: se queda la del destino y se tira la del origen.
             foreach (self::CON_UNICO as $u) {
-                if (! self::existeTabla($u['tabla'])) { continue; }
+                if (! self::existeTabla($u['tabla'])) {
+                    continue;
+                }
 
                 foreach (self::choquesDe($u['tabla'], $u['con'], $origen, $destino) as $choque) {
                     $donde = ['alumno_id' => $origen];
@@ -189,7 +195,9 @@ class FusionDeAlumnos
             }
 
             foreach (self::LAS_DE_OTRO_NOMBRE as $otra) {
-                if (! self::existeTabla($otra['tabla'])) { continue; }
+                if (! self::existeTabla($otra['tabla'])) {
+                    continue;
+                }
 
                 $sql = "UPDATE `{$otra['tabla']}` SET {$otra['columna']} = ? WHERE {$otra['columna']} = ?";
                 $valores = [$destino, $origen];
@@ -215,10 +223,10 @@ class FusionDeAlumnos
         });
 
         return [
-            'origen'     => $fichaOrigen,
-            'destino'    => $fichaDestino,
-            'movidas'    => $movidas,
-            'resueltos'  => $resueltos,
+            'origen' => $fichaOrigen,
+            'destino' => $fichaDestino,
+            'movidas' => $movidas,
+            'resueltos' => $resueltos,
         ];
     }
 
@@ -234,7 +242,9 @@ class FusionDeAlumnos
         $salida = [];
 
         foreach (self::A_MANO as $tabla => $columnas) {
-            if (! self::existeTabla($tabla)) { continue; }
+            if (! self::existeTabla($tabla)) {
+                continue;
+            }
 
             $salida[$tabla] = self::choquesDe($tabla, $columnas, $origen, $destino, true);
         }
@@ -249,7 +259,7 @@ class FusionDeAlumnos
     private static function choquesDe(string $tabla, array $columnas, int $origen, int $destino, bool $conDetalle = false): array
     {
         $llaves = implode(', ', array_map(static fn ($c) => "o.$c", $columnas));
-        $union  = implode(' AND ', array_map(static fn ($c) => "d.$c = o.$c", $columnas));
+        $union = implode(' AND ', array_map(static fn ($c) => "d.$c = o.$c", $columnas));
 
         // `nota` existe en las dos tablas de `A_MANO`; es lo que se compara para elegir.
         $extra = $conDetalle ? ', o.nota AS nota_origen, d.nota AS nota_destino' : '';
@@ -259,7 +269,7 @@ class FusionDeAlumnos
              INNER JOIN `$tabla` d ON $union AND d.alumno_id = ?
              WHERE o.alumno_id = ?", [$destino, $origen]);
 
-        return array_map(static function ($f) use ($columnas, $conDetalle) {
+        return array_values(array_map(static function ($f) use ($columnas, $conDetalle) {
             $valores = [];
             foreach ($columnas as $c) {
                 $valores[$c] = $f->$c;
@@ -267,10 +277,10 @@ class FusionDeAlumnos
 
             return [
                 // La clave con la que la pantalla devuelve su decisión. Simple a propósito.
-                'clave'    => implode('_', array_values($valores)),
+                'clave' => implode('_', array_values($valores)),
                 'columnas' => $valores,
             ] + ($conDetalle ? ['nota_origen' => $f->nota_origen, 'nota_destino' => $f->nota_destino] : []);
-        }, $filas);
+        }, $filas));
     }
 
     /**
@@ -283,13 +293,13 @@ class FusionDeAlumnos
      */
     private static function matriculasQueChocan(int $origen, int $destino): array
     {
-        return DB::select(
+        return array_values(DB::select(
             'SELECT o.grupo_id, g.nombre AS grupo, y.year, o.estado AS estado_origen, d.estado AS estado_destino
              FROM matriculas o
              INNER JOIN matriculas d ON d.grupo_id = o.grupo_id AND d.alumno_id = ? AND d.deleted_at IS NULL
              INNER JOIN grupos g ON g.id = o.grupo_id
              INNER JOIN years y ON y.id = g.year_id
-             WHERE o.alumno_id = ? AND o.deleted_at IS NULL', [$destino, $origen]);
+             WHERE o.alumno_id = ? AND o.deleted_at IS NULL', [$destino, $origen]));
     }
 
     /* ── La cuenta de acceso ─────────────────────────────────────────────────────────────── */

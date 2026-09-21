@@ -49,26 +49,27 @@ class NotasAlCambiarDeGrupo
         $filas = self::loQueHay($alumnoId, $grupoOrigen, $grupoDestino);
 
         $porPeriodo = [];
-        $sinPareja  = [];
+        $sinPareja = [];
 
         foreach ($filas as $f) {
             if ($f->asig_destino === null) {
                 $sinPareja[$f->materia] = true;
+
                 continue;
             }
 
             $clave = (int) $f->periodo_id;
             $porPeriodo[$clave] ??= [
                 'periodo_id' => $clave,
-                'numero'     => (int) $f->periodo_numero,
+                'numero' => (int) $f->periodo_numero,
                 /*
                  * EL AÑO, porque el número solo no basta. En el docker salieron dos periodos
                  * «1» en la misma revisión —el grupo arrastra notas de más de un año— y en la
                  * pantalla eran dos filas idénticas entre las que no se podía elegir.
                  */
-                'year'       => (int) $f->periodo_year,
-                'definitivas'=> 0,
-                'pisaria'    => 0,
+                'year' => (int) $f->periodo_year,
+                'definitivas' => 0,
+                'pisaria' => 0,
             ];
             $porPeriodo[$clave]['definitivas']++;
 
@@ -82,9 +83,9 @@ class NotasAlCambiarDeGrupo
         uasort($porPeriodo, static fn ($a, $b) => [$a['year'], $a['numero']] <=> [$b['year'], $b['numero']]);
 
         return [
-            'periodos'    => array_values($porPeriodo),
+            'periodos' => array_values($porPeriodo),
             'definitivas' => array_sum(array_column($porPeriodo, 'definitivas')),
-            'sin_pareja'  => array_keys($sinPareja),
+            'sin_pareja' => array_keys($sinPareja),
             /* Se dice aquí para que la pantalla no tenga que saberlo. Ver la cabecera. */
             'comportamiento_se_queda' => true,
         ];
@@ -109,8 +110,12 @@ class NotasAlCambiarDeGrupo
 
         DB::transaction(function () use ($filas, $periodos, $alumnoId, $quien, &$creadas, &$pisadas) {
             foreach ($filas as $f) {
-                if ($f->asig_destino === null) { continue; }
-                if ($periodos !== [] && ! in_array((int) $f->periodo_id, $periodos, true)) { continue; }
+                if ($f->asig_destino === null) {
+                    continue;
+                }
+                if ($periodos !== [] && ! in_array((int) $f->periodo_id, $periodos, true)) {
+                    continue;
+                }
 
                 if ($f->nota_destino_id !== null) {
                     DB::table('notas_finales')->where('id', $f->nota_destino_id)->update([
@@ -122,15 +127,15 @@ class NotasAlCambiarDeGrupo
                 }
 
                 DB::table('notas_finales')->insert([
-                    'alumno_id'     => $alumnoId,
+                    'alumno_id' => $alumnoId,
                     'asignatura_id' => $f->asig_destino,
-                    'periodo_id'    => $f->periodo_id,
-                    'periodo'       => $f->periodo,
-                    'nota'          => $f->nota,
-                    'manual'        => 1,
-                    'updated_by'    => $quien,
-                    'created_at'    => Reloj::ahora(),
-                    'updated_at'    => Reloj::ahora(),
+                    'periodo_id' => $f->periodo_id,
+                    'periodo' => $f->periodo,
+                    'nota' => $f->nota,
+                    'manual' => 1,
+                    'updated_by' => $quien,
+                    'created_at' => Reloj::ahora(),
+                    'updated_at' => Reloj::ahora(),
                 ]);
                 $creadas++;
             }
@@ -146,7 +151,7 @@ class NotasAlCambiarDeGrupo
      */
     private static function loQueHay(int $alumnoId, int $grupoOrigen, int $grupoDestino): array
     {
-        return DB::select(
+        return array_values(DB::select(
             'SELECT nf.nota, nf.periodo, nf.periodo_id, p.numero AS periodo_numero, y.year AS periodo_year,
                     m.materia AS materia,
                     ad.id AS asig_destino,
@@ -163,6 +168,6 @@ class NotasAlCambiarDeGrupo
                     AND nd.periodo_id = nf.periodo_id
              WHERE nf.alumno_id = ?
              ORDER BY y.year, p.numero, m.materia',
-            [$grupoOrigen, $grupoDestino, $alumnoId]);
+            [$grupoOrigen, $grupoDestino, $alumnoId]));
     }
 }

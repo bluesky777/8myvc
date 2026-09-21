@@ -3,14 +3,14 @@
 namespace App\Models;
 
 use App\Services\BoletinIndependiente;
+use App\Support\SellaConElReloj;
 use App\User;
-use Carbon\Carbon;
 // `App\User` y no `App\Models\User`: el modelo de usuario no se mudó a Models/.
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 use stdClass;
-use App\Support\SellaConElReloj;
 
 /**
  * Las columnas de `notas`, tal como están en el esquema congelado.

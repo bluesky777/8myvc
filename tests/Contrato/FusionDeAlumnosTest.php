@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\DB;
 class FusionDeAlumnosTest extends CasoDeContrato
 {
     private const REVISAR = '/api/alumnos/revisar-fusion';
+
     private const FUSIONAR = '/api/alumnos/fusionar';
 
     private function token(): string
@@ -81,9 +82,9 @@ class FusionDeAlumnosTest extends CasoDeContrato
     {
         [$destino, $origen] = $this->dosAlumnos();
 
-        $notasAntes  = DB::table('notas_finales')->where('alumno_id', $origen)->count()
+        $notasAntes = DB::table('notas_finales')->where('alumno_id', $origen)->count()
                      + DB::table('notas_finales')->where('alumno_id', $destino)->count();
-        $matriAntes  = DB::table('matriculas')->where('alumno_id', $origen)->count()
+        $matriAntes = DB::table('matriculas')->where('alumno_id', $origen)->count()
                      + DB::table('matriculas')->where('alumno_id', $destino)->count();
 
         $revision = $this->withToken($this->token())->putJson(self::REVISAR, [
@@ -133,11 +134,11 @@ class FusionDeAlumnosTest extends CasoDeContrato
             ->where('asignatura_id', $suya->asignatura_id)->where('periodo_id', $suya->periodo_id)->delete();
 
         DB::table('notas_finales')->insert([
-            'alumno_id'     => $origen,
+            'alumno_id' => $origen,
             'asignatura_id' => $suya->asignatura_id,
-            'periodo_id'    => $suya->periodo_id,
-            'periodo'       => $suya->periodo,
-            'nota'          => 1.23,
+            'periodo_id' => $suya->periodo_id,
+            'periodo' => $suya->periodo,
+            'nota' => 1.23,
         ]);
 
         $clave = $suya->asignatura_id.'_'.$suya->periodo_id;
@@ -150,7 +151,7 @@ class FusionDeAlumnosTest extends CasoDeContrato
             'El choque fabricado no aparece en la revisión.');
 
         $this->withToken($this->token())->putJson(self::FUSIONAR, [
-            'origen_id'  => $origen,
+            'origen_id' => $origen,
             'destino_id' => $destino,
             'decisiones' => ['notas_finales' => [$clave => 'origen']],
         ])->assertStatus(200);

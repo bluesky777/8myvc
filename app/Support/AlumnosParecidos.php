@@ -48,7 +48,9 @@ class AlumnosParecidos
      * hace con un `documento` es una decisión de pantalla y puede cambiar sin tocar esto.
      */
     public const DOCUMENTO = 'documento';
+
     public const NOMBRE_EXACTO = 'nombre_exacto';
+
     public const PARECIDO = 'parecido';
 
     /**
@@ -57,11 +59,11 @@ class AlumnosParecidos
     public static function buscar(?string $nombres, ?string $apellidos, ?string $documento): array
     {
         $documento = trim((string) $documento);
-        $nombres   = trim((string) $nombres);
+        $nombres = trim((string) $nombres);
         $apellidos = trim((string) $apellidos);
 
         $porDocumento = $documento === '' ? [] : self::porDocumento($documento);
-        $porNombre    = self::porNombre($nombres, $apellidos);
+        $porNombre = self::porNombre($nombres, $apellidos);
 
         // El documento manda: si una ficha sale por las dos, se queda con el grado fuerte.
         $candidatos = [];
@@ -76,31 +78,31 @@ class AlumnosParecidos
         }
 
         $candidatos = array_slice($candidatos, 0, self::TOPE, true);
-        $contexto   = self::contextoDe(array_keys($candidatos));
+        $contexto = self::contextoDe(array_keys($candidatos));
 
         $salida = [];
         foreach ($candidatos as $id => $fila) {
             $salida[] = [
-                'alumno_id'        => $id,
-                'nombres'          => $fila->nombres,
-                'apellidos'        => $fila->apellidos,
-                'documento'        => $fila->documento,
-                'tipo_doc_nombre'  => $fila->tipo_doc_nombre,
-                'sexo'             => $fila->sexo,
-                'fecha_nac'        => $fila->fecha_nac,
-                'foto_nombre'      => $fila->foto_nombre,
-                'en_papelera'      => $fila->deleted_at !== null,
-                'coincidencia'     => $fila->coincidencia,
-                'matriculas'       => $contexto[$id]['matriculas'] ?? 0,
-                'ultimo_year'      => $contexto[$id]['ultimo_year'] ?? null,
-                'ultimo_grupo'     => $contexto[$id]['ultimo_grupo'] ?? null,
-                'ultimo_estado'    => $contexto[$id]['ultimo_estado'] ?? null,
-                'definitivas'      => $contexto[$id]['definitivas'] ?? 0,
+                'alumno_id' => $id,
+                'nombres' => $fila->nombres,
+                'apellidos' => $fila->apellidos,
+                'documento' => $fila->documento,
+                'tipo_doc_nombre' => $fila->tipo_doc_nombre,
+                'sexo' => $fila->sexo,
+                'fecha_nac' => $fila->fecha_nac,
+                'foto_nombre' => $fila->foto_nombre,
+                'en_papelera' => $fila->deleted_at !== null,
+                'coincidencia' => $fila->coincidencia,
+                'matriculas' => $contexto[$id]['matriculas'] ?? 0,
+                'ultimo_year' => $contexto[$id]['ultimo_year'] ?? null,
+                'ultimo_grupo' => $contexto[$id]['ultimo_grupo'] ?? null,
+                'ultimo_estado' => $contexto[$id]['ultimo_estado'] ?? null,
+                'definitivas' => $contexto[$id]['definitivas'] ?? 0,
             ];
         }
 
         return [
-            'candidatos'  => $salida,
+            'candidatos' => $salida,
             // Lo que hace que la pantalla pare en seco, y no sólo pinte amarillo.
             'hay_fuertes' => (bool) array_filter($salida, static fn ($c) => $c['coincidencia'] !== self::PARECIDO),
         ];
@@ -115,8 +117,8 @@ class AlumnosParecidos
          * encuentra buscando, lo crea de nuevo, y aparecen las dos fichas. Si este
          * buscador tampoco lo ve, la pantalla repite el error que existe para evitar.
          */
-        return DB::select(self::SELECT.' WHERE TRIM(a.documento) = ? ORDER BY a.id LIMIT '.self::TOPE,
-            [self::DOCUMENTO, $documento]);
+        return array_values(DB::select(self::SELECT.' WHERE TRIM(a.documento) = ? ORDER BY a.id LIMIT '.self::TOPE,
+            [self::DOCUMENTO, $documento]));
     }
 
     /** @return list<object> */
@@ -153,7 +155,7 @@ class AlumnosParecidos
             self::SELECT.' WHERE ('.implode(' AND ', $condiciones).') ORDER BY a.id LIMIT '.self::TOPE,
             $valores);
 
-        return array_merge($exactos, $parecidos);
+        return array_values(array_merge($exactos, $parecidos));
     }
 
     /**
@@ -200,9 +202,9 @@ class AlumnosParecidos
         $contexto = [];
         foreach ($filas as $f) {
             $contexto[(int) $f->alumno_id] = [
-                'matriculas'    => (int) $f->matriculas,
-                'ultimo_year'   => (int) $f->ultimo_year,
-                'ultimo_grupo'  => $f->ultimo_grupo,
+                'matriculas' => (int) $f->matriculas,
+                'ultimo_year' => (int) $f->ultimo_year,
+                'ultimo_grupo' => $f->ultimo_grupo,
                 'ultimo_estado' => $f->ultimo_estado,
             ];
         }

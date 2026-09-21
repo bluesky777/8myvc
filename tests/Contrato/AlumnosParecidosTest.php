@@ -77,7 +77,7 @@ class AlumnosParecidosTest extends CasoDeContrato
         $this->assertNotNull($alumno);
 
         $r = $this->withToken($this->token())->putJson(self::RUTA, [
-            'nombres'   => mb_strtoupper($alumno->nombres),
+            'nombres' => mb_strtoupper($alumno->nombres),
             'apellidos' => mb_strtolower($alumno->apellidos),
         ]);
 

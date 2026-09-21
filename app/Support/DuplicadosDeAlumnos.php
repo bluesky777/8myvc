@@ -79,10 +79,10 @@ class DuplicadosDeAlumnos
              ORDER BY cuantas DESC, clave');
 
         return [
-            'por_documento'   => array_slice($porDocumento, 0, self::TOPE),
-            'por_nombre'      => array_slice($porNombre, 0, self::TOPE),
+            'por_documento' => array_slice($porDocumento, 0, self::TOPE),
+            'por_nombre' => array_slice($porNombre, 0, self::TOPE),
             'total_documento' => count($porDocumento),
-            'total_nombre'    => count($porNombre),
+            'total_nombre' => count($porNombre),
         ];
     }
 
@@ -106,7 +106,7 @@ class DuplicadosDeAlumnos
             }
         }
 
-        $fichas   = self::fichasDe($todos);
+        $fichas = self::fichasDe($todos);
         $contexto = AlumnosParecidos::contextoDe($todos);
 
         $salida = [];
@@ -114,23 +114,23 @@ class DuplicadosDeAlumnos
             $ids = array_map('intval', explode(',', (string) $g->ids));
 
             $salida[] = [
-                'clave'   => $g->clave,
+                'clave' => $g->clave,
                 'cuantas' => (int) $g->cuantas,
-                'fichas'  => array_values(array_map(static fn ($id) => [
-                    'alumno_id'       => $id,
-                    'nombres'         => $fichas[$id]->nombres ?? '',
-                    'apellidos'       => $fichas[$id]->apellidos ?? null,
-                    'documento'       => $fichas[$id]->documento ?? null,
+                'fichas' => array_map(static fn ($id) => [
+                    'alumno_id' => $id,
+                    'nombres' => $fichas[$id]->nombres ?? '',
+                    'apellidos' => $fichas[$id]->apellidos ?? null,
+                    'documento' => $fichas[$id]->documento ?? null,
                     'tipo_doc_nombre' => $fichas[$id]->tipo_doc_nombre ?? null,
-                    'fecha_nac'       => $fichas[$id]->fecha_nac ?? null,
-                    'foto_nombre'     => $fichas[$id]->foto_nombre ?? null,
-                    'creado'          => $fichas[$id]->created_at ?? null,
-                    'matriculas'      => $contexto[$id]['matriculas'] ?? 0,
-                    'ultimo_year'     => $contexto[$id]['ultimo_year'] ?? null,
-                    'ultimo_grupo'    => $contexto[$id]['ultimo_grupo'] ?? null,
-                    'ultimo_estado'   => $contexto[$id]['ultimo_estado'] ?? null,
-                    'definitivas'     => $contexto[$id]['definitivas'] ?? 0,
-                ], $ids)),
+                    'fecha_nac' => $fichas[$id]->fecha_nac ?? null,
+                    'foto_nombre' => $fichas[$id]->foto_nombre ?? null,
+                    'creado' => $fichas[$id]->created_at ?? null,
+                    'matriculas' => $contexto[$id]['matriculas'] ?? 0,
+                    'ultimo_year' => $contexto[$id]['ultimo_year'] ?? null,
+                    'ultimo_grupo' => $contexto[$id]['ultimo_grupo'] ?? null,
+                    'ultimo_estado' => $contexto[$id]['ultimo_estado'] ?? null,
+                    'definitivas' => $contexto[$id]['definitivas'] ?? 0,
+                ], $ids),
             ];
         }
 

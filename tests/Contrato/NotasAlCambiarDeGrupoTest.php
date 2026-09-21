@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\DB;
 class NotasAlCambiarDeGrupoTest extends CasoDeContrato
 {
     private const REVISAR = '/api/matriculas/revisar-notas-del-grupo-anterior';
+
     private const TRAER = '/api/matriculas/traer-notas-del-grupo-anterior';
 
     private function token(): string
@@ -55,8 +56,8 @@ class NotasAlCambiarDeGrupoTest extends CasoDeContrato
         $origen = DB::table('grupos')->where('id', $fila->grupo_id)->first();
 
         $destinoId = DB::table('grupos')->insertGetId([
-            'nombre'   => 'Grupo de prueba (fusión)',
-            'year_id'  => $origen->year_id,
+            'nombre' => 'Grupo de prueba (fusión)',
+            'year_id' => $origen->year_id,
             'grado_id' => $origen->grado_id,
             'created_at' => now(), 'updated_at' => now(),
         ]);
@@ -65,7 +66,7 @@ class NotasAlCambiarDeGrupoTest extends CasoDeContrato
         foreach (DB::table('asignaturas')->where('grupo_id', $origen->id)->whereNull('deleted_at')->get() as $a) {
             DB::table('asignaturas')->insert([
                 'materia_id' => $a->materia_id,
-                'grupo_id'   => $destinoId,
+                'grupo_id' => $destinoId,
                 'created_at' => now(), 'updated_at' => now(),
             ]);
         }
