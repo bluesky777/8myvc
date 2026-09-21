@@ -56,7 +56,7 @@
 > | | |
 > |---|---|
 > | **Que se vea que un año quedó a medias** | Él eligió «un aviso mientras esté a medias». El backend ya da `filas`/`filas_totales`; **la pantalla es del front y hay que pedírsela** |
-> | **Nada reanuda solo** si se cierra el navegador | Necesita cron o aceptar que lo haga un humano |
+> | ~~**Nada reanuda solo** si se cierra el navegador~~ | **Cerrado 21 sep 2026.** Joseth decidió: no se guarda el archivo en disco (coste de persistir datos de alumnos en los 16 cPanel + el mismo tope de 300s dentro del propio cron), así que el cron no reanuda — sólo evita que la fila mienta. `importaciones:marcar-abandonadas` pasa a `fallida` lo `en_proceso` sin actividad en 10 min, mismo cron que `notificaciones:enviar` (`app/Console/Kernel.php`). Sigue siendo una persona quien vuelve a subir el archivo |
 > | **El 500 sin cabeceras de CORS** | Una línea en `public/.htaccess` (`Header always set`), pero **puede romper lo que hoy funciona** si la cabecera sale duplicada. Hay que medirlo en un cPanel de verdad |
 > | **`cerrado_por_nombres` sale `NULL`** para administrativos (47 §7.7) | `users` sólo tiene `username`: qué se enseña sin ficha es producto |
 >

@@ -69,6 +69,17 @@ class Kernel extends ConsoleKernel
         $schedule->command('notificaciones:enviar')
             ->everyFifteenMinutes()
             ->withoutOverlapping();
+
+        // Las importaciones de alumnos que se quedaron `en_proceso` porque la
+        // secretaría cerró la pestaña a medias. No reanuda nada —no puede: el
+        // archivo subido no se guarda en disco, sólo vive durante la petición
+        // que lo trae— sólo pasa la fila a `fallida` con un error que dice qué
+        // hacer, para que no mienta diciendo que algo la sigue trabajando.
+        // Mismo cron que las líneas de arriba: no hace falta uno nuevo por
+        // colegio, sólo esta línea aquí.
+        $schedule->command('importaciones:marcar-abandonadas')
+            ->everyTenMinutes()
+            ->withoutOverlapping();
     }
 
     /**

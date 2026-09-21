@@ -392,4 +392,35 @@ class PuntoDeControlDeImportacion
             [self::FALLIDA, $mensaje, now(), $this->id]
         );
     }
+
+    /**
+     * Pasa a 'fallida' lo que lleva `$minutos` sin escribir un lote.
+     *
+     * **No reanuda nada — no puede.** El archivo que sube la secretaría sólo
+     * existe durante la petición HTTP que lo trae (`request()->file('file')` en
+     * `ImportarController`); no se guarda en disco. Si la pestaña se cierra a
+     * medias no queda de dónde leer la fila siguiente, así que lo único que se
+     * puede hacer del lado del servidor es dejar de mentir: sin esto, la fila
+     * se queda en 'en_proceso' para siempre y `pendienteDe()` la sigue
+     * devolviendo como si algo la fuera a continuar donde la dejó.
+     *
+     * El umbral es minutos SIN escritura, no minutos desde que empezó: una
+     * importación larga sigue tocando `updated_at` en cada `volcar()`, así que
+     * esto no se dispara mientras haya alguien al otro lado subiendo lotes.
+     *
+     * @return int cuántas filas marcó
+     */
+    public static function marcarAbandonadas(int $minutos = 10): int
+    {
+        $corte = now()->subMinutes($minutos);
+        $mensaje = "Abandonada: sin actividad en más de {$minutos} minutos ".
+            '(la pestaña se cerró o el proceso murió a medias). '.
+            'Vuelve a subir el mismo archivo para continuar donde se quedó.';
+
+        return DB::update(
+            'UPDATE importaciones SET estado = ?, error = ?, updated_at = ?
+              WHERE estado = ? AND updated_at < ?',
+            [self::FALLIDA, $mensaje, now(), self::EN_PROCESO, $corte]
+        );
+    }
 }
