@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Ancla;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -115,7 +116,7 @@ class ElCierreYLoNoCalificado extends Migration
             // contrato fijan **el orden de los campos**.
             $tabla->enum('cierre_sin_calificar', ['cero', 'fuera', 'bloquear'])
                 ->default('cero')
-                ->after('reparto_subunidades');
+                ->after(Ancla::de($tabla, 'reparto_subunidades'));
         });
 
         Schema::table('periodos', function (Blueprint $tabla) {
@@ -125,7 +126,7 @@ class ElCierreYLoNoCalificado extends Migration
             $tabla->enum('cierre_sin_calificar', ['cero', 'fuera'])
                 ->nullable()
                 ->default(null)
-                ->after('profes_pueden_nivelar');
+                ->after(Ancla::de($tabla, 'profes_pueden_nivelar'));
         });
     }
 

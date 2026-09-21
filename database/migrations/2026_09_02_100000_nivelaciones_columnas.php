@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Ancla;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -185,14 +186,14 @@ class NivelacionesColumnas extends Migration
             // `integer` y no `decimal`: `notas.nota` es `int` y la original es
             // exactamente lo que había en `nota`. Cambiar el tipo aquí sería
             // guardar la misma nota con dos precisiones.
-            $tabla->integer('nota_original')->nullable()->default(null)->after('nota');
-            $tabla->integer('nota_nivelacion')->nullable()->default(null)->after('nota_original');
+            $tabla->integer('nota_original')->nullable()->default(null)->after(Ancla::de($tabla, 'nota'));
+            $tabla->integer('nota_nivelacion')->nullable()->default(null)->after(Ancla::de($tabla, 'nota_original'));
             // `dateTime` y no `timestamp`: es lo que decidió `auditoria` (18 §1.2)
             // —`TIMESTAMP` convierte con la zona de la sesión de MySQL y nadie la
             // fija—, y el acta de una nivelación es una fecha que se imprime.
-            $tabla->dateTime('nivelada_at')->nullable()->default(null)->after('nota_nivelacion');
-            $tabla->integer('nivelada_por')->nullable()->default(null)->after('nivelada_at');
-            $tabla->string('nivelacion_obs', 255)->nullable()->default(null)->after('nivelada_por');
+            $tabla->dateTime('nivelada_at')->nullable()->default(null)->after(Ancla::de($tabla, 'nota_nivelacion'));
+            $tabla->integer('nivelada_por')->nullable()->default(null)->after(Ancla::de($tabla, 'nivelada_at'));
+            $tabla->string('nivelacion_obs', 255)->nullable()->default(null)->after(Ancla::de($tabla, 'nivelada_por'));
         });
 
         // Las CINCO de `notas_finales`, también en una sola llamada — tres venían de
@@ -205,11 +206,11 @@ class NivelacionesColumnas extends Migration
         // precisión que la nota que produce sería perder decimales justo en la
         // comparación que el boletín imprime.
         Schema::table('notas_finales', function (Blueprint $tabla) {
-            $tabla->decimal('nota_original', 7, 4)->nullable()->default(null)->after('nota');
-            $tabla->decimal('nota_nivelacion', 7, 4)->nullable()->default(null)->after('nota_original');
-            $tabla->dateTime('nivelada_at')->nullable()->default(null)->after('nota_nivelacion');
-            $tabla->integer('nivelada_por')->nullable()->default(null)->after('nivelada_at');
-            $tabla->string('nivelacion_obs', 255)->nullable()->default(null)->after('nivelada_por');
+            $tabla->decimal('nota_original', 7, 4)->nullable()->default(null)->after(Ancla::de($tabla, 'nota'));
+            $tabla->decimal('nota_nivelacion', 7, 4)->nullable()->default(null)->after(Ancla::de($tabla, 'nota_original'));
+            $tabla->dateTime('nivelada_at')->nullable()->default(null)->after(Ancla::de($tabla, 'nota_nivelacion'));
+            $tabla->integer('nivelada_por')->nullable()->default(null)->after(Ancla::de($tabla, 'nivelada_at'));
+            $tabla->string('nivelacion_obs', 255)->nullable()->default(null)->after(Ancla::de($tabla, 'nivelada_por'));
         });
 
         // Las tres del acta de la recuperación del año, lo que era
@@ -218,15 +219,15 @@ class NivelacionesColumnas extends Migration
         // —depende del número de sentencias— y quien copie este bloque para otra
         // tabla se lleva el criterio con él.
         Schema::table('recuperacion_final', function (Blueprint $tabla) {
-            $tabla->dateTime('nivelada_at')->nullable()->default(null)->after('nota');
-            $tabla->integer('nivelada_por')->nullable()->default(null)->after('nivelada_at');
-            $tabla->string('observacion', 255)->nullable()->default(null)->after('nivelada_por');
+            $tabla->dateTime('nivelada_at')->nullable()->default(null)->after(Ancla::de($tabla, 'nota'));
+            $tabla->integer('nivelada_por')->nullable()->default(null)->after(Ancla::de($tabla, 'nivelada_at'));
+            $tabla->string('observacion', 255)->nullable()->default(null)->after(Ancla::de($tabla, 'nivelada_por'));
         });
 
         // Una fila por colegio y año: aquí no hay ventana que medir. Lo que hay
         // es la política de nacimiento, ver la cabecera.
         Schema::table('years', function (Blueprint $tabla) {
-            $tabla->string('regla_nivelacion', 20)->default('topada')->after('nota_minima_aceptada');
+            $tabla->string('regla_nivelacion', 20)->default('topada')->after(Ancla::de($tabla, 'nota_minima_aceptada'));
         });
     }
 

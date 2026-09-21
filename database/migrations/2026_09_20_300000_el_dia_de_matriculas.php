@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Ancla;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -82,7 +83,7 @@ return new class extends Migration
             Schema::table('requisitos_matricula', function (Blueprint $tabla) {
                 // «Obligatoria antes de continuar» (1) u «opcional» (0). Nace en 0:
                 // actualizar no puede encender frenos que ayer no estaban.
-                $tabla->boolean('bloquea')->default(false)->after('orden');
+                $tabla->boolean('bloquea')->default(false)->after(Ancla::de($tabla, 'orden'));
             });
         } else {
             echo "  requisitos_matricula.bloquea: ya existe, no se toca.\n";
@@ -90,8 +91,8 @@ return new class extends Migration
 
         if (! Schema::hasColumn('requisitos_alumno', 'cerrado_por')) {
             Schema::table('requisitos_alumno', function (Blueprint $tabla) {
-                $tabla->unsignedInteger('cerrado_por')->nullable()->after('descripcion');
-                $tabla->timestamp('cerrado_at')->nullable()->after('cerrado_por');
+                $tabla->unsignedInteger('cerrado_por')->nullable()->after(Ancla::de($tabla, 'descripcion'));
+                $tabla->timestamp('cerrado_at')->nullable()->after(Ancla::de($tabla, 'cerrado_por'));
 
                 // La consulta del recorrido pregunta «¿qué le falta a ESTE alumno?»,
                 // y ya hay índice por `alumno_id`. Éste es para la otra mitad: el

@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Ancla;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -114,7 +115,7 @@ return new class extends Migration
             Schema::table('requisitos_alumno', function (Blueprint $tabla) {
                 // Lo lee la familia. Ver la cabecera: no comparte sitio con
                 // `descripcion`, que es la observación entre el personal.
-                $tabla->text('motivo_devolucion')->nullable()->after('descripcion');
+                $tabla->text('motivo_devolucion')->nullable()->after(Ancla::de($tabla, 'descripcion'));
             });
         } else {
             echo "  requisitos_alumno.motivo_devolucion: ya existe, no se toca.\n";

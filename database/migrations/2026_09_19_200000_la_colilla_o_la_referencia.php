@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Ancla;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -44,7 +45,7 @@ return new class extends Migration
             // El número que le dio el banco a la familia. No es nuestro y no lo
             // validamos contra nada: quien comprueba que ese pago llegó es el
             // tesorero, mirando su cuenta. Aquí sólo viaja para que sepa qué buscar.
-            $tabla->string('referencia', 60)->nullable()->after('orden_id');
+            $tabla->string('referencia', 60)->nullable()->after(Ancla::de($tabla, 'orden_id'));
         });
 
         // Los tres del fichero pasan a anulables: en el camino de la referencia no

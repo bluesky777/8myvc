@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Ancla;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -58,7 +59,7 @@ class CuantasFilasTeniaElArchivo extends Migration
     {
         Schema::table('importaciones', function (Blueprint $table) {
             if (! Schema::hasColumn('importaciones', 'filas_totales')) {
-                $table->integer('filas_totales')->nullable()->after('filas');
+                $table->integer('filas_totales')->nullable()->after(Ancla::de($table, 'filas'));
             }
         });
     }

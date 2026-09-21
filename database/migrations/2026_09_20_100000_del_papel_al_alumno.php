@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Ancla;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -96,7 +97,7 @@ return new class extends Migration
             // que hace falta es de búsqueda, no de unicidad, y exigir unicidad
             // aquí haría fallar una corrección legítima el día que se liberara un
             // código.
-            $tabla->string('codigo_anterior', 20)->nullable()->after('codigo');
+            $tabla->string('codigo_anterior', 20)->nullable()->after(Ancla::de($tabla, 'codigo'));
 
             $tabla->index('codigo_anterior', 'ordenes_inscripcion_codigo_anterior');
             $tabla->index('matricula_id', 'ordenes_inscripcion_matricula');

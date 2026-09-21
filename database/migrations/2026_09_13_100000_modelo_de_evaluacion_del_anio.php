@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Ancla;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -144,17 +145,17 @@ class ModeloDeEvaluacionDelAnio extends Migration
         Schema::table('years', function (Blueprint $tabla) {
             $tabla->enum('modelo_evaluacion', ['ponderado', 'competencias'])
                 ->default('ponderado')
-                ->after('horario_version_id');
+                ->after(Ancla::de($tabla, 'horario_version_id'));
 
             $tabla->string('desempeno_displayname', 255)
                 ->default('Desempeño')
-                ->after('genero_subunidad');
+                ->after(Ancla::de($tabla, 'genero_subunidad'));
             $tabla->string('desempenos_displayname', 255)
                 ->default('Desempeños')
-                ->after('desempeno_displayname');
+                ->after(Ancla::de($tabla, 'desempeno_displayname'));
             $tabla->string('genero_desempeno', 1)
                 ->default('M')
-                ->after('desempenos_displayname');
+                ->after(Ancla::de($tabla, 'desempenos_displayname'));
         });
     }
 

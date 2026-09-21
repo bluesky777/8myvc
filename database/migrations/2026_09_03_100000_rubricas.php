@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Ancla;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -139,7 +140,7 @@ class Rubricas extends Migration
         });
 
         Schema::table('subunidades', function (Blueprint $tabla) {
-            $tabla->unsignedInteger('rubrica_id')->nullable()->after('actividad_id');
+            $tabla->unsignedInteger('rubrica_id')->nullable()->after(Ancla::de($tabla, 'actividad_id'));
             $tabla->foreign('rubrica_id')->references('id')->on('rubricas')->onDelete('set null');
         });
     }

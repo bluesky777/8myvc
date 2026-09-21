@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Ancla;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -146,11 +147,11 @@ class TitulosDelCertificado extends Migration
         Schema::table('years', function (Blueprint $tabla) {
             $tabla->string('titulo_certificado_final', 255)
                 ->default(self::DEFECTO_FINAL)
-                ->after('frase_final_certificado');
+                ->after(Ancla::de($tabla, 'frase_final_certificado'));
 
             $tabla->string('titulo_certificado_periodos', 255)
                 ->default(self::DEFECTO_PERIODOS)
-                ->after('titulo_certificado_final');
+                ->after(Ancla::de($tabla, 'titulo_certificado_final'));
         });
     }
 

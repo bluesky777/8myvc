@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Ancla;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -133,7 +134,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('areas', function (Blueprint $tabla) {
-            $tabla->unsignedInteger('jefe_id')->nullable()->after('alias');
+            $tabla->unsignedInteger('jefe_id')->nullable()->after(Ancla::de($tabla, 'alias'));
 
             // Se repone **tal como estaba**, `CASCADE` incluido, porque un `down`
             // que arregla de paso deja la base en un estado que nunca existió y que

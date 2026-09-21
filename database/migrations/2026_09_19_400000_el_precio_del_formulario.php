@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Ancla;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -67,7 +68,7 @@ return new class extends Migration
             // todavía no ha decidido el precio no es el mismo que el que puso cero, y
             // el checkout los trata igual sólo porque en los dos casos no hay nada que
             // cobrar.
-            $tabla->unsignedInteger('valor')->nullable()->after('campos');
+            $tabla->unsignedInteger('valor')->nullable()->after(Ancla::de($tabla, 'campos'));
         });
     }
 

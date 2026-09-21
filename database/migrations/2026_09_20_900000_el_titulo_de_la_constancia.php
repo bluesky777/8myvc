@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Ancla;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -61,7 +62,7 @@ return new class extends Migration
         Schema::table('years', function (Blueprint $tabla) {
             $tabla->string('titulo_constancia_estudio', 255)
                 ->default(self::DEFECTO)
-                ->after('titulo_certificado_periodos');
+                ->after(Ancla::de($tabla, 'titulo_certificado_periodos'));
         });
     }
 

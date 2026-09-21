@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Ancla;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -353,7 +354,7 @@ class HorarioVersiones extends Migration
             //
             // Ese método **ya fue el sitio de esta clase de fallo** y lleva la lección
             // escrita encima: *«lo que el cuerpo no trae, no se toca»*.
-            $tabla->unsignedInteger('horario_version_id')->nullable()->default(null)->after('regla_nivelacion');
+            $tabla->unsignedInteger('horario_version_id')->nullable()->default(null)->after(Ancla::de($tabla, 'regla_nivelacion'));
             $tabla->foreign('horario_version_id')->references('id')->on('horario_versiones')->onDelete('set null');
         });
 

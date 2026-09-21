@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Ancla;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -87,7 +88,7 @@ class RetirarBoletinIndependienteDeMatriculas extends Migration
     public function down()
     {
         Schema::table('matriculas', function (Blueprint $tabla) {
-            $tabla->boolean('boletin_independiente')->default(0)->after('repitente');
+            $tabla->boolean('boletin_independiente')->default(0)->after(Ancla::de($tabla, 'repitente'));
         });
     }
 }

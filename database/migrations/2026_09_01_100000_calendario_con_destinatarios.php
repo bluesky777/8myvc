@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Ancla;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -51,7 +52,7 @@ class CalendarioConDestinatarios extends Migration
              * pipe de HTML rico. La columna no puede hacer cumplir eso; lo hace
              * el controlador, y lo fija un test.
              */
-            $tabla->text('descripcion')->nullable()->after('title');
+            $tabla->text('descripcion')->nullable()->after(Ancla::de($tabla, 'title'));
 
             /*
              * Cuántos minutos antes avisar. NULL = no avisar, que es lo que
@@ -63,7 +64,7 @@ class CalendarioConDestinatarios extends Migration
              * colegio, así que la columna tiene que llevar tiempo puesta antes
              * de que nada dependa de ella.
              */
-            $tabla->integer('recordatorio_minutos')->nullable()->after('descripcion');
+            $tabla->integer('recordatorio_minutos')->nullable()->after(Ancla::de($tabla, 'descripcion'));
 
             /*
              * Cuándo se mandó el aviso. NULL = todavía no.
@@ -81,7 +82,7 @@ class CalendarioConDestinatarios extends Migration
              * cron la use para «no repetir el aviso de las 7:00» la zona
              * importa.
              */
-            $tabla->dateTime('recordatorio_enviado_at')->nullable()->after('recordatorio_minutos');
+            $tabla->dateTime('recordatorio_enviado_at')->nullable()->after(Ancla::de($tabla, 'recordatorio_minutos'));
 
             /*
              * El índice que no había.

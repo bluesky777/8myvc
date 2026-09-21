@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Ancla;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -86,7 +87,7 @@ class RepartoDeLasSubunidades extends Migration
         Schema::table('years', function (Blueprint $tabla) {
             $tabla->enum('reparto_subunidades', ['porcentaje', 'promedio'])
                 ->default('porcentaje')
-                ->after('modelo_evaluacion');
+                ->after(Ancla::de($tabla, 'modelo_evaluacion'));
         });
     }
 

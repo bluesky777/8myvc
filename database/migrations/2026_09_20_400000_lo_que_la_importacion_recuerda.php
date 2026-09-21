@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Ancla;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -57,7 +58,7 @@ class LoQueLaImportacionRecuerda extends Migration
                  * importación reanudada tiene avisos de las dos tandas y la
                  * pantalla los enseña juntos.
                  */
-                $table->longText('avisos')->nullable()->after('error');
+                $table->longText('avisos')->nullable()->after(Ancla::de($table, 'error'));
             }
 
             if (! Schema::hasColumn('importaciones', 'respuestas')) {
@@ -68,7 +69,7 @@ class LoQueLaImportacionRecuerda extends Migration
                  * parte de «sube esto con estas instrucciones», no un recurso
                  * aparte.
                  */
-                $table->longText('respuestas')->nullable()->after('avisos');
+                $table->longText('respuestas')->nullable()->after(Ancla::de($table, 'avisos'));
             }
         });
     }
