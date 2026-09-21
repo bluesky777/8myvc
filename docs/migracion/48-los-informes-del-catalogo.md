@@ -162,7 +162,7 @@ una constancia**.
 **Las dos ramas de `Year::datos()` se sirven por la misma ruta, y eso se comprobó antes.**
 Sin `year_id` contesta el año actual —lo que la constancia ya recibía—; con `year_id`
 contesta el de ese año, que es lo que pide un papel de un año cerrado. Las dos devuelven
-**las mismas 63 claves**, medido columna a columna: si no fuera así tendrían que ser dos
+**las mismas 61 claves**, medido **sobre la respuesta y no sobre el SQL**: si no fuera así tendrían que ser dos
 rutas, porque una respuesta que cambia de forma según un parámetro opcional es la que el
 cliente tipa una vez y rompe la otra. Lo fija un test.
 

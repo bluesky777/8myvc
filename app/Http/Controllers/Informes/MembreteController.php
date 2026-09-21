@@ -37,8 +37,9 @@ use Illuminate\Support\Facades\Request;
  * de los años cerrados se siguen pidiendo constancias, y el título que va impreso
  * —`titulo_constancia_estudio`— es del año.
  *
- * Las dos ramas de `Year::datos()` devuelven **las mismas 63 claves**, medido columna
- * a columna antes de colgarlas de una sola ruta. Si no fuera así esto tendrían que ser
+ * Las dos ramas de `Year::datos()` devuelven **las mismas 61 claves**, medido **sobre la
+ * respuesta** —no contando columnas en el SQL, que es como salió primero un 63 falso— antes
+ * de colgarlas de una sola ruta. Si no fuera así esto tendrían que ser
  * dos rutas: una respuesta que cambia de forma según un parámetro opcional es la que
  * el cliente tipa una vez y rompe la otra.
  */
