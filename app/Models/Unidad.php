@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\DB;
 
 use App\Models\Debugging;
 use App\Support\RepartoDeLaNota;
+use App\Support\SellaConElReloj;
+
 /**
  * Las columnas de `unidades`, tal como están en el esquema congelado.
  *
@@ -34,6 +36,8 @@ use App\Support\RepartoDeLaNota;
  */
 
 class Unidad extends Model {
+
+	use SellaConElReloj;
 	use SoftDeletes;
 	
 	protected $fillable = [];

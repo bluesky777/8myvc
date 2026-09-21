@@ -2,7 +2,9 @@
 
 namespace Tests\Contrato;
 
+use App\Services\BoletinIndependiente;
 use App\Services\DefinitivasDeAsignatura;
+use App\Support\Reloj;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -110,8 +112,8 @@ class DefinitivasDeAsignaturaTest extends CasoDeContrato
             'nota' => $nota,
             'subunidad_id' => $this->ids[$sub],
             'alumno_id' => $alumnoId,
-            'created_at' => now(),
-            'updated_at' => now(),
+            'created_at' => Reloj::ahora(),
+            'updated_at' => Reloj::ahora(),
         ]);
     }
 
@@ -199,7 +201,7 @@ class DefinitivasDeAsignaturaTest extends CasoDeContrato
         DefinitivasDeAsignatura::recalcular($this->ids['asignatura'], $this->ids['periodo']);
         $this->assertSame(3.5, (float) $this->definitivaDe($this->ids['alumno1'])->nota);
 
-        DB::table('notas')->where('id', $borrable)->update(['deleted_at' => now()]);
+        DB::table('notas')->where('id', $borrable)->update(['deleted_at' => Reloj::ahora()]);
 
         DefinitivasDeAsignatura::recalcular($this->ids['asignatura'], $this->ids['periodo']);
         $this->assertSame(2.25, (float) $this->definitivaDe($this->ids['alumno1'])->nota);
@@ -286,8 +288,8 @@ class DefinitivasDeAsignaturaTest extends CasoDeContrato
             'nota' => 5,
             'manual' => 1,
             'recuperada' => 0,
-            'created_at' => now(),
-            'updated_at' => now(),
+            'created_at' => Reloj::ahora(),
+            'updated_at' => Reloj::ahora(),
         ]);
 
         $resultado = DefinitivasDeAsignatura::recalcular(
@@ -312,8 +314,8 @@ class DefinitivasDeAsignaturaTest extends CasoDeContrato
             'nota' => 3,
             'manual' => 0,
             'recuperada' => 1,
-            'created_at' => now(),
-            'updated_at' => now(),
+            'created_at' => Reloj::ahora(),
+            'updated_at' => Reloj::ahora(),
         ]);
 
         DefinitivasDeAsignatura::recalcular($this->ids['asignatura'], $this->ids['periodo']);
@@ -448,19 +450,15 @@ class DefinitivasDeAsignaturaTest extends CasoDeContrato
         // El sello se empuja hacia atrás por lo mismo que el test de arriba lo
         // empuja hacia adelante: los dos caen en el mismo segundo y el empate se
         // resuelve recalculando, así que sin separarlos esto no mediría nada.
-        DB::table('notas')->where('subunidad_id', $this->ids['sub11'])->update([
-            'updated_at' => DB::raw('DATE_SUB(NOW(), INTERVAL 10 SECOND)'),
-        ]);
-        DB::table('unidades')->where('asignatura_id', $this->ids['asignatura'])->update([
-            'updated_at' => DB::raw('DATE_SUB(NOW(), INTERVAL 10 SECOND)'),
-        ]);
+        // Y con `Reloj::ahora()`, no con `NOW()`: ver el comentario de
+        // `envejecerElSello()`.
+        $hace10 = Reloj::ahora()->subSeconds(10);
+
+        DB::table('notas')->where('subunidad_id', $this->ids['sub11'])->update(['updated_at' => $hace10]);
+        DB::table('unidades')->where('asignatura_id', $this->ids['asignatura'])->update(['updated_at' => $hace10]);
         DB::table('subunidades')->whereIn('unidad_id',
-            [$this->ids['unidad1'], $this->ids['unidad2']])->update([
-                'updated_at' => DB::raw('DATE_SUB(NOW(), INTERVAL 10 SECOND)'),
-            ]);
-        DB::table('matriculas')->where('grupo_id', $this->ids['grupo'])->update([
-            'created_at' => DB::raw('DATE_SUB(NOW(), INTERVAL 10 SECOND)'),
-        ]);
+            [$this->ids['unidad1'], $this->ids['unidad2']])->update(['updated_at' => $hace10]);
+        DB::table('matriculas')->where('grupo_id', $this->ids['grupo'])->update(['created_at' => $hace10]);
 
         $this->assertFalse(DefinitivasDeAsignatura::estaDesactualizada(
             $this->ids['asignatura'], $this->ids['periodo'], $this->ids['alumno1']
@@ -515,18 +513,18 @@ class DefinitivasDeAsignaturaTest extends CasoDeContrato
         $subunidades = [$this->ids['sub11'], $this->ids['sub12'],
             $this->ids['sub21'], $this->ids['sub22']];
 
-        DB::table('notas')->whereIn('subunidad_id', $subunidades)->update([
-            'updated_at' => DB::raw('DATE_SUB(NOW(), INTERVAL 10 SECOND)'),
-        ]);
-        DB::table('unidades')->where('asignatura_id', $this->ids['asignatura'])->update([
-            'updated_at' => DB::raw('DATE_SUB(NOW(), INTERVAL 10 SECOND)'),
-        ]);
-        DB::table('subunidades')->whereIn('id', $subunidades)->update([
-            'updated_at' => DB::raw('DATE_SUB(NOW(), INTERVAL 10 SECOND)'),
-        ]);
-        DB::table('matriculas')->where('grupo_id', $this->ids['grupo'])->update([
-            'created_at' => DB::raw('DATE_SUB(NOW(), INTERVAL 10 SECOND)'),
-        ]);
+        // **El sello se envejece con el reloj de la casa y no con `NOW()`.** Estas
+        // cuatro columnas las escribe la aplicación con {@see Reloj} —tres por los
+        // modelos ({@see \App\Support\SellaConElReloj}) y `notas` además a mano—,
+        // así que sembrarlas desde el reloj de MySQL montaría aquí el desajuste de
+        // cinco horas que este sistema acaba de quitar, y los tests dirían
+        // «atrasada» por el montaje y no por el código. 21 sep 2026.
+        $hace10 = Reloj::ahora()->subSeconds(10);
+
+        DB::table('notas')->whereIn('subunidad_id', $subunidades)->update(['updated_at' => $hace10]);
+        DB::table('unidades')->where('asignatura_id', $this->ids['asignatura'])->update(['updated_at' => $hace10]);
+        DB::table('subunidades')->whereIn('id', $subunidades)->update(['updated_at' => $hace10]);
+        DB::table('matriculas')->where('grupo_id', $this->ids['grupo'])->update(['created_at' => $hace10]);
     }
 
     /**
@@ -537,6 +535,41 @@ class DefinitivasDeAsignaturaTest extends CasoDeContrato
      *
      * @return array<int, int>
      */
+    /**
+     * ¿Hay algo que el recalculador PUEDA escribir para este alumno?
+     *
+     * O sea: o ya tiene fila —y entonces la pregunta de si está atrasada significa
+     * algo—, o tiene alguna nota de las que salen las definitivas. Es la condición
+     * `calificadas > 0` de `estadoDelGrupo()` escrita en PHP, con el mismo alcance
+     * del boletín independiente que usa el escritor: una nota puesta en la unidad de
+     * OTRO boletín no es suya y no la va a mirar nadie.
+     */
+    private function hayAlgoQueCalcular(int $asignaturaId, int $alumnoId): bool
+    {
+        $fila = DB::table('notas_finales')
+            ->where('alumno_id', $alumnoId)
+            ->where('asignatura_id', $asignaturaId)
+            ->where('periodo_id', $this->ids['periodo'])
+            ->exists();
+
+        if ($fila) {
+            return true;
+        }
+
+        $notas = DB::selectOne(
+            'SELECT COUNT(*) AS notas
+               FROM notas n
+               INNER JOIN subunidades s ON s.id = n.subunidad_id AND s.deleted_at IS NULL
+               INNER JOIN unidades u ON u.id = s.unidad_id AND u.deleted_at IS NULL
+              WHERE n.alumno_id = ? AND n.deleted_at IS NULL
+                AND u.asignatura_id = ? AND u.periodo_id = ?
+                AND u.alumno_id <=> '.BoletinIndependiente::alcanceCorrelacionado('n.alumno_id', 'u'),
+            [$alumnoId, $asignaturaId, $this->ids['periodo']]
+        );
+
+        return ((int) $notas->notas) > 0;
+    }
+
     private function matriculadosDelGrupo(): array
     {
         return array_map('intval', DB::table('matriculas')
@@ -582,6 +615,21 @@ class DefinitivasDeAsignaturaTest extends CasoDeContrato
             $unaAUna = false;
 
             foreach ($alumnos as $alumnoId) {
+                // **El único caso en que las dos formas ya no coinciden, y está
+                // decidido**: el matriculado sin fila y sin una sola nota.
+                // `estaDesactualizada()` dice que sí —y hace bien, porque quien la
+                // llama va a recalcular y `calcular()` sí le escribe la fila—, y la
+                // agregada dice que no, porque el botón que acompaña a su aviso no
+                // se la escribe nunca. El porqué entero está en la cabecera de
+                // `estadoDelGrupo()`, §«El cuarto criterio».
+                //
+                // Se excluye aquí en vez de bajar la exigencia del test: fuera de
+                // este caso la equivalencia sigue atada alumno por alumno, que es
+                // lo que hace que esta comparación valga para algo.
+                if (! $this->hayAlgoQueCalcular($fila['asignatura_id'], $alumnoId)) {
+                    continue;
+                }
+
                 if (DefinitivasDeAsignatura::estaDesactualizada(
                     $fila['asignatura_id'], $this->ids['periodo'], $alumnoId
                 )) {
@@ -653,22 +701,33 @@ class DefinitivasDeAsignaturaTest extends CasoDeContrato
     }
 
     /**
-     * Sin recalcular, todas las filas faltan — y faltar es estar desactualizada.
+     * Sin recalcular, la fila de quien tiene notas falta — y faltar es estar
+     * desactualizada.
      *
      * Es la §9.1 vista desde el otro lado: la fila existe siempre que exista la
      * matrícula, así que un matriculado sin fila no es «todavía no hay nota», es un
      * estado que hay que reparar. Son las 11.988 que midió la fase 0.
+     *
+     * **Lo que cuenta son los que tienen algo que calcular**, y por eso se ponen
+     * notas a dos de los veintiocho del grupo y se exige exactamente 2: si contara
+     * los veintiocho, el aviso lo encendería gente a la que el botón del tablero no
+     * le escribe nunca la fila. Esa mitad la ata
+     * `test_un_matriculado_sin_una_sola_nota_no_cuenta_como_que_falta`.
      */
     public function test_los_matriculados_sin_fila_cuentan_como_que_faltan(): void
     {
         $this->montarAsignatura();
         $this->ponerNota('sub11', $this->ids['alumno1'], 4);
+        $this->ponerNota('sub11', $this->ids['alumno2'], 3);
 
         $mia = $this->laDeLaAsignaturaMontada(
             DefinitivasDeAsignatura::estadoDelGrupo($this->ids['grupo'], $this->ids['periodo'])
         );
 
-        $this->assertSame(count($this->matriculadosDelGrupo()), $mia['faltan']);
+        $this->assertGreaterThan(2, count($this->matriculadosDelGrupo()),
+            'El grupo del seed tiene dos matriculados o menos: con eso, contar «los que tienen notas» '
+            .'y «todos» da lo mismo y este test no distingue nada.');
+        $this->assertSame(2, $mia['faltan']);
         $this->assertTrue($mia['desactualizada']);
 
         DefinitivasDeAsignatura::recalcular($this->ids['asignatura'], $this->ids['periodo']);
@@ -681,6 +740,49 @@ class DefinitivasDeAsignaturaTest extends CasoDeContrato
         $this->assertSame(0, $despues['faltan']);
         $this->assertFalse($despues['desactualizada'],
             'Recién recalculada y sigue saliendo desactualizada: un informe que repare entraría en bucle.');
+    }
+
+    /**
+     * Y el que no tiene ni una nota no cuenta, aunque no tenga fila.
+     *
+     * **Éste es el aviso que Zaragoza no podía quitar** (21 sep 2026, al día
+     * siguiente del despliegue): «Notas finales desactualizadas Per N» con sus
+     * botones, y por más que se pulsaran seguían ahí. Medido sobre su base, los 39
+     * grupo-periodo marcados lo estaban por esto y ninguno por una definitiva
+     * atrasada de verdad — el alumno matriculado en junio no tiene notas del
+     * periodo 1, y el periodo 4, que todavía no se califica, no las tiene de nadie:
+     * marcaba los dieciséis grupos del colegio.
+     *
+     * El estado que se monta es **exactamente el que deja el botón viejo**
+     * (`putCalcularGrupoPeriodo`): fila para quien tiene notas y nada para los
+     * demás, porque su consulta sale de un `INNER JOIN notas`. Por eso se borran
+     * las que `calcular()` acaba de escribir — `calcular()` sí las crea, con un 0, y
+     * es lo que hace que el test de arriba dé 0 después de recalcular.
+     */
+    public function test_un_matriculado_sin_una_sola_nota_no_cuenta_como_que_falta(): void
+    {
+        $this->montarAsignatura();
+        $this->ponerNota('sub11', $this->ids['alumno1'], 4);
+
+        DefinitivasDeAsignatura::recalcular($this->ids['asignatura'], $this->ids['periodo']);
+        $this->envejecerElSello();
+
+        $borradas = DB::table('notas_finales')
+            ->where('asignatura_id', $this->ids['asignatura'])
+            ->where('periodo_id', $this->ids['periodo'])
+            ->where('alumno_id', '!=', $this->ids['alumno1'])
+            ->delete();
+
+        $this->assertGreaterThan(0, $borradas,
+            'No se borró ninguna fila: el montaje no reproduce lo que deja el botón viejo.');
+
+        $mia = $this->laDeLaAsignaturaMontada(
+            DefinitivasDeAsignatura::estadoDelGrupo($this->ids['grupo'], $this->ids['periodo'])
+        );
+
+        $this->assertSame(0, $mia['faltan']);
+        $this->assertFalse($mia['desactualizada'],
+            'El aviso sigue encendido y el botón que lo acompaña no puede apagarlo: es el de Zaragoza.');
     }
 
     /**
@@ -701,7 +803,7 @@ class DefinitivasDeAsignaturaTest extends CasoDeContrato
             DefinitivasDeAsignatura::estadoDelGrupo($this->ids['grupo'], $this->ids['periodo'])
         )['desactualizada']);
 
-        DB::table('notas')->where('id', $borrable)->update(['deleted_at' => now()]);
+        DB::table('notas')->where('id', $borrable)->update(['deleted_at' => Reloj::ahora()]);
 
         $this->assertTrue($this->laDeLaAsignaturaMontada(
             DefinitivasDeAsignatura::estadoDelGrupo($this->ids['grupo'], $this->ids['periodo'])

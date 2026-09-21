@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Support\CierreDeLoNoCalificado;
+use App\Support\Reloj;
 use App\Support\RepartoDeLaNota;
 use Illuminate\Support\Facades\DB;
 
@@ -413,17 +414,28 @@ class DefinitivasDeAsignatura
                 // en la tabla en vez de mirar lo que devuelve el servicio. Un
                 // duplicado no se ve en la respuesta.
                 //
-                // `NOW()` y no `Carbon::now()`: la §4.5 dice que el fallo no es la
-                // resolución de un segundo sino que los dos lados de la
-                // comparación se escriban desde PHP, donde un desajuste de reloj o
-                // de zona invierte el resultado. El sello se lee de la base, así
-                // que la marca también se escribe ahí.
+                // **`Reloj::ahora()`, y aquí decía `NOW()` hasta el 21 sep 2026.** El
+                // porqué del cambio es que la premisa de la línea anterior era falsa:
+                // decía que el sello «se lee de la base, así que la marca también se
+                // escribe ahí», y el sello **no lo escribe la base** — sale de
+                // `notas`, `unidades`, `subunidades` y `matriculas`, que las escribe
+                // PHP. Lo único que `NOW()` garantizaba era usar un TERCER reloj: el
+                // del servidor, que `config/database.php` no fija
+                // (`@@session.time_zone = SYSTEM`) y que son dieciséis cuentas de
+                // cPanel distintas.
+                //
+                // La §4.5 sigue en pie y es justo lo que se cumple aquí: *«los dos
+                // lados de la comparación se escriben desde PHP, y cualquier
+                // desajuste de reloj o de zona invierte el resultado»*. La respuesta
+                // no es huir de PHP: es que **todos** salgan de {@see Reloj}, que es
+                // la decisión 1 del 18 y lo que ahora hacen también los cuatro
+                // modelos del sello ({@see \App\Support\SellaConElReloj}).
                 if ($existente !== null) {
                     DB::update(
                         'UPDATE notas_finales
-                            SET nota = ?, periodo = ?, updated_by = ?, updated_at = NOW()
+                            SET nota = ?, periodo = ?, updated_by = ?, updated_at = ?
                           WHERE id = ?',
-                        [$fila->nota, $periodo->numero, $porUsuario, $existente->id]
+                        [$fila->nota, $periodo->numero, $porUsuario, Reloj::ahora(), $existente->id]
                     );
 
                     $escritas++;
@@ -435,9 +447,9 @@ class DefinitivasDeAsignatura
                     'INSERT INTO notas_finales
                         (alumno_id, asignatura_id, periodo_id, periodo, nota, recuperada, manual,
                          updated_by, created_at, updated_at)
-                     VALUES (?, ?, ?, ?, ?, 0, 0, ?, NOW(), NOW())',
+                     VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, ?)',
                     [$fila->alumno_id, $asignaturaId, $periodoId, $periodo->numero,
-                        $fila->nota, $porUsuario]
+                        $fila->nota, $porUsuario, Reloj::ahora(), Reloj::ahora()]
                 );
 
                 $creadas++;
@@ -927,9 +939,11 @@ class DefinitivasDeAsignatura
      *   por la regla del CLAUDE.md: un «0 desactualizadas» sin población no
      *   distingue *«revisé treinta y ninguna lo estaba»* de *«no revisé nada»*, y de
      *   las dos lecturas la falsa es la que hace archivar el asunto;
-     * - `faltan`: matriculados **sin fila** — la §9.1 dice que la fila existe
-     *   siempre que exista la matrícula, así que «no está» es un estado que hay que
-     *   reparar, no uno que haya que respetar. Son las 11.988 de la fase 0;
+     * - `faltan`: matriculados **sin fila y con alguna nota que calcular**. La §9.1
+     *   dice que la fila existe siempre que exista la matrícula —son las 11.988 de
+     *   la fase 0— y eso no se toca; lo que se acota es **este** número, porque
+     *   pinta un aviso al lado de un botón que no puede quitarlo. El porqué entero
+     *   está en la consulta, en la condición `calificadas > 0`;
      * - `atrasadas`: filas automáticas cuyo `updated_at` no alcanza al sello;
      * - `sello`: el mismo de `selloDeVersion()`, para que quien pinte el aviso pueda
      *   decir desde cuándo.
@@ -958,11 +972,35 @@ class DefinitivasDeAsignatura
      * el control que importa: **la consulta agregada es rápida por ser otra
      * consulta, y por eso hay que demostrar que contesta la misma pregunta.**
      *
+     * ## El cuarto criterio, que es donde ya NO coincide — y a propósito
+     *
+     * **Un matriculado sin fila y sin una sola nota no cuenta como que falta**, y
+     * `estaDesactualizada()` para ese mismo alumno sigue diciendo que sí. No es un
+     * descuido: es el criterio 1 llevado hasta el final. Allí está escrito que el
+     * conjunto de alumnos se copia de `calcular()` *«porque si no, `faltan` contaría
+     * alumnos a los que el recalculador no les escribe nunca y la asignatura saldría
+     * desactualizada para siempre»* — y resulta que **el recalculador al que llega
+     * este aviso no es `calcular()`**: es `putCalcularGrupoPeriodo`, el botón
+     * «Calcular definitivas perN» del tablero viejo, que sale de un `INNER JOIN
+     * notas` y no escribe la fila de quien no tiene notas.
+     *
+     * La diferencia con `estaDesactualizada()` es la diferencia entre las dos
+     * respuestas: ese método decide **si recalcular** —un sí de más cuesta un
+     * recálculo y se acabó—, y éste decide **si dar la alarma**, que si nadie puede
+     * apagarla se queda puesta. Zaragoza, 21 sep 2026.
+     *
      * ## Dos cosas que NO hace, a propósito
      *
-     * **No acota por el boletín independiente**, igual que `selloDeVersion()` y por
-     * el mismo motivo escrito allí: un sello que se sobre-aproxima recalcula de más
-     * —cuesta tiempo—, y uno acotado sirve un dato viejo sin un error en el log.
+     * **El SELLO no acota por el boletín independiente**, igual que
+     * `selloDeVersion()` y por el mismo motivo escrito allí: un sello que se
+     * sobre-aproxima recalcula de más —cuesta tiempo—, y uno acotado sirve un dato
+     * viejo sin un error en el log.
+     *
+     * **`calificadas` sí acota**, y es la misma regla y no su contraria: ahí
+     * sobre-aproximar no cuesta tiempo, **deja un aviso encendido para siempre** —
+     * contaría como «tiene notas que calcular» a quien las tiene en las unidades de
+     * otro boletín, que son justo las que el escritor no va a mirar—. Por eso lleva
+     * el `alcanceCorrelacionado()` del escritor y el sello no.
      *
      * **No cuenta duplicados.** Mira la fila de `id` menor, que es la que mira
      * `estaDesactualizada()` con su `ORDER BY id LIMIT 1`; contar duplicados es de
@@ -995,7 +1033,38 @@ class DefinitivasDeAsignatura
             'SELECT asignatura_id,
                     sello,
                     COUNT(*) AS alumnos,
-                    SUM(nf_id IS NULL) AS faltan,
+                    -- **`faltan` sólo cuenta lo que el botón de al lado PODRÍA crear.**
+                    --
+                    -- Sin `calificadas > 0` esto marcaba desactualizada la asignatura
+                    -- en la que un alumno no tiene fila en `notas_finales` **aunque no
+                    -- haya una sola nota suya que calcular**, y el escritor al que
+                    -- llega el aviso —`putCalcularGrupoPeriodo`, el botón «Calcular
+                    -- definitivas perN» del tablero viejo— sale de un `INNER JOIN
+                    -- notas`: sin notas no hay INSERT. O sea un aviso que **no se
+                    -- puede quitar pulsando el botón que lo acompaña**. El colegio
+                    -- calcula, el detector vuelve a contar lo mismo, y la advertencia
+                    -- sigue ahí; lo reportó Zaragoza el 21 sep 2026, al día siguiente
+                    -- del despliegue.
+                    --
+                    -- **Y no era un caso de borde: medido sobre su base, los 39
+                    -- grupo-periodo marcados lo estaban por esto y NINGUNO por una
+                    -- definitiva atrasada de verdad** (de `atrasadas` salían cuatro
+                    -- grupos del periodo 3, y ésos sí se quitan al calcular). Las dos
+                    -- fuentes son de lo más normal: el alumno que se matricula en
+                    -- junio no tiene notas del periodo 1, y **un periodo que todavía
+                    -- no se califica no las tiene de nadie** — el 4 marcaba los
+                    -- dieciséis grupos del colegio.
+                    --
+                    -- `calcular()` sí crearía esas filas, con un 0, porque su lectura
+                    -- parte de `matriculas` con `LEFT JOIN` a las notas. No cambia
+                    -- nada aquí: escribir ceros en un periodo sin calificar no es
+                    -- «ponerse al día», y desde esta pantalla no se llega a ese
+                    -- escritor.
+                    --
+                    -- Lo que la condición **no** tapa es el agujero que este detector
+                    -- vino a cerrar: si hay notas y no hay definitiva, el INSERT sí la
+                    -- crearía, así que eso se sigue contando.
+                    SUM(nf_id IS NULL AND calificadas > 0) AS faltan,
                     SUM(nf_id IS NOT NULL AND automatica = 1 AND sello IS NOT NULL
                         AND (nf_updated_at IS NULL OR nf_updated_at <= sello)) AS atrasadas
                FROM (
@@ -1009,7 +1078,8 @@ class DefinitivasDeAsignatura
                            nf.id AS nf_id,
                            nf.updated_at AS nf_updated_at,
                            ((nf.manual IS NULL OR nf.manual = 0)
-                                AND (nf.recuperada IS NULL OR nf.recuperada = 0)) AS automatica
+                                AND (nf.recuperada IS NULL OR nf.recuperada = 0)) AS automatica,
+                           COALESCE(cal.notas, 0) AS calificadas
                       FROM asignaturas a
                       INNER JOIN grupos g ON g.id = a.grupo_id AND g.deleted_at IS NULL
                       INNER JOIN matriculas m ON m.grupo_id = g.id AND m.deleted_at IS NULL
@@ -1022,6 +1092,21 @@ class DefinitivasDeAsignatura
                              GROUP BY nf2.alumno_id, nf2.asignatura_id
                       ) primera ON primera.alumno_id = m.alumno_id AND primera.asignatura_id = a.id
                       LEFT JOIN notas_finales nf ON nf.id = primera.id
+                      -- Las notas del alumno EN ESTA asignatura y este periodo, con el
+                      -- mismo alcance que usa el escritor: las unidades de otro boletín
+                      -- no son suyas. `sn` de aquí abajo no correlaciona por alumno
+                      -- —es un sello por asignatura, y sobre-aproximar ahí está
+                      -- decidido en la cabecera—, así que esto no puede salir de él.
+                      LEFT JOIN (
+                            SELECT u.asignatura_id, n.alumno_id, COUNT(*) AS notas
+                              FROM notas n
+                              INNER JOIN subunidades s ON s.id = n.subunidad_id AND s.deleted_at IS NULL
+                              INNER JOIN unidades u ON u.id = s.unidad_id AND u.deleted_at IS NULL
+                              INNER JOIN asignaturas aa ON aa.id = u.asignatura_id AND aa.deleted_at IS NULL
+                             WHERE aa.grupo_id = ? AND u.periodo_id = ? AND n.deleted_at IS NULL
+                               AND u.alumno_id <=> '.BoletinIndependiente::alcanceCorrelacionado('n.alumno_id', 'u').'
+                             GROUP BY u.asignatura_id, n.alumno_id
+                      ) cal ON cal.asignatura_id = a.id AND cal.alumno_id = m.alumno_id
                       LEFT JOIN (
                             SELECT u.asignatura_id,
                                    CAST(MAX(GREATEST(COALESCE(n.updated_at, CAST("1000-01-01 00:00:00" AS DATETIME)), COALESCE(n.deleted_at, CAST("1000-01-01 00:00:00" AS DATETIME)))) AS DATETIME) AS sello
@@ -1060,7 +1145,7 @@ class DefinitivasDeAsignatura
               GROUP BY asignatura_id, sello
               ORDER BY asignatura_id',
             [$grupoId, $periodoId, $grupoId, $periodoId, $grupoId, $periodoId,
-                $grupoId, $periodoId, $grupoId, $grupoId]
+                $grupoId, $periodoId, $grupoId, $periodoId, $grupoId, $grupoId]
         );
 
         return array_map(static function ($fila): array {

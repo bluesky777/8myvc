@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 use stdClass;
+use App\Support\SellaConElReloj;
 
 /**
  * Las columnas de `notas`, tal como están en el esquema congelado.
@@ -51,6 +52,8 @@ use stdClass;
  */
 class Nota extends Model
 {
+    use SellaConElReloj;
+
     protected $fillable = [];
 
     /**

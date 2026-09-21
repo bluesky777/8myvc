@@ -4,6 +4,7 @@
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Request;
 use Carbon\Carbon;
+use App\Support\Reloj;
 
 use App\User;
 use App\Models\Year;
@@ -180,7 +181,7 @@ class DefinitivasPeriodosController extends Controller {
 		// corrección: lo que protege la nota no puede ser que el cliente no sepa pedirlo.
 		$modo = RepartoDeLaNota::modoDelPeriodo($periodo_id);
 		$num_periodo 	= Request::input('num_periodo');
-		$now 			= Carbon::now('America/Bogota');
+		$now 			= Reloj::ahora();
 
 		if ($user->tipo == 'Profesor' || $user->is_superuser) {
 			//$profesor_id 	= Request::input('profesor_id');
@@ -289,6 +290,28 @@ class DefinitivasPeriodosController extends Controller {
 			// propio commit. **Fueron dos y no una a propósito**: cambiar la palabra no
 			// mueve la conducta y acotar la lectura sí, y mezclarlas habría quitado la
 			// única propiedad que hacía seguro este cambio.
+			// **El sello sale de `Reloj::ahora()` y NO de `NOW()`, y esto se probó al
+			// revés primero.** El 21 sep 2026, persiguiendo el aviso que Zaragoza no
+			// podía apagar, escribí aquí `NOW()` «para que los dos lados de la
+			// comparación salieran de la base», citando la §4.5. **Está mal por dos
+			// motivos y los dos estaban escritos delante**, en la cabecera de
+			// {@see \App\Support\Reloj}:
+			//
+			//  1. `config/database.php` no fija la zona de la sesión, así que
+			//     `@@session.time_zone = SYSTEM` y `NOW()` devuelve **la del
+			//     servidor** — dieciséis cuentas de cPanel distintas. Habría
+			//     arreglado el aviso en los colegios cuyo servidor va en UTC y lo
+			//     habría dejado igual en los demás, sin nada en la fila que dijera
+			//     cuál es cuál.
+			//  2. La decisión 1 del [18](../../../docs/migracion/18-auditoria.md) es
+			//     que **lo que se guarda va en Bogotá**. Esta columna ya iba bien.
+			//
+			// Lo que desalinea la comparación del tablero **no es esta línea**: es que
+			// `subunidades`/`unidades` sellan con los `timestamps` de Eloquent, que
+			// siguen en UTC. Medido en la copia de Zaragoza: **2.262 pares
+			// (nota, subunidad) separados exactamente cinco horas y ninguno en el
+			// mismo segundo**. Eso es de la decisión que espera a Joseth, no de aquí:
+			// §«El aviso que no se podía apagar» del 10.
 			DB::insert($consulta, [
 				$defi_autos[$i]->alumno_id, $defi_autos[$i]->asignatura_id,
 				$defi_autos[$i]->periodo_id, $num_periodo,

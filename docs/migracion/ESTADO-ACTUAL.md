@@ -49,6 +49,76 @@
 > > ciega**. Hay 3 en 2026 y 46.478 en la base. Retirada allí. *Es el caso de libro de una
 > > cifra correcta sobre la población equivocada.*
 
+> ## 🚀 EL AVISO QUE NO SE PODÍA APAGAR — CERRADO, HAY QUE REDESPLEGAR (21 sep 2026)
+>
+> **Lo reportó Zaragoza el día después del despliegue del 20 sep**: «Notas finales
+> desactualizadas Per 1…4» en el tablero de informes, y **los botones no lo quitan por más
+> que se pulsen**. Lo trajo el detector nuevo del 17 sep (`6c1c77b`), que es el que ahora
+> alimenta `periodos_desactualizados`. Reproducido sobre una copia de su base.
+>
+> **Eran dos fallos, y los dos están cerrados.**
+>
+> ### 1. `faltan` contaba lo que ese botón no escribe nunca
+>
+> `putCalcularGrupoPeriodo` sale de un `INNER JOIN notas`: al alumno sin notas no le crea
+> la fila. De los **39 grupo-periodo marcados en Zaragoza, los 39 lo estaban por esto** —
+> la alumna matriculada en junio no tiene notas del per1, y el per4, que aún no se
+> califica, marcaba **los dieciséis grupos**. `estadoDelGrupo()` pasa a contar sólo lo que
+> tiene notas detrás. Con eso, de los 39 quedaban **4**.
+>
+> ### 2. Tres relojes en la misma comparación — unificados
+>
+> Los 4 que quedaban estaban **al día** y marcados igual: su definitiva era de las 12:20 y
+> su última nota de las 11:38, las dos en Bogotá; lo que los encendía era
+> `subunidades.updated_at`, el **mismo guardado** escrito cinco horas después porque lo
+> sella Eloquent en UTC. La prueba limpia: la nota nace en la misma petición que su
+> subunidad, y en Zaragoza hay **34.903 pares separados 18.000 s exactos** contra **6.188
+> en el mismo segundo** (`putCopiar`, que crea las dos por Eloquent), **de 2018 a 2026
+> entremezclados** — por eso no se puede arreglar en el que lee.
+>
+> Se arregló en el que escribe: `App\Support\SellaConElReloj` en `Nota`, `Subunidad`,
+> `Unidad` y `Matricula`, y los tres `NOW()` que escribían en esas columnas
+> (`DefinitivasDeAsignatura::calcular`, `CierreDeLoNoCalificado::pasarACero`) pasan a
+> `Reloj::ahora()`. **El rasgo NO se sube a un modelo base**: las sesiones y los tokens se
+> comparan contra un `now()` de UTC y moverles el reloj les cambia la vida útil.
+>
+> ### Que no rompe nada — comprobado, no supuesto
+>
+> - **Nada caduca ni se limpia por estas fechas**: las expiraciones del proyecto son de
+>   `personal_access_tokens` y `password_reminders`.
+> - **El predicado que vació las casillas el 20 sep selecciona exactamente lo mismo.**
+>   `created_at <=> updated_at` son dos columnas de la misma fila, se mueven juntas — y
+>   medido: **cero** filas en las cuatro tablas tienen sus dos fechas a cinco horas
+>   exactas, o sea que ninguna las tiene escritas por caminos distintos.
+> - **Las filas viejas no se tocan**: las que quedaron en UTC siguen cinco horas por
+>   delante hasta que alguien las vuelva a guardar, así que el aviso residual se apaga en
+>   horas, no el día del despliegue.
+> - **Cabo suelto anotado**: `Matricula::ORDEN_DEL_ANIO` ordena por `created_at`, y
+>   mientras convivan viejas en UTC con nuevas en Bogotá una vieja puede ganarle a una
+>   nueva creada hasta cinco horas después. Un caso vivo en `simonbolivar`.
+>
+> > **Advertencia para la siguiente sesión**: el primer intento fue escribir el sello con
+> > `NOW()`. **Está mal** — `config/database.php` no fija la zona de la sesión, así que
+> > `NOW()` es la del servidor y son dieciséis cuentas de cPanel distintas. Revertido, con
+> > el porqué en el propio método.
+>
+> ### Lo que hay que hacer con esto
+>
+> - **Redesplegar los dieciséis colegios.** El aviso lo ven todos, no sólo Zaragoza.
+> - **Lo atan cuatro tests**, entre ellos `los_modelos_del_sello_sellan_en_bogota`
+>   (`RelojUnicoTest`) —quitar el rasgo no rompía ninguna otra prueba: la fecha se guarda
+>   igual, sólo que movida— y `test_tras_pulsar_el_boton_el_tablero_deja_de_marcar_el_grupo`,
+>   que une el botón con el aviso.
+> - **Lo que NO arregla:** las filas que faltan de verdad —las 11.988 de la fase 0— siguen
+>   faltando. Ya no se anuncian con un botón que no puede crearlas.
+> - **Y queda una cosa del front viejo**, que es de `myvc_front`: `informes.html` pinta el
+>   bloque con bindings de una sola pasada (`::`), así que **el aviso sólo desaparece al
+>   recargar la pantalla**, no al pulsar. El tablero de `app2` sí se actualiza en el sitio.
+> - **Cabo suelto de otra sesión**: `app/Support/NotasAlCambiarDeGrupo.php` escribe
+>   `notas_finales` con `now()` a secas (UTC). Hoy no muerde porque esas filas van con
+>   `manual = 1` y el detector las excluye; si alguien quita ese `manual`, es un tercer
+>   reloj dentro de `notas_finales`.
+
 > ## ✅ LOS TRES INFORMES DEL CATÁLOGO — TRES RUTAS, UNA COLUMNA Y EL CONSECUTIVO (20 sep 2026)
 >
 > **Escrito en `.worktrees/inf`, rama `feat/los-tres-informes-del-catalogo`, base

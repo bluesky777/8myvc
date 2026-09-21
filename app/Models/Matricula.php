@@ -8,6 +8,8 @@ use Carbon\Carbon;
 
 use App\Models\Year;
 use \Log;
+use App\Support\SellaConElReloj;
+
 /**
  * Las columnas de `matriculas`, tal como están en el esquema congelado.
  *
@@ -48,6 +50,8 @@ use \Log;
  */
 
 class Matricula extends Model {
+
+	use SellaConElReloj;
 
 	protected $table = 'matriculas';
 

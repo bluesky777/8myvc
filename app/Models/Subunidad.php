@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Nota;
 use App\User;
 use App\Support\RepartoDeLaNota;
+use App\Support\SellaConElReloj;
+
 /**
  * Las columnas de `subunidades`, tal como están en el esquema congelado.
  *
@@ -45,6 +47,8 @@ use App\Support\RepartoDeLaNota;
  */
 
 class Subunidad extends Model {
+
+	use SellaConElReloj;
 	use SoftDeletes;
 	
 	protected $fillable = [];

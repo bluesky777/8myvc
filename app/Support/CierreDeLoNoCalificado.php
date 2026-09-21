@@ -333,9 +333,9 @@ final class CierreDeLoNoCalificado
             'UPDATE notas n
                INNER JOIN subunidades s ON s.id = n.subunidad_id AND s.deleted_at IS NULL
                INNER JOIN unidades u ON u.id = s.unidad_id AND u.deleted_at IS NULL
-                SET n.nota = 0, n.updated_by = ?, n.updated_at = NOW()
+                SET n.nota = 0, n.updated_by = ?, n.updated_at = ?
               WHERE u.periodo_id = ? AND n.deleted_at IS NULL AND n.nota IS NULL',
-            [$porUsuario, $periodoId]
+            [$porUsuario, Reloj::ahora(), $periodoId]
         );
     }
 

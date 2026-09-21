@@ -61,7 +61,7 @@
             "profes_pueden_editar_notas": "int",
             "profes_pueden_nivelar": "int",
             "updated_at": "string",
-            "updated_by": "int|null",
+            "updated_by": "int",
             "year_id": "int"
         }
     ],

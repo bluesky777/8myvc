@@ -2,6 +2,9 @@
 
 namespace Tests\Contrato;
 
+use App\Services\DefinitivasDeAsignatura;
+use App\Support\Reloj;
+use App\Support\SellaConElReloj;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -235,5 +238,114 @@ class CalcularGrupoPeriodoTest extends CasoDeContrato
             $codigos,
             'Las dos vecinas dejaron de contestar lo que contestaban. Si `calcular-grupo-periodo` ya no es 200, alguien la cerró: anótese la decisión, que es la del §90.'
         );
+    }
+
+    /**
+     * **Pulsar el botón tiene que APAGAR el aviso que lo acompaña.**
+     *
+     * Desde el 17 sep 2026 el tablero de informes pinta «Notas finales
+     * desactualizadas Per N» con `DefinitivasDeAsignatura::estadoDelGrupo()`, y
+     * debajo pone **este** botón. Nadie había atado las dos puntas, y Zaragoza
+     * reportó el 21 sep —al día siguiente del despliegue— que el aviso no se iba
+     * por más que lo pulsaran.
+     *
+     * Eran dos cosas, y las dos se ven desde aquí:
+     *
+     * 1. `faltan` contaba matriculados sin notas, que este método **no escribe
+     *    nunca** porque su consulta sale de un `INNER JOIN notas`;
+     * 2. la fila se sellaba con `Carbon::now('America/Bogota')` y la app corre en
+     *    UTC, así que nacía **cinco horas por detrás** del sello de sus propias
+     *    notas.
+     *
+     * El montaje pone el sello **a un minuto**, que es la distancia a la que un
+     * desfase de relojes decide el resultado: con el sello viejo del seed este test
+     * pasaría con el fallo puesto. Y lo pone con `Reloj::ahora()`, o sea **en el
+     * reloj en el que este sistema guarda** — el caso en que el sello viene en el
+     * otro reloj es el del test de abajo, y sigue roto a propósito.
+     */
+    public function test_tras_pulsar_el_boton_el_tablero_deja_de_marcar_el_grupo(): void
+    {
+        $e = $this->escenario();
+
+        $this->sellarLasNotas($e, Reloj::ahora()->subMinute());
+
+        // Y las definitivas, viejas: es el estado que deja cualquier nota puesta
+        // después del último cálculo.
+        DB::table('notas_finales')->whereIn('id', $this->definitivas($e))
+            ->update(['updated_at' => '2000-01-01 00:00:00']);
+
+        $this->assertGreaterThan(0, $this->desactualizadasDe($e),
+            'El montaje no dejó el grupo marcado, así que apagarlo después no demuestra nada.');
+
+        $this->calcular($e)->assertStatus(200);
+
+        $this->assertSame(0, $this->desactualizadasDe($e),
+            'El grupo sigue marcado después de pulsar el botón: es el aviso que Zaragoza no podía quitar.');
+    }
+
+    /**
+     * **Y con un sello viejo, escrito en UTC, el aviso sigue encendido — eso es lo
+     * que queda y es a propósito.**
+     *
+     * Hasta el 21 sep 2026 `subunidades` y `unidades` sellaban con los
+     * `timestamps` de Eloquent, que van en UTC, mientras que `notas`,
+     * `notas_finales` y todo lo que pasa por {@see Reloj} va en
+     * Bogotá: cinco horas dentro de la misma comparación. Medido en la copia de
+     * Zaragoza, **2.262 pares (nota, subunidad) separados exactamente cinco horas
+     * y ninguno en el mismo segundo**.
+     *
+     * Los modelos ya sellan en Bogotá ({@see SellaConElReloj}), así
+     * que **no se escriben filas nuevas así**. Las que ya estaban no las toca
+     * nadie —arreglarlas sería una migración de datos, y la decisión fue no
+     * hacerla: se apagan solas en cuanto pasan las cinco horas o alguien vuelve a
+     * guardar—. Este caso fija ese residuo: mientras exista una fila vieja en UTC,
+     * su asignatura sigue marcada.
+     *
+     * Si un día se pone rojo, lo que hay que mirar es si alguien devolvió el reloj
+     * de Eloquent a esos modelos; el centinela de eso es
+     * `RelojUnicoTest::los_modelos_del_sello_sellan_en_bogota`.
+     */
+    public function test_con_el_sello_en_el_reloj_de_eloquent_el_aviso_no_se_apaga(): void
+    {
+        $e = $this->escenario();
+
+        // `now()` es el reloj de Eloquent —UTC—, que es con el que se sellan las
+        // subunidades: cinco horas por delante de lo que escribe el botón.
+        $this->sellarLasNotas($e, now()->subMinute());
+
+        $this->calcular($e)->assertStatus(200);
+
+        $this->assertGreaterThan(0, $this->desactualizadasDe($e),
+            'Una fila vieja en UTC ya no marca la asignatura. Si es porque alguien reparó los '
+            .'datos, bórrese este caso con la medición al lado; si es porque el detector dejó '
+            .'de mirar el sello, es otra cosa y hay que leerla.');
+    }
+
+    /** Pone el sello de las notas del grupo en la fecha dada. */
+    private function sellarLasNotas(object $e, \DateTimeInterface $cuando): void
+    {
+        DB::update(
+            'UPDATE notas n
+               INNER JOIN subunidades s ON s.id = n.subunidad_id
+               INNER JOIN unidades u ON u.id = s.unidad_id
+               INNER JOIN asignaturas a ON a.id = u.asignatura_id
+                SET n.updated_at = ?
+              WHERE a.grupo_id = ? AND u.periodo_id = ? AND n.deleted_at IS NULL',
+            [$cuando->format('Y-m-d H:i:s'), $e->grupo_id, $e->periodo_id]
+        );
+    }
+
+    /** Cuántas asignaturas del grupo salen marcadas en el tablero. */
+    private function desactualizadasDe(object $e): int
+    {
+        $marcadas = 0;
+
+        foreach (DefinitivasDeAsignatura::estadoDelGrupo((int) $e->grupo_id, (int) $e->periodo_id) as $fila) {
+            if ($fila['desactualizada']) {
+                $marcadas++;
+            }
+        }
+
+        return $marcadas;
     }
 }

@@ -2,7 +2,12 @@
 
 namespace Tests\Contrato;
 
+use App\Models\Matricula;
+use App\Models\Nota;
+use App\Models\Subunidad;
+use App\Models\Unidad;
 use App\Support\Reloj;
+use App\Support\SellaConElReloj;
 use Carbon\Carbon;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -301,5 +306,45 @@ class RelojUnicoTest extends TestCase
         }
 
         return $encontrados;
+    }
+
+    /**
+     * **Y los modelos del sello de las definitivas sellan en el reloj de la casa.**
+     *
+     * El otro camino por el que entra una fecha en UTC no es un `now()` escrito a
+     * mano: son los `timestamps` automáticos de Eloquent, que salen de
+     * `config/app.php`. El censo de arriba **no los ve** —no hay `now()` en el
+     * fichero— y aun así un `->save()` deja la columna cinco horas movida.
+     *
+     * Estas cuatro tablas son las que alimentan
+     * `DefinitivasDeAsignatura::selloDeVersion()`, y las cuatro se escriben por los
+     * dos caminos: Eloquent y SQL a mano. Medido el 21 sep 2026 en la copia de
+     * `caz_zaragoza`, emparejando cada nota con la subunidad de la que nace —se
+     * crean en la misma petición—: **34.903 pares separados 18.000 segundos
+     * exactos y 6.188 en el mismo segundo**, las dos familias de 2018 a 2026.
+     *
+     * Quitar el rasgo no rompe ninguna otra prueba: la fecha se guarda igual, sólo
+     * que movida. Por eso hace falta éste.
+     *
+     * @see SellaConElReloj
+     */
+    #[Test]
+    public function los_modelos_del_sello_sellan_en_bogota(): void
+    {
+        $modelos = [
+            Nota::class,
+            Subunidad::class,
+            Unidad::class,
+            Matricula::class,
+        ];
+
+        foreach ($modelos as $clase) {
+            $sello = (new $clase)->freshTimestamp();
+
+            $this->assertSame(Reloj::ZONA, $sello->timezoneName,
+                "{$clase} volvió a sellar con el reloj de Eloquent. Sus fechas conviven en la misma "
+                .'columna con las que escribe SQL a mano en Bogotá, así que ahí eso son cinco horas '
+                .'de diferencia y nada en la fila que diga cuál es cuál.');
+        }
     }
 }

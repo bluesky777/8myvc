@@ -1271,6 +1271,127 @@ toca».
   mantenimiento no puede anunciarse como «aquí se arregla lo que no calculó», porque para
   el alumno sin notas el botón tampoco escribe la fila.
 
+### El aviso que no se podía apagar — Zaragoza, 21 sep 2026
+
+Reportado por el colegio **al día siguiente del despliegue** del 20 sep: en el tablero
+viejo salen «Notas finales desactualizadas Per 1…4» con sus botones, y **por más que se
+pulse «Calcular definitivas per N» no se van**. La pantalla es
+[informes.html:10-20](../../../myvc_front/app/scripts/informes/informes.html) y el aviso
+lo pinta `periodos_desactualizados`, que desde el 17 sep lo calcula
+`DefinitivasDeAsignatura::estadoDelGrupo()` (§4 de arriba).
+
+Reproducido sobre una copia de su base en el docker local. **Eran dos fallos
+independientes y cada uno basta para que el aviso se quede puesto.**
+
+#### 1. `faltan` contaba lo que ese botón no escribe nunca
+
+`estadoDelGrupo()` cuenta como «falta» al matriculado sin fila en `notas_finales`, y es
+la §9.1 bien aplicada… **para el escritor equivocado**. El botón del tablero es
+`putCalcularGrupoPeriodo`, cuya consulta sale de un `INNER JOIN notas`: **sin notas no
+hay INSERT**. Estaba escrito tres párrafos más arriba —*«el rincón de mantenimiento no
+puede anunciarse como “aquí se arregla lo que no calculó”, porque para el alumno sin
+notas el botón tampoco escribe la fila»*— y nadie lo ató con el aviso que se acababa de
+encender.
+
+Medido sobre la copia de Zaragoza (año 2026, 16 grupos, 4 periodos), contando qué hay
+detrás de cada `faltan`:
+
+```
+39 grupo-periodo marcados      de ellos por notas que calcular:  0
+                               por atrasadas de verdad:          4  (los 4 del per3)
+```
+
+**Ninguno de los 39 era reparable desde ese botón.** Y las dos fuentes son de lo más
+normal: el alumno que se matricula en junio no tiene notas del periodo 1 —una alumna de
+Jardín, matriculada el 2 jun 2026, explicaba ella sola los cinco grupos del per1—, y
+**un periodo que todavía no se califica no las tiene de nadie**: el 4 marcaba los
+dieciséis grupos del colegio.
+
+El arreglo es la condición `calificadas > 0` en la consulta. No es bajar el listón: es
+el criterio 1 de la cabecera de `estadoDelGrupo()` —*«los alumnos se copian de
+`calcular()` porque si no, `faltan` contaría alumnos a los que el recalculador no les
+escribe nunca y la asignatura saldría desactualizada para siempre»*— aplicado al
+recalculador al que de verdad llega el aviso. La divergencia con `estaDesactualizada()`
+queda escrita en la cabecera, §«El cuarto criterio»: ese método decide **si recalcular**
+—un sí de más cuesta un recálculo— y éste decide **si dar la alarma**, que si nadie
+puede apagarla se queda puesta.
+
+#### 2. El sello y la definitiva se escribían en DOS RELOJES — unificado
+
+La otra mitad, y **el primer intento fue por el camino equivocado**: escribí el sello del
+botón con `NOW()` «para que los dos lados salieran de la base». Está mal por dos motivos
+que ya estaban en la cabecera de `App\Support\Reloj`: `config/database.php` **no fija la
+zona de la sesión**, así que `NOW()` devuelve la del servidor —dieciséis cuentas de cPanel
+distintas— y habría arreglado el aviso en unos colegios y no en otros; y la decisión 1 del
+[18](18-auditoria.md) es que **lo que se guarda va en Bogotá**. Revertido.
+
+**El desajuste no estaba en quien escribe la definitiva: estaba dentro del propio sello.**
+
+| escribe | reloj | ejemplo del 21 sep |
+|---|---|---|
+| `notas`, `notas_finales` a mano | Bogotá (`Carbon::now('America/Bogota')`) | `11:38:44` |
+| `unidades`, `subunidades`, `matriculas`, `notas` **por Eloquent** | **UTC** — `freshTimestamp()` sale de `config/app.php` | `16:38:44` |
+| `notas_finales` por `calcular()` | **el del servidor** — `NOW()`, con `@@session.time_zone = SYSTEM` | desconocido por colegio |
+
+Tres relojes en una sola comparación. La prueba limpia: la nota **nace en la misma
+petición** que su subunidad, así que entre sus `created_at` no debería haber hueco. En la
+copia de Zaragoza:
+
+```
+pares (nota, subunidad) a 18.000 s exactos : 34.903   alta normal: Subunidad->save() (UTC) + Nota::verificarCrearNotas (Bogotá)
+pares (nota, subunidad) en el mismo segundo:  6.188   PeriodosController::putCopiar: las dos con new Nota + save(), las dos en UTC
+```
+
+**Y las dos familias van de 2018 a 2026 entremezcladas**, que es lo que descarta
+arreglarlo en el que lee: sumarle cinco horas a `subunidades` en el detector arregla
+34.903 pares y rompe 6.188, y en la fila no hay nada que diga a cuál pertenece. Es la
+conclusión de `bitacoras.created_at` otra vez —12 filas en UTC contra 74 en Bogotá— y por
+la que existe {@see Reloj}.
+
+##### Lo que se hizo
+
+1. **{@see \App\Support\SellaConElReloj}** en `Nota`, `Subunidad`, `Unidad` y
+   `Matricula`: `freshTimestamp()` devuelve `Reloj::ahora()`, así que los `->save()` y los
+   `deleted_at` de `SoftDeletes` caen en Bogotá como todo lo demás. **No se sube a un
+   modelo base**: hay tablas cuya fecha se compara contra un `now()` de UTC —las sesiones
+   y los tokens— y moverles el reloj les cambia la vida útil. Va tabla por tabla, y sólo
+   donde la columna ya convive con fechas en Bogotá.
+2. Los tres `NOW()` que escribían en esas columnas pasan a `Reloj::ahora()`:
+   `DefinitivasDeAsignatura::calcular()` (el `UPDATE` y el `INSERT` de `notas_finales`) y
+   `CierreDeLoNoCalificado::pasarACero()`.
+
+##### Que no rompe nada, comprobado y no supuesto
+
+- **Nada caduca ni se limpia por estas fechas.** Las expiraciones del proyecto
+  —`LimpiarSesiones`, `Sesion`, `LoginController`— son de `personal_access_tokens` y
+  `password_reminders`, que no llevan el rasgo.
+- **El predicado que vació las casillas el 20 sep selecciona lo mismo.**
+  `2026_09_19_500000_la_casilla_vacia` elige por `created_at <=> updated_at`, dos columnas
+  de la **misma fila**: se mueven juntas. Y medido, que es lo que lo cierra: en las cuatro
+  tablas de Zaragoza hay **cero** filas cuyas dos fechas estén a cinco horas exactas, o
+  sea que ninguna fila tiene sus dos columnas escritas por caminos distintos. Al crear,
+  las dos las pone el mismo escritor.
+- **Las filas viejas no se tocan.** Las que quedaron en UTC siguen cinco horas por
+  delante hasta que alguien las vuelva a guardar, así que el falso positivo se apaga
+  solo en horas, no el día del despliegue. Repararlas es otra decisión, con su medición y
+  su herramienta, como `2026_09_06_100000_reparar_la_hora_escrita_dos_veces`.
+- **Un cabo suelto anotado**: `Matricula::ORDEN_DEL_ANIO` ordena dos matrículas del mismo
+  alumno por `created_at`, y mientras convivan filas viejas en UTC con nuevas en Bogotá
+  una vieja puede ganarle a una nueva creada hasta cinco horas después. El caso —dos
+  matrículas vivas del mismo alumno y año— existe una vez en `simonbolivar`.
+
+#### Lo que queda atado
+
+`test_tras_pulsar_el_boton_el_tablero_deja_de_marcar_el_grupo`
+(`CalcularGrupoPeriodoTest`) une las dos puntas que nadie había unido: monta el sello **a
+un minuto** —la distancia a la que un desfase decide— y exige que después de la llamada el
+tablero no marque el grupo. Y `test_un_matriculado_sin_una_sola_nota_no_cuenta_como_que_falta` fija el caso de
+Zaragoza sobre el estado que deja el botón viejo.
+
+**Lo que esto NO arregla**, y sigue donde estaba: las filas que faltan de verdad —las
+11.988 de la fase 0— siguen faltando. Lo que cambia es que ya no se anuncian con un
+botón que no puede crearlas; vaciarlas sigue siendo el punto 6 de la fase 2.
+
 ### Fase 5 — Quitar los botones
 
 Solo cuando las fases 1-4 estén desplegadas y la fase 0 se pueda volver a correr
