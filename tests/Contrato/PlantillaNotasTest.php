@@ -293,18 +293,17 @@ class PlantillaNotasTest extends CasoDeContrato
     }
 
     #[Test]
-    public function test_con_reemplazar_una_asignatura_con_una_sola_nota_no_se_toca(): void
+    public function test_con_reemplazar_las_notas_y_las_columnas_manuales_sobreviven(): void
     {
         $yearId = $this->anioDelToken();
         $this->abrirLosPeriodos($yearId);
         $unidad = $this->unidadDePlantilla($yearId, ['definicion' => 'Del colegio', 'porcentaje' => 100]);
-        $this->subunidadDePlantilla($unidad, ['definicion' => 'Única', 'porcentaje' => 100]);
+        $subuPlantilla = $this->subunidadDePlantilla($unidad, ['definicion' => 'Única', 'porcentaje' => 40]);
 
         $this->pedir('putJson', 'plantilla-notas/sembrar')->assertStatus(200);
 
-        // Una nota, una sola, en la primera subunidad sembrada.
         $subunidad = DB::selectOne(
-            'SELECT s.id, u.asignatura_id, u.periodo_id
+            'SELECT s.id, s.unidad_id, u.asignatura_id, u.periodo_id
                FROM subunidades s
                JOIN unidades u ON u.id = s.unidad_id
                JOIN asignaturas a ON a.id = u.asignatura_id
@@ -316,25 +315,68 @@ class PlantillaNotasTest extends CasoDeContrato
         $this->assertNotNull($subunidad, 'La siembra de arriba no dejó ninguna subunidad que calificar.');
 
         $alumno = DB::selectOne('SELECT id FROM alumnos WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
-        DB::table('notas')->insert([
+
+        // La nota del colegio, en la columna que vino de la plantilla.
+        $notaId = DB::table('notas')->insertGetId([
             'nota' => 80, 'subunidad_id' => $subunidad->id, 'alumno_id' => $alumno->id,
             'created_at' => now(), 'updated_at' => now(),
         ]);
 
-        $unidadesAntes = DB::table('unidades')
-            ->where('asignatura_id', $subunidad->asignatura_id)
-            ->where('periodo_id', $subunidad->periodo_id)
-            ->whereNull('deleted_at')->pluck('id')->all();
+        // Y la columna que se inventó el docente, con su nota. `por_defecto = 0` es lo que
+        // la distingue, y es la que el reemplazo mandaba a la papelera.
+        $manual = DB::table('subunidades')->insertGetId([
+            'definicion' => 'LA QUE SE INVENTÓ EL DOCENTE', 'porcentaje' => 60,
+            'unidad_id' => $subunidad->unidad_id, 'por_defecto' => 0, 'orden' => 9,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $notaManual = DB::table('notas')->insertGetId([
+            'nota' => 45, 'subunidad_id' => $manual, 'alumno_id' => $alumno->id,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        // El colegio cambia el peso en la plantilla. Es lo que Joseth quiere poder hacer
+        // teniendo notas puestas, dicho a sabiendas de que le mueve la definitiva.
+        DB::table('subunidades_por_defecto')->where('id', $subuPlantilla)->update(['porcentaje' => 75]);
+
+        // **Y una SEGUNDA fila de plantilla que no casa por nombre y SÍ por posición con la
+        // manual.** Sin ella este test no prueba la guarda `por_defecto = 1`: con una sola
+        // fila, el emparejamiento encuentra «Única» por nombre y no llega a mirar la manual,
+        // así que quitar la guarda lo dejaba VERDE — comprobado mutando el código, no supuesto.
+        // Con el mismo `orden` que la manual, el respaldo por posición la alcanzaría.
+        $this->subunidadDePlantilla($unidad, [
+            'definicion' => 'NOMBRE QUE NO ESTÁ EN LA REJILLA', 'porcentaje' => 25, 'orden' => 9,
+        ]);
 
         $r = $this->pedir('putJson', 'plantilla-notas/sembrar', ['reemplazar' => true]);
 
         $r->assertStatus(200);
-        $this->assertGreaterThan(0, $r->json('saltadas_por_notas'));
-        $this->assertSame($unidadesAntes, DB::table('unidades')
-            ->where('asignatura_id', $subunidad->asignatura_id)
-            ->where('periodo_id', $subunidad->periodo_id)
-            ->whereNull('deleted_at')->pluck('id')->all(),
-            'Una asignatura con UNA sola nota no se toca jamás, ni con `reemplazar`.');
+
+        $this->assertSame(0, $r->json('saltadas_por_notas'),
+            'Tener notas volvió a saltar la asignatura. Desde el 20 sep 2026 no salta: lo que '
+            .'hacía peligrosa esa combinación era el BORRADO, no el cambio de peso.');
+
+        $viva = DB::table('subunidades')->where('id', $subunidad->id)->whereNull('deleted_at')->first();
+        $this->assertNotNull($viva,
+            'La columna de la plantilla se fue a la papelera en vez de actualizarse, así que su '
+            .'nota quedó colgando de una fila borrada: para la pantalla es haberla perdido.');
+        $this->assertSame(75, (int) $viva->porcentaje,
+            'La columna sobrevivió pero conserva el peso viejo: el aplicar no está actualizando '
+            .'nada, sólo respetando.');
+
+        $this->assertNotNull(
+            DB::table('notas')->where('id', $notaId)->whereNull('deleted_at')->first(),
+            'La nota del colegio no sobrevivió al reemplazo.');
+
+        $vivaManual = DB::table('subunidades')->where('id', $manual)->whereNull('deleted_at')->first();
+        $this->assertNotNull($vivaManual,
+            'La columna manual del docente desapareció. Es el fallo que Joseth encontró probando: '
+            .'en su Ética de Once eran tres, y el reemplazo se las llevaba por delante.');
+        $this->assertSame(60, (int) $vivaManual->porcentaje,
+            'La plantilla le pisó el peso a una columna que no es suya.');
+
+        $this->assertNotNull(
+            DB::table('notas')->where('id', $notaManual)->whereNull('deleted_at')->first(),
+            'La nota de la columna manual no sobrevivió.');
     }
 
     #[Test]

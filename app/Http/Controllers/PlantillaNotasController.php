@@ -492,6 +492,10 @@ class PlantillaNotasController extends Controller
             'sembradas' => 0,
             'saltadas_por_estructura' => 0,
             'saltadas_por_notas' => 0,
+            'columnas_actualizadas' => 0,
+            'columnas_creadas' => 0,
+            'columnas_huerfanas' => 0,
+            'manuales_respetadas' => 0,
             'saltadas_por_periodo_cerrado' => 0,
             'saltadas_sin_plantilla' => 0,
             'independientes_respetadas' => 0,
@@ -539,11 +543,12 @@ class PlantillaNotasController extends Controller
                         continue;
                     }
 
-                    if ($estado->notas > 0) {
-                        $conteo['saltadas_por_notas']++;
-
-                        continue;
-                    }
+                    // **Tener notas ya NO la salta.** Lo pidió Joseth el 20 sep 2026 a
+                    // sabiendas de que mueve definitivas de alumnos ya calificados, y lo que
+                    // hacía peligrosa esa combinación era el borrado, no el cambio de peso:
+                    // desde que `fundirEn()` actualiza en vez de rehacer, las notas se quedan
+                    // donde están y lo único que se mueve es el reparto. El contador se queda
+                    // en el sitio —a cero— porque es contrato de tres pantallas.
                 }
 
                 $candidatas[] = [
@@ -558,15 +563,21 @@ class PlantillaNotasController extends Controller
         $this->exigirRepartosCompletos($candidatas, $plantillaPorClave, $aceptoDesviacion);
 
         foreach ($candidatas as $candidata) {
-            if ($candidata['tenia_estructura']) {
-                $this->vaciarRejillaDelCurso($candidata['asignatura_id'], $candidata['periodo_id']);
-            }
-
-            $this->sembrarEn(
+            // **Ya no se vacía la rejilla: se funde con la que hay.** Decisión de Joseth
+            // del 20 sep 2026, con sus palabras: *«no me importa si cambia la definitiva
+            // por cambiar las subunidades; lo que sí me interesa es que sea capaz de
+            // editarlas, no borrar todo y crear nuevas, porque entonces sí borrarías las
+            // notas y las subunidades manuales»*. Ver `fundirEn()`.
+            $movido = $this->fundirEn(
                 $candidata['asignatura_id'],
                 $candidata['periodo_id'],
                 $plantillaPorClave[$candidata['clave']]
             );
+
+            $conteo['columnas_actualizadas'] += $movido['actualizadas'];
+            $conteo['columnas_creadas'] += $movido['creadas'];
+            $conteo['columnas_huerfanas'] += $movido['huerfanas'];
+            $conteo['manuales_respetadas'] += $movido['manuales'];
 
             $conteo['sembradas']++;
         }
@@ -659,7 +670,8 @@ class PlantillaNotasController extends Controller
                    JOIN subunidades s ON s.id = n.subunidad_id AND s.deleted_at IS NULL
                    JOIN unidades u2   ON u2.id = s.unidad_id   AND u2.deleted_at IS NULL
                   WHERE u2.asignatura_id = ? AND u2.periodo_id = ? AND u2.alumno_id IS NULL
-                    AND n.deleted_at IS NULL) AS notas
+                    AND n.deleted_at IS NULL
+                    AND n.nota IS NOT NULL) AS notas
                FROM unidades u
               WHERE u.asignatura_id = ? AND u.periodo_id = ? AND u.deleted_at IS NULL',
             [$asignaturaId, $periodoId, $asignaturaId, $periodoId]
@@ -673,37 +685,6 @@ class PlantillaNotasController extends Controller
     }
 
     /**
-     * Manda a la papelera la rejilla **del curso** de una asignatura+periodo, con
-     * sus subunidades. Sólo se llama cuando ya se ha comprobado que no tiene
-     * ninguna nota.
-     *
-     * **`alumno_id IS NULL` en las dos consultas**: es la regla 5, y es lo que
-     * impide que reemplazar la plantilla del curso se lleve por delante el reparto
-     * de un estudiante con boletín independiente.
-     */
-    private function vaciarRejillaDelCurso(int $asignaturaId, int $periodoId): void
-    {
-        $ahora = Reloj::ahoraTexto();
-        $usuario = (int) $this->user->user_id;
-
-        DB::update(
-            'UPDATE subunidades s
-               JOIN unidades u ON u.id = s.unidad_id
-                SET s.deleted_at = ?, s.deleted_by = ?, s.updated_at = ?
-              WHERE u.asignatura_id = ? AND u.periodo_id = ? AND u.alumno_id IS NULL
-                AND u.deleted_at IS NULL AND s.deleted_at IS NULL',
-            [$ahora, $usuario, $ahora, $asignaturaId, $periodoId]
-        );
-
-        DB::update(
-            'UPDATE unidades
-                SET deleted_at = ?, deleted_by = ?, updated_at = ?
-              WHERE asignatura_id = ? AND periodo_id = ? AND alumno_id IS NULL AND deleted_at IS NULL',
-            [$ahora, $usuario, $ahora, $asignaturaId, $periodoId]
-        );
-    }
-
-    /**
      * Copia la plantilla a una asignatura+periodo. **`por_defecto` a 1**, que es lo
      * que marca la fila como del colegio y lo que el candado de la decisión 5 leerá
      * el día que entre — la misma marca que pone el sembrador viejo
@@ -711,37 +692,161 @@ class PlantillaNotasController extends Controller
      *
      * @param  list<object>  $plantilla
      */
-    private function sembrarEn(int $asignaturaId, int $periodoId, array $plantilla): void
+    private function fundirEn(int $asignaturaId, int $periodoId, array $plantilla): array
     {
         $ahora = Reloj::ahoraTexto();
         $usuario = (int) $this->user->user_id;
+        $conteo = ['actualizadas' => 0, 'creadas' => 0, 'huerfanas' => 0, 'manuales' => 0];
+
+        $unidadesLibres = $this->filasDePlantillaVivas(
+            'SELECT id, definicion, orden FROM unidades
+              WHERE asignatura_id = ? AND periodo_id = ? AND alumno_id IS NULL
+                AND deleted_at IS NULL AND por_defecto = 1 ORDER BY orden, id',
+            [$asignaturaId, $periodoId]
+        );
 
         foreach ($plantilla as $unidad) {
-            DB::insert(
-                'INSERT INTO unidades(definicion, porcentaje, periodo_id, asignatura_id, obligatoria,
-                                      orden, por_defecto, created_by, created_at)
-                 VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [
-                    $unidad->definicion, $unidad->porcentaje, $periodoId, $asignaturaId,
-                    $unidad->obligatoria, $unidad->orden, true, $usuario, $ahora,
-                ]
-            );
+            $encaje = $this->casarCon($unidadesLibres, $unidad->definicion, $unidad->orden);
 
-            $unidadId = (int) DB::getPdo()->lastInsertId();
-
-            foreach ($this->subunidadesDe((int) $unidad->id) as $subunidad) {
+            if ($encaje === null) {
                 DB::insert(
-                    'INSERT INTO subunidades(definicion, porcentaje, unidad_id, nota_default, obligatoria,
-                                             orden, por_defecto, created_by, created_at)
+                    'INSERT INTO unidades(definicion, porcentaje, periodo_id, asignatura_id, obligatoria,
+                                          orden, por_defecto, created_by, created_at)
                      VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)',
                     [
-                        $subunidad['definicion'], $subunidad['porcentaje'], $unidadId,
-                        $subunidad['nota_default'], $subunidad['obligatoria'], $subunidad['orden'],
-                        true, $usuario, $ahora,
+                        $unidad->definicion, $unidad->porcentaje, $periodoId, $asignaturaId,
+                        $unidad->obligatoria, $unidad->orden, true, $usuario, $ahora,
                     ]
                 );
+
+                $unidadId = (int) DB::getPdo()->lastInsertId();
+                $subunidadesLibres = [];
+            } else {
+                $unidadId = $encaje;
+                unset($unidadesLibres[$unidadId]);
+
+                DB::update(
+                    'UPDATE unidades SET definicion = ?, porcentaje = ?, obligatoria = ?, orden = ?,
+                            updated_by = ?, updated_at = ? WHERE id = ?',
+                    [
+                        $unidad->definicion, $unidad->porcentaje, $unidad->obligatoria,
+                        $unidad->orden, $usuario, $ahora, $unidadId,
+                    ]
+                );
+
+                $subunidadesLibres = $this->filasDePlantillaVivas(
+                    'SELECT id, definicion, orden FROM subunidades
+                      WHERE unidad_id = ? AND deleted_at IS NULL AND por_defecto = 1
+                      ORDER BY orden, id',
+                    [$unidadId]
+                );
+
+                $conteo['manuales'] += (int) DB::selectOne(
+                    'SELECT COUNT(*) c FROM subunidades
+                      WHERE unidad_id = ? AND deleted_at IS NULL AND por_defecto = 0',
+                    [$unidadId]
+                )->c;
+            }
+
+            foreach ($this->subunidadesDe((int) $unidad->id) as $subunidad) {
+                $suEncaje = $this->casarCon(
+                    $subunidadesLibres, $subunidad['definicion'], $subunidad['orden']
+                );
+
+                if ($suEncaje === null) {
+                    DB::insert(
+                        'INSERT INTO subunidades(definicion, porcentaje, unidad_id, nota_default, obligatoria,
+                                                 orden, por_defecto, created_by, created_at)
+                         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                        [
+                            $subunidad['definicion'], $subunidad['porcentaje'], $unidadId,
+                            $subunidad['nota_default'], $subunidad['obligatoria'], $subunidad['orden'],
+                            true, $usuario, $ahora,
+                        ]
+                    );
+                    $conteo['creadas']++;
+
+                    continue;
+                }
+
+                unset($subunidadesLibres[$suEncaje]);
+
+                // **`UPDATE` y no borrar-y-crear: la fila conserva su `id`, así que las
+                // notas que cuelgan de ella siguen colgando.** Es todo el cambio.
+                DB::update(
+                    'UPDATE subunidades SET definicion = ?, porcentaje = ?, nota_default = ?,
+                            obligatoria = ?, orden = ?, updated_by = ?, updated_at = ? WHERE id = ?',
+                    [
+                        $subunidad['definicion'], $subunidad['porcentaje'], $subunidad['nota_default'],
+                        $subunidad['obligatoria'], $subunidad['orden'], $usuario, $ahora, $suEncaje,
+                    ]
+                );
+                $conteo['actualizadas']++;
+            }
+
+            // Las que vinieron de la plantilla y la plantilla ya no tiene: se quedan con su
+            // peso, por decisión de Joseth. La unidad puede dejar de sumar 100 y la pantalla
+            // ya enciende ese aviso — visible y reversible, que es lo contrario de borrar.
+            $conteo['huerfanas'] += count($subunidadesLibres);
+        }
+
+        $conteo['huerfanas'] += count($unidadesLibres);
+
+        return $conteo;
+    }
+
+    /**
+     * La fila que le toca a una de plantilla: **por nombre, y si no, por posición.**
+     *
+     * Decisión de Joseth del 20 sep 2026 entre las tres formas posibles. El nombre primero
+     * porque es lo que un humano llamaría «la misma columna»; la posición como red porque un
+     * docente que **renombró** su columna seguiría teniéndola en su sitio, y sin la red se le
+     * crearía una nueva al lado y la vieja se quedaría con su peso viejo — la unidad pasaría
+     * a sumar más de 100 sin que nadie lo hubiera pedido.
+     *
+     * `$libres` se consume: una fila ya casada no puede volver a casar, o dos filas de la
+     * plantilla con el mismo nombre se llevarían la misma.
+     *
+     * @param  array<int, object>  $libres
+     */
+    private function casarCon(array $libres, ?string $definicion, $orden): ?int
+    {
+        foreach ($libres as $id => $fila) {
+            if ($definicion !== null && $fila->definicion === $definicion) {
+                return $id;
             }
         }
+
+        foreach ($libres as $id => $fila) {
+            if ($orden !== null && $fila->orden !== null && (int) $fila->orden === (int) $orden) {
+                return $id;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Las filas vivas que puso la plantilla, indexadas por id para poder consumirlas.
+     *
+     * **`por_defecto = 1` va en la consulta del llamante y no es un detalle:** es lo que
+     * separa lo que puso el colegio de lo que escribió el docente a mano. Medido el 20 sep
+     * 2026 en `simonbolivar`: de las 2.148 subunidades vivas del año, **4 son manuales**, y
+     * las tres de Ética de Once que el reemplazo borraba son exactamente tres de esas cuatro.
+     * Sin esta marca habría que adivinar cuáles respetar.
+     *
+     * @param  list<mixed>  $ligaduras
+     * @return array<int, object>
+     */
+    private function filasDePlantillaVivas(string $consulta, array $ligaduras): array
+    {
+        $porId = [];
+
+        foreach (DB::select($consulta, $ligaduras) as $fila) {
+            $porId[(int) $fila->id] = $fila;
+        }
+
+        return $porId;
     }
 
     /**
