@@ -1,9 +1,11 @@
 `8myvc` es la API del sistema escolar MyVc: Laravel 13 + PHP 8.4, ~37.000 líneas
-en `app/`, **129 ficheros de controlador — 132 clases** (**contados el 20 sep 2026 en
-`.worktrees/inf`**, con los tres informes del catálogo dentro: entran `MembreteController` y
-`NivelacionesController`. **SIN FUNDIR: hay que recontarlos en el ÁRBOL PRINCIPAL el día que
-entren** — la frase que lleva salvando el contador de rutas siete veces seguidas, aplicada por
-primera vez a éste, que es el que lleva semanas de retraso cada vez que se mira.
+en `app/`, **129 ficheros de controlador — 132 clases** (**recontados el 20 sep 2026 en el ÁRBOL
+PRINCIPAL, sobre `main` y después de fundir** los tres informes del catálogo (`fdecea7`), que
+entran con `MembreteController` y `NivelacionesController` — y coincidieron con los 129 y 132
+contados antes en `.worktrees/inf`, que es la única forma de saber que coincidía. Esta línea decía
+*«SIN FUNDIR: hay que recontarlos en el ÁRBOL PRINCIPAL el día que entren»*, y **aquél fue ese
+día**: era la primera vez que esa condición de caducidad se le ponía a ESTE contador —el que lleva
+semanas de retraso cada vez que se mira— y salvó el número a la primera.
 Antes decían **127 y 130**, recontados el 20 sep 2026 en el ÁRBOL
 PRINCIPAL y después de fundir el proceso de matrículas (`74d5028`), que entra con
 `AspirantesController` y `PortalInscripcionController`. Antes decían 125 y 128, recontados ese
@@ -30,9 +32,13 @@ directorio tiene 119 ficheros y 118 son controladores. **De los tres que entraro
 `SincronizacionController`, del 7 sep, que nadie recontó — que es exactamente por lo que
 este número se cuenta y no se supone), porque
 `Alumnos/ImportarController.php` declara cuatro (tres son ayudantes de Excel), y
-**647 rutas** (**contadas con `route:list --json` el 20 sep 2026 en `.worktrees/inf`. SIN FUNDIR:
-hay que recontarlas en el ÁRBOL PRINCIPAL el día que entren** — la frase que lleva salvando este
-número siete veces seguidas, puesta aquí por quien la escribe y no por quien la cumple.) Las
+**647 rutas** (**recontadas con `route:list --json` el 20 sep 2026 en el ÁRBOL PRINCIPAL, sobre
+`main` y después de fundir** (`fdecea7`) — y coincidieron con las 647 contadas antes en
+`.worktrees/inf`, que es la única forma de saber que coincidía. Esta línea decía *«SIN FUNDIR: hay
+que recontarlas en el ÁRBOL PRINCIPAL el día que entren»*, y **aquél fue ese día**: van **ocho**
+veces seguidas que esa condición de caducidad salva el número, y ésta la cumplió **una sesión de
+limpieza que no escribió ni una de las tres rutas** — o sea que la frase ya no depende ni de
+acordarse ni de ser del oficio.) Las
 **tres** que suben sobre las 644 son las de **los tres informes del catálogo** que le faltaban a
 `/informes` —`PUT informes/nivelaciones-del-grupo`, la sección A del acta; `PUT
 ausencias/de-alumno`, la citación; y `GET informes/membrete`, lo que hace falta para firmar un

@@ -67,8 +67,11 @@
 > GET  informes/membrete                 lo que hace falta para firmar un papel
 > ```
 >
-> **Router en 647**, contado en `.worktrees/inf`. **SIN FUNDIR: hay que recontarlas en el ÁRBOL
-> PRINCIPAL el día que entren.** Ninguna es pública: `RutasPreLoginTest` no se mueve.
+> **Router en 647**, **recontadas en el ÁRBOL PRINCIPAL sobre `main` y después de fundir**
+> (`fdecea7`, 20 sep 2026) — y coincidieron con las 647 contadas antes en `.worktrees/inf`, que es
+> la única forma de saber que coincidía. Esta línea decía *«SIN FUNDIR: hay que recontarlas en el
+> ÁRBOL PRINCIPAL el día que entren»* y **aquél fue ese día**. Ninguna es pública:
+> `RutasPreLoginTest` no se mueve.
 >
 > Más, sin gastar ruta: `alumno_id` en los alumnos de un acudiente; las tres columnas del acta en
 > la consulta de recuperaciones; `years.titulo_constancia_estudio` (6 instantáneas); y el
@@ -145,8 +148,9 @@
 >
 > **La casilla que había aquí era un traspaso: `8myvc-6f` se quedó sin ventana con dos
 > decisiones suyas recién dadas y sin escribir.** Las dos están hechas, en la misma rama
-> `feat/el-proceso-de-matriculas` de `.worktrees/mat`. Lo que sigue **sin fundir** es todo,
-> incluido esto.
+> `feat/el-proceso-de-matriculas` de `.worktrees/mat`. **FUNDIDO el 20 sep 2026** (`74d5028`);
+> la rama y su worktree ya no existen. Esta línea decía *«lo que sigue sin fundir es todo,
+> incluido esto»*, y dejó de ser cierta el día que entró.
 >
 > ### 1 · ✅ EL COORDINADOR ACADÉMICO ADMITE
 >
@@ -218,9 +222,10 @@
 > ninguna** — la 13 no es la excepción: se retiró (casilla de arriba), no se aplazó. Contrato y
 > porqués en [47](47-el-portal-de-la-familia.md).
 >
-> **Router en 644** contado con `route:list --json` en `.worktrees/mat`. **SIN FUNDIR: hay
-> que recontarlas en el ÁRBOL PRINCIPAL el día que entren** — la frase que lleva salvando
-> este número las últimas seis veces.
+> **Router en 644**, **recontadas con `route:list --json` en el ÁRBOL PRINCIPAL sobre `main` y
+> después de fundir** (`74d5028`) — y coincidieron con las 644 contadas antes en `.worktrees/mat`.
+> Esta línea decía *«SIN FUNDIR: hay que recontarlas en el ÁRBOL PRINCIPAL el día que entren»* y
+> **aquél fue ese día**: la séptima vez seguida que esa frase salva el número.
 >
 > ```
 > GET  estaciones/tablero                    el tablero del día (pantalla 15)
@@ -1690,10 +1695,14 @@
 
 > ## ✅ LA PARCIAL Y LA COBERTURA — FASE 1 DEL 43, **FUNDIDA** (20 sep 2026)
 >
-> **Rama `feat/la-parcial-y-la-cobertura`, en `.worktrees/f1`, base `simonbolivar_testing_f1`.
-> NO está en `main`: mientras esta línea diga «sin fundir», el árbol principal no tiene nada de
-> esto y `calcular()` sigue devolviendo dos números.** El día que entre, se sustituye esta
-> casilla — no se deja envejecer.
+> **Rama `feat/la-parcial-y-la-cobertura`, escrita en `.worktrees/f1` con base
+> `simonbolivar_testing_f1`; la rama y su worktree ya no existen.** Esta línea decía *«NO está en
+> `main`: mientras esta línea diga «sin fundir», el árbol principal no tiene nada de esto y
+> `calcular()` sigue devolviendo dos números»*, **y era falsa**: el encabezado se actualizó a
+> FUNDIDA y el párrafo de dentro no, así que la casilla se contradecía consigo misma. Comprobado
+> en el código y no en el documento — `calcular()` devuelve `parcial` y `cobertura` en las líneas
+> 527-528, y `LaParcialYLaCoberturaTest` existe. *Una condición de caducidad sólo protege si se
+> descarga entera: media casilla al día es una casilla que miente.*
 >
 > `App\Services\DefinitivasDeAsignatura::calcular()` devuelve además, por alumno, **`parcial`**
 > (Σ aporte ÷ Σ peso **de lo calificado**) y **`cobertura`** (Σ peso calificado ÷ Σ peso total), y
