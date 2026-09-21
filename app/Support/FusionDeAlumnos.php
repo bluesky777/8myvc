@@ -208,9 +208,9 @@ class FusionDeAlumnos
              * el `forcedelete` de al lado no deja ni eso.
              */
             DB::table('alumnos')->where('id', $origen)->update([
-                'deleted_at' => now(),
+                'deleted_at' => Reloj::ahora(),
                 'deleted_by' => $quien,
-                'updated_at' => now(),
+                'updated_at' => Reloj::ahora(),
             ]);
         });
 
@@ -325,7 +325,7 @@ class FusionDeAlumnos
         // El superviviente no tenía cuenta: se queda con la del otro y el chico entra igual.
         if ($fichaDestino->user_id === null) {
             DB::table('alumnos')->where('id', $destino)->update([
-                'user_id' => $fichaOrigen->user_id, 'updated_at' => now(), 'updated_by' => $quien,
+                'user_id' => $fichaOrigen->user_id, 'updated_at' => Reloj::ahora(), 'updated_by' => $quien,
             ]);
             DB::table('alumnos')->where('id', $origen)->update(['user_id' => null]);
 
@@ -338,7 +338,7 @@ class FusionDeAlumnos
          * cierra la puerta y conserva el rastro. Ver el mapa de lo que cuelga de `users`.
          */
         DB::table('users')->where('id', $fichaOrigen->user_id)->update([
-            'is_active' => 0, 'updated_at' => now(), 'updated_by' => $quien,
+            'is_active' => 0, 'updated_at' => Reloj::ahora(), 'updated_by' => $quien,
         ]);
     }
 

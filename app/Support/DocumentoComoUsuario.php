@@ -328,7 +328,7 @@ class DocumentoComoUsuario
             "UPDATE users SET username = CASE id$casos END,
                     updated_at = ?, updated_by = ?
              WHERE id IN ($huecos)",
-            array_merge($valores, [now(), $quien], $ids)
+            array_merge($valores, [Reloj::ahora(), $quien], $ids)
         );
     }
 }

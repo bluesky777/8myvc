@@ -114,7 +114,7 @@ class NotasAlCambiarDeGrupo
 
                 if ($f->nota_destino_id !== null) {
                     DB::table('notas_finales')->where('id', $f->nota_destino_id)->update([
-                        'nota' => $f->nota, 'manual' => 1, 'updated_by' => $quien, 'updated_at' => now(),
+                        'nota' => $f->nota, 'manual' => 1, 'updated_by' => $quien, 'updated_at' => Reloj::ahora(),
                     ]);
                     $pisadas++;
 
@@ -129,8 +129,8 @@ class NotasAlCambiarDeGrupo
                     'nota'          => $f->nota,
                     'manual'        => 1,
                     'updated_by'    => $quien,
-                    'created_at'    => now(),
-                    'updated_at'    => now(),
+                    'created_at'    => Reloj::ahora(),
+                    'updated_at'    => Reloj::ahora(),
                 ]);
                 $creadas++;
             }
