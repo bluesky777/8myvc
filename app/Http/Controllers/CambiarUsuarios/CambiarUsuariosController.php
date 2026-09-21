@@ -11,6 +11,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Support\Autoriza;
 use App\Support\ClaveNueva;
+use App\Support\DocumentoComoUsuario;
 
 
 class CambiarUsuariosController extends Controller {
@@ -150,5 +151,97 @@ class CambiarUsuariosController extends Controller {
 	}
 
 
-	
+	/* ── El documento como nombre de usuario, sabiendo a quién le toca ──────────────────── */
+
+	/*
+	 * QUÉ PASARÍA. No escribe nada.
+	 *
+	 * Existe porque la pantalla tenía que enseñar el desglose ANTES de que nadie
+	 * pulse: en el grupo 113 del docker son 7 alumnos, pero 1 no tiene documento y
+	 * 3 ya lo tienen puesto, así que el trabajo real son 3 cuentas. Con las dos
+	 * rutas viejas eso no se podía saber ni antes ni después —responden siempre
+	 * `{resultado: 'Usernames cambiados.'}`—, y el secretario disparaba a ciegas
+	 * sobre 1.280 cuentas. Ver App\Support\DocumentoComoUsuario.
+	 */
+	public function putRevisarDocumentoComoUsername()
+	{
+		[$destino, $grupoId] = $this->destinoYGrupo();
+
+		return DocumentoComoUsuario::revisar($destino, $grupoId);
+	}
+
+
+	/*
+	 * Y LO HACE.
+	 *
+	 * Las dos rutas viejas se quedan donde están: las llama el front que todavía no
+	 * ha migrado, y su respuesta está fijada en `OperacionesMasivasTest` con un
+	 * `assertExactJson`. Ésta es otra ruta, con otro contrato, y por eso puede
+	 * devolver el recuento que aquéllas no pueden.
+	 */
+	public function putDocumentoComoUsername()
+	{
+		[$destino, $grupoId] = $this->destinoYGrupo();
+
+		return DocumentoComoUsuario::aplicar($destino, $grupoId, $this->user->user_id ?? null);
+	}
+
+
+	/*
+	 * El cuerpo de las dos, con su guard. Una sola copia porque un permiso que se
+	 * escribe dos veces se corrige una.
+	 *
+	 * **LOS PROFESORES NO SON DE `esAdministrativo`, y es deliberado.** El criterio
+	 * de las cuatro rutas viejas viene de una frase de Joseth del 21 ago 2026 citada
+	 * arriba: «puede cambiarle la contraseña/username a los ALUMNOS Y ACUDIENTES
+	 * solamente». Los profesores no estaban en esa lista, y la regla de la casa —la
+	 * que dejó escrita `Autoriza`— es que **crear un permiso no puede regalar lo que
+	 * nadie pidió**. Así que el destino nuevo se ancla a superusuario, que es donde
+	 * ya está todo lo demás que toca cuentas de profesor.
+	 *
+	 * @return array{0: string, 1: int|null}
+	 */
+	private function destinoYGrupo(): array
+	{
+		$destino = Request::input('destino');
+
+		if (! is_string($destino) || ! in_array($destino, DocumentoComoUsuario::DESTINOS, true)) {
+			abort(422, 'El destino tiene que ser alumnos, acudientes o profesores.');
+		}
+
+		if ($destino === 'profesores') {
+			Autoriza::exigir(Autoriza::esSuperusuario($this->user),
+				'Solo un superusuario puede cambiar las cuentas de los profesores.');
+		} else {
+			Autoriza::exigir(Autoriza::esAdministrativo($this->user),
+				'Solo un administrativo puede cambiar las cuentas de todo el colegio.');
+		}
+
+		$grupoId = Request::input('grupo_id');
+
+		if ($grupoId === null || $grupoId === '') {
+			return [$destino, null];
+		}
+
+		// El ámbito de grupo es de alumnos y acudientes. Un `grupo_id` con destino
+		// `profesores` no se ignora en silencio: quien lo manda cree estar acotando
+		// la operación a un grupo, y la operación sería del colegio entero.
+		if ($destino === 'profesores') {
+			abort(422, 'Los profesores se cambian en todo el colegio; no admiten grupo.');
+		}
+
+		if (! is_numeric($grupoId) || (int) $grupoId <= 0) {
+			abort(422, 'El grupo no es válido.');
+		}
+
+		$existe = DB::selectOne('SELECT id FROM grupos WHERE id = ? AND deleted_at IS NULL', [(int) $grupoId]);
+
+		if ($existe === null) {
+			abort(404, 'Ese grupo no existe.');
+		}
+
+		return [$destino, (int) $grupoId];
+	}
+
+
 }

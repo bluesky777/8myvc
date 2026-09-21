@@ -12,6 +12,8 @@ use Carbon\Carbon;
 use App\Events\MatriculasEvent;
 use \Log;
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
+use App\Support\Autoriza;
+use App\Support\NotasAlCambiarDeGrupo;
 
 
 class MatriculasController extends Controller {
@@ -259,6 +261,51 @@ class MatriculasController extends Controller {
 
 	}
 
+
+
+	/* ── Las notas que se quedan atrás al cambiar de grupo ───────────────────────────────── */
+
+	/*
+	 * QUÉ NOTAS TIENE EN EL GRUPO VIEJO. No escribe.
+	 *
+	 * Mover a un chico de 4A a 4B no toca ninguna nota, pero el boletín se arma desde el grupo:
+	 * las definitivas de 4A cuelgan de las asignaturas de 4A, así que el boletín de 4B sale con
+	 * esas materias EN BLANCO y nadie se entera hasta que se imprime. Esto se pregunta justo
+	 * después del cambio para poder ofrecer traerlas.
+	 *
+	 * Ver App\Support\NotasAlCambiarDeGrupo.
+	 */
+	public function putRevisarNotasDelGrupoAnterior()
+	{
+		return NotasAlCambiarDeGrupo::revisar(
+			(int) Request::input('alumno_id'),
+			(int) Request::input('grupo_origen'),
+			(int) Request::input('grupo_destino'),
+		);
+	}
+
+
+	/*
+	 * Y las trae. Sólo las definitivas, pareadas por `materia_id`.
+	 *
+	 * **El mismo permiso que calificar**, no el de matricular: esto escribe notas. Quien mueve al
+	 * alumno de grupo puede no ser quien puede tocarle el boletín.
+	 */
+	public function putTraerNotasDelGrupoAnterior()
+	{
+		Autoriza::exigir(Autoriza::esAdministrativo($this->user),
+			'Solo un administrativo puede traer las notas del grupo anterior.');
+
+		$periodos = Request::input('periodos', []);
+
+		return NotasAlCambiarDeGrupo::traer(
+			(int) Request::input('alumno_id'),
+			(int) Request::input('grupo_origen'),
+			(int) Request::input('grupo_destino'),
+			is_array($periodos) ? array_map('intval', $periodos) : [],
+			$this->user->user_id ?? null,
+		);
+	}
 
 
 	public function putAlumnosConGradoAnterior()

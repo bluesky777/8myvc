@@ -13,6 +13,9 @@ use App\Models\Periodo;
 use App\Models\Role;
 use App\Models\Unidad;
 use App\Models\Year;
+use App\Support\AlumnosParecidos;
+use App\Support\DuplicadosDeAlumnos;
+use App\Support\FusionDeAlumnos;
 use App\Support\Autoriza;
 use App\Support\CamposQueVinieron;
 use App\Support\CorreoDeLaCuenta;
@@ -1150,6 +1153,79 @@ class AlumnosController extends Controller
          * (35 en el docker local) y buscando por nombres no. */
         return ['('.implode(' and ', $condiciones).')', $valores];
     }
+
+    /**
+     * ¿Este alumno ya existe? Con lo necesario para decidirlo.
+     *
+     * Los dos que ya había —`personas-check` y `documento-check`— devuelven cuatro campos, y
+     * con cuatro campos la pantalla de alta sólo podía pintar un aviso amarillo. Éste devuelve
+     * de qué año viene cada candidato, en qué grupo estuvo, cómo acabó y cuántas definitivas
+     * trae, que es lo que hace falta para pulsar «es éste» en vez de crear la ficha otra vez.
+     *
+     * No se tocan los dos viejos: los llama el front sin migrar y la app de Flutter.
+     * Ver App\Support\AlumnosParecidos.
+     */
+    /**
+     * Las fichas que parecen la misma persona. No escribe.
+     *
+     * Es la pantalla de arreglo: hasta hoy, dos fichas del mismo chico sólo se podían resolver
+     * borrando una con `forcedelete` y perdiendo su expediente. Ver App\Support\DuplicadosDeAlumnos.
+     */
+    public function putDuplicados()
+    {
+        Autoriza::exigir(Autoriza::esAdministrativo($this->user),
+            'Solo un administrativo puede revisar los alumnos duplicados.');
+
+        return DuplicadosDeAlumnos::listar();
+    }
+
+
+    /** Qué pasaría al unir dos fichas. NO escribe: es lo que se mira antes de decidir. */
+    public function putRevisarFusion()
+    {
+        Autoriza::exigir(Autoriza::esAdministrativo($this->user),
+            'Solo un administrativo puede unir fichas de alumnos.');
+
+        return FusionDeAlumnos::revisar(
+            (int) Request::input('origen_id'),
+            (int) Request::input('destino_id'),
+        );
+    }
+
+
+    /**
+     * Y las une.
+     *
+     * **`esSuperusuario`, un escalón por encima de mirar.** Mover el expediente de un alumno a
+     * otra ficha y mandar la primera a la papelera no se deshace solo, y el propio repo lo dejó
+     * escrito: «fusionar dos expedientes mal es de lo poco aquí que no se deshace con un DELETE»
+     * (`EnsayoDeLaImportacion.php:457`). Revisar lo puede hacer la secretaría; ejecutarlo, no.
+     */
+    public function putFusionar()
+    {
+        Autoriza::exigir(Autoriza::esSuperusuario($this->user),
+            'Solo un superusuario puede unir dos fichas de alumno.');
+
+        $decisiones = Request::input('decisiones', []);
+
+        return FusionDeAlumnos::fusionar(
+            (int) Request::input('origen_id'),
+            (int) Request::input('destino_id'),
+            is_array($decisiones) ? $decisiones : [],
+            $this->user->user_id ?? null,
+        );
+    }
+
+
+    public function putAlumnosParecidos()
+    {
+        return AlumnosParecidos::buscar(
+            Request::input('nombres'),
+            Request::input('apellidos'),
+            Request::input('documento'),
+        );
+    }
+
 
     public function putPersonasCheck()
     {

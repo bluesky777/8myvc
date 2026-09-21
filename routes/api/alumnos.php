@@ -50,6 +50,15 @@ Route::put('alumnos/documento-check', [AlumnosController::class, 'putDocumentoCh
 Route::put('alumnos/eps-check', [AlumnosController::class, 'putEpsCheck']);
 Route::put('alumnos/guardar-valor', [AlumnosController::class, 'putGuardarValor']);
 Route::put('alumnos/guardar-valor-varios', [AlumnosController::class, 'putGuardarValorVarios']);
+// `alumnos-parecidos` es el tercer buscador de duplicados y el único que devuelve CONTEXTO
+// —año, grupo, estado, definitivas—. Los dos de abajo se quedan: los llama el front sin migrar
+// y Flutter. Ver App\Support\AlumnosParecidos.
+// Los duplicados y su arreglo. `revisar-fusion` sólo mira; `fusionar` mueve el expediente
+// entero y manda la ficha vacía a la papelera, y por eso pide superusuario y no administrativo.
+Route::put('alumnos/duplicados', [AlumnosController::class, 'putDuplicados'])->middleware('auth.personal');
+Route::put('alumnos/revisar-fusion', [AlumnosController::class, 'putRevisarFusion'])->middleware('auth.personal');
+Route::put('alumnos/fusionar', [AlumnosController::class, 'putFusionar'])->middleware('auth.personal');
+Route::put('alumnos/alumnos-parecidos', [AlumnosController::class, 'putAlumnosParecidos'])->middleware('auth.personal');
 Route::put('alumnos/personas-check', [AlumnosController::class, 'putPersonasCheck'])->middleware('auth.personal');
 Route::put('alumnos/show', [AlumnosController::class, 'putShow']);
 Route::get('alumnos/sin-matriculas', [AlumnosController::class, 'getSinMatriculas'])->middleware('auth.personal');
@@ -144,6 +153,10 @@ Route::put('buscar/por-nombre', [BuscarController::class, 'putPorNombre'])->midd
 
 // MatriculasController
 // Su gemela de `prematriculas`, cuatro líneas más abajo, sí lo llevaba.
+// Las notas que se quedan colgadas del grupo viejo cuando un alumno pasa de 4A a 4B. La
+// primera sólo mira; la segunda escribe definitivas y por eso pide administrativo.
+Route::put('matriculas/revisar-notas-del-grupo-anterior', [MatriculasController::class, 'putRevisarNotasDelGrupoAnterior'])->middleware('auth.personal');
+Route::put('matriculas/traer-notas-del-grupo-anterior', [MatriculasController::class, 'putTraerNotasDelGrupoAnterior'])->middleware('auth.personal');
 Route::put('matriculas/alumnos-con-grado-anterior', [MatriculasController::class, 'putAlumnosConGradoAnterior'])->middleware('auth.personal');
 // La cuarta hermana, y la única sin guard: `matriculas/alumnos-con-grado-anterior`
 // y las dos de `prematriculas` lo llevan desde siempre. Devuelve el grupo entero

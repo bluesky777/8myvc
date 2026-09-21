@@ -30,6 +30,13 @@ Route::put('users/mi-docente', [UsersController::class, 'putMiDocente'])->middle
 Route::put('users/usernames-check', [UsersController::class, 'putUsernamesCheck'])->middleware('auth.personal');
 
 // CambiarUsuariosController
+// Las dos de abajo son las viejas: sin cuerpo, de colegio entero y con una respuesta
+// fija que no dice cuántas cuentas tocó. Se quedan porque las llama el front que aún no
+// ha migrado y porque `OperacionesMasivasTest` fija su JSON exacto. Lo nuevo va por
+// `documento-como-username`, que acepta destino (alumnos/acudientes/profesores), un
+// `grupo_id` opcional, y devuelve el desglose — con `revisar-…` para verlo sin escribir.
+Route::put('cambiar-usuarios/revisar-documento-como-username', [CambiarUsuariosController::class, 'putRevisarDocumentoComoUsername'])->middleware('auth.personal');
+Route::put('cambiar-usuarios/documento-como-username', [CambiarUsuariosController::class, 'putDocumentoComoUsername'])->middleware('auth.personal');
 Route::put('cambiar-usuarios/poner-documento-como-username-acudientes', [CambiarUsuariosController::class, 'putPonerDocumentoComoUsernameAcudientes'])->middleware('auth.personal');
 Route::put('cambiar-usuarios/poner-documento-como-username-alumnos', [CambiarUsuariosController::class, 'putPonerDocumentoComoUsernameAlumnos'])->middleware('auth.personal');
 Route::put('cambiar-usuarios/poner-password-todos-acudientes', [CambiarUsuariosController::class, 'putPonerPasswordTodosAcudientes'])->middleware('auth.personal');
