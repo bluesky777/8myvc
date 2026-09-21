@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\Grupo;
 use App\Support\EscalaDeNotas;
+use App\Support\ParecidoDeNombres;
 use App\Support\RepartoDeLaNota;
 use Illuminate\Support\Facades\DB;
 
@@ -159,8 +161,16 @@ class EnsayoDeLaPlanilla
     /** @var list<array<string, mixed>> F9. */
     private array $reserva = [];
 
-    /** @var list<array{hoja:string, descripcion:string}> F6 — avisos, fase 3. */
-    private array $avisosDeFilas = [];
+    /**
+     * F6 — las filas que no se reconocen.
+     *
+     * **La única familia de todo el ensayo cuya llave es la fila**, y lo es porque
+     * cada fila es una persona distinta: agrupar por valor —que es lo que salva las
+     * demás pantallas— aquí sería preguntar por dos personas a la vez.
+     *
+     * @var list<array<string, mixed>>
+     */
+    private array $filas = [];
 
     /** @var list<array{hoja:string, descripcion:string}> F8 — avisos, fase 4. */
     private array $avisosDeAusencias = [];
@@ -250,7 +260,18 @@ class EnsayoDeLaPlanilla
             }
         }
 
-        foreach (array_merge($this->avisosDeFilas, $this->avisosDeAusencias) as $aviso) {
+        foreach ($this->filas as $fila) {
+            // La que se resolvió no se cuenta: sus notas entraron, y un aviso que
+            // dice «esta fila no se importa» detrás de una fila que sí se importó es
+            // peor que no decir nada.
+            if (($fila['resuelta'] ?? false) === true) {
+                continue;
+            }
+
+            $avisos[] = '«'.$fila['hoja'].'»: '.$fila['titulo'].'. '.$fila['si_no_hago_nada'];
+        }
+
+        foreach ($this->avisosDeAusencias as $aviso) {
             $avisos[] = '«'.$aviso['hoja'].'»: '.$aviso['descripcion'];
         }
 
@@ -570,14 +591,28 @@ class EnsayoDeLaPlanilla
         $nuevas = $this->columnasQueCrear($nombre, $mapa, $unidades, $vivas, $modo);
 
         $filas = is_array($mapa['filas'] ?? null) ? $mapa['filas'] : [];
-        $alumnos = array_map('intval', array_values($filas));
+        $deLaRejilla = array_map('intval', array_values($filas));
 
         $matriculados = $this->matriculados((int) $asignatura->grupo_id);
+
+        // **La F6 va ANTES de leer las notas de hoy**, y no por orden estético: una
+        // fila escrita a mano puede resolverse en un alumno que **no está en la
+        // rejilla** —se matriculó después de la descarga y el docente lo apuntó
+        // abajo—, y ése no saldría en `notasDeHoy` si la consulta se hiciera con la
+        // lista del mapa. Sin su nota de hoy no hay con qué comparar, y la D3 diría
+        // «no ha cambiado» de una casilla que sí cambió.
+        $resueltas = $this->estudiarLasFilas($nombre, $mapa, $filas, $deLaRejilla, $matriculados,
+            $asignatura, $cuentas);
+
+        $this->avisarDeLasAusencias($nombre, $mapa, $asignaturaId, $periodoId, $deLaRejilla);
+
+        $alumnos = array_values(array_unique(array_merge(
+            $deLaRejilla,
+            array_map(static fn (array $r) => $r['alumno_id'], $resueltas)
+        )));
+
         $notas = $this->notasDeHoy($asignaturaId, $periodoId, $alumnos);
         $nombres = $this->nombresDe($alumnos);
-
-        $this->avisarDeLasFilas($nombre, $alumnos, $matriculados, $nombres, $filas, $cuentas);
-        $this->avisarDeLasAusencias($nombre, $mapa, $asignaturaId, $periodoId, $alumnos);
 
         $delPlan = [
             'hoja' => $nombre, 'asignatura_id' => $asignaturaId, 'asignatura' => $ficha['asignatura'],
@@ -630,6 +665,39 @@ class EnsayoDeLaPlanilla
             }
         }
 
+        // ── Las filas escritas a mano que el docente resolvió (F6) ───────────
+        //
+        // Van **después** de la rejilla y con su `indice` calculado del mapa y no
+        // del bucle, para que reanudar una importación cortada apunte siempre a la
+        // misma fila: si se contaran con el contador del bucle, un recorte por
+        // tiempo movería el índice de estas tres y la siguiente petición reescribiría
+        // o se saltaría una.
+        //
+        // Y si el ensayo ya se recortó, no se tocan: entran enteras en la siguiente.
+        if (! $this->recortado) {
+            foreach ($resueltas as $resuelta) {
+                if ($this->punto?->yaProcesada($nombre, $resuelta['indice'])) {
+                    $this->filasYaHechas++;
+
+                    continue;
+                }
+
+                $celdas = $this->estudiarFila(
+                    $nombre, $resuelta['fila'], $resuelta['alumno_id'], $columnas, $nuevas, $notas,
+                    $mapa, $cuentas, $yearId, $nombres, $ficha['asignatura'], $resuelta['fila']
+                );
+
+                $this->filasEstudiadas++;
+
+                if ($celdas !== []) {
+                    $delPlan['filas'][] = [
+                        'indice' => $resuelta['indice'], 'fila' => $resuelta['fila'],
+                        'alumno_id' => $resuelta['alumno_id'], 'celdas' => $celdas,
+                    ];
+                }
+            }
+        }
+
         $ficha['fuera'] = false;
         $this->pares[$asignaturaId.':'.$periodoId] = true;
 
@@ -645,11 +713,14 @@ class EnsayoDeLaPlanilla
      * @param  array<string, mixed>  $mapa
      * @param  array<string, int>  $cuentas
      * @param  array<int, string>  $nombres
+     * @param  ?int  $filaAMano  la fila del bloque del final si esto es una fila
+     *                           escrita a mano y resuelta (F6); `null` en la rejilla
      * @return list<array<string, mixed>>
      */
     private function estudiarFila(
         string $hoja, int $fila, int $alumnoId, array $columnas, array $nuevas,
-        array $notas, array $mapa, array &$cuentas, int $yearId, array $nombres, ?string $asignatura
+        array $notas, array $mapa, array &$cuentas, int $yearId, array $nombres, ?string $asignatura,
+        ?int $filaAMano = null
     ): array {
         $aEscribir = [];
 
@@ -688,13 +759,25 @@ class EnsayoDeLaPlanilla
                 continue;
             }
 
-            $espejo = $this->lector->firmaValida
+            // **Una fila escrita a mano NO TIENE ESPEJO, y eso es lo que hace que
+            // resolverla no pise notas en silencio.** Al descargar el libro esa
+            // casilla estaba vacía —el bloque del final nace en blanco—, así que su
+            // espejo es `null` aunque el alumno que se eligió sí tenga espejo en su
+            // fila de la rejilla.
+            //
+            // La consecuencia es justo la que pide el plan: si el alumno **ya tiene
+            // nota** en esa casilla, `base !== espejo` y la celda entra por el camino
+            // de los choques (F7) —donde por defecto manda el sistema y la pantalla
+            // la enseña—, en vez de escribirse por un atajo. Y si la casilla estaba
+            // sin calificar, `base` y `espejo` son los dos `null` y se escribe sin
+            // molestar a nadie, que es el caso normal.
+            $espejo = $this->lector->firmaValida && $filaAMano === null
                 ? $this->delEspejo($mapa, $alumnoId, (int) $columna['subunidad_id'])
                 : null;
 
             $resultado = $this->decidirLaCelda(
                 $hoja, $fila, $letra, $alumnoId, $subunidadId, $columna, $leido,
-                $espejo, $base, $actual, $yearId, $nombres, $cuentas, $asignatura
+                $espejo, $base, $actual, $yearId, $nombres, $cuentas, $asignatura, $filaAMano
             );
 
             if ($resultado !== null) {
@@ -727,7 +810,7 @@ class EnsayoDeLaPlanilla
                 $hoja, $fila, $nueva['columna'], $alumnoId, 0,
                 ['entra' => true, 'destino' => 0, 'subunidad_id' => 0, 'reserva' => $nueva['columna'],
                     'indicador' => $nueva['nombre']],
-                $leido, null, null, null, $yearId, $nombres, $cuentas, $asignatura
+                $leido, null, null, null, $yearId, $nombres, $cuentas, $asignatura, $filaAMano
             );
 
             if ($resultado !== null) {
@@ -755,7 +838,7 @@ class EnsayoDeLaPlanilla
     private function decidirLaCelda(
         string $hoja, int $fila, string $letra, int $alumnoId, int $subunidadId, array $columna,
         array $leido, ?int $espejo, ?int $base, ?object $actual, int $yearId, array $nombres,
-        array &$cuentas, ?string $asignatura
+        array &$cuentas, ?string $asignatura, ?int $filaAMano = null
     ): ?array {
         // **D9, la mitad que más data salva: una casilla vacía no borra.** Significa
         // «no la toques», y sin esto un docente que sólo llenó un Logro borraría todo
@@ -857,7 +940,7 @@ class EnsayoDeLaPlanilla
         // distintos. Por defecto manda el sistema, que es «lo seguro»: si alguien lo
         // tocó después de la descarga, lo tocó sabiendo lo que hacía.
         if ($cambioEnSistema) {
-            $id = $this->idDelChoque($hoja, $alumnoId, $subunidadId);
+            $id = $this->idDelChoque($hoja, $alumnoId, $subunidadId, $filaAMano);
             $decision = $this->respuestas->queHacerConElChoque($id);
 
             $this->choques[] = [
@@ -1091,82 +1174,577 @@ class EnsayoDeLaPlanilla
         return $crear;
     }
 
-    // ── Los dos avisos: las filas (F6) y las ausencias (F8) ──────────────────
+    // ── Las filas que no se reconocen (F6) y las ausencias (F8) ──────────────
 
     /**
-     * F6, la mitad que sí se contesta en esta fase.
+     * F6: las tres formas en que una fila del libro y una persona dejan de casar.
      *
-     * **No son decisiones del docente** —no se le pregunta nada— sino dos avisos que
-     * le dicen a quién le falta pasar la nota y por qué una fila no entró:
+     * **Son tres casos distintos y se contestan distinto**, que es lo que el §6.4
+     * del plan subraya y lo que esta función existe para no mezclar:
      *
-     * - quién **se retiró** después de la descarga (su fila no se importa),
-     * - quién **entró después** (no tiene casillas en la hoja),
-     * - y qué escribió en las tres filas de «alumnos que no aparecen en la lista».
+     * | Tipo | Qué pasó | Se pregunta |
+     * |---|---|---|
+     * | `escrita_a_mano` | El docente escribió un nombre en el bloque del final | **Sí**: se busca un parecido en el grupo y decide él |
+     * | `ya_no_esta_en_el_grupo` | El `ID` estaba al descargar y hoy no | **No.** Se informa con el motivo y la fecha, y sus notas se quedan fuera |
+     * | `entro_despues` | Está en el grupo y no en el archivo | **No.** Es un aviso: sus casillas se quedan vacías |
      *
-     * El emparejamiento por nombre de esas tres filas —la tarjeta del §6.4 con la
-     * foto y el buscador del grupo— **es la fase 3**, y aquí se dice con esas
-     * palabras en vez de callarlo: el libro tiene esas filas y el docente las va a
-     * usar.
+     * ## La regla del encargo, que es la que manda sobre todo lo de abajo
      *
-     * @param  list<int>  $alumnos
-     * @param  array<int, string>  $matriculados
-     * @param  array<int, string>  $nombres
+     * > *«No debe crear el alumno, pero sí intentar encontrarlo en el grupo y
+     * > preguntarle si ese es, para proseguir.»*
+     *
+     * **Nunca se crea un alumno y nunca se fusionan dos.** Y se busca **dentro del
+     * grupo de esa hoja**, no en el colegio: escribir la nota de alguien que no está
+     * matriculado ahí sería corromper la planilla en silencio — un dato que parece
+     * bueno, que nadie revisa y que sale en un boletín. Por eso el buscador del
+     * front —el «No, es otro…»— hereda el mismo límite, y por eso la comprobación de
+     * *«este alumno está en este grupo»* se repite aquí aunque la pantalla ya la
+     * haya hecho: la decisión llega del cliente y no se cree.
+     *
+     * Si no hay ningún parecido, la respuesta **dice quién puede arreglarlo**. Un
+     * error que no ofrece salida obliga a llamar por teléfono, y aquí la salida
+     * existe y no es del docente: la matrícula es cosa de secretaría.
+     *
+     * @param  array<string, mixed>  $mapa
+     * @param  array<array-key, mixed>  $filas  el `filas` del mapa: fila → alumno
+     * @param  list<int>  $deLaRejilla
+     * @param  array<int, object>  $matriculados
+     * @param  array<string, int>  $cuentas
+     * @return list<array{fila:int, alumno_id:int, indice:int}> las que se resolvieron
+     */
+    private function estudiarLasFilas(string $hoja, array $mapa, array $filas, array $deLaRejilla,
+        array $matriculados, object $asignatura, array &$cuentas): array
+    {
+        $grupo = trim((string) ($asignatura->abrev ?: $asignatura->nombre_grupo));
+        $materia = trim((string) ($asignatura->alias ?: $asignatura->materia));
+
+        $this->lasQueYaNoEstan($hoja, $mapa, $filas, $matriculados, $grupo, $materia,
+            (int) $asignatura->grupo_id, (int) $asignatura->year_id, $cuentas);
+
+        $this->lasQueEntraronDespues($hoja, $deLaRejilla, $matriculados, $grupo, $materia);
+
+        return $this->lasEscritasAMano($hoja, $mapa, $filas, $matriculados, $grupo, $materia, $cuentas);
+    }
+
+    /**
+     * Caso (b): el `ID` que estaba al descargar y hoy no está en el grupo.
+     *
+     * **Aquí no se pregunta nada, y eso es una decisión de diseño y no una
+     * comodidad**: que un alumno se haya retirado o trasladado no es algo que el
+     * docente pueda contestar, y ofrecerle un botón sería pedirle que decida sobre
+     * una matrícula. Lo que sí hace falta es **el motivo y la fecha**, porque sin
+     * ellos el aviso se lee como un fallo del sistema: «sus cinco notas no entraron»
+     * a secas es indistinguible de una avería.
+     *
+     * @param  array<string, mixed>  $mapa
      * @param  array<array-key, mixed>  $filas
+     * @param  array<int, object>  $matriculados
      * @param  array<string, int>  $cuentas
      */
-    private function avisarDeLasFilas(string $hoja, array $alumnos, array $matriculados, array $nombres,
-        array $filas, array &$cuentas): void
+    private function lasQueYaNoEstan(string $hoja, array $mapa, array $filas, array $matriculados,
+        string $grupo, ?string $materia, int $grupoId, int $yearId, array &$cuentas): void
     {
-        $retirados = [];
+        $fuera = [];
 
-        foreach ($alumnos as $alumnoId) {
+        foreach ($filas as $fila => $alumno) {
+            $alumnoId = (int) $alumno;
+
             if (! isset($matriculados[$alumnoId])) {
-                $retirados[] = $nombres[$alumnoId] ?? ('alumno '.$alumnoId);
+                $fuera[$alumnoId] = (int) $fila;
             }
         }
 
-        if ($retirados !== []) {
-            $cuentas['filas_descartadas'] += count($retirados);
-            $this->totales['filas_descartadas'] += count($retirados);
-
-            $this->avisosDeFilas[] = [
-                'hoja' => $hoja,
-                'descripcion' => count($retirados).' alumno(s) de esta hoja ya no están matriculados en el '
-                    .'grupo, así que sus filas no se importan: '.implode(', ', $retirados).'.',
-            ];
+        if ($fuera === []) {
+            return;
         }
 
-        $nuevos = [];
+        $fichas = $this->fichasDe(array_keys($fuera));
+        $motivos = $this->porQueYaNoEstan($grupoId, $yearId, array_keys($fuera), $grupo);
 
-        foreach ($matriculados as $alumnoId => $quien) {
-            if (! in_array($alumnoId, $alumnos, true)) {
-                $nuevos[] = $quien;
+        foreach ($fuera as $alumnoId => $fila) {
+            $cuentas['filas_descartadas']++;
+            $this->totales['filas_descartadas']++;
+
+            $ficha = $fichas[$alumnoId] ?? null;
+            $nombre = $ficha->nombre ?? ('el alumno '.$alumnoId);
+            $cuantas = $this->notasEnLaFila($hoja, $mapa, $fila);
+
+            $this->filas[] = [
+                'id' => $this->idDeLaFila($hoja, $fila, 'ya_no_esta_en_el_grupo', (string) $alumnoId),
+                'hoja' => $hoja,
+                'asignatura' => $materia,
+                'grupo' => $grupo,
+                'fila' => $fila,
+                'tipo' => 'ya_no_esta_en_el_grupo',
+                'escrito' => null,
+                'notas_en_la_fila' => $cuantas,
+
+                // **No es decidible y por eso no lleva candidatos.** La pantalla lo
+                // pinta como aviso, no como tarjeta con botones.
+                'decidible' => false,
+                'resuelta' => false,
+                'titulo' => $nombre.' ya no está en '.$grupo,
+                'si_no_hago_nada' => ($cuantas === 0
+                    ? 'No pasa nada: esa fila no trae ninguna nota escrita.'
+                    : 'Sus '.$cuantas.' nota(s) del libro se quedan fuera.')
+                    .' No es una decisión suya: para que entren tendría que volver a estar matriculado '
+                    .'en '.$grupo.', y eso es cosa de secretaría.',
+                'alumno' => [
+                    'alumno_id' => $alumnoId,
+                    'nombre' => $ficha->nombre ?? null,
+                    'no_matricula' => $ficha->no_matricula ?? null,
+                    'foto' => $ficha->foto ?? null,
+                    'sexo' => $ficha->sexo ?? null,
+                    'motivo' => $motivos[$alumnoId] ?? 'Ya no está matriculado en '.$grupo.'.',
+                ],
+                'candidatos' => [],
+            ];
+        }
+    }
+
+    /**
+     * Caso (c): está en el grupo y no en el archivo — se matriculó después.
+     *
+     * **Aviso, no problema.** Sus casillas no existen en la hoja porque el libro se
+     * bajó antes de que llegara, así que no hay nada que importar ni nada que
+     * decidir; lo único que hace falta es **su nombre**, para que el docente sepa a
+     * quién le falta pasar la nota.
+     *
+     * Va **un renglón por persona** y no uno por hoja, aunque la pantalla los
+     * agrupe: cada renglón lleva su `alumno` con su foto, que es lo que deja
+     * enseñarlos como se enseña cualquier lista de personas en MyVc.
+     *
+     * Y `fila` va `null` — el único sitio de la familia donde eso pasa — porque
+     * **ese alumno no tiene fila en el libro**, que es exactamente el problema del
+     * que avisa. Es lo mismo que le ocurre a `estructura[].columna` en el renglón
+     * `indicador_nuevo`, y por el mismo motivo.
+     *
+     * @param  list<int>  $deLaRejilla
+     * @param  array<int, object>  $matriculados
+     */
+    private function lasQueEntraronDespues(string $hoja, array $deLaRejilla, array $matriculados,
+        string $grupo, ?string $materia): void
+    {
+        foreach ($matriculados as $alumnoId => $ficha) {
+            if (in_array($alumnoId, $deLaRejilla, true)) {
+                continue;
             }
-        }
 
-        if ($nuevos !== []) {
-            $this->avisosDeFilas[] = [
+            $this->filas[] = [
+                'id' => $this->idDeLaFila($hoja, 0, 'entro_despues', (string) $alumnoId),
                 'hoja' => $hoja,
-                'descripcion' => count($nuevos).' alumno(s) entraron al grupo después de que usted descargara '
-                    .'el libro, así que no tienen casillas en esta hoja y sus notas siguen sin pasar: '
-                    .implode(', ', $nuevos).'.',
+                'asignatura' => $materia,
+                'grupo' => $grupo,
+                'fila' => null,
+                'tipo' => 'entro_despues',
+                'escrito' => null,
+                'notas_en_la_fila' => 0,
+                'decidible' => false,
+                'resuelta' => false,
+                'titulo' => $ficha->nombre.' entró a '.$grupo.' después de que usted bajara el libro',
+                'si_no_hago_nada' => 'Nada. No tiene casillas en esta hoja, así que sus notas siguen sin '
+                    .'pasar: hay que ponérselas por la web, o bajar el libro otra vez y ahí ya saldrá.',
+                'alumno' => [
+                    'alumno_id' => $alumnoId,
+                    'nombre' => $ficha->nombre,
+                    'no_matricula' => $ficha->no_matricula,
+                    'foto' => $ficha->foto,
+                    'sexo' => $ficha->sexo,
+                    'motivo' => $ficha->desde === null
+                        ? 'Se matriculó después de que usted bajara el libro.'
+                        : 'Está '.$this->desdeCuando($ficha->desde).'.',
+                ],
+                'candidatos' => [],
             ];
         }
+    }
 
+    /**
+     * Caso (a): el nombre escrito a mano en el bloque del final. **La que sí se
+     * pregunta.**
+     *
+     * ## Qué hace útil a la tarjeta, que no es el buscador
+     *
+     * `ya_esta_en_la_hoja` no es un adorno. **El caso de verdad frecuente es que el
+     * alumno ya estuviera en la lista**: está como *Cárdenas*, el docente escribió
+     * *Cardenaz*, no se vio y lo apuntó abajo. Si la respuesta no dice que esa
+     * persona ya tiene notas en la fila 8, quien mira acepta y **pisa notas sin
+     * enterarse**. Por eso se mandan la fila y los valores que ya hay.
+     *
+     * Y la otra mitad de esa red está en {@see estudiarFila}: una fila escrita a
+     * mano no tiene espejo, así que una casilla que pisa una nota existente entra
+     * por el camino de los choques (F7) y no por un atajo. La tarjeta avisa antes;
+     * el choque para después.
+     *
+     * ## Y el «no hay nadie»
+     *
+     * Sin candidatos la fila **no se importa** y la frase dice **quién puede
+     * arreglarlo**: *si el alumno es nuevo, secretaría tiene que matricularlo
+     * primero*. No se crea a nadie, y no se deja a nadie sin salida.
+     *
+     * @param  array<string, mixed>  $mapa
+     * @param  array<array-key, mixed>  $filas
+     * @param  array<int, object>  $matriculados
+     * @param  array<string, int>  $cuentas
+     * @return list<array{fila:int, alumno_id:int, indice:int}>
+     */
+    private function lasEscritasAMano(string $hoja, array $mapa, array $filas, array $matriculados,
+        string $grupo, ?string $materia, array &$cuentas): array
+    {
         $escritas = $this->lector->filasDeAlumnosNuevos($hoja, $filas);
 
-        if ($escritas !== []) {
-            $cuentas['filas_descartadas'] += count($escritas);
-            $this->totales['filas_descartadas'] += count($escritas);
+        if ($escritas === []) {
+            return [];
+        }
 
-            $this->avisosDeFilas[] = [
+        // Cuentan como filas del libro: el docente escribió en ellas y el contador
+        // de avance que ve en la pantalla tiene que incluirlas, o al reanudar diría
+        // «voy por la 30 de 28».
+        $this->filasDelLibro += count($escritas);
+
+        $nombresDelGrupo = array_map(static fn (object $f) => $f->nombre, $matriculados);
+        $delMapa = array_map('intval', is_array($mapa['filas'] ?? null) ? $mapa['filas'] : []);
+
+        // **El índice sale de la fila, no de un contador.** `yaProcesada` es una
+        // marca de agua —«voy por la N»— así que los índices tienen que crecer en el
+        // orden en que se procesan y no moverse entre dos subidas del mismo fichero.
+        // Sumar el número de fila a la altura de la rejilla cumple las dos cosas:
+        // nunca choca con un índice de la rejilla (la fila del bloque va siempre por
+        // debajo) y no depende de cuáles de las tres filas estén escritas.
+        $altura = count($filas);
+
+        $resueltas = [];
+        $yaElegidos = [];
+
+        foreach ($escritas as $escrita) {
+            $fila = (int) $escrita['fila'];
+            $escrito = (string) $escrita['nombre'];
+            $id = $this->idDeLaFila($hoja, $fila, 'escrita_a_mano', $escrito);
+            $cuantas = $this->notasEnLaFila($hoja, $mapa, $fila);
+
+            $candidatos = [];
+
+            foreach (ParecidoDeNombres::mejores($escrito, $nombresDelGrupo) as $parecido) {
+                $alumnoId = (int) $parecido['clave'];
+                $ficha = $matriculados[$alumnoId];
+
+                $candidatos[] = [
+                    'alumno_id' => $alumnoId,
+                    'nombre' => $ficha->nombre,
+                    'no_matricula' => $ficha->no_matricula,
+                    'foto' => $ficha->foto,
+                    'sexo' => $ficha->sexo,
+                    'desde' => $ficha->desde === null ? null : $this->desdeCuando($ficha->desde),
+                    'parecido' => $parecido['parecido'],
+                    'ya_esta_en_la_hoja' => $this->dondeEstaYa($hoja, $mapa, $delMapa, $alumnoId),
+                ];
+            }
+
+            $decidido = $this->respuestas->queHacerConLaFila($id);
+            $elegido = null;
+
+            if ($decidido['decision'] === RespuestasDeLaPlanilla::FILA_ES) {
+                $alumnoId = (int) $decidido['alumno_id'];
+                $elegido = $this->comprobarAlQueSeEligio($hoja, $fila, $escrito, $alumnoId, $grupo,
+                    $matriculados, $yaElegidos);
+            }
+
+            if ($elegido !== null) {
+                $yaElegidos[$elegido] = $fila;
+                $resueltas[] = ['fila' => $fila, 'alumno_id' => $elegido, 'indice' => $altura + $fila];
+            } else {
+                $cuentas['filas_descartadas']++;
+                $this->totales['filas_descartadas']++;
+            }
+
+            $this->filas[] = [
+                'id' => $id,
                 'hoja' => $hoja,
-                'descripcion' => 'Escribió '.count($escritas).' nombre(s) en el bloque de «alumnos que no '
-                    .'aparecen en la lista» ('.implode(', ', array_column($escritas, 'nombre')).'). '
-                    .'Buscarlos en el grupo y preguntarle si son los correctos es la fase 3 de «notas sin '
-                    .'internet»; por ahora esas filas no se importan y no se crea a nadie.',
+                'asignatura' => $materia,
+                'grupo' => $grupo,
+                'fila' => $fila,
+                'tipo' => 'escrita_a_mano',
+                'escrito' => $escrito,
+                'notas_en_la_fila' => $cuantas,
+
+                // **Decidible sólo si hay a quién elegir.** Una tarjeta con botones y
+                // sin candidatos es una pregunta sin respuestas posibles: lo que hay
+                // que enseñar ahí es el «no está, y esto es lo que se hace».
+                'decidible' => $candidatos !== [],
+                'resuelta' => $elegido !== null,
+                // **El título lleva dentro lo que escribió**, también cuando no hay
+                // nadie: esta misma frase se dice en voz alta después de importar
+                // (`avisos()`), y «no hay nadie con ese nombre» sin el nombre es un
+                // aviso que no se puede ni buscar en la hoja.
+                'titulo' => $candidatos === []
+                    ? '«'.$escrito.'» no está en '.$grupo
+                    : 'Fila '.$fila.': usted escribió «'.$escrito.'»',
+                'si_no_hago_nada' => $this->siNoHagoNadaConLaFila($candidatos, $cuantas, $grupo),
+                'alumno' => null,
+                'candidatos' => $candidatos,
             ];
         }
+
+        return $resueltas;
+    }
+
+    /**
+     * Que el alumno elegido se pueda escribir de verdad. **La decisión llega del
+     * cliente y no se cree.**
+     *
+     * Dos puertas, y las dos dan **bloqueo** —o sea 422 y no se escribe nada— y no
+     * un renglón que se ignora en silencio:
+     *
+     * 1. **No está matriculado en el grupo de esa hoja.** Puede ser un `alumno_id`
+     *    de otro grupo, de otro año o inventado. Escribirlo sería la corrupción
+     *    silenciosa que el §6.4 existe para evitar, y devolver la fila como «no
+     *    decidida» dejaría a la pantalla enseñando una pregunta que la persona ya
+     *    contestó.
+     * 2. **Dos filas dicen ser la misma persona.** Se escribirían las dos, una
+     *    encima de la otra, y ganaría la de abajo por el orden del bucle. Es un
+     *    error de quien decide y hay que devolvérselo, no repartirlo a suertes.
+     *
+     * @param  array<int, object>  $matriculados
+     * @param  array<int, int>  $yaElegidos  alumno → fila que ya lo eligió
+     */
+    private function comprobarAlQueSeEligio(string $hoja, int $fila, string $escrito, int $alumnoId,
+        string $grupo, array $matriculados, array $yaElegidos): ?int
+    {
+        if (! isset($matriculados[$alumnoId])) {
+            $this->bloqueos[] = [
+                'tipo' => 'fila_de_otro_grupo',
+                'hoja' => $hoja,
+                'motivo' => 'La fila '.$fila.' de «'.$hoja.'» («'.$escrito.'») se asignó a un alumno que no '
+                    .'está matriculado en '.$grupo.'. Sólo se puede elegir a alguien del grupo de esa hoja: '
+                    .'escribir la nota de un alumno de otro grupo dejaría la planilla mal sin dar ningún '
+                    .'error. Vuelva a abrir el paso de alumnos y elija a alguien de la lista.',
+            ];
+
+            return null;
+        }
+
+        if (isset($yaElegidos[$alumnoId])) {
+            $this->bloqueos[] = [
+                'tipo' => 'dos_filas_el_mismo_alumno',
+                'hoja' => $hoja,
+                'motivo' => 'Las filas '.$yaElegidos[$alumnoId].' y '.$fila.' de «'.$hoja.'» dicen ser la '
+                    .'misma persona ('.$matriculados[$alumnoId]->nombre.'). Una de las dos tiene que quedarse '
+                    .'fuera: si se escribieran las dos, la de abajo taparía a la de arriba y nadie sabría '
+                    .'cuál quedó.',
+            ];
+
+            return null;
+        }
+
+        return $alumnoId;
+    }
+
+    /**
+     * La frase de «qué pasa si no hago nada» de una fila escrita a mano.
+     *
+     * Las dos son distintas a propósito: la primera describe **una decisión que
+     * está pendiente** y la segunda **un camino cerrado con su salida al lado**.
+     * Dar la misma frase a las dos convertiría el segundo caso en un botón que no
+     * hace nada.
+     *
+     * @param  list<array<string, mixed>>  $candidatos
+     */
+    private function siNoHagoNadaConLaFila(array $candidatos, int $cuantas, string $grupo): string
+    {
+        $suyas = $cuantas === 0
+            ? 'Esa fila no trae ninguna nota escrita, así que no se pierde nada'
+            : 'Sus '.$cuantas.' nota(s) se quedan fuera';
+
+        if ($candidatos === []) {
+            return $suyas.'. No hay nadie con ese nombre en '.$grupo.', ni parecido, así que esa fila no se '
+                .'va a importar. Si es un alumno nuevo, secretaría tiene que matricularlo primero; '
+                .'cuando esté, baje el libro otra vez y aparecerá en la lista. Aquí no se crea a nadie.';
+        }
+
+        return 'Esa fila no se importa mientras no diga de quién es. '.$suyas.'.';
+    }
+
+    /**
+     * Dónde está ya ese alumno en la hoja, y con qué notas — o `null` si no está.
+     *
+     * **Es lo que hace útil la tarjeta.** Los valores salen del **archivo**, no de
+     * la base: la frase del §6.4 es *«sus notas en esta hoja»* y lo que hay que
+     * poder comparar de un vistazo es la fila de arriba con la que se escribió
+     * abajo. El guion largo marca la casilla vacía, igual que en el libro.
+     *
+     * @param  array<string, mixed>  $mapa
+     * @param  array<array-key, int>  $delMapa
+     * @return ?array{fila:int, notas:list<string>}
+     */
+    private function dondeEstaYa(string $hoja, array $mapa, array $delMapa, int $alumnoId): ?array
+    {
+        $fila = array_search($alumnoId, $delMapa, true);
+
+        if ($fila === false) {
+            return null;
+        }
+
+        $fila = (int) $fila;
+        $notas = [];
+
+        foreach (array_keys(is_array($mapa['columnas'] ?? null) ? $mapa['columnas'] : []) as $letra) {
+            $leido = $this->interpretar($this->lector->celda($hoja, (string) $letra.$fila));
+
+            $notas[] = $leido['tipo'] === 'vacia' ? '—' : $leido['texto'];
+        }
+
+        return ['fila' => $fila, 'notas' => $notas];
+    }
+
+    /**
+     * Cuántas casillas de nota trae escritas una fila, **contando las de reserva**.
+     *
+     * Las de reserva cuentan porque el docente escribió ahí y ahí hay trabajo suyo:
+     * decirle que su fila trae cuatro notas cuando trae cinco es la clase de número
+     * que hace desconfiar de todos los demás.
+     *
+     * @param  array<string, mixed>  $mapa
+     */
+    private function notasEnLaFila(string $hoja, array $mapa, int $fila): int
+    {
+        $letras = array_merge(
+            array_keys(is_array($mapa['columnas'] ?? null) ? $mapa['columnas'] : []),
+            array_keys(is_array($mapa['reservadas'] ?? null) ? $mapa['reservadas'] : [])
+        );
+
+        $cuantas = 0;
+
+        foreach ($letras as $letra) {
+            if ($this->interpretar($this->lector->celda($hoja, (string) $letra.$fila))['tipo'] !== 'vacia') {
+                $cuantas++;
+            }
+        }
+
+        return $cuantas;
+    }
+
+    /**
+     * El `id` de una fila de la F6: estable para el mismo archivo y opaco para el
+     * front.
+     *
+     * **Lleva dentro lo que el docente escribió**, no sólo la fila. Es a propósito:
+     * si corrige el nombre y vuelve a subir, la pregunta es otra y tiene que
+     * volver a contestarse — una decisión que sobreviviera a cambiar el nombre
+     * apuntaría a una persona distinta de la que se aprobó.
+     */
+    private function idDeLaFila(string $hoja, int $fila, string $tipo, string $clave): string
+    {
+        return substr(sha1($hoja.'|'.$fila.'|'.$tipo.'|'.$clave), 0, 16);
+    }
+
+    /**
+     * El sexo **crudo, tal y como está en la columna**, o `null` si está vacío.
+     *
+     * Viaja porque el botón que confirma un emparejamiento dice «Sí, es él» o «Sí,
+     * es ella» delante de una persona con nombre y foto, y **adivinarlo por el
+     * nombre falla justo ahí**: José María, Guadalupe, un nombre que el colegio
+     * escribió abreviado. Si no llega, la pantalla tiene que caer a una fórmula
+     * neutra.
+     *
+     * **Y no se traduce a una etiqueta.** El rótulo es cosa de la pantalla; aquí
+     * sale el valor de `alumnos.sexo`, que es el mismo que sirve
+     * {@see Grupo::alumnos} a todas las demás listas de personas. Un
+     * servidor que mandara «Masculino» obligaría al front a deshacer la traducción
+     * para poder escribir «él».
+     */
+    private function sexo(mixed $valor): ?string
+    {
+        $sexo = trim((string) ($valor ?? ''));
+
+        return $sexo === '' ? null : $sexo;
+    }
+
+    /**
+     * «matriculado desde el 3 de febrero», con el mes en palabras.
+     *
+     * Los meses van a mano y **no con `strftime()` ni con `IntlDateFormatter`** por
+     * lo mismo que el `strtr` de {@see ParecidoDeNombres::normalizar}: dependen del
+     * locale del servidor, y los dieciséis colegios no corren en el mismo. Una
+     * fecha que sale en inglés en un colegio y en español en otro es un fallo que
+     * sólo se ve en producción.
+     */
+    private function desdeCuando(string $fecha): string
+    {
+        $meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto',
+            'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+        $marca = strtotime($fecha);
+
+        if ($marca === false) {
+            return 'matriculado desde el '.$fecha;
+        }
+
+        return 'matriculado desde el '.((int) date('j', $marca)).' de '.$meses[((int) date('n', $marca)) - 1];
+    }
+
+    /**
+     * Por qué ya no está: se retiró, se trasladó, o simplemente no está.
+     *
+     * El traslado manda sobre el retiro cuando se dan los dos, y es lo correcto:
+     * salir de un grupo para entrar en otro **se escribe como un retiro** en la
+     * matrícula vieja, así que quedarse con ésa diría «se retiró del colegio» de un
+     * alumno que está pasillo abajo.
+     *
+     * @param  list<int>  $alumnos
+     * @return array<int, string>
+     */
+    private function porQueYaNoEstan(int $grupoId, int $yearId, array $alumnos, string $grupo): array
+    {
+        if ($alumnos === []) {
+            return [];
+        }
+
+        $estados = LaPlanillaQueSeDescarga::ESTADOS;
+        $marcas = implode(',', array_fill(0, count($alumnos), '?'));
+
+        $filas = DB::select(
+            "SELECT m.alumno_id, m.grupo_id, m.estado, m.fecha_retiro, m.razon_retiro, m.deleted_at,
+                    g.nombre AS nombre_grupo, g.abrev
+               FROM matriculas m
+               INNER JOIN grupos g ON g.id = m.grupo_id AND g.year_id = ? AND g.deleted_at IS NULL
+              WHERE m.alumno_id IN ({$marcas})
+              ORDER BY m.id",
+            array_merge([$yearId], $alumnos)
+        );
+
+        $motivos = [];
+
+        foreach ($filas as $fila) {
+            $alumnoId = (int) $fila->alumno_id;
+            $suGrupo = trim((string) ($fila->abrev ?: $fila->nombre_grupo));
+
+            // El traslado: una matrícula viva en OTRO grupo del mismo año.
+            if ((int) $fila->grupo_id !== $grupoId && $fila->deleted_at === null
+                && str_contains($estados, "'".$fila->estado."'")) {
+                $motivos[$alumnoId] = 'Se trasladó a '.$suGrupo.'.';
+
+                continue;
+            }
+
+            if ((int) $fila->grupo_id !== $grupoId || isset($motivos[$alumnoId])) {
+                continue;
+            }
+
+            $razon = trim((string) ($fila->razon_retiro ?? ''));
+
+            if ($fila->fecha_retiro !== null) {
+                $motivos[$alumnoId] = 'Se retiró de '.$grupo.' el '
+                    .date('d/m/Y', (int) strtotime((string) $fila->fecha_retiro)).'.'
+                    .($razon === '' ? '' : ' Motivo: '.$razon.'.');
+
+                continue;
+            }
+
+            $motivos[$alumnoId] = 'Su matrícula en '.$grupo.' ya no está vigente (estado '
+                .($fila->estado ?? '—').').'.($razon === '' ? '' : ' Motivo: '.$razon.'.');
+        }
+
+        return $motivos;
     }
 
     /**
@@ -1317,10 +1895,14 @@ class EnsayoDeLaPlanilla
                 'choques' => $this->choques,
                 'reserva' => $this->reserva,
 
-                // Las dos que la pantalla pinta como **aviso y no como decisión**, con
-                // el motivo escrito desde aquí: son fases futuras del plan y el libro
-                // ya trae dentro lo que las dispara.
-                'filas' => $this->avisosDeFilas,
+                // **F6, y desde la fase 3 es una decisión de verdad y no un aviso.**
+                // La única familia cuya llave es la fila, porque cada fila es una
+                // persona distinta.
+                'filas' => $this->filas,
+
+                // La que sigue siendo **aviso y no decisión**, con el motivo escrito
+                // desde aquí: es una fase futura del plan y el libro ya trae dentro
+                // lo que la dispara.
                 'ausencias' => $this->avisosDeAusencias,
             ],
         ];
@@ -1599,10 +2181,20 @@ class EnsayoDeLaPlanilla
      * casilla, y ninguna se mueve al reenviar el fichero — que es la propiedad que
      * hace falta: el docente decide sobre la lista del ensayo y sube después, y la
      * decisión tiene que seguir apuntando a la misma nota.
+     *
+     * **Con una excepción, y llegó con la F6 (fase 3):** una fila escrita a mano que
+     * se resolvió en un alumno **que ya estaba en la rejilla** produce una casilla
+     * con la misma hoja, el mismo alumno y el mismo indicador que la de su fila de
+     * arriba — el caso de *Cárdenas / Cardenaz*, que es el frecuente. Las dos pueden
+     * chocar a la vez y con valores distintos, así que la de abajo lleva su fila
+     * dentro del `id`. **Los de la rejilla no cambian**, que es lo que deja que unas
+     * respuestas guardadas antes de este cambio sigan apuntando a lo mismo.
      */
-    private function idDelChoque(string $hoja, int $alumnoId, int $subunidadId): string
+    private function idDelChoque(string $hoja, int $alumnoId, int $subunidadId, ?int $filaAMano = null): string
     {
-        return substr(sha1($hoja.'|'.$alumnoId.'|'.$subunidadId), 0, 16);
+        $llave = $hoja.'|'.$alumnoId.'|'.$subunidadId.($filaAMano === null ? '' : '|f'.$filaAMano);
+
+        return substr(sha1($llave), 0, 16);
     }
 
     // ── Consultas ────────────────────────────────────────────────────────────
@@ -1675,35 +2267,100 @@ class EnsayoDeLaPlanilla
     }
 
     /**
-     * Quién sigue matriculado en el grupo. `alumno_id => nombre`.
+     * Quién sigue matriculado en el grupo, **con su ficha entera**.
      *
      * Con la misma lista de estados que armó la hoja
      * ({@see LaPlanillaQueSeDescarga::ESTADOS}), que es lo que hace que «se retiró»
      * signifique lo mismo en los dos lados.
      *
-     * @return array<int, string>
+     * Devuelve la ficha y no sólo el nombre desde la fase 3: la F6 necesita **la
+     * foto, la matrícula y desde cuándo está** para pintar la tarjeta del §6.4, y
+     * son los mismos campos con los que {@see Grupo::alumnos} sirve
+     * cualquier lista de personas de MyVc —incluida la caída al avatar por sexo—,
+     * para que el front pueda usar el pipe `perfil` que ya tiene.
+     *
+     * **`nombre` va como lo ordena la planilla**, `APELLIDOS, Nombres`: es el orden
+     * en el que el docente ve la lista en su hoja, y el emparejador de la F6 compara
+     * el conjunto de palabras, así que el orden no le estorba.
+     *
+     * @return array<int, object{nombre:string, no_matricula:?string, foto:?string, sexo:?string, desde:?string}>
      */
     private function matriculados(int $grupoId): array
     {
         $estados = LaPlanillaQueSeDescarga::ESTADOS;
 
         $filas = DB::select(
-            "SELECT a.id, a.apellidos, a.nombres
+            "SELECT a.id, a.apellidos, a.nombres, a.no_matricula, a.sexo,
+                    MIN(m.fecha_matricula) AS desde,
+                    IFNULL(i.nombre, IF(a.sexo = 'F', 'default_female.png', 'default_male.png')) AS foto
                FROM alumnos a
                INNER JOIN matriculas m ON m.alumno_id = a.id AND m.grupo_id = ?
                                       AND m.estado IN ({$estados}) AND m.deleted_at IS NULL
+               LEFT JOIN images i ON i.id = a.foto_id AND i.deleted_at IS NULL
               WHERE a.deleted_at IS NULL
-              GROUP BY a.id, a.apellidos, a.nombres",
+              GROUP BY a.id, a.apellidos, a.nombres, a.no_matricula, a.sexo, i.nombre",
             [$grupoId]
         );
 
         $matriculados = [];
 
         foreach ($filas as $fila) {
-            $matriculados[(int) $fila->id] = trim(($fila->apellidos ?? '').', '.($fila->nombres ?? ''), ' ,');
+            $matriculados[(int) $fila->id] = (object) [
+                'nombre' => trim(($fila->apellidos ?? '').', '.($fila->nombres ?? ''), ' ,'),
+                'no_matricula' => $fila->no_matricula === null ? null : (string) $fila->no_matricula,
+                'foto' => $fila->foto === null ? null : (string) $fila->foto,
+                'sexo' => $this->sexo($fila->sexo ?? null),
+                'desde' => $fila->desde === null ? null : (string) $fila->desde,
+            ];
         }
 
         return $matriculados;
+    }
+
+    /**
+     * La ficha de unos alumnos **sin pasar por la matrícula**: nombre, matrícula y
+     * foto.
+     *
+     * Es la hermana de {@see matriculados} para los que **ya no están** en el grupo:
+     * ahí no se puede entrar por `matriculas` —que es justo lo que falta— y hace
+     * falta igual la foto, porque la tarjeta de «se retiró» es una tarjeta de
+     * persona como todas las demás.
+     *
+     * Se pide **sólo cuando hay alguien fuera**, que en un libro normal no pasa
+     * nunca: una consulta que casi siempre se ahorra.
+     *
+     * @param  list<int>  $alumnos
+     * @return array<int, object{nombre:string, no_matricula:?string, foto:?string, sexo:?string}>
+     */
+    private function fichasDe(array $alumnos): array
+    {
+        if ($alumnos === []) {
+            return [];
+        }
+
+        $marcas = implode(',', array_fill(0, count($alumnos), '?'));
+
+        $filas = DB::select(
+            "SELECT a.id, a.apellidos, a.nombres, a.no_matricula, a.sexo,
+                    IFNULL(i.nombre, IF(a.sexo = 'F', 'default_female.png', 'default_male.png')) AS foto
+               FROM alumnos a
+               LEFT JOIN images i ON i.id = a.foto_id AND i.deleted_at IS NULL
+              WHERE a.id IN ({$marcas})",
+            $alumnos
+        );
+
+        $fichas = [];
+
+        foreach ($filas as $fila) {
+            $fichas[(int) $fila->id] = (object) [
+                'nombre' => trim(($fila->apellidos ?? '').', '.($fila->nombres ?? ''), ' ,'),
+                'no_matricula' => $fila->no_matricula === null ? null : (string) $fila->no_matricula,
+                'foto' => $fila->foto === null ? null : (string) $fila->foto,
+                'sexo' => $this->sexo($fila->sexo ?? null),
+            ];
+        }
+
+        return $fichas;
     }
 
     /**

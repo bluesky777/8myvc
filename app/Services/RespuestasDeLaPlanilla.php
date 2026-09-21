@@ -21,7 +21,8 @@ namespace App\Services;
  *   escala?:     { valor, decision: 'fuera' | 'topar' }[],
  *   choques?:    { por_defecto: 'archivo'|'sistema',
  *                  excepciones: { id, decision: 'archivo'|'sistema' }[] },
- *   reserva?:    { hoja, columna, decision: 'crear'|'fuera', nombre?, peso? }[] }
+ *   reserva?:    { hoja, columna, decision: 'crear'|'fuera', nombre?, peso? }[],
+ *   filas?:      { id, decision: 'es:<alumno_id>' | 'fuera' }[] }
  * ```
  *
  * **La decisión y su parámetro van en la misma cadena** (`mover:1204`,
@@ -37,6 +38,7 @@ namespace App\Services;
  * | `celdas`, `escala` | **el valor suelto** | Una hoja con doce `4,5` es **una** pregunta. Es la regla del importador de alumnos: trece renglones se revisan, ochocientos no |
  * | `estructura`, `reserva` | **`hoja` + `columna`** | En un libro de doce hojas, la `F` de *4A Matemáticas* y la `F` de *3B Geometría* son indicadores distintos |
  * | `choques` | **el `id` del choque** | Un choque es la nota de un alumno concreto, y la pantalla de §6.3 existe para verlos uno a uno. El `id` lo emite el ensayo |
+ * | `filas` | **el `id` de la fila** | **La única familia que se decide fila a fila**, y lo es porque cada fila es una persona distinta (§5 del plan). El `id` lo emite el ensayo |
  *
  * ## Ninguna ausencia significa nada
  *
@@ -55,8 +57,8 @@ namespace App\Services;
  *
  * {@see NO_APLICADAS} es el mismo mecanismo del importador de alumnos: una sección
  * que se acepta y no se interpreta **se declara en la respuesta con su motivo**.
- * Hoy hay dos, y las dos son fases futuras escritas en el plan —las filas que no se
- * reconocen (F6, fase 3) y las ausencias y tardanzas (F8/D5, fase 4)—.
+ * Hoy queda **una**: las ausencias y tardanzas (F8/D5, fase 4). Las filas que no se
+ * reconocen (F6) salieron de esa lista en la fase 3 y ahora se aplican.
  */
 class RespuestasDeLaPlanilla
 {
@@ -70,22 +72,20 @@ class RespuestasDeLaPlanilla
      *
      * @var list<string>
      */
-    private const APLICADAS = ['estructura', 'celdas', 'escala', 'choques', 'reserva', 'firma'];
+    private const APLICADAS = ['estructura', 'celdas', 'escala', 'choques', 'reserva', 'filas', 'firma'];
 
     /**
      * Las que se aceptan y **no** se interpretan, con el motivo que la respuesta
      * enseña.
      *
-     * No están vacías por casualidad: son las dos familias que el plan deja para
-     * más adelante y que **el libro ya trae dentro**, así que la pantalla puede
-     * mandarlas sin saberlo. Declararlas es lo que impide que el asistente prometa
+     * No está vacía por casualidad: es la familia que el plan deja para más
+     * adelante y que **el libro ya trae dentro**, así que la pantalla puede
+     * mandarla sin saberlo. Declararla es lo que impide que el asistente prometa
      * que una ausencia entró.
      *
      * @var array<string, string>
      */
     private const NO_APLICADAS = [
-        'filas' => 'Emparejar por nombre a un alumno que no se reconoce es la fase 3. '
-            .'Esta versión informa de quién se retiró y de quién entró después de la descarga, y no escribe esas filas.',
         'ausencias' => 'Importar las columnas Aus y Tar es la fase 4 (D5). Subir un conteo crea filas '
             .'fechadas el día de la importación y bajarlo BORRA filas con sus fechas, que es lo que leen '
             .'las planillas de acudientes. El ensayo las cuenta; la importación no las escribe.',
@@ -117,6 +117,11 @@ class RespuestasDeLaPlanilla
     public const CHOQUE_SISTEMA = 'sistema';
 
     public const CHOQUE_ARCHIVO = 'archivo';
+
+    /** La fila que no se reconoce (F6). `es:<alumno_id>` lleva la persona dentro. */
+    public const FILA_ES = 'es';
+
+    public const FILA_FUERA = 'fuera';
 
     /** @param array<string, mixed> $crudas */
     public function __construct(private array $crudas) {}
@@ -347,6 +352,52 @@ class RespuestasDeLaPlanilla
         }
 
         return $this->defectoDeLosChoques();
+    }
+
+    /**
+     * De quién es una fila que no se reconoce (F6).
+     *
+     * **La única llave por fila de toda la clase**, y es a propósito: las demás
+     * familias agrupan porque doce `4,5` son una sola pregunta, pero aquí cada fila
+     * es **una persona distinta** y agrupar sería preguntar por dos a la vez.
+     *
+     * `es:<alumno_id>` lleva la persona dentro por lo mismo que `mover:<subunidad>`:
+     * un «sí, es él» sin decir quién es la peor forma de resolver esto.
+     *
+     * **El defecto no es `fuera`: es `null`, o sea «todavía no se ha decidido».** Y
+     * la diferencia importa más aquí que en ninguna otra familia: las dos hacen lo
+     * mismo —esa fila no se escribe— pero una es un problema que la pantalla sigue
+     * enseñando y la otra es un problema resuelto. Si el defecto fuera `fuera`, un
+     * libro con tres nombres escritos a mano y sin tocar diría que todo está
+     * decidido.
+     *
+     * **Y aquí no se comprueba que el alumno exista ni que esté en el grupo.** Eso
+     * lo hace el ensayo, que es quien sabe de qué grupo es la hoja; esta clase lee
+     * lo que llegó y no se lo cree.
+     *
+     * @return array{decision: ?string, alumno_id: ?int}
+     */
+    public function queHacerConLaFila(string $id): array
+    {
+        foreach ($this->seccion('filas') as $renglon) {
+            if ((string) ($renglon['id'] ?? '') !== $id) {
+                continue;
+            }
+
+            [$verbo, $parametro] = $this->partir($renglon['decision'] ?? null);
+
+            if ($verbo === self::FILA_ES && $parametro !== null && is_numeric($parametro)
+                && (int) $parametro > 0) {
+                return ['decision' => self::FILA_ES, 'alumno_id' => (int) $parametro];
+            }
+
+            // Un `es:` sin alumno cae a `fuera` y no a «sin decidir»: la persona
+            // contestó, lo que llegó no se puede aplicar, y volver a preguntarle lo
+            // mismo sin decir nada sería un bucle mudo.
+            return ['decision' => self::FILA_FUERA, 'alumno_id' => null];
+        }
+
+        return ['decision' => null, 'alumno_id' => null];
     }
 
     /**

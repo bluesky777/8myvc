@@ -70,6 +70,17 @@ use Illuminate\Support\Facades\DB;
  *   recalculador.
  * - **Ningún alumno**. Es el encargo literal: *«no debe crear el alumno»*.
  * - **Ninguna fila de un alumno que ya no está matriculado** en el grupo.
+ *
+ * ## Y las filas escritas a mano (F6), que tampoco son una excepción
+ *
+ * Una fila del bloque del final que el docente resolvió —*«sí, es José Luis»*—
+ * llega aquí **como una fila más del plan**, con su `alumno_id` dentro, y se
+ * escribe con la misma siembra, el mismo rastro y el mismo recálculo que las
+ * demás. No hay un camino aparte y no puede haberlo: quién es esa persona, que
+ * esté matriculada en el grupo de esa hoja y con estado válido, y si su nota pisa
+ * una que ya existe —eso es un choque (F7)— lo decide el ensayo, que es quien
+ * tiene el grupo delante. **Aquí no se comprueba nada de eso porque aquí ya no se
+ * puede**, y comprobarlo a medias sería peor que no hacerlo.
  */
 class EscrituraDeNotasImportadas
 {

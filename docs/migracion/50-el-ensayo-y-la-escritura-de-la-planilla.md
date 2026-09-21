@@ -1,9 +1,13 @@
-# La planilla sin internet — fase 2: el ensayo y la escritura
+# La planilla sin internet — fases 2 y 3: el ensayo, la escritura y «¿es este?»
 
 *21 sep 2026. Continúa [49](49-la-planilla-sin-internet.md), que construyó la descarga. El plan
 aprobado vive en `~/DESARROLLOS/myvc_front/PLAN-NOTAS-SIN-INTERNET.md` y **manda sobre este
-documento**. Aquí va lo que se construyó, lo que se midió, y los **cinco sitios donde el plan
-resultó estar equivocado** — cada uno con su medida al lado.*
+documento**. Aquí va lo que se construyó, lo que se midió, y los sitios donde el plan resultó estar
+equivocado —**cinco en la fase 2 (§2) y dos en la fase 3 (§7.6)**—, cada uno con su medida al lado.*
+
+> **La fase 3 se escribió la misma noche, encima de esto.** La F6 —«las filas que no se
+> reconocen»— dejó de ser un aviso y pasó a ser una decisión de verdad: **la §7 entera es suya**, y
+> lo de la fase 2 se deja como estaba salvo donde la 3 lo contradice, que está tachado y marcado.
 
 La fase 1 dejó al docente bajándose el libro y tecleando las notas en la web al llegar. Ésta cierra
 el ciclo: **el libro vuelve**. Y la frase que gobierna todo lo de abajo es la D3, que es la razón de
@@ -18,7 +22,8 @@ ser del espejo firmado: *«sólo entra lo que el docente cambió»*.
 | `POST planilla-offline/ensayo` | El diagnóstico. **No escribe nada** |
 | `POST planilla-offline/importar` | La escritura, **reanudable** por huella del fichero |
 | `App\Services\LaPlanillaQueSeSube` | El lector del `.xlsx` que vuelve, y **quién decide el peldaño** |
-| `App\Services\EnsayoDeLaPlanilla` | Las familias F1–F5, F7 y F9, más los avisos de F6 y F8 |
+| `App\Services\EnsayoDeLaPlanilla` | Las familias F1–F7 y F9, más el aviso de F8 |
+| `App\Support\ParecidoDeNombres` | *(fase 3)* Cuánto se parecen dos nombres, y el umbral **medido** |
 | `App\Services\EscrituraDeNotasImportadas` | Siembra, escribe, audita y recalcula una vez por par |
 | `App\Services\RespuestasDeLaPlanilla` | Las decisiones que manda el front, leídas sin creerse nada |
 
@@ -225,16 +230,237 @@ los separa.
    no puede serlo sin el acta que esa fase trae.
 5. **Las ausencias y tardanzas (D5) son la fase 4.** El ensayo las cuenta y las declara como aviso
    con el motivo; la importación no escribe ni una.
-6. **Las filas que no se reconocen (F6) son la fase 3.** `familias.filas` trae los avisos de «se
-   retiró» y «entró después», y el emparejamiento por nombre no se intenta: *no se crea a nadie*.
+6. ~~**Las filas que no se reconocen (F6) son la fase 3.**~~ **HECHO la misma noche**: la §7 de este
+   documento. `familias.filas` ya no son avisos, son decisiones por fila — y se sigue sin crear a
+   nadie.
 7. **Los peldaños 3 y 4 devuelven su número y un bloqueo que dice que llegan en la fase 3.** No se
-   intenta reconstruir nada por `ID` ni por nombre.
+   intenta reconstruir nada por `ID` ni por nombre. *La fase 3 hizo la F6 y **no** los peldaños: son
+   dos cosas distintas —una fila que no casa dentro de un libro legítimo, contra un libro sin mapa—
+   y siguen abiertos.*
 8. **El mapa de `_myvc` no dice de qué unidad es una columna de reserva** (§2.1). Arreglarlo es tocar
    el generador de la fase 1 y mover la firma de los libros que ya andan por fuera.
 
 ---
 
-## 7 · Lo que se corrió
+## 7 · La fase 3: «¿es este?» — las filas que no se reconocen (F6)
+
+*21 sep 2026, la misma noche. El §6.4 del plan es el diseño y la frase del encargo es la ley:*
+
+> «**No debe crear el alumno**, pero sí intentar encontrarlo en el grupo y preguntarle si ese es,
+> para proseguir.»
+
+**Nunca se crea un alumno. Nunca se fusionan dos. Y se busca dentro del grupo de esa hoja**, no en
+el colegio: escribir la nota de alguien que no está matriculado ahí sería corromper la planilla en
+silencio —un dato que parece bueno, que nadie revisa y que sale en un boletín—. Por eso la
+comprobación de «este alumno está en este grupo» se repite en el servidor aunque la pantalla ya la
+haya hecho: la decisión llega del cliente y no se cree.
+
+### 7.1 · Los tres casos, que son distintos y se contestan distinto
+
+| `tipo` | Qué pasó | ¿Se pregunta? | Si no se hace nada |
+|---|---|---|---|
+| `escrita_a_mano` | El docente escribió un nombre en el bloque del final | **Sí.** Hasta 3 candidatos del grupo, con foto | Esa fila no se importa |
+| `ya_no_esta_en_el_grupo` | El `ID` estaba al descargar y hoy no | **No.** Motivo y fecha de retiro | Sus notas se quedan fuera |
+| `entro_despues` | Está en el grupo y no en el archivo | **No.** Es un aviso con su nombre | Nada: no tiene casillas |
+
+Y el «no hay nadie» **dice quién puede arreglarlo** —*«si es un alumno nuevo, secretaría tiene que
+matricularlo primero»*—, porque un error que no ofrece salida obliga a llamar por teléfono.
+
+### 7.2 · El contrato, palabra por palabra
+
+`familias.filas[]` pasó de `{hoja, descripcion}` a esto. **Es la única familia cuya llave es la
+fila**, y lo es porque cada fila es una persona distinta: agrupar por valor —que es lo que salva a
+las otras siete pantallas— aquí sería preguntar por dos personas a la vez.
+
+```
+{ id,                       la llave de la decisión, POR FILA
+  hoja, asignatura, grupo,  «3° B», para la frase de la pantalla
+  fila,                     la fila del libro — null en `entro_despues` (ver 7.6)
+  tipo,                     'escrita_a_mano' | 'ya_no_esta_en_el_grupo' | 'entro_despues'
+  escrito,                  lo que el docente tecleó, tal cual, o null
+  notas_en_la_fila,         casillas con algo escrito, contando las de reserva
+  decidible,                sólo 'escrita_a_mano' CON candidatos
+  resuelta,                 (de más) si la decisión que llegó se va a aplicar
+  titulo,                   (de más) la frase corta; es la que sale en `avisos()`
+  si_no_hago_nada,          la escribe el servidor, como en el resto de familias
+  alumno: { alumno_id, nombre, no_matricula, foto, sexo, motivo } | null,
+  candidatos: [ { alumno_id, nombre, no_matricula, foto, sexo,
+                  desde,      «matriculado desde el 3 de febrero»
+                  parecido,   0..1
+                  ya_esta_en_la_hoja: { fila, notas: string[] } | null } ] }
+```
+
+Y en `respuestas`: `filas?: [{ id, decision: 'es:<alumno_id>' | 'fuera' }]`.
+
+Cuatro cosas que no son adorno:
+
+- **`nombre` va como lo ordena la planilla**, `APELLIDOS, Nombres`: es el orden en el que el docente
+  ve la lista en su hoja.
+- **`foto` va como la sirve `Grupo::alumnos`** —el nombre del fichero, con la caída al avatar por
+  sexo— para que el front use el pipe `perfil` que ya tiene.
+- **`sexo` va crudo, sin traducir.** El botón dice «Sí, es él» o «Sí, es ella» delante de una
+  persona con nombre y foto, y **adivinarlo por el nombre falla justo ahí**. El rótulo es cosa de la
+  pantalla; un servidor que mandara «Masculino» obligaría al front a deshacer la traducción.
+- **`decidible` sólo con candidatos.** Tres botones sin nadie a quien señalar es una pantalla rota,
+  así que la invariante se mantiene aquí y el front no tiene que defenderse de ella.
+
+Y **`filas` salió de `RespuestasDeLaPlanilla::NO_APLICADAS`**. No es cosmética: el front borra el
+paso «Alumnos» entero en cuanto ve esa sección declarada como no aplicada, en vez de ofrecer botones
+que el servidor no va a obedecer. Si volviera a esa lista, la F6 se serviría y no se vería. Lo
+sujeta `RespuestasDeLaPlanillaTest::las_filas_salieron_de_no_aplicadas_al_llegar_la_fase_3`.
+
+### 7.3 · `ya_esta_en_la_hoja` es lo que hace útil la tarjeta
+
+**El caso de verdad frecuente no es el alumno nuevo: es el que ya estaba en la lista.** Está como
+*Cárdenas*, el docente escribió *Cardenaz*, no se vio y lo apuntó abajo. Si la respuesta no dice que
+esa persona **ya tiene notas en la fila 8**, quien mira acepta y pisa notas sin enterarse.
+
+Van la fila y los valores que ya hay, leídos **del archivo** —la frase del §6.4 es *«sus notas en
+esta hoja»*, y lo que hay que poder comparar de un vistazo es la fila de arriba con la que se
+escribió abajo—, con el guion largo marcando la casilla vacía igual que en el libro.
+
+### 7.4 · Y la otra mitad de esa red: una fila escrita a mano NO TIENE ESPEJO
+
+Es la decisión de diseño de toda la fase y no está en el plan. La tarjeta **avisa antes**; esto
+**para después**:
+
+> Al descargar el libro, las casillas del bloque del final están vacías. Así que el espejo de una
+> fila escrita a mano es `null` **aunque el alumno que se eligió sí tenga espejo en su fila de la
+> rejilla**.
+
+Y de ahí sale, sin escribir ni una regla nueva, exactamente lo que el encargo pide:
+
+| Estado de la casilla del alumno elegido | `espejo` | `base` | Qué pasa |
+|---|---|---|---|
+| Sin calificar | `null` | `null` | `base === espejo` → **se escribe**. El caso normal |
+| **Ya tiene nota** | `null` | 33 | `base !== espejo` → **choque (F7)**, y por defecto manda el sistema |
+
+O sea que resolver una fila **no puede pisar una nota en silencio**: entra por el camino de los
+choques, con su renglón en la pantalla del §6.3 y con el defecto seguro. Comparar contra el espejo
+de la fila de arriba habría hecho lo contrario —*«el docente cambió la nota»*, y a escribir—.
+
+Lo sujeta `f6a_resolver_una_fila_que_pisa_una_nota_existente_es_un_choque_y_no_una_escritura_silenciosa`,
+y **se vio en rojo**: quitando el `$filaAMano === null` de la línea del espejo, el test dice
+`0 choques` donde tiene que haber 1.
+
+Una consecuencia menor de esto: el `id` de un choque de una fila escrita a mano **lleva su fila
+dentro** (`sha1(hoja|alumno|subunidad|f37)`), porque si no chocaría con el de la fila de la rejilla
+del mismo alumno y el mismo indicador —el caso de *Cárdenas*, que es el frecuente—. **Los de la
+rejilla no cambian**, así que unas respuestas guardadas antes de este cambio siguen apuntando a lo
+mismo.
+
+### 7.5 · El emparejador, y el umbral MEDIDO
+
+`App\Support\ParecidoDeNombres`. Hacía falta uno nuevo y no valía ninguno de los dos que hay:
+
+- `AlumnosParecidos` busca **en todo el colegio** y contesta «existe una ficha así», que es otra
+  pregunta.
+- El `=` de MySQL ya ignora tildes y mayúsculas por la colación (doc [33](33-la-tilde-que-sql-no-ve.md)),
+  y con eso casa *Jose* con *José*… y nada más: ni *Cardenaz* con *Cárdenas*, ni el orden cambiado.
+- Un `LIKE %palabra%` por cada palabra **exige que estén todas**, y lo normal es que el docente
+  escriba un apellido de los dos.
+
+Se normaliza antes de comparar —minúsculas, sin tildes, sin puntuación— con un `strtr` a mano y **no
+con `iconv('ASCII//TRANSLIT')`**, por lo de siempre: `iconv` depende del locale del servidor y los
+dieciséis colegios no corren en el mismo. Y se mezclan **dos medidas**, no una:
+
+| | Qué caza | Dónde falla sola |
+|---|---|---|
+| Cadena entera (`similar_text`) | la errata dentro de una palabra | el orden cambiado: «jose luis cardenaz» contra «cardenas pena jose luis» se queda en **0,391** |
+| Conjunto de palabras, **en las dos direcciones** | el orden cambiado y el apellido de más | dos nombres cortos comparten «maria» y ya |
+
+`0,35 · cadena + 0,65 · conjunto`. El par del plan sale **0,713**.
+
+**El umbral es 0,58 y está medido**, no elegido. Contra `caz_zaragoza`: 2.121 matrículas en 129
+grupos, cinco formas de teclear cada nombre —orden cambiado; un apellido de menos; nombre y
+apellido sueltos; las dos últimas con una errata de una letra— = **10.425 emparejamientos buenos**,
+contra **2.165 forasteros**, que es un nombre de otro grupo buscado en éste y modela al alumno que
+de verdad no está.
+
+| Umbral | Pierde al bueno | Cuela a un forastero |
+|---|---|---|
+| 0,54 | 0,0 % | 10,3 % |
+| 0,56 | 0,1 % | 7,2 % |
+| **0,58** | **0,1 % (8 de 10.425)** | **4,8 %** |
+| 0,60 | 0,5 % | 3,1 % |
+| 0,62 | 4,0 % | 2,1 % |
+| 0,66 | 16,5 % | 1,0 % |
+
+**El error caro es el de abajo**, y por eso la raya está donde la curva de los buenos todavía no ha
+empezado a caer: si el alumno sí está y no se le enseña, la pantalla dice «no hay nadie con ese
+nombre» y manda al docente a secretaría a matricular a alguien que ya está matriculado. Enseñar de
+más cuesta una lectura, y la tarjeta lleva foto, matrícula y nombre completo.
+
+Los ocho buenos que se pierden a 0,58 son todos del mismo tipo degenerado —«JUAN DE», salido de «DE
+LOS RIOS PEREZ, JUAN FELIPE»—, que nadie teclea. Y los forasteros que se cuelan son hermanos y
+homónimos de verdad —«NAHILY MEZA MANCHEGO» contra «MEZA MANCHEGO, NATALY», **0,805**—, donde
+preguntar es exactamente lo que hay que hacer.
+
+Se devuelven **tres como mucho**, ordenados por parecido y con la llave como desempate, para que dos
+lecturas del mismo fichero enseñen lo mismo en el mismo orden.
+
+*El guion de la medición no se commitea: vivía en el scratchpad y lo que vale es la tabla. Se
+reproduce volcando `alumnos`+`matriculas`+`grupos` de un colegio y puntuando cada nombre contra los
+de su grupo con `ParecidoDeNombres::entre()`.*
+
+### 7.6 · Los dos sitios donde el plan de la fase 3 no se pudo servir como está escrito
+
+**a) `fila` va `null` en `entro_despues`.** El contrato lo declara número. Ese alumno **no tiene
+fila en el libro**, que es exactamente el problema del que avisa. Es lo mismo que ya le pasaba a
+`estructura[].columna` en el renglón `indicador_nuevo` (§6.2 de esta lista), y se resuelve igual:
+`null` y dicho. Mandar un 0 o la última fila leída sería peor —un número que parece una fila del
+Excel y no lo es acaba copiado en un correo y no lleva a ninguna parte—.
+
+**b) `desde` es una frase, no una fecha.** El contrato lo escribe como *«matriculado desde el 3 de
+febrero»*, así que eso es lo que se manda, con el mes en palabras y armado en el servidor. Los meses
+van a mano y no con `strftime()` ni `IntlDateFormatter`, por lo mismo que el `strtr`: dependen del
+locale y una fecha que sale en inglés en un colegio y en español en otro es un fallo que sólo se ve
+en producción.
+
+### 7.7 · Lo que el servidor NO se cree, y da 422
+
+Dos puertas, y las dos dan **bloqueo** —o sea 422 y no se escribe **nada**, que es la decisión (d)
+de la §4— y no un renglón que se ignora en silencio:
+
+| `bloqueos[].tipo` | Cuándo | Por qué no basta con ignorarlo |
+|---|---|---|
+| `fila_de_otro_grupo` | El `es:<alumno_id>` señala a alguien que no está matriculado en el grupo de esa hoja, con estado válido | Es la corrupción silenciosa que el §6.4 existe para evitar. Y devolver la fila como «no decidida» dejaría a la pantalla enseñando una pregunta que la persona ya contestó |
+| `dos_filas_el_mismo_alumno` | Dos filas escritas a mano señalan a la misma persona | Se escribirían las dos, una encima de la otra, y ganaría la de abajo por el orden del bucle. Es un error de quien decide y hay que devolvérselo, no repartirlo a suertes |
+
+### 7.8 · La escritura no tiene camino aparte, y no puede tenerlo
+
+Una fila resuelta llega a `EscrituraDeNotasImportadas` **como una fila más del plan**, con su
+`alumno_id` dentro, y se escribe con la misma siembra, el mismo rastro (`bitacoras` + `auditoria`) y
+el mismo recálculo único por par. Quién es esa persona, que esté matriculada y si su nota pisa una
+que ya existe lo decide **el ensayo**, que es quien tiene el grupo delante — la misma regla que
+gobierna toda la fase 2: *lo que se promete y lo que se hace salen del mismo recorrido*.
+
+El `indice` de una fila escrita a mano es `nº de filas de la rejilla + su fila del Excel`. Suena
+raro y hace falta: `PuntoDeControlDeImportacion::yaProcesada` es **una marca de agua** —«voy por la
+N»— así que los índices tienen que crecer en el orden en que se procesan y no moverse entre dos
+subidas del mismo fichero. Con un contador de bucle, un recorte por tiempo movería el índice de esas
+tres filas y la siguiente petición reescribiría o se saltaría una.
+
+### 7.9 · Lo que queda abierto de la fase 3
+
+1. **El umbral se midió contra un colegio, no contra dieciséis.** `caz_zaragoza` es el que había a
+   mano con nombres reales. La forma de la curva no debería cambiar —son apellidos españoles en
+   todos— pero el número es de una muestra.
+2. **El «No, es otro…» del front busca en el grupo, y el servidor no le da esa lista.** Hoy la saca
+   de los `candidatos`, que son tres. Para buscar en los cuarenta hace falta o una ruta de «alumnos
+   del grupo de esta hoja» o mandar el grupo entero con el diagnóstico. No se hace aquí porque son
+   dos decisiones de tamaño de respuesta y las dos se pagan en cada ensayo.
+3. **Nada impide que un docente resuelva una fila en un alumno que ya está en la hoja y además
+   escriba en su fila de la rejilla.** Las dos entran; gana la de abajo, y la casilla pisada sale
+   como choque si el valor no coincide. Es correcto y es raro; si apareciera de verdad, la tarjeta
+   tendría que decirlo con más fuerza que un choque.
+4. **La F6 no se reanuda distinto que el resto**, pero sus filas se estudian **después** del recorte
+   por tiempo: si el ensayo se corta en la rejilla, las escritas a mano se quedan enteras para la
+   petición siguiente. Es lo correcto y significa que un libro enorme las ve tarde.
+
+---
+
+## 8 · Lo que se corrió
 
 Con `DB_TEST_DATABASE=simonbolivar_testing_f2` (base de esta sesión, construida el 21 sep 2026 con
 `tools/construir-bd-test.sh`, **48/48 migraciones, 118 tablas**).
@@ -261,9 +487,54 @@ Joseth**. Lo que se corrió son las clases del dominio tocado, en una tanda.
 Son los del candado de la plantilla, que otra sesión tiene suspendido a mano
 (`CandadoDeLaPlantilla::SUSPENDIDO`). **No los salta esta entrega**, igual que no los saltaba la fase 1.
 
+### 8.bis · Lo de la fase 3, y LA SUITE ENTERA — que estaba roja de antes
+
+Base propia: `DB_TEST_DATABASE=simonbolivar_testing_fase3`, construida el 21 sep 2026,
+**48/48 migraciones, 118 tablas**.
+
+```bash
+php artisan test --filter='PlanillaOfflineImportarTest'        # 31 passed (525 assertions) — 25,39 s
+php artisan test --filter='ParecidoDeNombresTest|RespuestasDeLaPlanillaTest'
+                                                               # 33 passed  (59 assertions) —  0,90 s
+php artisan test                                               # 2.793 passed, 6 failed, 14 skipped
+                                                               # (56.085 assertions) — 1.014,91 s
+php artisan test      # tras arreglar las seis  ->  2.799 passed, 0 failed, 14 skipped
+                                                               # (56.103 assertions) —   976,02 s
+```
+
+`composer run pint:test` → **PASS, 531 ficheros**. `composer run stan` → **8 errores, los mismos de
+siempre y ninguno de esta entrega**: 7 del `CandadoDeLaPlantilla` de otra sesión y 1 de
+`ImportacionesAbandonadasTest`, del commit `b1978b8`.
+
+**Y esta vez sí se corrió la suite entera, que es lo que la fase 2 dejó sin correr.** Salió **roja
+por seis, todas del commit `3e16747` y ninguna de la fase 3** — y se arreglaron aquí, con las cuatro
+decisiones tomadas por Joseth el 21 sep, para no heredarlas a la fase 4.
+
+| Centinela | Qué decía | La decisión |
+|---|---|---|
+| `CentinelaDeLasTablasDelAnioNuevoTest` ×2 | `descargas_de_planilla` tiene `year_id` y nadie la clasificó | **No se copia**, y va a `DATOS_DEL_ANIO`: es el rastro de qué libros salieron del colegio **ese** año, de auditoría, y con filas que apuntan a periodos y asignaturas del año viejo. Copiarla fabricaría descargas que nadie hizo y encima ilegibles |
+| `CentinelaDeLosEscritoresDeBitacoraTest` ×2 | Los `INSERT INTO bitacoras` pasaron de 12 a **14** | Los dos nuevos son de `EscrituraDeNotasImportadas` y escriben **en Bogotá** —usa `Reloj::ahora()`, **comprobado antes de declararlo**—, con los tipos que ya existían (`Nota`, `Nueva subunidad`). Declarados en `tools/salud-de-la-bitacora.php` |
+| `RelojUnicoTest` | `PuntoDeControlDeImportacion` pasó de 11 a **13** `now()` sin zona | **Se queda en UTC** y sube el esperado a 13. Lo dice su propia cabecera: *«`inicio` y `fin` solo se restan entre sí»*. Y las dos nuevas son de `marcarAbandonadas()`, donde el corte y la columna con la que se compara salen **las dos** de `now()` |
+| `CensoDeInterruptoresTest` | Las `tinyint(1)` sin lector: 91 → **90** | Bajó, no subió. **Medido y no supuesto**: el censo se corrió sobre `3e16747~1`, `3e16747` y el árbol de trabajo, y el único nombre que se mueve es **`perdido`** (`escalas_de_valoracion`), a la que la fase 1 le dio lector — `HojaDeAsignatura:885` decide con ella para pintar la banda reprobatoria en rojo y en negrita |
+
+**La 2 y la 3 dicen lo contrario y las dos son correctas**, y ésa es la frase que hay que guardar:
+la bitácora escribe renglones que **una persona lee al lado de otros** —dos relojes ahí son cinco
+horas entre dos líneas que cuentan lo mismo—, y el punto de control escribe marcas que **sólo se
+restan entre sí**. Por eso uno puede quedarse en UTC y el otro no.
+
+*Y la lección que las cuatro comparten: ninguna se coló, todas **se contaron tarde**. La fase 2 no
+corrió la suite entera antes de commitear porque `tests-que-tocan.py` decía «no hay subconjunto
+seguro» y los 17 minutos quedaron como decisión pendiente. Cuatro centinelas que existen justo para
+esto estuvieron rojos un commit entero sin que nadie lo viera.*
+
+**Después de las cuatro: `2.799 passed, 0 failed, 14 skipped` (56.103 aserciones) en 976,02 s.** Los
+14 saltados siguen siendo los 13 del candado de la plantilla más el que el seed no puede fabricar,
+que es lo de siempre. Los 8 de `stan` tampoco se mueven: 7 del `CandadoDeLaPlantilla` de otra sesión
+y 1 de `ImportacionesAbandonadasTest`.
+
 ---
 
-## 8 · Al desplegar
+## 9 · Al desplegar
 
 **No hay migración nueva.** La fase 2 reutiliza `importaciones` —la tabla del punto de control del
 importador de alumnos, con `tipo = 'planilla'`— y no crea ninguna tabla propia. Lo que sí sigue

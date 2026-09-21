@@ -862,8 +862,476 @@ class PlanillaOfflineImportarTest extends CasoDeContrato
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // F6 — las filas que no se reconocen. Tres casos y tres respuestas distintas
+    // ─────────────────────────────────────────────────────────────────────────
+
+    #[Test]
+    public function f6a_una_fila_escrita_a_mano_se_empareja_con_tildes_y_con_el_orden_cambiado(): void
+    {
+        $caso = $this->unaPlanilla();
+
+        $quien = $this->fichaDelAlumno($caso['alumno_id']);
+        $fila = $this->bloqueDeAlumnosNuevos($caso);
+        $escrito = $this->comoLoEscribiriaElDocente($quien);
+
+        // La planilla imprime «APELLIDOS, Nombres» y con tildes; el docente escribe
+        // el nombre delante, en minúsculas y sin tildes. **Las dos cosas a la vez
+        // son el caso normal**, no el raro, y un emparejador que sólo comparase la
+        // cadena entera no lo vería (`ParecidoDeNombresTest`).
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'], [
+            [$fila, 'B', $escrito],
+            [$fila, $caso['columna'], $this->otroValorPara($caso, $caso['fila'], $caso['columna'])],
+        ]);
+
+        $r = $this->ensayo($caso['token'], $ruta)->assertStatus(200);
+
+        $aMano = $this->filasDelTipo($r, 'escrita_a_mano');
+
+        $this->assertCount(1, $aMano, 'El nombre escrito en el bloque del final es UNA pregunta, y por fila.');
+        $this->assertSame($escrito, $aMano[0]['escrito'], 'Lo que tecleó va tal cual, sin limpiar.');
+        $this->assertSame($fila, $aMano[0]['fila']);
+        $this->assertNotEmpty($aMano[0]['grupo'], 'La frase de la pantalla dice en qué grupo se buscó.');
+        $this->assertTrue($aMano[0]['decidible']);
+        $this->assertSame(1, $aMano[0]['notas_en_la_fila']);
+
+        $candidatos = $aMano[0]['candidatos'];
+
+        $this->assertNotEmpty($candidatos, 'Si no lo encuentra, manda a secretaría a matricular a alguien '
+            .'que ya está matriculado.');
+        $this->assertLessThanOrEqual(3, count($candidatos),
+            'Cinco nombres que no se parecen a nada son peor que ninguno.');
+        // **Está entre los candidatos, no necesariamente el primero**, y el seed
+        // explica por qué: tiene dos alumnos con el mismo nombre exacto en el mismo
+        // grupo. Con un empate perfecto no hay un «el correcto» que el servidor
+        // pueda adivinar — y ésa es justamente la pantalla que se está construyendo:
+        // la que pregunta.
+        $suyo = $this->candidatoDe($aMano[0], $caso['alumno_id']);
+
+        $this->assertGreaterThan(0.5, $suyo['parecido']);
+
+        // **Con foto y con matrícula**, como todo listado de personas en MyVc: en una
+        // lista de treinta apellidos parecidos es lo que evita el error.
+        $this->assertNotEmpty($suyo['foto']);
+        $this->assertArrayHasKey('no_matricula', $suyo);
+
+        // Y el sexo crudo, que es lo que deja escribir «Sí, es él» o «Sí, es ella».
+        // Adivinarlo por el nombre falla justo donde se decide.
+        $this->assertArrayHasKey('sexo', $suyo);
+        $this->assertSame(
+            trim((string) $quien->sexo) === '' ? null : trim((string) $quien->sexo),
+            $suyo['sexo']
+        );
+    }
+
+    #[Test]
+    public function f6a_la_tarjeta_dice_que_ese_alumno_ya_esta_en_la_hoja_y_con_que_notas(): void
+    {
+        $caso = $this->unaPlanilla();
+
+        $quien = $this->fichaDelAlumno($caso['alumno_id']);
+        $fila = $this->bloqueDeAlumnosNuevos($caso);
+
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'], [
+            [$fila, 'B', $this->comoLoEscribiriaElDocente($quien)],
+        ]);
+
+        $r = $this->ensayo($caso['token'], $ruta)->assertStatus(200);
+
+        $candidato = $this->candidatoDe($this->filasDelTipo($r, 'escrita_a_mano')[0], $caso['alumno_id']);
+
+        // **Es el caso de verdad frecuente y es lo que hace útil la tarjeta**: el
+        // alumno ya estaba en la lista —está como *Cárdenas*, el docente escribió
+        // *Cardenaz*— y lo apuntó abajo sin verlo. Si la respuesta no dice que ya
+        // tiene notas en la fila 8, la persona acepta y **pisa notas sin enterarse**.
+        $this->assertNotNull($candidato['ya_esta_en_la_hoja'],
+            'Sin esto la tarjeta es un buscador, y el buscador no avisa de lo que se va a pisar.');
+        $this->assertSame($caso['fila'], $candidato['ya_esta_en_la_hoja']['fila']);
+        $this->assertCount(
+            count($caso['mapa']['columnas']),
+            $candidato['ya_esta_en_la_hoja']['notas'],
+            'Van los valores de TODA la fila, que es lo que el docente compara de un vistazo.'
+        );
+    }
+
+    #[Test]
+    public function f6a_sin_candidatos_la_fila_no_se_importa_y_se_dice_quien_puede_arreglarlo(): void
+    {
+        $caso = $this->unaPlanilla();
+
+        $fila = $this->bloqueDeAlumnosNuevos($caso);
+
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'], [
+            [$fila, 'B', 'Zzyzx Qwertyuiop Mnbvcxz'],
+            [$fila, $caso['columna'], $this->otroValorPara($caso, $caso['fila'], $caso['columna'])],
+        ]);
+
+        $antes = $this->huellaDeLaBase();
+
+        $r = $this->ensayo($caso['token'], $ruta)->assertStatus(200);
+
+        $aMano = $this->filasDelTipo($r, 'escrita_a_mano');
+
+        $this->assertCount(1, $aMano);
+        $this->assertSame([], $aMano[0]['candidatos']);
+        $this->assertFalse($aMano[0]['decidible'],
+            'Tres botones sin nadie a quien señalar es una pantalla rota: sin candidatos esto es un aviso.');
+        $this->assertStringContainsString('secretaría', $aMano[0]['si_no_hago_nada'],
+            'Un error que no ofrece salida obliga a llamar por teléfono. Aquí la salida existe y no es '
+            .'del docente: matricular es cosa de secretaría.');
+
+        $r = $this->importar($caso['token'], $ruta)->assertStatus(200);
+
+        $this->assertSame($antes, $this->huellaDeLaBase(), 'No se crea a nadie. Nunca.');
+        $this->assertGreaterThan(0, $r->json('hechos.filas_descartadas'));
+        $this->assertNotEmpty(
+            array_filter($r->json('avisos'), static fn ($a) => str_contains($a, 'Zzyzx')),
+            'Lo que no entró se dice en voz alta después de escribir, no sólo en el ensayo.'
+        );
+    }
+
+    #[Test]
+    public function f6a_resolver_la_fila_escribe_la_nota_para_ese_alumno(): void
+    {
+        $caso = $this->unaPlanilla();
+
+        // **La casilla se vacía ANTES de bajar el libro.** El espejo guarda lo del
+        // día de la descarga: borrarla después fabricaría un choque, que es el caso
+        // de al lado y no éste.
+        DB::delete('DELETE FROM notas WHERE alumno_id = ? AND subunidad_id = ?',
+            [$caso['alumno_id'], $caso['subunidad_id']]);
+
+        $caso = $this->bajarLaDe($caso['docente']);
+
+        $quien = $this->fichaDelAlumno($caso['alumno_id']);
+        $fila = $this->bloqueDeAlumnosNuevos($caso);
+
+        $valor = $this->otroValorPara($caso, $caso['fila'], $caso['columna']);
+
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'], [
+            [$fila, 'B', $this->comoLoEscribiriaElDocente($quien)],
+            [$fila, $caso['columna'], $valor],
+        ]);
+
+        $r = $this->ensayo($caso['token'], $ruta)->assertStatus(200);
+        $id = $this->filasDelTipo($r, 'escrita_a_mano')[0]['id'];
+
+        // Sin decidir no se escribe: el defecto de esta familia es «todavía no se
+        // sabe de quién es», y el que no pierde trabajo.
+        $this->importar($caso['token'], $ruta)->assertStatus(200);
+        $this->assertNull($this->notaDe($caso['alumno_id'], $caso['subunidad_id']));
+
+        $r = $this->importar($caso['token'], $ruta, [
+            'filas' => [['id' => $id, 'decision' => 'es:'.$caso['alumno_id']]],
+        ])->assertStatus(200);
+
+        $this->assertSame($valor, $this->notaDe($caso['alumno_id'], $caso['subunidad_id']),
+            'La fila resuelta se escribe con la misma siembra y el mismo recálculo que las de la rejilla.');
+        $this->assertGreaterThan(0, $r->json('hechos.filas_sembradas'),
+            'La casilla no tenía fila en `notas`: hay que sembrarla, o la nota no se guarda y no da error.');
+    }
+
+    #[Test]
+    public function f6a_resolver_una_fila_que_pisa_una_nota_existente_es_un_choque_y_no_una_escritura_silenciosa(): void
+    {
+        $caso = $this->unaPlanilla();
+
+        // El estado de partida va ANTES de la descarga: lo que se fabrica es «este
+        // alumno YA tiene nota puesta», no «alguien la cambió por la web».
+        $puesta = EscalaDeNotas::minimo((int) $caso['year_id']) ?? 0;
+
+        $this->ponerNota($caso['alumno_id'], $caso['subunidad_id'], $puesta);
+
+        $caso = $this->bajarLaDe($caso['docente']);
+
+        $quien = $this->fichaDelAlumno($caso['alumno_id']);
+        $fila = $this->bloqueDeAlumnosNuevos($caso);
+        $otro = $this->otroValorPara($caso, $caso['fila'], $caso['columna']);
+
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'], [
+            [$fila, 'B', $this->comoLoEscribiriaElDocente($quien)],
+            [$fila, $caso['columna'], $otro],
+        ]);
+
+        $r = $this->ensayo($caso['token'], $ruta)->assertStatus(200);
+        $id = $this->filasDelTipo($r, 'escrita_a_mano')[0]['id'];
+
+        // La tarjeta lo avisa ANTES: ese alumno ya está en la hoja y ya tiene notas.
+        $this->assertNotNull(
+            $this->candidatoDe($this->filasDelTipo($r, 'escrita_a_mano')[0], $caso['alumno_id'])['ya_esta_en_la_hoja']
+        );
+
+        $decidida = ['filas' => [['id' => $id, 'decision' => 'es:'.$caso['alumno_id']]]];
+
+        $r = $this->ensayo($caso['token'], $ruta, $decidida)->assertStatus(200);
+
+        // **Y con la fila ya resuelta, la casilla entra por el camino de los choques
+        // (F7) y no por un atajo.** Una fila escrita a mano no tiene espejo —esa
+        // casilla estaba vacía al bajar el libro—, así que pisar una nota que ya
+        // existe es, por definición, «cambió en los dos sitios».
+        $choques = array_values(array_filter(
+            $r->json('familias.choques'),
+            static fn ($c) => (int) $c['valor_sistema'] === $puesta
+        ));
+
+        $this->assertCount(1, $choques, 'Resolver la fila no puede escribir encima sin enseñarlo.');
+        $this->assertSame($otro, (int) $choques[0]['valor_archivo']);
+
+        // Por defecto manda el sistema, que es lo seguro.
+        $this->importar($caso['token'], $ruta, $decidida)->assertStatus(200);
+
+        $this->assertSame($puesta, $this->notaDe($caso['alumno_id'], $caso['subunidad_id']));
+
+        // Y sólo si se dice, manda el archivo.
+        $this->importar($caso['token'], $ruta, [
+            'filas' => $decidida['filas'],
+            'choques' => ['por_defecto' => 'archivo', 'excepciones' => []],
+        ])->assertStatus(200);
+
+        $this->assertSame($otro, $this->notaDe($caso['alumno_id'], $caso['subunidad_id']));
+    }
+
+    #[Test]
+    public function f6a_un_alumno_de_otro_grupo_da_error_y_no_escribe_nada(): void
+    {
+        $caso = $this->unaPlanilla();
+
+        // **El caso se fabrica**: los 68 alumnos del seed están todos matriculados en
+        // este grupo, así que «alguien de fuera» no se puede encontrar, se crea. Es
+        // lo mismo que hace este test con un periodo cerrado o un indicador borrado:
+        // esperar a que el seed lo traiga es no comprobarlo.
+        $ajeno = $this->unAlumnoSinGrupo('Ajeno Deotrogrupo', 'Quintanilla Wu');
+
+        $quien = $this->fichaDelAlumno($caso['alumno_id']);
+        $fila = $this->bloqueDeAlumnosNuevos($caso);
+
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'], [
+            [$fila, 'B', $this->comoLoEscribiriaElDocente($quien)],
+            [$fila, $caso['columna'], $this->otroValorPara($caso, $caso['fila'], $caso['columna'])],
+        ]);
+
+        $id = $this->filasDelTipo($this->ensayo($caso['token'], $ruta)->assertStatus(200), 'escrita_a_mano')[0]['id'];
+
+        $antes = $this->huellaDeLaBase();
+
+        // **La decisión llega del cliente y no se cree.** Escribir la nota de alguien
+        // que no está matriculado en ese grupo sería corromper la planilla en
+        // silencio: un dato que parece bueno, que nadie revisa y que sale en un
+        // boletín.
+        $r = $this->importar($caso['token'], $ruta, [
+            'filas' => [['id' => $id, 'decision' => 'es:'.$ajeno]],
+        ])->assertStatus(422);
+
+        $this->assertSame(
+            ['fila_de_otro_grupo'],
+            array_values(array_unique(array_column($r->json('bloqueos'), 'tipo')))
+        );
+
+        $this->assertSame($antes, $this->huellaDeLaBase(),
+            'Un bloqueo es «este libro no se puede subir»: escribir lo que sí se puede dejaría media '
+            .'planilla dentro y un error delante.');
+    }
+
+    #[Test]
+    public function f6b_el_id_que_ya_no_esta_en_el_grupo_se_informa_con_su_motivo_y_no_se_pregunta(): void
+    {
+        $caso = $this->unaPlanilla();
+
+        // Se retira DESPUÉS de bajar el libro, que es el caso: el `ID` estaba en la
+        // hoja cuando se descargó y hoy ya no está en el grupo.
+        DB::update(
+            'UPDATE matriculas SET estado = "RETI", fecha_retiro = "2026-09-18",
+                    razon_retiro = "Cambio de ciudad"
+              WHERE alumno_id = ? AND grupo_id = ? AND deleted_at IS NULL',
+            [$caso['alumno_id'], $this->grupoDe($caso['asignatura_id'])]
+        );
+
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'], [
+            [$caso['fila'], $caso['columna'], $this->otroValorPara($caso, $caso['fila'], $caso['columna'])],
+        ]);
+
+        $r = $this->ensayo($caso['token'], $ruta)->assertStatus(200);
+
+        $suya = array_values(array_filter(
+            $this->filasDelTipo($r, 'ya_no_esta_en_el_grupo'),
+            static fn ($f) => $f['alumno']['alumno_id'] === $caso['alumno_id']
+        ));
+
+        $this->assertCount(1, $suya);
+        $this->assertFalse($suya[0]['decidible'],
+            'Que alguien se haya retirado no es algo que el docente pueda contestar.');
+        $this->assertSame([], $suya[0]['candidatos']);
+        $this->assertSame($caso['fila'], $suya[0]['fila']);
+        $this->assertStringContainsString('18/09/2026', $suya[0]['alumno']['motivo'],
+            'Sin el motivo y la fecha, «sus notas no entraron» es indistinguible de una avería.');
+        $this->assertStringContainsString('Cambio de ciudad', $suya[0]['alumno']['motivo']);
+        $this->assertNotEmpty($suya[0]['alumno']['foto']);
+        $this->assertArrayHasKey('sexo', $suya[0]['alumno']);
+
+        $antes = $this->notaDe($caso['alumno_id'], $caso['subunidad_id']);
+
+        $this->importar($caso['token'], $ruta)->assertStatus(200);
+
+        $this->assertSame($antes, $this->notaDe($caso['alumno_id'], $caso['subunidad_id']),
+            'Sus notas se quedan fuera: ya no está matriculado en el grupo de esa hoja.');
+    }
+
+    #[Test]
+    public function f6c_el_que_entro_despues_es_un_aviso_con_su_nombre_y_sin_fila(): void
+    {
+        $caso = $this->unaPlanilla();
+
+        $grupoId = $this->grupoDe($caso['asignatura_id']);
+
+        // Igual que el de al lado: en el seed no queda nadie por matricular aquí, así
+        // que el alumno se fabrica.
+        $nuevo = $this->unAlumnoSinGrupo('Recienllegada', 'Toro Mejia');
+
+        // Se matricula DESPUÉS de bajar el libro: por eso no tiene casillas en la
+        // hoja y por eso sus notas siguen sin pasar.
+        DB::insert(
+            'INSERT INTO matriculas (alumno_id, grupo_id, estado, fecha_matricula, created_at, updated_at)
+             VALUES (?, ?, "MATR", "2026-09-19", NOW(), NOW())',
+            [$nuevo, $grupoId]
+        );
+
+        $r = $this->ensayo($caso['token'], $caso['ruta'])->assertStatus(200);
+
+        $suya = array_values(array_filter(
+            $this->filasDelTipo($r, 'entro_despues'),
+            static fn ($f) => $f['alumno']['alumno_id'] === $nuevo
+        ));
+
+        $this->assertCount(1, $suya);
+        $this->assertFalse($suya[0]['decidible'], 'Es un aviso, no un problema.');
+        $this->assertNotEmpty($suya[0]['alumno']['nombre'],
+            'Con su nombre, para que el docente sepa a quién le falta pasar la nota.');
+
+        // **`fila` va `null` y no un cero.** Ese alumno no tiene fila en el libro,
+        // que es justamente el problema del que avisa: un número que parece una fila
+        // del Excel y no lo es acaba copiado en un correo y no lleva a ninguna parte.
+        $this->assertNull($suya[0]['fila']);
+        $this->assertSame(0, $suya[0]['notas_en_la_fila']);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Los ayudantes
     // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * La primera fila del bloque «alumnos que no aparecen en la lista».
+     *
+     * Se calcula como la calcula el lector —cuatro filas debajo del último alumno—
+     * y **no se lee del mapa**, porque el mapa no la guarda: su sitio está atado al
+     * de la rejilla y guardarla sería un segundo sitio donde la misma cuenta puede
+     * desincronizarse.
+     *
+     * @param  array<string, mixed>  $caso
+     */
+    private function bloqueDeAlumnosNuevos(array $caso): int
+    {
+        return max(array_map('intval', array_keys($caso['mapa']['filas']))) + 4;
+    }
+
+    private function fichaDelAlumno(int $alumnoId): object
+    {
+        $ficha = DB::selectOne('SELECT nombres, apellidos, sexo FROM alumnos WHERE id = ?', [$alumnoId]);
+
+        $this->assertNotNull($ficha);
+
+        return $ficha;
+    }
+
+    /**
+     * Lo que el docente teclea de verdad: **el nombre delante, en minúsculas y sin
+     * tildes**.
+     *
+     * Son las dos cosas que el §6.4 pone de ejemplo y las dos a la vez, porque las
+     * dos a la vez son el caso normal: la planilla imprime `APELLIDOS, Nombres` con
+     * sus tildes y nadie escribe así a mano.
+     */
+    private function comoLoEscribiriaElDocente(object $ficha): string
+    {
+        $entero = trim(trim((string) $ficha->nombres).' '.trim((string) $ficha->apellidos));
+
+        return trim(strtr(mb_strtolower($entero, 'UTF-8'), [
+            'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
+        ]));
+    }
+
+    /**
+     * Los renglones de la F6 de un tipo.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function filasDelTipo(TestResponse $r, string $tipo): array
+    {
+        return array_values(array_filter(
+            (array) $r->json('familias.filas'),
+            static fn ($f) => $f['tipo'] === $tipo
+        ));
+    }
+
+    /** Deja una nota puesta, sembrando la fila si no existía. */
+    private function ponerNota(int $alumnoId, int $subunidadId, int $valor): void
+    {
+        $hay = DB::selectOne(
+            'SELECT id FROM notas WHERE alumno_id = ? AND subunidad_id = ? AND deleted_at IS NULL LIMIT 1',
+            [$alumnoId, $subunidadId]
+        );
+
+        if ($hay === null) {
+            DB::insert(
+                'INSERT INTO notas (subunidad_id, alumno_id, nota, created_at, updated_at)
+                 VALUES (?, ?, ?, NOW(), NOW())',
+                [$subunidadId, $alumnoId, $valor]
+            );
+
+            return;
+        }
+
+        DB::update('UPDATE notas SET nota = ? WHERE id = ?', [$valor, $hay->id]);
+    }
+
+    /**
+     * El candidato que es **esa** persona, con su nombre delante si no está.
+     *
+     * @param  array<string, mixed>  $fila
+     * @return array<string, mixed>
+     */
+    private function candidatoDe(array $fila, int $alumnoId): array
+    {
+        foreach ($fila['candidatos'] as $candidato) {
+            if ($candidato['alumno_id'] === $alumnoId) {
+                return $candidato;
+            }
+        }
+
+        $this->fail('El alumno '.$alumnoId.' no salió entre los candidatos de «'.$fila['escrito'].'»: '
+            .implode(', ', array_column($fila['candidatos'], 'nombre')));
+    }
+
+    /**
+     * Un alumno recién creado y **sin ninguna matrícula**.
+     *
+     * Hace falta porque el seed tiene 68 alumnos y los 68 están matriculados en el
+     * grupo que estos tests usan: «alguien de fuera» no se puede encontrar, se
+     * fabrica. Va dentro de la transacción del test, como todo lo demás.
+     */
+    private function unAlumnoSinGrupo(string $nombres, string $apellidos): int
+    {
+        DB::insert(
+            'INSERT INTO alumnos (nombres, apellidos, sexo, nee, created_at, updated_at)
+             VALUES (?, ?, "M", 0, NOW(), NOW())',
+            [$nombres, $apellidos]
+        );
+
+        return (int) DB::getPdo()->lastInsertId();
+    }
+
+    private function grupoDe(int $asignaturaId): int
+    {
+        return (int) DB::selectOne('SELECT grupo_id FROM asignaturas WHERE id = ?', [$asignaturaId])->grupo_id;
+    }
 
     /**
      * Un docente con una asignatura calificable en el periodo actual, y su libro ya

@@ -236,7 +236,6 @@ class RespuestasDeLaPlanillaTest extends TestCase
     {
         $respuestas = new RespuestasDeLaPlanilla([
             'ausencias' => [['hoja' => '3B MAT', 'alumno_id' => 1055, 'ausencias' => 4]],
-            'filas' => [['hoja' => '3B MAT', 'fila' => 37, 'alumno_id' => 1061]],
         ]);
 
         $resumen = $respuestas->resumen();
@@ -247,10 +246,72 @@ class RespuestasDeLaPlanillaTest extends TestCase
         // **Una decisión que se ignora en silencio es el mismo silencio que este
         // módulo vino a quitar.** El libro ya trae las columnas de ausencias
         // rellenas y escribibles, así que la pantalla puede mandarlas sin saberlo.
-        $this->assertSame(['ausencias', 'filas'], $secciones);
+        $this->assertSame(['ausencias'], $secciones);
 
         foreach ($resumen['no_aplicadas'] as $renglon) {
             $this->assertNotEmpty($renglon['motivo'], 'Lo que no se aplica va con su motivo al lado.');
+        }
+    }
+
+    #[Test]
+    public function las_filas_salieron_de_no_aplicadas_al_llegar_la_fase_3(): void
+    {
+        $respuestas = new RespuestasDeLaPlanilla([
+            'filas' => [['id' => 'a1b2c3', 'decision' => 'es:1061']],
+        ]);
+
+        $resumen = $respuestas->resumen();
+
+        // **Y no es cosmética, es lo que hace que la pantalla exista.** El front
+        // borra el paso «Alumnos» entero en cuanto ve `filas` en `no_aplicadas`, en
+        // vez de ofrecer tres botones que el servidor no va a obedecer. Si esta
+        // sección volviera a esa lista, la F6 se serviría y no se vería.
+        $this->assertSame([], array_column($resumen['no_aplicadas'], 'seccion'));
+        $this->assertSame(['filas'], $resumen['aplicadas']);
+    }
+
+    // ── F6: la única llave por fila ──────────────────────────────────────────
+
+    #[Test]
+    public function la_fila_se_decide_por_su_id_y_lleva_la_persona_dentro(): void
+    {
+        $respuestas = new RespuestasDeLaPlanilla([
+            'filas' => [
+                ['id' => 'aaa', 'decision' => 'es:1061'],
+                ['id' => 'bbb', 'decision' => 'fuera'],
+            ],
+        ]);
+
+        $this->assertSame(['decision' => 'es', 'alumno_id' => 1061], $respuestas->queHacerConLaFila('aaa'));
+        $this->assertSame(['decision' => 'fuera', 'alumno_id' => null], $respuestas->queHacerConLaFila('bbb'));
+    }
+
+    #[Test]
+    public function una_fila_sin_contestar_no_es_lo_mismo_que_dejarla_fuera(): void
+    {
+        $respuestas = new RespuestasDeLaPlanilla(['filas' => [['id' => 'aaa', 'decision' => 'fuera']]]);
+
+        // Las dos hacen lo mismo —esa fila no se escribe— y se leen distinto: una es
+        // un problema que la pantalla sigue enseñando y la otra es un problema
+        // resuelto. Con el defecto en `fuera`, un libro con tres nombres escritos a
+        // mano y sin tocar diría que está todo decidido.
+        $this->assertSame(['decision' => null, 'alumno_id' => null], $respuestas->queHacerConLaFila('zzz'));
+        $this->assertNotSame(
+            $respuestas->queHacerConLaFila('aaa'),
+            $respuestas->queHacerConLaFila('zzz')
+        );
+    }
+
+    #[Test]
+    public function un_es_sin_alumno_no_se_aplica_a_medias(): void
+    {
+        foreach (['es', 'es:', 'es:cero', 'es:0', 'es:-3'] as $rota) {
+            $this->assertSame(
+                ['decision' => 'fuera', 'alumno_id' => null],
+                (new RespuestasDeLaPlanilla(['filas' => [['id' => 'aaa', 'decision' => $rota]]]))
+                    ->queHacerConLaFila('aaa'),
+                'Un «sí, es él» sin decir quién es la peor forma de resolver esto: '.$rota
+            );
         }
     }
 

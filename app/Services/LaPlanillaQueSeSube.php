@@ -249,8 +249,9 @@ class LaPlanillaQueSeSube
      * rótulo, frase y ya). Guardarlas en `_myvc` sería un segundo sitio donde la
      * misma cuenta puede desincronizarse.
      *
-     * Aquí sólo se leen y se cuentan: **el emparejamiento por nombre es la fase 3**
-     * (F6 del plan), y esta versión no crea a nadie ni adivina a quién se refiere.
+     * Aquí sólo se leen: **quién es cada nombre lo decide {@see EnsayoDeLaPlanilla}**
+     * (F6 del plan, §6.4), buscándolo dentro del grupo de esa hoja y preguntando. Ni
+     * aquí ni allí se crea a nadie.
      *
      * @param  array<array-key, mixed>  $filas  el `filas` del mapa: fila → alumno
      * @return list<array{fila:int, nombre:string}>
