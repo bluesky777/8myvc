@@ -8,6 +8,76 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+> ## ✅ LA IMPORTACIÓN DE ALUMNOS, REHECHA ENTERA (20–21 sep 2026)
+>
+> **Joseth pidió «rápido, confiable y lo más failover posible» y está en `main`.** Cinco
+> commits: `c9c2411`, `8071970`, `ca5ee8f`, `a0b5b7e`, `fb5a146`, `f150949`, `5a97e21`.
+>
+> ### Lo que se midió antes de diseñar, porque el problema no estaba donde parecía
+>
+> | | medido |
+> |---|---|
+> | leer el libro (4.000 filas × 40 col) | **4,5 s y +45 MB** — NO era el cuello |
+> | escribir | **6,7 consultas por fila** → 4.000 filas ≈ 27.000 consultas |
+> | de esas, lastre | 1 `INSERT INTO debugging` por fila, con 17.457 filas acumuladas |
+> | cola de trabajos | **no hay**: `sync`, cero `app/Jobs`. En cPanel no hay demonio |
+> | `max_execution_time` | **30 s** en el `php.ini` del contenedor (web). El **300 de cPanel es dato heredado**, no medición |
+>
+> *No era lento por leer Excel: era lento por hablar con la base fila a fila. Y no puede
+> irse a segundo plano porque no hay dónde.*
+>
+> ### Lo que quedó hecho
+>
+> 1. **Fuera la transacción global de maatwebsite** (`config/excel.php`, `'handler' => 'null'`
+>    — la **cadena**, no el `null` de PHP: costó 55 rojos). Envolvía la importación entera,
+>    así que el ROLLBACK se llevaba las filas **y el avance**: «reanudar» sólo podía
+>    significar «no se escribió nada». La transacción **por fila** ya existía y es la que
+>    impide dejar medio alumno.
+> 2. **Troceado por petición**: 20 s, punto de control, `terminado: false` + `faltan`. El
+>    front reenvía. Peor caso de un corte: 20 s en vez de los 300 que tardaba en morir.
+> 3. **Lotes de 25** filas, una transacción y **una marca por lote**. Con lo anterior:
+>    **6,7 → 4,73 consultas por fila (−29 %)**.
+> 4. **Siempre se escribe al menos un lote por petición** — sin eso, un libro que agota el
+>    presupuesto al leerlo diría «faltan N» para siempre. *La guarda del front era la única
+>    red.*
+> 5. **Cerrojo** `GET_LOCK` por archivo y año (la segunda ventana recibe **409**). Se suelta
+>    solo al caerse la conexión, que es lo que hace falta sin cron.
+> 6. **`filas_totales`** en `importaciones`, para que el aviso de «a medias» tenga
+>    denominador. `NULL` significa **«no se sabe»**, no cero.
+> 7. **El estado que CABE y no existe** (`ACTV`): catálogo **medido, no declarado** — lo que
+>    el código nombra ∪ lo que ese colegio ya tiene escrito.
+> 8. **El ensayo se recorta** en vez de reventar a los 30 s, y `puede_importarse` pasa a
+>    **`null`** —«no se sabe», distinto de `false`— cuando el plan está recortado.
+> 9. **Las cuatro secciones de decisiones se aplican**: `vacios`, `hojas`, `duplicados`,
+>    `repetidos`. `no_aplicadas` queda vacío.
+>
+> ### 🔴 LO QUE ESPERA A JOSETH, y no lo decide una sesión
+>
+> | | |
+> |---|---|
+> | **Que se vea que un año quedó a medias** | Él eligió «un aviso mientras esté a medias». El backend ya da `filas`/`filas_totales`; **la pantalla es del front y hay que pedírsela** |
+> | **Nada reanuda solo** si se cierra el navegador | Necesita cron o aceptar que lo haga un humano |
+> | **El 500 sin cabeceras de CORS** | Una línea en `public/.htaccess` (`Header always set`), pero **puede romper lo que hoy funciona** si la cabecera sale duplicada. Hay que medirlo en un cPanel de verdad |
+> | **`cerrado_por_nombres` sale `NULL`** para administrativos (47 §7.7) | `users` sólo tiene `username`: qué se enseña sin ficha es producto |
+>
+> ### Tres avisos para quien siga
+>
+> - **La suite entera se debe**: esta tanda tocó `config/` y `database/migrations/`.
+> - **`php artisan migrate` con `DB_TEST_DATABASE` migra la base de DESARROLLO** — esa
+>   variable sólo la lee phpunit. Dice `DONE` y la columna no aparece. Lo que sirve es
+>   `-e DB_DATABASE=<la de tests>`.
+> - **`stan` da 7 errores que NO son de esta tanda**: `CandadoDeLaPlantilla` y su test están
+>   **modificados sin commitear** en el árbol por otra sesión.
+>
+> ### Y la forma que se repitió TRES veces, que es lo más transferible
+>
+> `myvc-front-51` encontró **conduciendo contra el docker** lo que los tests de aquí no
+> vieron, tres veces y siempre igual: **una capa se entera de la decisión y la de al lado
+> no.** El `consecuencia` del ensayo prometía el plan de antes de decidir; el veredicto
+> `puede_importarse` seguía bloqueando una hoja que la persona acababa de mandar omitir; y
+> antes, el 500 llegaba sin cabeceras y la pantalla lo confundía con un fichero ilegible.
+> *Los tres se vieron ejecutando el ciclo entero, no leyendo el código.*
+
 > ## 🟡 ESPERA A JOSETH — LA CITACIÓN DESTAPÓ QUE `ver-ausencias` VE EL 0,04 % (20 sep 2026)
 >
 > **No hay nada escrito y no se va a escribir hasta que él lo diga.** Salió de conducir
