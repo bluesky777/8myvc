@@ -811,6 +811,11 @@ class ImportarController extends Controller
 
             $punto->guardarAvisos($fixer->avisos);
 
+            // El denominador del aviso de «a medias»: se guarda SIEMPRE, también
+            // cuando la petición se quedó corta, porque es justo la que deja la
+            // importación pendiente y la que tiene que poder contarse.
+            $punto->anotarElTotal($Import->filasDelArchivo);
+
             // **Sólo se cierra si de verdad terminó.** Si se acabó el tiempo, la
             // fila se queda en `en_proceso` con su avance, que es justo lo que
             // `abrir()` sabe reanudar en la petición siguiente. Cerrarla aquí

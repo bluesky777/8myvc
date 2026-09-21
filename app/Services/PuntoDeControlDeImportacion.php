@@ -235,6 +235,28 @@ class PuntoDeControlDeImportacion
         $this->filas++;
     }
 
+    /**
+     * Cuántas filas tenía el archivo, para que el aviso de «a medias» pueda dar
+     * un denominador y no un número suelto.
+     *
+     * **Sólo crece.** Si la lectura revienta en la tercera pestaña, el total que
+     * se conoce es parcial y menor que el de la tanda anterior; escribirlo
+     * encima haría que el aviso dijera «600 de 400». Se guarda el mayor visto,
+     * que es lo único que no puede mentir hacia abajo.
+     */
+    public function anotarElTotal(int $filasDelArchivo): void
+    {
+        if ($filasDelArchivo <= 0) {
+            return;
+        }
+
+        DB::update(
+            'UPDATE importaciones SET filas_totales = GREATEST(COALESCE(filas_totales, 0), ?), updated_at = ?
+              WHERE id = ?',
+            [$filasDelArchivo, now(), $this->id]
+        );
+    }
+
     /** Escribe de una vez la marca que `apuntar()` fue moviendo. */
     public function volcar(): void
     {
@@ -335,7 +357,7 @@ class PuntoDeControlDeImportacion
     public static function pendienteDe(string $tipo, int $year): ?object
     {
         return DB::selectOne(
-            'SELECT i.id, i.archivo, i.huella, i.year, i.avance, i.filas, i.estado, i.error,
+            'SELECT i.id, i.archivo, i.huella, i.year, i.avance, i.filas, i.filas_totales, i.estado, i.error,
                     i.avisos, i.respuestas, i.inicio, i.fin, i.created_by,
                     COALESCE(
                         NULLIF(TRIM(CONCAT(COALESCE(p.nombres, ""), " ", COALESCE(p.apellidos, ""))), ""),

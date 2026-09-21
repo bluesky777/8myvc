@@ -58,6 +58,65 @@ class ImportacionReanudableTest extends CasoDeContrato
      * el test mira `inicio`, `fin` y `filas` y no solo el estado.
      */
     /**
+     * **La importación a medias se puede contar sin tener el archivo delante.**
+     *
+     * Es lo que hace útil el aviso que decidió Joseth el 20 sep 2026: desde que
+     * esto se trocea, un corte deja medio colegio cargado y ninguna pantalla lo
+     * dice. El caso que hay que cubrir es el peor: alguien cerró el navegador el
+     * viernes y otra persona abre la pantalla el lunes **sin el archivo**.
+     *
+     * `filas` ya se sabía. Lo que faltaba era el denominador, que sólo se
+     * averigua leyendo el libro — y por eso se guarda.
+     */
+    public function test_lo_pendiente_se_cuenta_con_su_denominador(): void
+    {
+        [$token, $year] = $this->credenciales();
+        $archivo = $this->exportacionDeAlumnos($token);
+
+        config(['importacion.segundos_por_peticion' => 0, 'importacion.filas_por_lote' => 10]);
+
+        $r = $this->importar($archivo, $token, $year)->assertStatus(200);
+        $total = (int) $r->json('filas_totales');
+
+        $this->assertGreaterThan(10, $total, 'El archivo tiene que dar para más de un lote.');
+
+        // Y ahora **sin el archivo**: sólo lo que el servidor recuerda.
+        $pendiente = $this->get('/api/importar/alumnos/pendiente/'.$year,
+            ['Authorization' => 'Bearer '.$token])->assertStatus(200);
+
+        $this->assertSame(10, $pendiente->json('pendiente.filas'));
+        $this->assertSame($total, $pendiente->json('pendiente.filas_totales'),
+            'Lo pendiente no sabe cuántas filas tenía el archivo, así que el aviso sólo puede '
+            ."dar\nun número suelto: «500 filas» en vez de «500 de 1.000».");
+    }
+
+    /**
+     * Y el total **no baja**, que es el modo de fallo de guardarlo por tandas.
+     *
+     * Si una tanda posterior revienta leyendo la tercera pestaña, el total que
+     * ve es parcial. Escribirlo encima haría que el aviso dijera «600 de 400».
+     */
+    public function test_el_total_nunca_baja(): void
+    {
+        [$token, $year] = $this->credenciales();
+        $archivo = $this->exportacionDeAlumnos($token);
+
+        config(['importacion.segundos_por_peticion' => 0, 'importacion.filas_por_lote' => 10]);
+
+        $r = $this->importar($archivo, $token, $year)->assertStatus(200);
+        $total = (int) $r->json('filas_totales');
+
+        $id = (int) $this->ultimaImportacion()->id;
+        DB::update('UPDATE importaciones SET filas_totales = ? WHERE id = ?', [$total + 500, $id]);
+
+        $this->importar($archivo, $token, $year)->assertStatus(200);
+
+        $this->assertSame($total + 500, (int) $this->ultimaImportacion()->filas_totales,
+            'Una tanda que ve menos filas pisó el total que ya había, y el aviso puede '
+            .'acabar diciendo «600 de 400».');
+    }
+
+    /**
      * **Sin tiempo NUNCA se para en seco: cada petición escribe al menos un lote.**
      *
      * Es el borde que casi se queda sin tapar. El presupuesto se cuenta desde
