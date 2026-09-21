@@ -25,11 +25,15 @@ use Illuminate\Support\Facades\DB;
  * Los tres llevan su decisión escrita al lado, y **dos de ellas siguen siendo
  * ciertas**:
  *
- * - **Línea 208**, la del import principal: su propio comentario dice que **ya no
- *   hace ese trabajo** —lo hace `importaciones`, con
- *   `PuntoDeControlDeImportacion`— y que se queda porque es **el único rastro de
- *   las importaciones anteriores a hoy en las dieciséis bases**. Es una decisión
- *   tomada, no un olvido.
+ * - **Línea 208**, la del import principal: su propio comentario decía que **ya no
+ *   hacía ese trabajo** —lo hace `importaciones`, con
+ *   `PuntoDeControlDeImportacion`— y que se quedaba porque era **el único rastro de
+ *   las importaciones anteriores a hoy en las dieciséis bases**.
+ *   **RETIRADO el 20 sep 2026 en `c52627b`, con la decisión de Joseth de hacer la
+ *   importación rápida y reanudable**, y con su precio medido al lado del hueco que
+ *   dejó: una consulta por fila, el 15 % de las del importador, y 17.457 filas
+ *   acumuladas sólo en la copia de desarrollo. *Lo que para es que la tabla siga
+ *   creciendo por un trabajo que ya hace otro; lo escrito no se borra.*
  * - **Líneas 559 y 685**, con `//No eliminar para continuar si se cae el
  *   servidor!!` al lado. Están en `postCartera()` y en `getModificar()`, **que no
  *   son el import principal y no usan `PuntoDeControlDeImportacion`**: para esos
@@ -43,9 +47,15 @@ use Illuminate\Support\Facades\DB;
  *
  * ## Lo que sí queda medido
  *
- * El comentario de la línea 208 dice que «`debugging` crece una fila por alumno
- * importado y no se limpia nunca». Eso es una afirmación, y este test la convierte
+ * El comentario de la línea 208 decía que «`debugging` crece una fila por alumno
+ * importado y no se limpia nunca». Eso era una afirmación, y este test la convirtió
  * en un número: importa la hoja que produce el propio export y **cuenta**.
+ *
+ * **Desde el 20 sep 2026 ese número es cero, y el test se da la vuelta sin
+ * borrarse.** Medir «ya no escribe» es lo que impide que el pin vuelva de
+ * contrabando en un `merge`, que es exactamente el riesgo de una línea que estuvo
+ * ocho meses ahí. Y la segunda mitad —**lo ya escrito sigue estando**— no cambia:
+ * la tabla no tiene borrado ni límite, y vaciarla es otra decisión.
  *
  * Y el otro número, medido aquí y arreglado allí: **cerrar un pedido de cambio
  * escribía dos filas** —`Debugging::pin('Pedido')` y la del `'ENTROOOOO'`—. Esa
@@ -68,18 +78,27 @@ class LaTablaDeDepuracionQueCreceTest extends CasoDeContrato
     }
 
     /**
-     * §124 — Una importación deja **una fila de depuración por alumno**.
+     * §124 — Una importación **ya no deja ni una fila** de depuración.
      *
-     * No es una estimación: se cuenta antes y después de subir la hoja, y se
-     * compara con los alumnos que traía. La tabla no tiene ni borrado ni límite,
-     * así que ese número se suma al de todas las importaciones anteriores, en cada
-     * uno de los dieciséis colegios.
+     * Hasta el 20 sep 2026 este caso afirmaba lo contrario —una fila por alumno— y
+     * lo contaba. El pin se retiró en `c52627b` con la decisión de Joseth, así que
+     * **la afirmación que hay que sostener es la nueva**, y se sostiene con el
+     * mismo experimento: se cuenta antes y después de subir la hoja.
      *
-     * **Se mide y no se toca**: la limpieza es una decisión —hay que decidir si se
-     * conserva el rastro de las importaciones viejas— y quitar el pin del import
-     * principal sin la decisión borraría lo único que queda de ellas.
+     * Las dos mitades, que no son la misma:
+     *
+     * - **La importación no escribe**: cero filas nuevas. Si esto vuelve a ser
+     *   mayor que cero, alguien devolvió el pin —probablemente sin querer, en un
+     *   `merge`— y con él la consulta por fila que costaba el 15 % del importador.
+     * - **Lo ya escrito sigue ahí**: el total no baja. La tabla no tiene `deleted_at`
+     *   ni nadie que borre, y las 17.457 filas de las importaciones viejas son el
+     *   único rastro que queda de ellas en las dieciséis bases.
+     *
+     * *Los otros dos pines vivos —`postCartera()` y `getModificar()`, líneas 1432 y
+     * 1544— no los toca esta ruta y siguen donde estaban: no son el import
+     * principal y no usan `PuntoDeControlDeImportacion`.*
      */
-    public function test_importar_deja_una_fila_de_depuracion_por_alumno(): void
+    public function test_importar_ya_no_deja_filas_de_depuracion(): void
     {
         [$token, $year] = $this->credenciales();
 
@@ -90,26 +109,22 @@ class LaTablaDeDepuracionQueCreceTest extends CasoDeContrato
         $this->olvidarControladores();
 
         $antesDebug = DB::table('debugging')->count();
-        $antesAlumnos = DB::table('alumnos')->whereNull('deleted_at')->count();
 
         $this->post("/api/importar/algo/{$year}",
             ['file' => new UploadedFile($archivo, 'alumnos.xlsx', null, null, true)],
             ['Authorization' => 'Bearer '.$token])->assertStatus(200);
 
-        $escritas = DB::table('debugging')->count() - $antesDebug;
+        $despues = DB::table('debugging')->count();
 
-        $this->assertGreaterThan(0, $escritas,
-            'Importar escribe en `debugging`. Si esto deja de ser cierto, alguien quitó el pin '
-            .'de `ImportarController` — y con él el único rastro de las importaciones viejas.');
+        $this->assertSame(0, $despues - $antesDebug,
+            'Importar volvió a escribir en `debugging`. El pin del import principal se retiró el '
+            .'20 sep 2026 (`c52627b`): costaba una consulta por fila, el 15 % de las del '
+            .'importador, y el punto de control lo hace `importaciones`.');
 
-        // El número, que es lo que faltaba: una fila por alumno de la hoja, y la
-        // hoja es la exportación de los alumnos que ya hay.
-        $this->assertLessThanOrEqual($antesAlumnos, $escritas,
-            'Una por alumno importado, no más.');
-
-        // Y ninguna de ellas se limpia: la tabla no tiene `deleted_at` ni nadie
-        // que borre. Lo que entra se queda.
-        $this->assertSame($escritas + $antesDebug, DB::table('debugging')->count());
+        // Y lo que ya estaba escrito no se va: quitar el pin para de escribir, no
+        // limpia. Vaciar la tabla es otra decisión, y no la ha tomado nadie.
+        $this->assertGreaterThanOrEqual($antesDebug, $despues,
+            'Lo ya escrito en `debugging` es el único rastro de las importaciones viejas.');
 
         @unlink($archivo);
     }

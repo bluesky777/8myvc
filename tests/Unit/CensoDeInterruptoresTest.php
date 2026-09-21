@@ -44,8 +44,8 @@ class CensoDeInterruptoresTest extends TestCase
     private const CENSO = [
         'columnas tinyint(1) distintas' => 157,
         'ni se nombran' => 64,
-        'no deciden nada' => 28,
-        'alguien decide con ellas' => 65,
+        'no deciden nada' => 27,
+        'alguien decide con ellas' => 66,
     ];
 
     /*
@@ -154,8 +154,39 @@ class CensoDeInterruptoresTest extends TestCase
      * **El 49 y el 53 del §105 siguen sin remedir**: la población que cruzaban con
      * los cuatro clientes era 93 y es 92. Ningún test de este repositorio puede
      * hacer esa medición, y por eso se dice aquí en vez de arreglarse aquí.
+     *
+     * ## 20 sep 2026 — cruza `obligatoria`, y esta vez el que se mueve es el
+     * DETECTOR, no la columna
+     *
+     * `28 / 65` pasa a `27 / 66` y la suma de **92** a **91**. La columna es
+     * `obligatoria` —`unidades` y `subunidades` en el volcado—, y **no la cruza
+     * nadie que decida con ella**: la cruza `fbcdda1`
+     * (*«aplicar deja de BORRAR la rejilla y la actualiza en su sitio»*), que
+     * cambió el `DELETE` + `INSERT` de `PlantillaNotasController` por un `UPDATE`.
+     * Lo que casa es esto, medido sobre el árbol y no deducido del diff:
+     *
+     *     WHERE id = ?', [ $unidad->definicion, $unidad->porcentaje, $unidad->obligatoria
+     *
+     * O sea: la heurística busca `where|and|or|on|…` a menos de 120 caracteres
+     * **delante** del nombre, y aquí el `WHERE` es el de la propia consulta y el
+     * nombre es un **parámetro que se escribe**. El `UPDATE` los pone a esa
+     * distancia; el `INSERT` de antes, no.
+     *
+     * **Por eso este renglón no se parece a los tres de `por_defecto`.** Aquéllos
+     * registraban un interruptor que empezaba o dejaba de decidir; éste registra
+     * que la señal de la herramienta **acertó menos**. `obligatoria` se sigue
+     * escribiendo y nadie la lee para decidir: la población real de «no la lee
+     * nadie» **no se movió**, y la que se movió es la que mide el detector.
+     *
+     * > **Y de ahí lo que hay que hacer con el 49 y el 53, que no es lo mismo que
+     * > las otras veces.** Se remiden con `tools/interruptores-que-nadie-lee.py`,
+     * > que lleva esta misma heurística, así que darían otro par de números por un
+     * > `UPDATE` de la plantilla. **Afinar la señal —no contar el nombre cuando va
+     * > dentro de la lista de parámetros— vale más que remedir con ella**, y no se
+     * > hace aquí porque tocar el criterio mueve los tres montones a la vez y eso
+     * > es una medición entera, no el arreglo de un CI. Queda dicho y fechado.
      */
-    private const SIN_LECTOR_EN_EL_BACKEND = 92;
+    private const SIN_LECTOR_EN_EL_BACKEND = 91;
 
     /** Las `tinyint(1)` del volcado, con las tablas donde están. Igual que la herramienta. */
     private function columnasBooleanas(): array
