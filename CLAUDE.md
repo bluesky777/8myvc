@@ -1305,8 +1305,32 @@ Cómo se usan, cómo se regenera el seed y qué no cubre: `docs/migracion/03-tes
   > | `composer run pint` | **ESCRIBE**: formatea los ficheros de la lista |
   > | `pint --test` a secas | mide **todo el repo**, incluido lo que no se formatea a propósito |
   >
-  > Los dos primeros corren sobre **la lista curada de `composer.json`** —hoy **486**
-  > ficheros—; el tercero sobre **723**, y da `FAIL` con **177** avisos.
+  > Los dos primeros corren sobre **la lista curada de `composer.json`** —hoy **501**
+  > ficheros—; el tercero sobre **738**, y da `FAIL` con **177** avisos.
+  >
+  > > *Remedidas las tres el **20 sep 2026 en el ÁRBOL PRINCIPAL**, sobre `main` y **después de
+  > > fundir** los tres informes del catálogo (`fdecea7`): **501** (`PASS`), **738** y **177**.
+  > > Decían 486, 723 y 177. **Hubo que tocar `composer.json` y fue el ÚNICO conflicto de la
+  > > fusión**, que es el dato que importa al copiar esto: `main` había añadido
+  > > `config/importacion.php` a la lista curada y la rama `Informes/MembreteController.php` y
+  > > `Informes/NivelacionesController.php`, las dos en la misma línea. **Se resuelve por UNIÓN y
+  > > no eligiendo un lado** —los tres ficheros los quería alguien— y después se vuelve a medir:
+  > > 486 + 2 daría 488 y 501 es lo que contestó `pint:test` sobre el árbol fundido. *Sumar dos
+  > > cifras ciertas da una falsa; contar da la buena*, que es lo que este bloque lleva escrito
+  > > cuatro veces y aquí se aplicó a un conflicto en vez de a dos ramas que no se vieron.*
+  > >
+  > > > **Y la tercera NO se movió —177— por tercera medición seguida**, con la lista curada
+  > > > subiendo **15** ficheros entre medias. Lo que eso significa sí se deduce: un fichero de
+  > > > legado que entra en la lista **sale** de la cuenta de avisos al formatearse, así que un
+  > > > 177 quieto dice que los que entraron **no traían avisos** — o sea código nuevo escrito ya
+  > > > en el estilo de Pint. *El día que ese 177 baje será porque alguien formateó legado.*
+  > > >
+  > > > **Lo que NO se pudo cerrar, y se dice en vez de rellenarlo:** el reparto de esos 15. Desde
+  > > > `90d997e` entran **16** ficheros a las carpetas de la lista, y 16 ≠ 15 — porque el 486 se
+  > > > midió en `.worktrees/est`, que ya llevaba dentro parte de ellos, así que **su base no es
+  > > > `90d997e` y el diff no contesta la pregunta**. Se deja señalado: es la trampa de este
+  > > > mismo fichero —*una cifra contada en un worktree describe un árbol que no existe*— vista
+  > > > desde el otro lado, al intentar reconciliar contra ella.
   >
   > > *Remedidas las tres el **20 sep 2026 en `.worktrees/est`**, sobre `main` en `90d997e` más
   > > las nueve rutas de las estaciones: **486** (`PASS`), **723** y **177**. Decían 478, 715 y
