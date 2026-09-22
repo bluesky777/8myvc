@@ -343,15 +343,22 @@ for d in ~/*/up ~/*/up2; do
   git -C "$d" fetch -q origin
   git -C "$d" checkout -f -B main origin/main -q
   git -C "$d" clean -fd -q           # NO uses -x: se llevaría el logo del colegio
-  grep -o 'assets/index-[^"]*\.js' "$d/index.html" | head -1
+  git -C "$d" log -1 --format='%h %s'
 done            # y otra vez en la cuenta de `lalvirtual.edu.co`
 ```
 
-**3. La huella tiene que ser la misma en todos.** Es la línea que imprime el bucle: si un colegio
-sale con otro `index-*.js`, ése se quedó en el build viejo. El `git clean` sin `-x` es a propósito
-—el logo de cada colegio no está versionado— y si `git` se queja de un `assets/index-*.js`
-modificado, **cópialo antes de forzar**: minificado es una sola línea, así que el `diff` no dice
-qué se pierde.
+**3. Lo que imprime es el commit del artefacto**, y tiene que ser el mismo en todos los colegios
+para cada carpeta: `build: main (myvc_front <hash>)`, con el hash del front que se publicó. Un
+colegio con otro commit se quedó en el build viejo.
+
+> **Se lee el commit y no la huella del bundle**, que es lo que decía aquí hasta el 22 sep: el
+> `grep 'assets/index-*.js'` sólo acierta en `up/`. El `index.html` de `up2/` no tiene esa forma
+> —Angular publica `chunk-*.js` y `styles-*.css`—, así que en la mitad de las líneas no imprimía
+> nada y **una línea vacía se lee como «igual que las demás»**.
+
+El `git clean` sin `-x` es a propósito —el logo de cada colegio no está versionado— y si `git` se
+queja de un `assets/index-*.js` modificado, **cópialo antes de forzar**: minificado es una sola
+línea, así que el `diff` no dice qué se pierde.
 
 **El orden con el backend:** los dos en la misma noche, backend primero. Cualquiera de los dos
 solo abre la ventana de números que no cuadran; lo que no se puede es dejarla abierta hasta mañana.
