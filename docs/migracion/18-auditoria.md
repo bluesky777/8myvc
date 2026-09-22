@@ -802,7 +802,17 @@ después, con el detector de la fase 3 como lista.
 > resúmenes distintos, porque no son el mismo suceso. Entidad `year_config`, que ya
 > estaba. Detalle en [`noche-2026-08-26/cert-2.md`](noche-2026-08-26/cert-2.md).
 
-### Fase 5 — la pantalla
+### Fase 5 — la pantalla — **las cuatro rutas, hechas el 21 sep 2026**
+
+> `app/Http/Controllers/Auditoria/AuditoriaController.php`, registradas en
+> `routes/api/informes.php` junto a las de `historiales/*` que sustituirán en la fase 7.
+> El router pasa de **660 a 664**; `rutas.json`, `guards-por-ruta.json` y
+> `guard-por-familia.json` regenerados, y la familia `auditoria` entra en el candado con
+> **4 de 4 con guard**, así que no toca
+> `familias-que-nunca-entran-en-el-candado.json`. Sin tests todavía, a petición de
+> Joseth. **La tabla de la pantalla enseña `valor_nuevo` como *el* valor de la fila** —40,
+> 45, 50 bajando— y no el «de X a Y»; `valor_anterior` viaja en la respuesta sin pintarse,
+> que es lo que deja ver un hueco de la cadena mientras sólo 42 de 221 métodos dejen rastro.
 
 Cuatro rutas nuevas. **Cuatro rutas nuevas son una decisión, no un efecto
 secundario**: mueven el contador de 542 a 546, tres documentos y dos snapshots.

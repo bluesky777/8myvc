@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auditoria\AuditoriaController;
 use App\Http\Controllers\CertificadosEstudioController;
 use App\Http\Controllers\ConfigCertificadosController;
 use App\Http\Controllers\Historiales\HistorialesController;
@@ -45,6 +46,18 @@ Route::put('certificados/encabezado', [ConfigCertificadosController::class, 'put
 Route::post('certificados/store', [ConfigCertificadosController::class, 'postStore'])->middleware('auth.personal');
 Route::put('certificados/update', [ConfigCertificadosController::class, 'putUpdate'])->middleware('auth.personal');
 Route::delete('certificados/destroy/{id}', [ConfigCertificadosController::class, 'deleteDestroy'])->middleware('auth.personal');
+
+// AuditoriaController — fase 5 del 18-auditoria.md. Las cuatro son ADITIVAS: no
+// retiran ninguna de las de `historiales/*` ni las de `bitacoras`, que siguen
+// contestando igual y con los mismos alias hasta la fase 7, porque cada una tiene su
+// propio cliente y su propia condición de salida (Flutter publicado, `app2`
+// sustituyendo a `app/`). El permiso concreto va DENTRO del método, no en la ruta:
+// `auth.personal` deja pasar a 75 cuentas y aquí lo propio se ve siempre y lo ajeno
+// pide `can_view_auditoria`.
+Route::get('auditoria/alumno/{id}', [AuditoriaController::class, 'getAlumno'])->middleware('auth.personal');
+Route::get('auditoria/entidad/{tipo}/{id}', [AuditoriaController::class, 'getEntidad'])->middleware('auth.personal');
+Route::get('auditoria/ingresos', [AuditoriaController::class, 'getIngresos'])->middleware('auth.personal');
+Route::get('auditoria/ingresos/{id}', [AuditoriaController::class, 'getIngreso'])->middleware('auth.personal');
 
 // HistorialesController
 Route::put('historiales/de-usuario', [HistorialesController::class, 'putDeUsuario'])->middleware('auth.personal');

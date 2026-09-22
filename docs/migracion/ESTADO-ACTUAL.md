@@ -41,6 +41,15 @@
 > | **L2** | El contrato con `myvc_front`: la columna y el modal | tras L1 |
 > | **L3…** | Ensanchar la fase 4 por dominio. Hoy **42 de 221 métodos con rastro; 178 sin ninguno** (`tools/escrituras-sin-auditoria.php`, que **no ve Eloquent**: 178 es suelo) | en curso |
 >
+> ### Hecho el 21 sep — **la fase 5 ya tiene lector**
+>
+> `auditoria/ingresos`, `/ingresos/{id}`, `/entidad/{tipo}/{id}` y `/alumno/{id}` en
+> `Auditoria/AuditoriaController`. Se acabó el «se escribe rastro desde agosto y nadie lo
+> ve». Router **660 → 664**, las tres instantáneas regeneradas, familia con 4 de 4 guards.
+> Permiso partido: lo propio siempre, lo ajeno con `can_view_auditoria`. **El acudiente
+> todavía no ve la auditoría de sus acudidos** — restricción consciente, pide la consulta
+> de parentesco. Sin tests, a petición de Joseth. Falta el front (L2).
+>
 > ### Hecho el 21 sep, `88beb44` — la decisión 7
 >
 > `auditoria` gana **`valor_anterior_num` / `valor_nuevo_num`** (`int`, nullable, sin

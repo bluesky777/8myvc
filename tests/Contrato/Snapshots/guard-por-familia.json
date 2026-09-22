@@ -59,6 +59,10 @@
         "total": 5,
         "con_guard": 5
     },
+    "auditoria": {
+        "total": 4,
+        "con_guard": 4
+    },
     "ausencias": {
         "total": 8,
         "con_guard": 8
