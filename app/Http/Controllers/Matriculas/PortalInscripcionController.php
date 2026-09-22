@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Matriculas;
 
 use App\Http\Controllers\Controller;
+use App\Services\Auditoria;
 use App\Services\OrdenDeInscripcion;
 use App\Support\SafeUpload;
 use Carbon\Carbon;
@@ -275,6 +276,23 @@ class PortalInscripcionController extends Controller
 
         DB::update('UPDATE aspirantes SET '.implode(', ', $sets).' WHERE id=?', $valores);
 
+        /*
+         * **Aquí el actor no es del colegio: es la familia.** Esta ruta la llama el
+         * portal público, así que la línea sirve para algo distinto de las demás —no
+         * para vigilar a quien trabaja aquí, sino para poder decirle a una familia
+         * **qué mandó y cuándo** cuando el formulario aparezca a medias o distinto de
+         * como lo recuerdan. `Auditoria` resuelve solo el actor de la petición; si no
+         * hay sesión, la línea sale sin actor, que es la verdad.
+         *
+         * El resumen dice qué campos tocó y no «guardó el formulario»: el portal se
+         * rellena en varias pasadas y dos líneas iguales no distinguirían la vez que
+         * escribió el teléfono de la vez que cambió la EPS.
+         */
+        Auditoria::registrar()
+            ->editar('aspirante', (int) $aspirante->id)
+            ->resumen('La familia guardó '.implode(', ', array_map(static fn ($x) => explode('=', $x)[0], $sets)))
+            ->guardar();
+
         $fresco = $this->aspiranteDe((int) $orden->id);
 
         return [
@@ -350,6 +368,12 @@ class PortalInscripcionController extends Controller
             DB::insert('INSERT INTO documentos_admision
                 (requisito_id, aspirante_id, estado, created_at, updated_at) VALUES (?,?,?,?,?)',
                 [(int) $requisito->id, (int) $aspirante->id, 'PAPEL', $ahora, $ahora]);
+
+            Auditoria::registrar()
+                ->crear('documento_admision', (int) DB::getPdo()->lastInsertId())
+                ->a(['estado' => 'PAPEL', 'requisito_id' => (int) $requisito->id])
+                ->resumen('La familia dijo que lleva el documento en papel')
+                ->guardar();
 
             return ['estado' => 'PAPEL', 'mensaje' => 'Anotado: lo lleva en papel el día de matrículas.'];
         }
