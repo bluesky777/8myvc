@@ -3,6 +3,7 @@
 namespace Tests\Contrato;
 
 use App\Services\PuntoDeControlDeImportacion;
+use App\Support\Reloj;
 use Illuminate\Database\Events\TransactionBeginning;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -470,13 +471,24 @@ class ImportacionReanudableTest extends CasoDeContrato
         // guarda mal en MySQL se guarda como '0000-00-00 00:00:00', que tampoco
         // lo es, y la resta que justifica la tabla daría un número absurdo sin
         // que nada fallara.
-        $inicio = strtotime((string) $fila->inicio);
-        $fin = strtotime((string) $fila->fin);
+        //
+        // **`Reloj::desdeTexto()` y no `strtotime()`, y esto se puso rojo el 22 sep
+        // 2026 al mudar la tabla a Bogotá.** Una cadena `DATETIME` no lleva la zona
+        // dentro y `config/app.php` está en UTC, así que `strtotime()` la leía cinco
+        // horas antes de lo que era; mientras la tabla estuvo en UTC eso coincidía
+        // por casualidad con la verdad y el test pasaba. Comparar una columna contra
+        // `time()` es comparar dos relojes, y ahí hay que decir de cuál es cada uno.
+        $inicio = Reloj::desdeTexto((string) $fila->inicio)?->getTimestamp();
+        $fin = Reloj::desdeTexto((string) $fila->fin)?->getTimestamp();
 
+        $this->assertNotNull($inicio, 'La marca de `inicio` no es una fecha.');
+        $this->assertNotNull($fin, 'La marca de `fin` no es una fecha.');
         $this->assertGreaterThan(0, $inicio, 'La marca de `inicio` no es una fecha.');
         $this->assertGreaterThanOrEqual($inicio, $fin, 'La importación terminó antes de empezar.');
-        $this->assertLessThan(3600, abs(time() - $fin),
-            'La marca de `fin` no es de hace un momento: las dos zonas horarias del proyecto se mezclaron en esta tabla.');
+        $this->assertLessThan(3600, abs(Reloj::ahora()->getTimestamp() - $fin),
+            'La marca de `fin` no es de hace un momento. Si se va CINCO horas, alguien devolvió '
+            .'esta tabla a `now()`; si se va UNA, alguien le puso `NOW()` de MySQL, que en los '
+            .'diecisiete es EDT. Ver el 53 §3.');
 
         $avance = json_decode((string) $fila->avance, true);
 
@@ -721,7 +733,7 @@ class ImportacionReanudableTest extends CasoDeContrato
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             ['alumnos', hash_file('sha256', $archivo), 'alumnos.xlsx', $year,
                 json_encode($avance), array_sum($avance) + count($avance),
-                PuntoDeControlDeImportacion::EN_PROCESO, now(), now(), now()]
+                PuntoDeControlDeImportacion::EN_PROCESO, Reloj::ahora(), Reloj::ahora(), Reloj::ahora()]
         );
     }
 

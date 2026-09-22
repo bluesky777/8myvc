@@ -771,23 +771,12 @@ class PlanillaOfflineController extends Controller
 
         $avisos = json_decode((string) ($fila->avisos ?? ''), true);
 
-        // LAS FECHAS SE CONVIERTEN ANTES DE QUE EL ACTA LAS VEA.
-        //
-        // `importaciones` es la excepción declarada de `RelojUnicoTest`: se escribe
-        // entera con `now()`, o sea en **UTC**, y ahí se queda. La decisión de mover
-        // la tabla sigue siendo de quien lleve las importaciones; el porqué largo
-        // está en `Alumnos/ImportarController.php` §«LAS FECHAS SE CONVIERTEN AL
-        // LEER», que hace esto mismo para la pantalla.
-        //
-        // **Y el acta no lo hacía**, así que hasta el 21 sep 2026 el Excel decía
-        // «Empezó a las 14:41» donde la pantalla de esa misma fila decía las 9:41.
-        // La misma tabla leída de dos maneras en el mismo repo, y el Excel es el que
-        // se imprime y se archiva. Ver el 53 §4.2.
-        //
-        // La conversión vive en el servicio y no aquí a propósito: eran tres
-        // lectores de la misma fila y sólo uno se acordaba.
-        $fila = PuntoDeControlDeImportacion::enLaHoraDelColegio($fila);
-
+        // **Aquí había una conversión de zona, y desde el 22 sep 2026 no hace
+        // falta.** `importaciones` se escribía en UTC —la única excepción del repo—
+        // así que el acta enseñaba «Empezó a las 14:41» donde la pantalla de esa
+        // misma fila decía las 9:41. Ahora la tabla va en Bogotá como todo lo demás
+        // (decisión de Joseth del 22 sep: la tabla es de agosto y **ningún colegio
+        // la ha usado**, así que moverla no dejó filas viejas detrás). Ver el 53 §4.2.
         $libro = ActaDeLaImportacion::construir($fila, $hechos, is_array($avisos) ? $avisos : []);
 
         $ruta = tempnam(sys_get_temp_dir(), 'acta-importacion-');

@@ -114,100 +114,27 @@ class RelojUnicoTest extends TestCase
         // rompería la comparación.
         'app/Console/Commands/LimpiarSesiones.php' => 1,
 
-        // LA EXCEPCIÓN, y la única que sí guarda fechas. Se deja fuera de la
-        // fase 1 a sabiendas y con la cuenta hecha:
+        // **Y AQUÍ VIVÍA LA EXCEPCIÓN, hasta el 22 sep 2026.**
         //
-        // `importaciones.inicio`/`fin` se escriben con `now()` (UTC) y su propia
-        // cabecera lo documenta desde antes: sólo se restan entre sí, nunca se
-        // comparan con otra tabla, así que unificar la zona «no cambia ningún
-        // resultado — sólo desplaza cinco horas lo que se lee en pantalla».
+        // `app/Services/PuntoDeControlDeImportacion.php` tenía catorce `now()` y era
+        // el único sitio del repo que **guardaba** fechas sin zona: `importaciones`
+        // entera en UTC. El motivo estaba escrito y era bueno —`inicio` y `fin` sólo
+        // se restan entre sí— y el motivo para no moverla también: las filas viejas
+        // se quedarían cinco horas por delante, dejando la columna con dos relojes,
+        // que es la enfermedad que este fichero existe para impedir.
         //
-        // O sea que moverlo ARREGLA la pantalla y a cambio deja la tabla con dos
-        // relojes en su historia, que es la enfermedad que la fase 1 viene a
-        // curar. Cambiar esto es elegir entre las dos cosas, y esa elección no
-        // es de la fase 1: es de quien lleve las importaciones. Anotado aquí para
-        // que se encuentre, no escondido.
-        // Y DIEZ desde el 20 sep 2026, con las dos de `guardarAvisos()` y
-        // `guardarRespuestas()`. Escriben `updated_at` de esa misma tabla, o sea
-        // LA MISMA COLUMNA que los otros ocho: ponerlas en Bogotá dejaría una
-        // columna con dos zonas y filas que nadie podría distinguir, que es
-        // exactamente la enfermedad. Van con `now()` por consistencia, no por
-        // inercia.
+        // **Se movió cuando alguien miró el producto en vez del código.** La tabla
+        // nació el 20 ago 2026; la importación de alumnos es para principios de año
+        // y la de notas la está construyendo el front. **Ningún colegio la había
+        // usado.** Sin filas viejas no hay dos relojes que crear, así que la mudanza
+        // que llevaba un mes bloqueada por su precio resultó no tener ninguno.
         //
-        // **Y el motivo de arriba caducó a medias ese día, así que queda dicho:**
-        // «nunca sale por pantalla» dejó de ser cierto cuando
-        // `GET importar/alumnos/pendiente/{year}` empezó a devolver `inicio` para
-        // que una pantalla diga «empezada el 14 de enero a las 9:41». Se resolvió
-        // **convirtiendo al leer** —ese método pasa las fechas a `Reloj::ZONA`
-        // antes de devolverlas— y no cambiando la escritura, que habría metido el
-        // segundo reloj. La decisión de mover la tabla entera sigue siendo de
-        // quien lleve las importaciones, y ya no la fuerza ninguna pantalla.
+        // Queda escrito porque la lección no es de esta tabla: **un coste que
+        // bloquea una decisión se mide sobre los datos que hay, no sobre los que la
+        // tabla podría tener.** Aquí el coste era cero y nadie lo había comprobado.
         //
-        // > **Y EL 20 SEP 2026 APARECIÓ EL CASO QUE EL MOTIVO DE ARRIBA DABA POR
-        // > IMPOSIBLE: alguien comparó esa tabla con otra y se equivocó.** El
-        // > argumento era «sólo se restan entre sí, nunca se comparan con otra
-        // > tabla». Conduciendo la pantalla de la Fase 2 contra el docker, la
-        // > sesión del front consultó qué había escrito una importación usando
-        // > la ventana de `importaciones.inicio` —UTC— contra `alumnos.updated_at`
-        // > —Bogotá—, le salieron CERO filas tocadas mientras la pantalla decía
-        // > 32, y estuvo a punto de anotar que la importación no había escrito.
-        // >
-        // > Reproducido desde aquí sobre la copia de desarrollo, y son de LA
-        // > MISMA PETICIÓN, el mismo segundo:
-        // >
-        // >     importaciones.inicio     2026-09-20 17:37:03   <- UTC
-        // >     alumnos.updated_at       2026-09-20 12:37:03   <- Bogotá
-        // >     matriculas.updated_at    2026-09-20 12:37:03
-        // >     acudientes.updated_at    2026-09-20 12:37:03
-        // >
-        // > Las dos zonas son las que este repo decidió —`ImportarController`
-        // > escribe con `Carbon::now('America/Bogota')`, que es la regla, y esta
-        // > tabla con `now()`, que es la excepción— así que **nada está roto**.
-        // > Lo que ha caducado es la mitad del motivo que decía que no molesta a
-        // > nadie: molesta a quien consulta la base, que es lo que hace todo el
-        // > que viene a diagnosticar una importación.
-        // >
-        // > **La decisión de moverla sigue siendo de quien lleve las
-        // > importaciones**, y ahora tiene la evidencia al lado en vez de la
-        // > suposición.
-        //
-        // Y ONCE esa misma noche, con la de `anotarElTotal()`: escribe
-        // `filas_totales` —el denominador del aviso de «a medias»— y, en el mismo
-        // `UPDATE`, `updated_at`. **La misma columna que las otras diez**, así que
-        // vale palabra por palabra lo de arriba: ponerla en Bogotá sería meter la
-        // segunda zona en la columna que la fase 1 quiere con una sola. La tabla
-        // se mueve entera o no se mueve.
-        //
-        // **TRECE desde el commit `b1978b8`** (20 sep 2026), y las dos que entran
-        // son las de `marcarAbandonadas()`: el `now()->subMinutes()` que calcula el
-        // corte y el `now()` del `UPDATE` que marca `fallida`. **Se quedan en `now()`
-        // a propósito**, y el motivo es el que ya lleva escrito la cabecera de la
-        // clase:
-        //
-        // > `inicio` y `fin` solo se restan entre sí, nunca se comparan con una
-        // > fecha de otra tabla, así que unificar las zonas no cambia ningún
-        // > resultado — solo desplaza cinco horas lo que se lee en pantalla.
-        //
-        // Y aquí se cumple **más fuerte todavía**: el corte y la columna con la que
-        // se compara (`updated_at`, escrita por esta misma clase) salen los dos de
-        // `now()`, así que los diez minutos son diez minutos pase lo que pase con la
-        // zona. Ponerle Bogotá sólo a una de las dos puntas sería el fallo de verdad.
-        //
-        // *Esto se dejó rojo desde `b1978b8` hasta el 21 sep 2026 porque la suite
-        // entera no se corrió antes de commitear. No se coló: se contó tarde.*
-        //
-        // Y **CATORCE** con la de `guardarHechos()` (fase 5 de «notas sin internet»,
-        // [52](../../docs/migracion/52-el-acta-y-subir-por-otro.md)): escribe la columna
-        // `hechos` —el acta de lo que entró— y, en el mismo `UPDATE`, `updated_at`. **La
-        // misma columna que las otras trece**, así que vale palabra por palabra lo de
-        // arriba: ponerla en Bogotá metería la segunda zona justo en la columna contra
-        // la que `marcarAbandonadas()` compara su corte de diez minutos, y ese corte
-        // sale de `now()`. La tabla se mueve entera o no se mueve.
-        //
-        // Lo que sí va con el reloj de esa fase es el acta: `ActaDeLaImportacion` imprime
-        // la hora con `Reloj::ahora()` porque **sale por pantalla y no entra en ninguna
-        // columna**, que es exactamente la línea que separa los dos casos.
-        'app/Services/PuntoDeControlDeImportacion.php' => 14,
+        // La premisa se comprueba antes de desplegar, no ahora:
+        // `SELECT COUNT(*) FROM importaciones;` en los diecisiete.
     ];
 
     /**

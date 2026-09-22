@@ -4,7 +4,6 @@ namespace Tests\Contrato;
 
 use App\Services\PuntoDeControlDeImportacion;
 use App\Support\Reloj;
-use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -198,17 +197,26 @@ class LoQueLaImportacionRecuerdaTest extends CasoDeContrato
     }
 
     /**
-     * La hora que sale es la del COLEGIO, aunque la tabla esté en UTC.
+     * La hora que sale es la del COLEGIO.
      *
-     * `importaciones` escribe con `now()` —UTC— y está declarado como excepción
-     * en `RelojUnicoTest` con el motivo de que «nunca sale por pantalla». Esta
-     * ruta existe precisamente para que salga: la pantalla dice «empezada el 14
-     * de enero a las 9:41». Con la hora cruda diría las 14:41.
+     * Esta ruta existe para que la pantalla diga «empezada el 14 de enero a las
+     * 9:41», así que la hora que devuelve es lo que se comprueba.
      *
-     * Se convierte **al leer** y no al escribir a propósito: cambiar la
-     * escritura dejaría esa columna con dos relojes en su historia y filas que
-     * nadie podría distinguir, que es la enfermedad que la fase 1 del reloj vino
-     * a curar.
+     * **Lo que cambió el 22 sep 2026 es CÓMO se consigue, y el test iba escrito
+     * sobre el cómo.** `importaciones` se escribía con `now()` —UTC, la única
+     * excepción del repo— y esta ruta convertía al leer; el test sembraba en UTC,
+     * exigía que la respuesta viniera movida cinco horas y remataba con un
+     * `assertNotSame` para que la conversión no pudiera desaparecer sin avisar.
+     *
+     * Ahora la tabla va en Bogotá y **no hay conversión que comprobar**: la columna
+     * ya trae la hora buena. Lo que se fija aquí es la propiedad que siempre quiso
+     * fijar —lo que ve la pantalla es la hora del colegio— y no el mecanismo, que
+     * era lo que lo ataba a una decisión que podía cambiar. Y cambió.
+     *
+     * El `assertNotSame` se va con su motivo: decía *«si coincidieran, o la
+     * conversión no ocurre o la base ya no está en UTC»*. Hoy coinciden **porque
+     * la base ya no está en UTC**, que era justo una de las dos cosas que ese
+     * aserto mandaba mirar. Se miró.
      */
     public function test_la_hora_que_sale_es_la_del_colegio(): void
     {
@@ -223,14 +231,19 @@ class LoQueLaImportacionRecuerdaTest extends CasoDeContrato
             ->assertStatus(200)
             ->json('pendiente.inicio');
 
-        $this->assertSame(
-            Carbon::parse($enLaBase, 'UTC')->setTimezone(Reloj::ZONA)->format('Y-m-d H:i:s'),
-            $devuelta,
-            'La pantalla enseñaría la hora cinco horas movida.'
-        );
+        $this->assertSame($enLaBase, $devuelta,
+            'La ruta ya no convierte nada: lo que hay en la columna es lo que sale.');
 
-        $this->assertNotSame($enLaBase, $devuelta,
-            'Si coincidieran, o la conversión no ocurre o la base ya no está en UTC — y las dos hay que mirarlas.');
+        // Y que lo que hay en la columna sea de verdad la hora del colegio, que es
+        // la propiedad que importa. Sin esto, el `assertSame` de arriba pasaría
+        // igual con las dos puntas mal a la vez.
+        $this->assertLessThan(
+            120,
+            abs(Reloj::ahora()->getTimestamp() - Reloj::desdeTexto($devuelta)?->getTimestamp()),
+            'La hora escrita no es la de Bogotá. Si esto se va cinco horas, `importaciones` '
+            .'volvió a escribirse con `now()`; si se va una, alguien puso `NOW()` de MySQL, '
+            .'que en los diecisiete es EDT. Ver el 53 §3.'
+        );
     }
 
     /**
@@ -354,7 +367,7 @@ class LoQueLaImportacionRecuerdaTest extends CasoDeContrato
                 PuntoDeControlDeImportacion::EN_PROCESO,
                 $avisos === null ? null : json_encode($avisos, JSON_UNESCAPED_UNICODE),
                 $respuestas === null ? null : json_encode($respuestas, JSON_UNESCAPED_UNICODE),
-                now(), now(), now()]
+                Reloj::ahora(), Reloj::ahora(), Reloj::ahora()]
         );
 
         return (int) DB::getPdo()->lastInsertId();

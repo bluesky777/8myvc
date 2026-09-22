@@ -31,7 +31,7 @@
 > |---|---|---|
 > | ~~**R1**~~ | ~~El rasgo `SellaConElReloj`~~ **HECHO: 20 en Bogotá, 32 en UTC** | El criterio es **escrituras del SELLO**, no de la tabla: `UPDATE profesores SET tono` no toca `updated_at`. Por contarlo mal se les puso y quitó el rasgo a `Profesor` y `Periodo` el mismo día, y el detector se rehizo tres veces dando tres números plausibles. Ver 53 §6 |
 > | ~~**R2**~~ | ~~Centinela del reloj de Eloquent~~ **HECHO** | `RelojUnicoTest::ningun_modelo_sella_en_utc_sin_estar_declarado`, comprobado **rompiéndolo**. Mira `app/Models/` **y `app/User.php`**, que no está ahí y se le escapaba a todos los censos |
-> | **R3** | `importaciones`: **la mitad hecha** | Los tres lectores pasan ya por `PuntoDeControlDeImportacion::enLaHoraDelColegio()`. Si la tabla se mueve a Bogotá o no, **es decisión de Joseth**: [54](54-lo-que-espera-a-joseth-de-los-relojes.md) §4 |
+> | ~~**R3**~~ | ~~`importaciones`~~ **HECHO: se movió a Bogotá, y se acabó la única excepción del repo** | Decisión de Joseth del 22 sep, y la desbloqueó mirar el producto: la tabla es del 20 ago y **ningún colegio la ha usado**, así que no hay filas viejas y el precio que la bloqueaba un mes era cero. **Se comprueba antes de desplegar**: `SELECT COUNT(*) FROM importaciones;` en los diecisiete |
 > | **R4** | La transformación al leer, que es lo que Joseth pidió | Ya es segura: queda **un** reloj escribiendo en cada columna. Lo que falta es el histórico (R6) |
 > | ~~**R5**~~ | ~~Correr `tools/zona-de-los-colegios.sh`~~ **HECHO: EDT en los 17** | El servidor **no va en UTC**: va en hora del este de EEUU, **con horario de verano**. Una hora por delante de Bogotá de marzo a noviembre, igual el resto. Los `NOW()` que se quitaron hoy escribían eso. Ver 53 §3 |
 >

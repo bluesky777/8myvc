@@ -1598,27 +1598,19 @@ class ImportarController extends Controller
             return response()->json(['pendiente' => null]);
         }
 
-        // LAS FECHAS SE CONVIERTEN AL LEER, Y LA TABLA SE QUEDA EN UTC.
+        // **`importaciones` iba en UTC y esta ruta convertía al leer. Desde el
+        // 22 sep 2026 no hace falta: la tabla se mudó a Bogotá.**
         //
-        // `importaciones` escribe `inicio`, `fin` y `updated_at` con `now()`, o
-        // sea en UTC, y está declarado como excepción en `RelojUnicoTest` con
-        // este motivo: *«sólo se restan entre sí, nunca se comparan con otra
-        // tabla, así que unificar la zona no cambia ningún resultado — sólo
-        // desplaza cinco horas lo que se lee en pantalla»*.
+        // El porqué de la mudanza no es técnico, es de producto, y por eso llevaba
+        // un mes sin hacerse: mover la tabla dejaba las filas viejas cinco horas
+        // por delante, o sea dos relojes en la misma columna. **Joseth miró qué
+        // había dentro en vez de cómo estaba escrito**: la tabla nació el 20 ago
+        // 2026, la importación de alumnos es para principios de año y la de notas
+        // la está construyendo el front. Ningún colegio la ha usado. Sin filas
+        // viejas, la mudanza no tiene precio que pagar.
         //
-        // **Esa premisa caduca hoy**: esta ruta existe para que una pantalla
-        // diga «empezada el 14 de enero a las 9:41 por Marta Ospina», y con la
-        // hora cruda diría las 14:41. La salida no es cambiar la escritura —eso
-        // dejaría la columna con dos relojes en su historia, que es justo la
-        // enfermedad que la fase 1 del reloj vino a curar, y la decisión está
-        // anotada como de quien lleve las importaciones—: es convertir **al
-        // leer**. La tabla conserva una sola zona y la pantalla enseña la hora
-        // del colegio.
-        //
-        // **Y desde el 21 sep 2026 la conversión ya viene hecha**: la hace
-        // `PuntoDeControlDeImportacion::enLaHoraDelColegio()`, que es quien tiene
-        // la tabla. Aquí había un bucle propio, y el acta en Excel —tercer lector
-        // de la misma fila— no lo tenía, así que enseñaba cinco horas de más.
+        // Esta pantalla sigue diciendo «empezada el 14 de enero a las 9:41», que era
+        // lo que la conversión venía a arreglar — ahora porque la columna ya lo dice.
         $pendiente->avance = json_decode((string) $pendiente->avance, true) ?: [];
         $pendiente->avisos = json_decode((string) $pendiente->avisos, true) ?: [];
         $pendiente->respuestas = json_decode((string) $pendiente->respuestas, true) ?: null;

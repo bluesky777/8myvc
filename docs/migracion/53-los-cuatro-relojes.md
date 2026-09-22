@@ -124,13 +124,15 @@ todo `app/` había **una sola** conversión de vuelta: la de `importaciones`. O 
 mitad del camino que este documento viene a pedir estaba construida y **no la usaba nadie**.
 
 Desde el 21 sep 2026 tiene **uno**: `Matriculas/EstacionesController.php`, que es justo el
-sitio donde no tenerlo costaba 300 minutos por fila (§4.1). Y la vuelta de `importaciones`
-vive ahora en `PuntoDeControlDeImportacion::enLaHoraDelColegio()`, con la tabla, en vez de
-repartida por los controladores.
+sitio donde no tenerlo costaba 300 minutos por fila (§4.1).
+
+**Y el 22 sep se quedó en uno para siempre**, porque el otro candidato desapareció: la vuelta
+de `importaciones` llegó a vivir en `PuntoDeControlDeImportacion::enLaHoraDelColegio()` y
+duró un día. Al mudarse la tabla a Bogotá (§4.2) no hay nada que convertir, así que el método
+y sus dos llamantes se fueron enteros. **La conversión más barata es la que no hace falta.**
 
 ```bash
-grep -rn "desdeTexto\|enLaHoraDelColegio\|setTimezone" app/ --include='*.php' \
-  | grep -v Support/Reloj.php
+grep -rn "desdeTexto\|setTimezone" app/ --include='*.php' | grep -v Support/Reloj.php
 ```
 
 **Que siga siendo un número tan bajo es correcto y no una deuda.** Una columna que guarda
@@ -353,12 +355,25 @@ un solo año, con `RastroDeLaMigracion::anotar()` delante.
 
    **Comprobado rompiéndolo**, que es la única forma de saber que un test protege lo que
    dice: quitándole el rasgo a `Year` se pone rojo y nombra el modelo.
-4. **`importaciones`: la mitad hecha, la otra mitad es decisión de Joseth.**
-   Hecho: **los tres lectores pasan ya por `PuntoDeControlDeImportacion::enLaHoraDelColegio()`**,
-   con la tabla y no repartidos por los controladores. Eran tres y sólo uno convertía, que es
-   cómo el acta en Excel acabó enseñando cinco horas de más (§4.2).
-   Pendiente y suyo: si la tabla se mueve a Bogotá o se queda en UTC. Las dos opciones, con
-   su precio, en [54](54-lo-que-espera-a-joseth-de-los-relojes.md) §4.
+4. ~~`importaciones`: decidir.~~ **HECHO el 22 sep 2026: se movió a Bogotá**, y con ella se
+   acabó la única excepción del repo. Los catorce `now()` pasaron a `Reloj::ahora()`, la
+   entrada salió de `PERMITIDOS` y el método de conversión al leer se borró con sus dos
+   llamantes.
+
+   **Lo que la desbloqueó no fue técnico.** Llevaba un mes sin hacerse porque mover la tabla
+   dejaría las filas viejas cinco horas por delante — dos relojes en una columna, que es la
+   enfermedad. Joseth miró **qué había dentro** en vez de cómo estaba escrito: la tabla nació
+   el 20 ago 2026, la importación de alumnos es para principios de año y la de notas la está
+   construyendo el front. **Ningún colegio la ha usado.** Sin filas viejas, el precio que
+   bloqueaba la decisión era cero, y nadie lo había comprobado.
+
+   > La lección no es de esta tabla: **un coste que bloquea una decisión se mide sobre los
+   > datos que hay, no sobre los que la tabla podría tener.** El censo entero miró código
+   > durante dos días; esto se resolvió mirando el producto.
+
+   Se comprueba antes de desplegar, que es cuando importa:
+   `SELECT COUNT(*) FROM importaciones;` en los diecisiete. Si alguno tiene filas, esas
+   fechas se quedan en UTC y la decisión vuelve a estar abierta.
 5. **Entonces, y sólo entonces, la transformación al leer**, que ya está escrita:
    `Reloj::desdeTexto()`. Con un solo reloj detrás, aplicarla a todo es seguro; con cuatro,
    arregla unas filas y rompe otras.

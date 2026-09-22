@@ -101,30 +101,34 @@ línea de bitácora más cercana del mismo usuario: **el pico debería estar en 
 
 ---
 
-## 4 · LA DECISIÓN: `importaciones`
+## 4 · ~~LA DECISIÓN~~ — CONTESTADA el 22 sep: **se mueve a Bogotá**
 
-**Esto no lo puedo decidir yo.** La tabla está **entera en UTC** a propósito y es la
-excepción declarada de `RelojUnicoTest`: se escribe con `now()` porque `inicio` y `fin` sólo
-se restan entre sí.
+**Contestada, y con un giro que no estaba en ninguna de las dos opciones que te di.**
 
-Anoche se cerró la mitad que no era decisión tuya: **los tres lectores pasan ya por
-`PuntoDeControlDeImportacion::enLaHoraDelColegio()`**, así que ninguna pantalla ni el acta
-en Excel enseñan UTC. Antes eran tres y sólo uno convertía.
+Yo te planteé «se queda» o «se mueve, y las filas viejas quedan cinco horas por delante».
+Elegiste mover, y cuando fui a escribir la migración que repara esas filas viejas me
+preguntaste lo que ninguno de los dos documentos se había preguntado en dos días:
+**¿y hay filas?**
 
-Lo que queda es de una línea y es tuyo:
+No las hay. La tabla nació el 20 ago 2026, la importación de alumnos es para principios de
+año y la de notas la está construyendo el front ahora mismo. **Ningún colegio la ha usado.**
+Así que el precio que mantenía esta decisión abierta durante un mes —los dos relojes en la
+columna— **no existía**, y la mudanza fue cambiar catorce `now()` por `Reloj::ahora()`, quitar
+la entrada de `PERMITIDOS` y borrar el método de conversión al leer con sus dos llamantes.
+Sin migración.
 
-| Opción | Lo que cuesta |
-|---|---|
-| **Dejarla en UTC** (lo de hoy) | Una tabla del sistema con reloj propio y una función que hay que recordar al leerla. A cambio, **su columna tiene UNA sola zona en toda su historia**. |
-| **Moverla a Bogotá** | Se lee igual en phpMyAdmin que las demás y desaparece la excepción. A cambio, **las filas viejas se quedan cinco horas por delante** hasta que alguien las reescriba, y la columna pasa a tener dos relojes — la enfermedad que `Reloj` vino a curar. |
+> **La lección, que vale más que la tabla:** un coste que bloquea una decisión se mide sobre
+> los datos que hay, no sobre los que la tabla podría tener. El censo entero llevaba dos días
+> mirando código; esto se resolvió mirando el producto.
 
-**Mi recomendación: dejarla en UTC.** El motivo por el que la excepción existía —«nunca sale
-por pantalla»— ya no hace falta, porque ahora la conversión está en un solo sitio y con la
-tabla. Moverla compraría legibilidad en phpMyAdmin pagando con una mezcla permanente, que es
-justo el cambio que este trabajo lleva dos días deshaciendo.
+**Lo único que queda, y va antes de desplegar, no ahora:**
 
-Si decides moverla: va **entera y en un commit**, con `RastroDeLaMigracion::anotar()`
-delante, y se quita de `PERMITIDOS` en `RelojUnicoTest` en el mismo.
+```sql
+SELECT COUNT(*) AS filas FROM importaciones;
+```
+
+En los diecisiete. Si alguno tiene filas, esas fechas se quedaron en UTC, la columna gana el
+segundo reloj y la decisión vuelve a estar abierta — esta vez con el número delante.
 
 ---
 

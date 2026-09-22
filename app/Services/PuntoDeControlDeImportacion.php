@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Support\Reloj;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -43,12 +42,24 @@ use Throwable;
  * durante los 300 s de la primera. Se anota para que quien lo vea sepa que se
  * miró.
  *
- * **La hora.** Las marcas de esta tabla se escriben con `now()`, o sea en la
- * zona de `config/app.php` (UTC hoy), mientras el importador de al lado escribe
- * con `Carbon::now('America/Bogota')`. Es a propósito y no crea la trampa del
- * §2 de 09-pendientes.md: `inicio` y `fin` solo se restan entre sí, nunca se
- * comparan con una fecha de otra tabla, así que unificar las zonas no cambia
- * ningún resultado — solo desplaza cinco horas lo que se lee en pantalla.
+ * **La hora: Bogotá, como todo lo demás, desde el 22 sep 2026.** Esta tabla era
+ * la ÚNICA excepción del repo —se escribía con `now()`, o sea en UTC— y estaba
+ * declarada como tal en `Tests\Contrato\RelojUnicoTest`. El motivo era que
+ * `inicio` y `fin` sólo se restan entre sí, así que la zona no cambiaba ningún
+ * resultado; y el motivo por el que NO se movía antes era que las filas viejas
+ * se quedarían cinco horas por delante, dejando la columna con dos relojes.
+ *
+ * **Decisión de Joseth, y lo que la desbloqueó fue mirar el producto en vez del
+ * código: la tabla nació el 20 ago 2026 y NINGÚN colegio la ha usado todavía.**
+ * La importación de alumnos es para principios de año y la de notas la está
+ * construyendo el front ahora mismo. Sin filas viejas no hay dos relojes que
+ * crear, así que la mudanza sale gratis y no lleva migración detrás. Lo que
+ * habría sido «pisar datos con su rastro delante» es, aquí, cambiar tres letras.
+ *
+ * > **Antes de desplegar esto, comprobarlo, que es la premisa entera:**
+ * > `SELECT COUNT(*) FROM importaciones;` en los diecisiete. Si alguno tiene
+ * > filas, esas fechas se quedan en UTC y la columna sí gana el segundo reloj —
+ * > y entonces la decisión vuelve a estar abierta.
  *
  * **Qué NO cubre.** Si la secretaría, en vez de volver a subir el mismo archivo,
  * exporta uno nuevo y sube ese, la huella cambia y esto no reanuda nada. No hace
@@ -195,7 +206,7 @@ class PuntoDeControlDeImportacion
         if ($anterior !== null) {
             DB::update(
                 'UPDATE importaciones SET estado = ?, error = NULL, updated_at = ? WHERE id = ?',
-                [self::EN_PROCESO, now(), $anterior->id]
+                [self::EN_PROCESO, Reloj::ahora(), $anterior->id]
             );
 
             return new self(
@@ -212,7 +223,7 @@ class PuntoDeControlDeImportacion
         DB::insert(
             'INSERT INTO importaciones (tipo, huella, archivo, year, avance, filas, estado, created_by, inicio, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)',
-            [$tipo, $huella, $archivo, $year, '{}', self::EN_PROCESO, $usuario, now(), now(), now()]
+            [$tipo, $huella, $archivo, $year, '{}', self::EN_PROCESO, $usuario, Reloj::ahora(), Reloj::ahora(), Reloj::ahora()]
         );
 
         return new self((int) DB::getPdo()->lastInsertId(), false, [], 0);
@@ -298,7 +309,7 @@ class PuntoDeControlDeImportacion
         DB::update(
             'UPDATE importaciones SET filas_totales = GREATEST(COALESCE(filas_totales, 0), ?), updated_at = ?
               WHERE id = ?',
-            [$filasDelArchivo, now(), $this->id]
+            [$filasDelArchivo, Reloj::ahora(), $this->id]
         );
     }
 
@@ -307,7 +318,7 @@ class PuntoDeControlDeImportacion
     {
         DB::update(
             'UPDATE importaciones SET avance = ?, filas = ?, updated_at = ? WHERE id = ?',
-            [json_encode($this->avance, JSON_UNESCAPED_UNICODE), $this->filas, now(), $this->id]
+            [json_encode($this->avance, JSON_UNESCAPED_UNICODE), $this->filas, Reloj::ahora(), $this->id]
         );
     }
 
@@ -315,7 +326,7 @@ class PuntoDeControlDeImportacion
     {
         DB::update(
             'UPDATE importaciones SET estado = ?, fin = ?, updated_at = ? WHERE id = ?',
-            [self::COMPLETADA, now(), now(), $this->id]
+            [self::COMPLETADA, Reloj::ahora(), Reloj::ahora(), $this->id]
         );
     }
 
@@ -347,7 +358,7 @@ class PuntoDeControlDeImportacion
 
         DB::update(
             'UPDATE importaciones SET avisos = ?, updated_at = ? WHERE id = ?',
-            [json_encode($todos, JSON_UNESCAPED_UNICODE), now(), $this->id]
+            [json_encode($todos, JSON_UNESCAPED_UNICODE), Reloj::ahora(), $this->id]
         );
     }
 
@@ -412,7 +423,7 @@ class PuntoDeControlDeImportacion
 
         DB::update(
             'UPDATE importaciones SET hechos = ?, updated_at = ? WHERE id = ?',
-            [json_encode($todo, JSON_UNESCAPED_UNICODE), now(), $this->id]
+            [json_encode($todo, JSON_UNESCAPED_UNICODE), Reloj::ahora(), $this->id]
         );
     }
 
@@ -573,7 +584,7 @@ class PuntoDeControlDeImportacion
 
         DB::update(
             'UPDATE importaciones SET respuestas = ?, updated_at = ? WHERE id = ?',
-            [json_encode($respuestas, JSON_UNESCAPED_UNICODE), now(), $this->id]
+            [json_encode($respuestas, JSON_UNESCAPED_UNICODE), Reloj::ahora(), $this->id]
         );
     }
 
@@ -601,7 +612,7 @@ class PuntoDeControlDeImportacion
      */
     public static function pendienteDe(string $tipo, int $year): ?object
     {
-        return self::enLaHoraDelColegio(DB::selectOne(
+        return DB::selectOne(
             'SELECT i.id, i.archivo, i.huella, i.year, i.avance, i.filas, i.filas_totales, i.estado, i.error,
                     i.avisos, i.respuestas, i.inicio, i.fin, i.created_by,
                     COALESCE(
@@ -614,45 +625,7 @@ class PuntoDeControlDeImportacion
              WHERE i.tipo = ? AND i.year = ? AND i.estado <> ?
              ORDER BY i.id DESC LIMIT 1',
             [$tipo, $year, self::COMPLETADA]
-        ));
-    }
-
-    /**
-     * Las fechas de esta tabla, pasadas a la hora del colegio.
-     *
-     * **`importaciones` está entera en UTC y ahí se queda.** Es la excepción
-     * declarada de `Tests\Contrato\RelojUnicoTest` —escrito en el texto y no como
-     * `{@see}`, porque un `{@see}` con la barra delante hace que Pint añada un
-     * `use Tests\…` y esto es `app/`: con `composer install --no-dev` ese import
-     * apunta a nada—: se escribe con `now()`
-     * porque `inicio` y `fin` sólo se restan entre sí, y moverla dejaría la
-     * columna con dos relojes en su historia —la enfermedad que {@see Reloj} vino
-     * a curar—. Mover la tabla sigue siendo decisión de quien lleve las
-     * importaciones.
-     *
-     * Lo que NO puede seguir pasando es que cada lector se acuerde por su cuenta.
-     * El 21 sep 2026 había tres y **sólo uno convertía**: la pantalla decía
-     * «empezada a las 9:41» y el acta en Excel de esa misma fila decía las 14:41.
-     * Así que la conversión vive aquí, con la tabla, y no en el que lee.
-     *
-     * El mismo argumento que justifica `Reloj::ahoraTexto()`, en el otro sentido:
-     * existe **para que no haya que acordarse**.
-     */
-    public static function enLaHoraDelColegio(?object $fila): ?object
-    {
-        if ($fila === null) {
-            return null;
-        }
-
-        foreach (['inicio', 'fin', 'created_at', 'updated_at'] as $campo) {
-            if (! empty($fila->{$campo})) {
-                $fila->{$campo} = Carbon::parse($fila->{$campo}, 'UTC')
-                    ->setTimezone(Reloj::ZONA)
-                    ->format('Y-m-d H:i:s');
-            }
-        }
-
-        return $fila;
+        );
     }
 
     /**
@@ -672,7 +645,7 @@ class PuntoDeControlDeImportacion
 
         DB::update(
             'UPDATE importaciones SET estado = ?, error = ?, updated_at = ? WHERE id = ?',
-            [self::FALLIDA, $mensaje, now(), $this->id]
+            [self::FALLIDA, $mensaje, Reloj::ahora(), $this->id]
         );
     }
 
@@ -695,7 +668,7 @@ class PuntoDeControlDeImportacion
      */
     public static function marcarAbandonadas(int $minutos = 10): int
     {
-        $corte = now()->subMinutes($minutos);
+        $corte = Reloj::ahora()->subMinutes($minutos);
         $mensaje = "Abandonada: sin actividad en más de {$minutos} minutos ".
             '(la pestaña se cerró o el proceso murió a medias). '.
             'Vuelve a subir el mismo archivo para continuar donde se quedó.';
@@ -703,7 +676,7 @@ class PuntoDeControlDeImportacion
         return DB::update(
             'UPDATE importaciones SET estado = ?, error = ?, updated_at = ?
               WHERE estado = ? AND updated_at < ?',
-            [self::FALLIDA, $mensaje, now(), self::EN_PROCESO, $corte]
+            [self::FALLIDA, $mensaje, Reloj::ahora(), self::EN_PROCESO, $corte]
         );
     }
 }

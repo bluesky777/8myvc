@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Services\PuntoDeControlDeImportacion;
+use App\Support\Reloj;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\PendingCommand;
@@ -36,7 +37,7 @@ class ImportacionesAbandonadasTest extends TestCase
 
     public function test_marca_fallida_la_que_lleva_mas_del_umbral_sin_escribir(): void
     {
-        $id = $this->crear(PuntoDeControlDeImportacion::EN_PROCESO, now()->subMinutes(15)->toDateTimeString());
+        $id = $this->crear(PuntoDeControlDeImportacion::EN_PROCESO, Reloj::ahora()->subMinutes(15)->toDateTimeString());
 
         $marcadas = PuntoDeControlDeImportacion::marcarAbandonadas(10);
 
@@ -50,7 +51,7 @@ class ImportacionesAbandonadasTest extends TestCase
 
     public function test_no_toca_la_que_sigue_escribiendo_dentro_del_umbral(): void
     {
-        $id = $this->crear(PuntoDeControlDeImportacion::EN_PROCESO, now()->subMinutes(2)->toDateTimeString());
+        $id = $this->crear(PuntoDeControlDeImportacion::EN_PROCESO, Reloj::ahora()->subMinutes(2)->toDateTimeString());
 
         $marcadas = PuntoDeControlDeImportacion::marcarAbandonadas(10);
 
@@ -63,8 +64,8 @@ class ImportacionesAbandonadasTest extends TestCase
 
     public function test_no_toca_la_que_ya_esta_completada_o_fallida(): void
     {
-        $completada = $this->crear(PuntoDeControlDeImportacion::COMPLETADA, now()->subMinutes(30)->toDateTimeString());
-        $fallida = $this->crear(PuntoDeControlDeImportacion::FALLIDA, now()->subMinutes(30)->toDateTimeString());
+        $completada = $this->crear(PuntoDeControlDeImportacion::COMPLETADA, Reloj::ahora()->subMinutes(30)->toDateTimeString());
+        $fallida = $this->crear(PuntoDeControlDeImportacion::FALLIDA, Reloj::ahora()->subMinutes(30)->toDateTimeString());
 
         $marcadas = PuntoDeControlDeImportacion::marcarAbandonadas(10);
 
@@ -81,8 +82,8 @@ class ImportacionesAbandonadasTest extends TestCase
 
     public function test_el_comando_reporta_cuantas_marco(): void
     {
-        $this->crear(PuntoDeControlDeImportacion::EN_PROCESO, now()->subMinutes(20)->toDateTimeString());
-        $this->crear(PuntoDeControlDeImportacion::EN_PROCESO, now()->subMinutes(20)->toDateTimeString());
+        $this->crear(PuntoDeControlDeImportacion::EN_PROCESO, Reloj::ahora()->subMinutes(20)->toDateTimeString());
+        $this->crear(PuntoDeControlDeImportacion::EN_PROCESO, Reloj::ahora()->subMinutes(20)->toDateTimeString());
 
         // El `@var` no es adorno: `artisan()` declara `PendingCommand|int`, y con
         // el `int` de la unión phpstan no deja encadenar las expectativas. El
