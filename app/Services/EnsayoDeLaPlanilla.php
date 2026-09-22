@@ -105,6 +105,27 @@ class EnsayoDeLaPlanilla
     /** Cuántos sitios se enseñan de un mismo valor problemático. */
     private const EJEMPLOS = 12;
 
+    /**
+     * La coletilla del periodo cerrado, **y vive aquí porque no la escribe la hoja**.
+     *
+     * Estuvo pegada al motivo de la F3 —«…esta hoja no se puede subir. Las demás
+     * hojas del libro entran igual.»— y era **falsa cuando el cierre se llevaba el
+     * libro entero**, que es lo normal: el periodo es del libro, así que las 26 hojas
+     * se caían con 26 copias de una frase que la misma respuesta desmentía tres
+     * campos más allá (`totales.entran: 0`). Medido con un docente de verdad: 26
+     * hojas, 26 caídas, un solo motivo y `se_quedan_fuera: 917`.
+     *
+     * **El vicio no era la frase, era el sitio.** Cuando se cierra una hoja todavía
+     * no se sabe qué va a pasar con las demás —ni siquiera se han mirado—, así que
+     * ninguna frase escrita ahí puede hablar del libro. Se remata al cerrar el
+     * diagnóstico, en {@see rematarElCierre}, que es el único punto donde `totales`
+     * ya está contado y la pregunta «¿entra algo?» tiene respuesta.
+     *
+     * Se conserva **palabra por palabra** la que el front ya conoce: lo que cambia es
+     * cuándo se manda, no qué dice.
+     */
+    private const LAS_DEMAS_ENTRAN = 'Las demás hojas del libro entran igual.';
+
     /** Si se recortó por tiempo. Lo que hace que el plan se declare incompleto. */
     public bool $recortado = false;
 
@@ -140,6 +161,19 @@ class EnsayoDeLaPlanilla
 
     /** @var list<array<string, mixed>> */
     private array $hojas = [];
+
+    /**
+     * Los sitios de `$hojas` que se cayeron **por el cierre del periodo** (F3), para
+     * poder rematarles el motivo cuando ya se sabe qué pasó con el resto.
+     *
+     * Son índices y no nombres porque `$hojas` y `$porHoja` se llenan del tirón en
+     * {@see cerrarHoja} —un `[]=` en cada una, en la misma llamada—, así que el
+     * índice vale para las dos y el remate no tiene que buscar nada. El nombre de la
+     * hoja no serviría: un libro puede traer dos pestañas llamadas igual.
+     *
+     * @var list<int>
+     */
+    private array $caidasPorElCierre = [];
 
     /**
      * F4, llaveado por el texto del valor.
@@ -260,8 +294,50 @@ class EnsayoDeLaPlanilla
         }
 
         $this->totales['definitivas_a_recalcular'] = count($this->pares);
+        $this->rematarElCierre();
 
         return $this->diagnostico();
+    }
+
+    /**
+     * **Lo que sólo se sabe al final: si las demás hojas entran.**
+     *
+     * Aquí y no en la hoja porque aquí `totales` ya está contado. Y la condición es
+     * la pregunta que se hace quien lee —«¿va a entrar algo?»— contestada con el
+     * número que la contesta, `totales.entran`, y no con una regla general: la F3
+     * dice que *«un periodo cerrado se lleva su hoja y nada más»*, lo cual es verdad
+     * del mecanismo y **no** del libro que hay delante, porque el periodo es del
+     * libro y lo normal es que se las lleve todas.
+     *
+     * Los dos casos en los que no se remata, y los dos son el mismo criterio —no
+     * afirmar lo que no se sabe—:
+     *
+     * - **`entran === 0`**: no hay ninguna nota que entre, así que «las demás entran
+     *   igual» sería justo lo que `totales.entran` desmiente.
+     * - **recortado**: quedan hojas sin mirar. Que entre algo de las estudiadas no
+     *   dice nada de las que no se llegaron a abrir, y la frase hablaría de ellas.
+     *
+     * Y se remata `nota_pendiente` a la vez porque es la **misma frase copiada** en
+     * la fila del acta ({@see notaPendiente}): dejarla corta ahí sería tener dos
+     * versiones del mismo motivo en la misma respuesta.
+     */
+    private function rematarElCierre(): void
+    {
+        if ($this->caidasPorElCierre === [] || $this->recortado || $this->totales['entran'] === 0) {
+            return;
+        }
+
+        foreach ($this->caidasPorElCierre as $i) {
+            $this->hojas[$i]['motivo_fuera'] .= ' '.self::LAS_DEMAS_ENTRAN;
+
+            // El índice vale para las dos listas porque `cerrarHoja` las llena juntas
+            // —ver {@see $caidasPorElCierre}—; la comprobación es para que, si algún
+            // día dejan de ir a la vez, esto se quede corto en vez de escribirle el
+            // motivo a la hoja de al lado.
+            if (($this->porHoja[$i]['hoja'] ?? null) === $this->hojas[$i]['nombre']) {
+                $this->porHoja[$i]['nota_pendiente'] = $this->hojas[$i]['motivo_fuera'];
+            }
+        }
     }
 
     /**
@@ -568,9 +644,17 @@ class EnsayoDeLaPlanilla
         // marcada como «entra» con cero notas dentro, que es la peor forma de
         // decirlo. Se declara sin estudiar, y `puede_importarse: null` ya avisa de
         // que el plan no está completo.
+        //
+        // **Y «continuará por aquí» sólo se promete cuando hay punto de control**,
+        // que es el mismo vicio que la coletilla del cierre y por eso se arregla con
+        // ella: reanudar es de la importación —`$punto` llega sólo ahí—, así que en
+        // el ensayo el archivo se vuelve a estudiar **desde la primera fila** y la
+        // frase prometía una continuidad que ese camino no tiene. Lo que sí es cierto
+        // en los dos, y es lo que queda escrito, es que de esta hoja no se sabe nada.
         if ($this->recortado) {
-            $ficha['motivo_fuera'] = 'Esta hoja no se llegó a estudiar: al ensayo se le acabó el tiempo. '
-                .'Vuelva a subir el mismo archivo y continuará por aquí.';
+            $ficha['motivo_fuera'] = 'Esta hoja no se llegó a estudiar: al ensayo se le acabó el tiempo, '
+                .'así que de ella todavía no se sabe nada.'
+                .($this->punto === null ? '' : ' Vuelva a subir el mismo archivo y continuará por aquí.');
             $this->cerrarHoja($ficha, $cuentas, null);
 
             return;
@@ -605,12 +689,16 @@ class EnsayoDeLaPlanilla
         // de esto.
         if (! $periodo->profes_pueden_editar_notas) {
             $ficha['reconocida'] = true;
+
+            // **Sólo lo de esta hoja.** Lo que pase con las demás se dice en
+            // {@see rematarElCierre}, cuando se sabe; ver {@see LAS_DEMAS_ENTRAN}.
             $ficha['motivo_fuera'] = 'El periodo '.$periodo->numero.' está cerrado, así que esta hoja no se '
-                .'puede subir. Las demás hojas del libro entran igual.';
+                .'puede subir.';
             $cuentas['casillas'] = $this->contarCeldasConValor($nombre, $mapa);
             $cuentas['se_quedan_fuera'] = $cuentas['casillas'];
             $this->totales['se_quedan_fuera'] += $cuentas['casillas'];
             $this->cerrarHoja($ficha, $cuentas, null);
+            $this->caidasPorElCierre[] = count($this->hojas) - 1;
 
             return;
         }

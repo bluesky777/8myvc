@@ -476,6 +476,111 @@ class PlanillaOfflineImportarTest extends CasoDeContrato
             'La hoja del periodo abierto tenía que entrar igual.');
     }
 
+    /**
+     * **El motivo de una hoja no puede hablar del libro entero.**
+     *
+     * El caso de arriba es el raro —una hoja de otro periodo dentro del libro— y el
+     * de aquí es el normal: **el periodo es del libro**, así que cerrarlo se lleva
+     * todas sus hojas de una vez. Hasta este arreglo, cada una de las que caían traía
+     * pegado un *«Las demás hojas del libro entran igual»* escrito mirando sólo a
+     * ella, y la misma respuesta lo desmentía tres campos más allá: `totales.entran:
+     * 0`. Medido con un docente de verdad: 26 hojas, 26 copias de la frase, cero
+     * notas entrando y 917 casillas fuera.
+     *
+     * Por eso el test mira **las dos cosas a la vez** —que no entra nada y que nadie
+     * dice que sí— y no sólo el texto: comprobar la frase sin comprobar el número
+     * volvería a pasar el día que la frase cambie de palabras y siga mintiendo.
+     */
+    #[Test]
+    public function f3_si_el_cierre_se_lleva_el_libro_entero_ningun_motivo_dice_que_las_demas_entran(): void
+    {
+        $caso = $this->dosPlanillas();
+
+        // **El libro se baja abierto y se cierra después**, que es como pasa: el
+        // docente bajó su planilla y coordinación cerró el periodo mientras él
+        // calificaba sin internet. Aquí no hace falta reescribir `_myvc`: las dos
+        // hojas ya son de este periodo, porque la fase 1 baja un libro por periodo.
+        DB::update('UPDATE periodos SET profes_pueden_editar_notas = 0 WHERE id = ?', [$caso['periodo_id']]);
+
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'], [
+            [$caso['fila'], $caso['columna'], $this->otroValorPara($caso, $caso['fila'], $caso['columna'])],
+        ]);
+
+        $r = $this->ensayo($caso['token'], $ruta)->assertStatus(200);
+
+        $hojas = $r->json('hojas');
+
+        $this->assertNotEmpty($hojas, 'El libro bajó sin hojas de asignatura: no hay caso que medir.');
+        $this->assertSame(0, (int) $r->json('totales.entran'),
+            'Con el periodo del libro cerrado no puede entrar ni una nota; si entra, el caso no es el que dice.');
+
+        foreach ($hojas as $hoja) {
+            $this->assertTrue($hoja['fuera'], '«'.$hoja['nombre'].'» tenía que caerse con el periodo cerrado.');
+            $this->assertStringContainsString('cerrado', (string) $hoja['motivo_fuera'],
+                'Se cayó por otra cosa: entonces este test no está midiendo la F3.');
+            $this->assertStringNotContainsString('entran igual', (string) $hoja['motivo_fuera'],
+                'El motivo de «'.$hoja['nombre'].'» afirma que las demás hojas entran, y no entra ninguna. '
+                .'Esa frase no la puede escribir una hoja: cuando se escribe no se ha mirado el resto.');
+        }
+
+        foreach ($r->json('por_hoja') as $fila) {
+            $this->assertStringNotContainsString('entran igual', (string) ($fila['nota_pendiente'] ?? ''),
+                'La misma frase falsa, por la puerta del acta: `nota_pendiente` copia el motivo.');
+        }
+    }
+
+    /**
+     * **Y la otra mitad: cuando sí es verdad, tiene que seguir diciéndose.**
+     *
+     * Es el caso de arriba con una sola hoja caída, y el que impide que el arreglo se
+     * convierta en «quitar la frase». La información —*«las demás entran igual»*— es
+     * justo la que evita que el docente crea que su libro se perdió entero, así que
+     * lo que cambia es **quién la escribe**: ya no la hoja, que no puede saberlo,
+     * sino el cierre del diagnóstico, que cuenta `totales.entran` antes de decirlo.
+     */
+    #[Test]
+    public function f3_con_una_hoja_caida_y_el_resto_entrando_el_motivo_si_dice_que_las_demas_entran(): void
+    {
+        $caso = $this->dosPlanillas();
+
+        $cerrado = DB::selectOne(
+            'SELECT id FROM periodos WHERE year_id = ? AND id <> ? AND deleted_at IS NULL ORDER BY numero LIMIT 1',
+            [$caso['year_id'], $caso['periodo_id']]
+        );
+
+        if ($cerrado === null) {
+            $this->markTestSkipped('El año del seed sólo tiene un periodo: no hay otro que cerrar.');
+        }
+
+        DB::update('UPDATE periodos SET profes_pueden_editar_notas = 0 WHERE id = ?', [$cerrado->id]);
+
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'], [
+            [$caso['fila'], $caso['columna'], $this->otroValorPara($caso, $caso['fila'], $caso['columna'])],
+        ]);
+
+        $ruta = $this->reescribirMetadatos($ruta, null, function (array $mapas) use ($caso, $cerrado) {
+            foreach ($mapas as $i => $mapa) {
+                if ($mapa['hoja'] === $caso['otra_hoja']) {
+                    $mapas[$i]['periodo_id'] = (int) $cerrado->id;
+                }
+            }
+
+            return $mapas;
+        }, true);
+
+        $r = $this->ensayo($caso['token'], $ruta)->assertStatus(200);
+
+        $hojas = collect($r->json('hojas'))->keyBy('nombre');
+
+        $this->assertGreaterThan(0, (int) $r->json('totales.entran'),
+            'Si no entra ninguna nota, este no es el caso parcial y el test no comprueba lo que dice.');
+
+        $this->assertStringContainsString('Las demás hojas del libro entran igual.',
+            (string) $hojas[$caso['otra_hoja']]['motivo_fuera'],
+            'Con el resto del libro entrando, esto es cierto y es lo que evita que el docente crea que '
+            .'perdió el libro entero. Quitarlo del todo sería cambiar una frase falsa por un silencio.');
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // F9 — la columna de reserva
     // ─────────────────────────────────────────────────────────────────────────
