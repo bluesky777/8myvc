@@ -403,6 +403,35 @@ class AlumnosController extends Controller
 
                     $matricula->save();
 
+                    /*
+                     * El alta de la matrícula, que es lo único de este método que
+                     * `auditoria` no sabía. `postStore` crea tres filas —`alumnos`,
+                     * `users` y ésta— y ninguna dejaba rastro; ésta entra primero
+                     * porque es la que la pantalla de matrículas enseña en su columna
+                     * «Historial», y sin ella un alumno dado de alta hoy abre el modal
+                     * vacío, que es indistinguible de «no se le ha tocado».
+                     *
+                     * **Va donde va por el `try`/`catch` de este método**: todo el
+                     * cuerpo está envuelto en uno que convierte cualquier excepción en
+                     * `422 Datos incorrectos`, y para entonces el alumno ya está
+                     * creado. `Auditoria::guardar()` se traga sus propias excepciones a
+                     * propósito (18 §4.3), así que no puede convertir un alta buena en
+                     * un 422 — pero la razón hay que dejarla escrita, porque quien
+                     * añada aquí una línea que SÍ lance se lleva por delante el alta
+                     * entera sin verlo venir.
+                     */
+                    Auditoria::registrar()
+                        ->crear('matricula', (int) $matricula->id)
+                        ->deAlumno((int) $alumno->id)
+                        ->en(grupo: (int) $matricula->grupo_id)
+                        ->a([
+                            'estado' => $matricula->estado,
+                            'grupo_id' => $matricula->grupo_id,
+                            'nuevo' => $matricula->nuevo,
+                        ])
+                        ->resumen('Dio de alta al alumno con su matrícula')
+                        ->guardar();
+
                     $grupo = Grupo::find((int) $matricula->grupo_id);
                     $alumno->grupo = $grupo;
 

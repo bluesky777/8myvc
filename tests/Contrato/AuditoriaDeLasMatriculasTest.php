@@ -458,6 +458,65 @@ class AuditoriaDeLasMatriculasTest extends CasoDeContrato
     }
 
     /**
+     * El alta de `alumnos/store` deja la línea de **creación** de su matrícula.
+     *
+     * Es el hueco que quedaba de los cuatro que se recontaron: sin ella, un alumno
+     * dado de alta hoy abre el modal vacío, y eso se lee igual que «no se le ha
+     * tocado». `postStore` crea tres filas —`alumnos`, `users` y la matrícula— y
+     * aquí se cubre la que enseña la pantalla de matrículas.
+     *
+     * **Y el caso comprueba el 201 además de la línea**, que no es de adorno: el
+     * método entero vive dentro de un `try`/`catch` que convierte cualquier excepción
+     * en `422 Datos incorrectos` **con el alumno ya creado**. Si alguien pone ahí una
+     * línea que lance, el alta empieza a fallar y el 201 es lo único que lo delata.
+     */
+    public function test_el_alta_de_un_alumno_deja_la_linea_de_su_matricula(): void
+    {
+        $token = $this->tokenDeSuperusuario();
+
+        $grupo = DB::selectOne('SELECT g.id FROM grupos g
+             INNER JOIN years y ON y.id = g.year_id AND y.actual = 1 AND y.deleted_at IS NULL
+             WHERE g.deleted_at IS NULL ORDER BY g.id LIMIT 1');
+
+        $this->assertNotNull($grupo, 'El seed necesita un grupo del año actual.');
+
+        $documento = '91'.random_int(1000000, 9999999);
+
+        $this->withToken($token)->postJson('/api/alumnos/store', [
+            'nombres' => 'Alta', 'apellidos' => 'ConRastro',
+            'sexo' => 'F', 'fecha_nac' => '2011-03-09',
+            'documento' => $documento,
+            'tipo_sangre' => ['sangre' => 'O+'],
+            'username' => 'alta.con.rastro.'.$documento,
+            'password' => 'clave-1234', 'password2' => 'clave-1234',
+            'fecha_matricula' => '2026-01-15',
+            'grupo' => ['id' => $grupo->id],
+            // `nuevo` y `repitente` no son decoración: la columna `repitente` es
+            // `NOT NULL` y el alta con grupo revienta en 422 sin ellos. El front los
+            // manda siempre; un caso que los omita falla por el motivo equivocado.
+            'nuevo' => 1, 'repitente' => 0,
+        ])->assertStatus(201);
+
+        $alumno = DB::selectOne('SELECT id FROM alumnos WHERE documento = ?', [$documento]);
+        $this->assertNotNull($alumno, 'El alta no creó al alumno.');
+
+        $matricula = DB::selectOne('SELECT id FROM matriculas WHERE alumno_id = ?', [$alumno->id]);
+        $this->assertNotNull($matricula, 'El alta no creó la matrícula: este caso no mide nada sin ella.');
+
+        $lineas = $this->lineasDe((int) $matricula->id);
+
+        $this->assertCount(1, $lineas, 'El alta no dejó la línea de creación de la matrícula.');
+        $this->assertSame(Auditoria::CREAR, $lineas[0]->accion);
+        $this->assertEquals($alumno->id, $lineas[0]->alumno_id);
+        $this->assertNotNull($lineas[0]->actor_user_id, 'La línea no dice quién dio de alta.');
+
+        $nuevo = json_decode((string) $lineas[0]->valor_nuevo, true);
+
+        $this->assertArrayHasKey('grupo_id', $nuevo);
+        $this->assertEquals($grupo->id, $nuevo['grupo_id']);
+    }
+
+    /**
      * **Y el control que dice que estos casos miden algo**: sin tocar nada, la
      * matrícula no tiene líneas.
      *
