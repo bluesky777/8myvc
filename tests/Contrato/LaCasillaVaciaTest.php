@@ -72,8 +72,12 @@ class LaCasillaVaciaTest extends CasoDeContrato
     /**
      * Quitar la nota: el vacío explícito la deja sin calificar (D7).
      *
-     * `20 → null` en una de las cuatro casillas: la definitiva baja de **20** a
-     * **15**, porque el cuarto que aportaba deja de aportar.
+     * `20 → null` en una de las cuatro casillas: la definitiva **se queda en 20**, y
+     * desde el 22 sep 2026 eso es lo que se comprueba. Antes bajaba a 15 porque la
+     * casilla vaciada seguía pesando en el divisor, que es exactamente lo que se
+     * invirtió: lo que nadie ha calificado no entra en la cuenta por ningún lado.
+     *
+     * **Sigue discriminando**: si la vacía volviera a contar como cero, esto daría 15.
      */
     public function test_el_vacio_explicito_quita_la_nota(): void
     {
@@ -87,7 +91,7 @@ class LaCasillaVaciaTest extends CasoDeContrato
         $this->assertNull(DB::table('notas')->where('id', $notaId)->value('nota'),
             'Mandar la nota vacía no la quitó.');
 
-        $this->assertSame(15.0, $this->definitivaDe($ctx),
+        $this->assertSame(20.0, $this->definitivaDe($ctx),
             'La casilla quedó vacía pero la definitiva sigue contándola.');
     }
 

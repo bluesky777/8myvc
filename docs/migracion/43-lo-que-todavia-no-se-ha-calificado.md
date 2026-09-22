@@ -496,6 +496,7 @@ informe de corte; lo único que le falta es decirlo y calcular como tal.
 | **D7** | Si «quitar la nota» es `update` con `null` o `destroy` | ✅ **`update` con `nota: null`.** Conserva la fila, su `id`, su bitácora y su historial. `destroy` se queda para lo que de verdad es borrar la fila. |
 | **D5** | Si se capturan las fechas de los indicadores | ✅ **No, fuera de alcance.** Las fases 0–4 arreglan los dos síntomas sin pedirle un dato nuevo a nadie. |
 | **D2** | El cuarto color gris y desde qué % se apaga | ✅ **Gris con el 15 % evaluado o menos** — `cobertura <= 0.15`. No es el mínimo posible —el mínimo sería «sólo con 0 %»— y la razón es el papel: esto **se firma y se archiva**, así que una o dos notas sueltas no bastan para ponerle color a una asignatura delante de una familia. **El borde lo decidió Joseth el 20 sep 2026 con los 152 pares delante** (abajo). |
+| **D8** | Si la definitiva ignora lo no calificado **siempre** | ✅ **Sí, en los dieciséis y sin interruptor.** Decidido el 22 sep 2026 con el caso delante (34,8 en la planilla contra 47 en el semáforo, el mismo alumno). Invierte la premisa de las fases 0–3 —*«la definitiva de hoy no se toca»*— y deja a D3 sólo la salida `cero`, que ahora es la que mueve el número. §Fase 6. |
 | **D4** | Estado **NE** por celda (el alumno que no pudo ser evaluado) | ✅ **No por ahora.** Con D3 en «queda fuera», una casilla vacía ya hace lo que haría NE; sólo haría falta si el colegio eligiera «pasa a 0» y quisiera excepciones. **Vuelve a la mesa el día que un colegio elija eso.** |
 
 > ### El valor de fábrica de D3 es «pasa a cero», y eso no es lo mismo que la decisión
@@ -1206,6 +1207,87 @@ por qué no se hizo y cómo se haría: se captura **en la plantilla del colegio*
 unidades y subunidades— y **no indicador a indicador**. Una columna que le cuesta trabajo al
 docente en cada asignatura **no la va a llenar nadie**, que es exactamente por qué `inicia_at`
 lleva años vacía.
+
+### Fase 6 — la definitiva normaliza SIEMPRE · **ESCRITA el 22 sep 2026** (D8)
+
+**Y esta fase contradice a propósito la frase con la que empieza el §6.** Las fases 0 a 3
+prometían no mover la definitiva de nadie y la 4 la movía sólo en el colegio que lo eligiera.
+Ésta la mueve **en los dieciséis**, porque Joseth decidió que el número que estaba mal era el
+que no se movía.
+
+**El caso que la trajo**, de un colegio de verdad y con las dos pantallas abiertas a la vez:
+un alumno de 5.º con cinco casillas calificadas de siete en Educación Física salía con
+**34,8** en la planilla del docente y con **47** en el semáforo. Los dos números eran
+correctos y salían del mismo dato: `34,8 ÷ 0,74 = 47`. El 34,8 es la nota de otro alumno —la
+del que sí tuvo las siete—, y era el que se guardaba, el que imprimía el boletín y el que
+cerraba el periodo.
+
+#### Lo que cambia, en una línea
+
+`CierreDeLoNoCalificado::normalizaLaDefinitiva()` **invierte su condición**: devolvía `false`
+salvo periodo cerrado y congelado en `fuera`; ahora devuelve `true` salvo periodo cerrado y
+congelado en `cero`. Todo lo demás son las **otras seis bocas** que calculaban lo mismo sin
+pasar por ahí.
+
+| Calculador | Qué publica | Cómo divide ahora |
+|---|---|---|
+| `Services\DefinitivasDeAsignatura::calcular` | **lo que se guarda** en `notas_finales` | por el interruptor, que ya estaba puesto |
+| `Models\Asignatura::calculoAlumnoNotas` | `nota_asignatura` de seis lectores | `LaParcialYLaCobertura::parcial(...) ?? 0` |
+| `NotasController::putDetailed` | `def_materia_auto`, la columna «Total» | `/ NULLIF(PesoEvaluado, 0)` en SQL |
+| `DefinitivasPeriodosController::putCalcularGrupoPeriodo` | escribe `notas_finales` | ídem, **y pierde su 422** (abajo) |
+| `Models\NotaFinal` (×5) | `def_materia_auto_1..4` y un escritor sin llamantes | ídem |
+| `BolfinalesController::definitivasMateriasXPeriodo` | el boletín final | ídem |
+| `EditnotaController` | `nota_asignatura_calc` | `parcial(...) ?? 0` |
+| `YearsController::avisarDeLoQueRecalcula` | **diagnóstico**: cuántas se moverían | ídem, o el aviso mentiría |
+
+Y en los clientes, las dos reconstrucciones que pintan «Total» mientras el docente teclea:
+`myvc_front/app2/.../promedio-ponderado.ts` y `NotasCtrl.ts` del AngularJS viejo. **`myvc_flutter`
+no calcula nada**: lee `nota_asignatura` y `def_materia_auto` del servidor, comprobado con
+`grep`, así que hereda el cambio sin tocar una línea.
+
+#### El 422 que había que quitar, y que nadie habría buscado
+
+`DefinitivasPeriodosController` tenía `if (normalizaLaDefinitiva($periodo_id)) abort(422)` —el
+corte de la fase 4, para que el botón *«Calcular definitivas per N»* no deshiciera un cierre
+con `fuera`—. Invertida la condición, **ese 422 saltaba en todos los periodos abiertos de los
+dieciséis colegios** y dejaba muerto justo el botón que Joseth nombró en el encargo. Se le
+enseñó la cuenta en vez de cerrarle la puerta, leyendo **el mismo interruptor** que el escritor
+bueno.
+
+*Un interruptor que se invierte hay que buscarlo por sus lectores, no por su nombre.* Este
+estaba a ciento ochenta líneas de distancia y en otro fichero.
+
+#### Qué le queda a D3 ahora
+
+`cero` y `fuera` **siguen siendo distintas, y ahora al revés**: `fuera` no cambia nada —ya era
+lo normal— y `cero` **baja la nota** al cerrar, porque escribe los ceros y con ellos las
+casillas entran en el divisor. En el lienzo de los tests: la definitiva pasa de **47,60** a
+**16,66**. La elección del rector sigue teniendo una consecuencia observable, que es lo único
+que D3 necesitaba para no ser un adorno.
+
+#### Lo que esta fase NO hace, y se dice
+
+- **No hay migración y no se tocó ninguna nota guardada.** Instrucción explícita de Joseth: *«solo
+  deja los algoritmos listos»*. Las definitivas se moverán cuando algo las recalcule —abrir la
+  planilla, pulsar el botón, guardar una nota—, no antes y no a la vez.
+- **Los periodos ya cerrados también normalizan** si algo dispara su recálculo. Decisión de
+  Joseth con el motivo escrito: *«se supone que todas las asignaturas tienen notas completas,
+  el null no se permitía hasta antes del deploy de ayer»*. **No se midió** cuántas casillas
+  vacías viven en periodos cerrados de los dieciséis; en la copia de desarrollo son **5**, contra
+  12.632 en los abiertos.
+- **La nota de UNIDAD no normaliza.** `RepartoDeLaNota::notaDeLaUnidad` sigue siendo la suma
+  cruda, así que un criterio con una casilla sin calificar todavía puede imprimir «Debilidad»
+  en el boletín por lo que no se ha evaluado. Se probó a cambiarla y **se revirtió**: hay dos
+  implementaciones —ésa en SQL y el `$nota_unidad` de `calculoAlumnoNotas` en PHP— y la de PHP
+  alimenta el acumulador de la definitiva, así que normalizar sólo una deja las dos pantallas
+  discrepando y normalizar las dos divide dos veces. **Es trabajo aparte y es de Joseth.**
+- **`Asignatura::calculoAlumnoNotas2` se quedó sin tocar**: es el gemelo literal, está comentado
+  entero y no lo llama nadie. Sigue siendo una copia futura de la fórmula de ayer.
+- **Los 21 promedios de año, periodo y área heredan** sin cambiar una línea: promedian
+  definitivas, no notas. Lo que no se midió es **cuánto** se mueve un promedio de año cuando sus
+  cuatro periodos cambian a la vez.
+
+---
 
 ---
 

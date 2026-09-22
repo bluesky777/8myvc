@@ -59,14 +59,26 @@ class EditarUnaNotaActualizaLaDefinitivaTest extends CasoDeContrato
     {
         [$token, $ctx] = $this->asignaturaConNotas();
 
-        $this->assertSame(20.0, $this->definitivaDe($ctx));
+        // **La que se va tiene que valer otra cosa que las demás**, y esto entró el 22 sep
+        // 2026 con la definitiva normalizada. Las cuatro casillas del montaje valen 20, y
+        // desde que el divisor sólo cuenta lo calificado, quitar una de cuatro veintes
+        // deja la definitiva en 20: el caso habría pasado verde **aunque el recálculo no
+        // se disparara**, que es lo único que este test mide. Con un 40 delante, borrar
+        // mueve el número de 25 a 20 y el disparador vuelve a estar bajo prueba.
+        $this->withToken($token)
+            ->putJson('/api/notas/update/'.$ctx['notas'][0], ['nota' => 40])
+            ->assertStatus(200);
+
+        $this->assertSame(25.0, $this->definitivaDe($ctx),
+            'El 40 no llegó a la definitiva: sin eso, lo de abajo no prueba nada.');
 
         $this->withToken($token)
             ->deleteJson('/api/notas/destroy/'.$ctx['notas'][0])
             ->assertStatus(200);
 
-        // Quitada una de las cuatro, el aporte de ese cuarto desaparece: 15.
-        $this->assertSame(15.0, $this->definitivaDe($ctx),
+        // Quitada la de 40, quedan tres veintes y la definitiva vuelve a 20 — no a 15:
+        // la casilla que ya no está tampoco pesa en el divisor.
+        $this->assertSame(20.0, $this->definitivaDe($ctx),
             'Borrar la nota no movió la definitiva.');
     }
 
@@ -177,7 +189,11 @@ class EditarUnaNotaActualizaLaDefinitivaTest extends CasoDeContrato
             ->whereNull('deleted_at')->value('nota'),
             'La casilla volvió con una nota que nadie puso: la siembra sigue usando nota_default.');
 
-        $this->assertSame(15.0, $this->definitivaDe($ctx),
+        // **20 y no 15** desde el 22 sep 2026: quedan tres casillas de 20 calificadas y la
+        // cuarta, recién sembrada y vacía, no entra ni en el numerador ni en el divisor.
+        // El 15 de antes era esa misma casilla vacía pesando como un cero — el caso sigue
+        // discriminando, porque si volviera a contar daría 15 otra vez.
+        $this->assertSame(20.0, $this->definitivaDe($ctx),
             'La casilla vacía movió la definitiva, y no puede: no cuenta hasta que alguien la califique.');
     }
 

@@ -208,27 +208,34 @@ final class CierreDeLoNoCalificado
     /**
      * Si la definitiva de este periodo se divide entre el peso de lo evaluado.
      *
-     * **Las dos condiciones hacen falta y ninguna sobra**, y son la regla dura del
-     * encargo escrita en un `&&`:
+     * **Desde el 22 sep 2026 la respuesta es «sí» salvo que se haya pedido lo
+     * contrario.** Decisión de Joseth, con el caso delante: un alumno con cinco
+     * casillas calificadas de siete salía con **34,8** en la planilla y con **47** en
+     * el semáforo, y el 34,8 no es una nota —es la nota de otro, el que sí tuvo las
+     * siete—. Lo que un profesor todavía no ha calificado **no es un cero del alumno**,
+     * y ésa es la regla 1 de este fichero llevada hasta donde hacía falta llevarla:
+     * hasta el número que se guarda.
      *
-     * 1. **cerrado** — mientras el periodo esté abierto la definitiva es la de
-     *    siempre, para todos los colegios y sin excepción. Es lo que prometen las
-     *    fases 0 a 3 del documento: *ninguna cambia la definitiva de hoy*. También
-     *    cubre el periodo **reabierto**: vuelve solo al cálculo de siempre sin que
-     *    nadie tenga que limpiar la marca.
-     * 2. **congelado en `fuera`** — y no *«el año está en fuera»*. Un año en `fuera`
-     *    con tres periodos cerrados antes de que el rector lo eligiera **no mueve
-     *    ninguno de los tres**, porque los tres llevan `NULL` o `cero` escrito dentro.
+     * Antes esto era al revés —`false` salvo periodo cerrado con `fuera`— porque las
+     * fases 0 a 3 prometían no mover la definitiva de nadie. Esa promesa se levanta
+     * aquí a propósito y en una sola línea, que es la razón de que el interruptor
+     * viva en un método y no repartido por los calculadores.
      *
-     * Con `NULL` —que es lo que tienen los 36 periodos de la copia de desarrollo y los
-     * de los dieciséis colegios el día del despliegue— esto devuelve `false` y el
-     * cálculo es **byte por byte el de ayer**.
+     * **Lo único que sigue contando las vacías como cero es el cierre que lo pidió**:
+     * `cerrado` + congelado en `cero`. Y se pregunta por el PERIODO y no por el año,
+     * que es la regla dura del encargo hecha mecanismo: gobierna
+     * `periodos.cierre_sin_calificar` —lo que se aplicó el día que se cerró—, no la
+     * elección vigente del rector, porque con la elección un cambio de opinión en
+     * octubre movería periodos ya impresos.
+     *
+     * **`fuera` y `NULL` dan los dos `true` ahora**, así que la salida `fuera` de D3
+     * dejó de ser la que cambia algo: lo que cambia algo es elegir `cero`.
      */
     public static function normalizaLaDefinitiva($periodoId): bool
     {
         $estado = self::estadoDelPeriodo($periodoId);
 
-        return $estado['existe'] && ! $estado['abierto'] && $estado['congelado'] === self::FUERA;
+        return ! ($estado['existe'] && ! $estado['abierto'] && $estado['congelado'] === self::CERO);
     }
 
     /**

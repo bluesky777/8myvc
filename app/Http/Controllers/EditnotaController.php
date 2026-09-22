@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\DB;
 
 use App\User;
 use App\Support\Autoriza;
+use App\Support\LaParcialYLaCobertura;
 use App\Models\Nota;
 use App\Models\Periodo;
 use App\Models\Subunidad;
@@ -61,6 +62,14 @@ class EditnotaController extends Controller {
 
 			$nota_asignatura = 0;
 
+			// El divisor, igual que en `Asignatura::calculoAlumnoNotas`: lo que pesa lo ya
+			// calificado. Desde el 22 sep 2026 la definitiva se divide entre el, asi que una
+			// casilla sin calificar deja de pesar como un cero -- el porque, en
+			// {@see \App\Support\CierreDeLoNoCalificado::normalizaLaDefinitiva}. Este es el
+			// TERCER calculador de la definitiva y la formula esta escrita a mano aqui
+			// dentro: se toca porque esta desplegado, no porque sea su sitio.
+			$peso_evaluado = 0;
+
 			foreach ($asigna->unidades as $unidad) {
 				
 				$unidad->subunidades = Subunidad::deUnidad($unidad->unidad_id);
@@ -110,6 +119,12 @@ class EditnotaController extends Controller {
 
 						$subunidad->nota->valor = ($nota->nota * $subunidad->porcentaje_subunidad) / 100;
 						$nota_unidad += $subunidad->nota->valor;
+
+						// `!== null` y no `> 0`: el `null` es «sin calificar» y el 0 es una nota
+						// que alguien puso. Confundirlos aqui reintroduce el bug entero del 43.
+						if ($nota->nota !== null) {
+							$peso_evaluado += (int) $unidad->porcentaje_unidad * (int) $subunidad->porcentaje_subunidad;
+						}
 					}
 					
 				}
@@ -125,7 +140,10 @@ class EditnotaController extends Controller {
 
 			$periodo->unidades = $asigna->unidades;
 
-			$periodo->nota_asignatura_calc 	= $nota_asignatura; // Definitiva de la materia en este periodo
+			// El `?? 0` conserva el tipo y la regla 1: un 0 aqui significa «sin notas», no
+			// «saco cero». Con la asignatura entera calificada el divisor vale 10.000 y este
+			// numero no se mueve ni un decimal.
+			$periodo->nota_asignatura_calc 	= LaParcialYLaCobertura::parcial($nota_asignatura, $peso_evaluado) ?? 0; // Definitiva de la materia en este periodo
 			
 			// **Las columnas nombradas y el acta de la definitiva, que es lo que
 			// `editor-nota` necesita** (22 §3.2). Esta pantalla —y no

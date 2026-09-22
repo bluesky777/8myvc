@@ -331,6 +331,17 @@ class NotasController extends Controller
             // decir **de dónde venía**. Escribirlas es A8; que la forma exista ya
             // desbloquea a B7, que es el editor de la definitiva.
             //
+            // **`def_materia_auto` se divide entre el peso de lo evaluado desde el 22 sep
+            // 2026**, igual que la que escribe `DefinitivasDeAsignatura`: esta columna es
+            // la que el front pinta en «Total» mientras el docente teclea, y si las dos
+            // bocas no dividen igual la planilla discrepa de su propia fila guardada en
+            // cuanto alguien deja una casilla sin calificar. El porqué de la división
+            // vive en {@see \App\Support\CierreDeLoNoCalificado::normalizaLaDefinitiva}.
+            //
+            // `NULLIF(...,0)` y no un `COALESCE` a 0: sin una sola casilla calificada
+            // esto ya devolvía `NULL` por el `LEFT JOIN`, y devolver 0 diría «sacó cero»
+            // donde hay que decir «todavía nada».
+            //
             // `nota_original` sale como `DOUBLE` igual que `nota_final`, y por lo
             // mismo: la columna es `DECIMAL(7,4)` desde `2026_08_30_200000` y PDO la
             // trae como cadena; sin el cast, el front tendría el par en dos tipos
@@ -339,16 +350,17 @@ class NotasController extends Controller
 							CAST(nf1.nota_original AS DOUBLE) as nota_original, nf1.nivelada_at, nf1.nivelada_por,
 							univ.username as nivelada_por_username,
 							CAST(nf1.nota AS DOUBLE) as nota_final, nf1.id as nf_id, nf1.recuperada, nf1.manual, nf1.updated_by, nf1.created_at, nf1.updated_at,
-							cast(r1.DefMateria as decimal(7,4)) as def_materia_auto, r1.updated_at as updated_at_def, IF(nf1.updated_at > r1.updated_at, FALSE, TRUE) AS nfinal_desactualizada 
+							cast(r1.DefMateria / NULLIF(r1.PesoEvaluado, 0) as decimal(7,4)) as def_materia_auto, r1.updated_at as updated_at_def, IF(nf1.updated_at > r1.updated_at, FALSE, TRUE) AS nfinal_desactualizada 
 						FROM alumnos a 
 						left join notas_finales nf1 on nf1.alumno_id=a.id and nf1.asignatura_id=:asign_id1 and nf1.periodo=:periodo
 						left join users u on u.id=nf1.updated_by 
 						left join users univ on univ.id=nf1.nivelada_por 
 						left join (
-							SELECT df1.alumno_id, df1.periodo_id, MAX(df1.updated_at) as updated_at, df1.numero_periodo, sum( df1.ValorUnidad ) DefMateria 
+							SELECT df1.alumno_id, df1.periodo_id, MAX(df1.updated_at) as updated_at, df1.numero_periodo, sum( df1.ValorUnidad ) DefMateria, sum( df1.PesoEvaluado ) PesoEvaluado 
 							FROM(
 								SELECT n.alumno_id, u.periodo_id, u.id as unidad_id, p1.numero as numero_periodo, MAX(n.updated_at) as updated_at, 
-									sum( ('.RepartoDeLaNota::aportacionALaDefinitiva().') ) ValorUnidad
+									sum( ('.RepartoDeLaNota::aportacionALaDefinitiva().') ) ValorUnidad,
+									sum( CASE WHEN n.nota IS NULL THEN 0 ELSE ('.RepartoDeLaNota::pesoDeLaNota().') END ) PesoEvaluado
 								FROM asignaturas asi 
 								inner join unidades u on u.asignatura_id=asi.id and u.deleted_at is null
 								inner join subunidades s on s.unidad_id=u.id and s.deleted_at is null

@@ -66,8 +66,12 @@ class LaParcialEnLaPlanillaTest extends CasoDeContrato
         $ctx = $this->laPlanillaDelLienzo();
         $asig = $this->comoLoCargaUnLector($ctx, $ctx['alumno']);
 
-        $this->assertSame(16.66, (float) $asig->nota_asignatura,
-            'La acumulada de la planilla se movió: es la que cierra el periodo.');
+        // **`nota_asignatura` es la parcial desde el 22 sep 2026** y este renglón decía
+        // 16,66. El 16,66 es el mismo alumno contando como ceros las tres casillas que
+        // su profesor no ha calificado: la nota del que sí las tuvo.
+        $this->assertSame(47.6, (float) $asig->nota_asignatura,
+            'La definitiva de la planilla volvió a ser la suma cruda: es la que cierra el '
+            .'periodo y la que imprime el boletín.');
 
         $this->assertSame(47.6, (float) $asig->nota_parcial,
             'La parcial salió '.var_export($asig->nota_parcial, true)
@@ -139,8 +143,13 @@ class LaParcialEnLaPlanillaTest extends CasoDeContrato
         $planilla = $this->comoLoCargaUnLector($ctx, $ctx['alumno']);
         $servicio = $this->filaDelServicio($ctx, $ctx['alumno']);
 
-        $this->assertSame(16.66, (float) $planilla->nota_asignatura,
-            'La acumulada se movió: un 0 no aporta nada, ni antes ni ahora.');
+        // Un 0 tecleado **no aporta al numerador y sí al divisor**, así que la definitiva
+        // BAJA al teclearlo: 16,66 ÷ 0,525 = 31,73 en vez de 16,66 ÷ 0,35 = 47,60. Es la
+        // prueba de que el 0 del docente y la casilla vacía siguen siendo cosas distintas
+        // ahora que la definitiva divide — que es el bug entero del 43.
+        $this->assertEqualsWithDelta(31.7333, (float) $planilla->nota_asignatura, 0.0001,
+            'La definitiva salió '.var_export($planilla->nota_asignatura, true).': con 47,6 '
+            .'el 0 del docente se está leyendo como «sin calificar».');
 
         $this->assertSame(0.525, (float) $planilla->cobertura,
             'La cobertura salió '.var_export($planilla->cobertura, true).': un 0,35 significa '
@@ -334,15 +343,18 @@ class LaParcialEnLaPlanillaTest extends CasoDeContrato
         $servicio = $this->filaDelServicio($ctx, $ctx['alumno']);
 
         // La planilla ignora el interruptor, hoy y desde siempre: los mismos números
-        // que en `porcentaje`.
-        $this->assertSame(16.66, (float) $planilla->nota_asignatura);
+        // que en `porcentaje`. Lo que cambió el 22 sep 2026 es que `nota_asignatura`
+        // también divide, así que ahora coincide con `nota_parcial` **dentro de cada
+        // calculador** — y los dos calculadores siguen sin coincidir entre sí, que es
+        // lo que este caso vino a fijar.
+        $this->assertSame(47.6, (float) $planilla->nota_asignatura);
         $this->assertSame(47.6, (float) $planilla->nota_parcial);
         $this->assertSame(0.35, (float) $planilla->cobertura);
 
         // Y el servicio, que sí lo mira, dice otra cosa **en los tres**. Si algún día
         // esto se pone verde con los números iguales, es que alguien unificó los dos
         // calculadores: entonces este caso sobra y hay que borrarlo, no relajarlo.
-        $this->assertSame(13.3, (float) $servicio->nota,
+        $this->assertSame(47.5, (float) $servicio->nota,
             'El servicio dejó de repartir en `promedio`.');
         $this->assertSame(47.5, (float) $servicio->parcial);
         $this->assertSame(0.28, (float) $servicio->cobertura);
@@ -387,7 +399,7 @@ class LaParcialEnLaPlanillaTest extends CasoDeContrato
             .'calculan y no salen por ningún sitio.');
         $this->assertArrayHasKey('cobertura', $periodo);
 
-        $this->assertEqualsWithDelta(16.66, (float) $periodo['nota_asignatura'], 0.001);
+        $this->assertEqualsWithDelta(47.6, (float) $periodo['nota_asignatura'], 0.001);
         $this->assertEqualsWithDelta(47.6, (float) $periodo['nota_parcial'], 0.001);
         $this->assertEqualsWithDelta(0.35, (float) $periodo['cobertura'], 0.001);
     }

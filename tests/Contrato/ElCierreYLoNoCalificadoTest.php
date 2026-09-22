@@ -171,73 +171,89 @@ class ElCierreYLoNoCalificadoTest extends CasoDeContrato
      * lo que ve la familia y lo que dice el papel vuelven a ser el mismo número.
      */
     #[Test]
-    public function cerrar_con_cero_escribe_los_ceros_y_la_definitiva_no_se_mueve(): void
+    public function cerrar_con_cero_escribe_los_ceros_y_la_definitiva_baja_a_la_acumulada(): void
     {
         $ctx = $this->laPlanillaDelLienzo();
 
         $this->elegir($ctx['year'], CierreDeLoNoCalificado::CERO);
         $antes = $this->filaDe($ctx, $ctx['alumno']);
 
-        $this->assertSame(self::ACUMULADA, (float) $antes->nota);
+        // **Antes de cerrar la definitiva YA es la parcial**, desde el 22 sep 2026. Este
+        // renglon decia `ACUMULADA` y es el que cuenta la inversion entera: lo que
+        // cambio no es este test, es de que numero parte el periodo abierto.
+        $this->assertSame(self::PARCIAL, round((float) $antes->nota, 2));
         $this->assertSame(0.35, (float) $antes->cobertura);
         $this->assertSame(3, $this->casillasVacias($ctx));
 
         $this->cerrar($ctx['periodo'])->assertStatus(200);
 
         $this->assertSame(0, $this->casillasVacias($ctx),
-            'Se cerró con «pasa a cero» y quedaron casillas vacías: la decisión no se aplicó.');
+            'Se cerro con «pasa a cero» y quedaron casillas vacias: la decision no se aplico.');
 
         $despues = $this->filaDe($ctx, $ctx['alumno']);
 
-        $this->assertSame(self::ACUMULADA, (float) $despues->nota,
-            'La definitiva se movió al escribir los ceros. No puede: la definitiva no '
-            .'normaliza, así que SUM(peso × NULL) y SUM(peso × 0) son el mismo número. '
-            .'Si esto está rojo, lo que cambió es la fórmula que imprimen los dieciséis.');
+        // **Y AHORA SI SE MUEVE, Y HACIA ABAJO.** Es el efecto que `cero` tiene desde que
+        // la definitiva normaliza: escribir los ceros mete las tres casillas en el
+        // divisor, la cobertura pasa a 1 y la nota cae de la parcial a la acumulada. Antes
+        // de la inversion este mismo test afirmaba lo contrario --«la definitiva no se
+        // mueve»-- y era cierto porque `SUM(peso x NULL)` y `SUM(peso x 0)` daban lo
+        // mismo. Que la eleccion del rector tenga una consecuencia observable es lo que
+        // hace que D3 no sea un adorno.
+        $this->assertSame(self::ACUMULADA, round((float) $despues->nota, 2),
+            'La definitiva no bajo al escribir los ceros. Tiene que bajar: con las tres '
+            .'casillas puestas a 0 el divisor pasa a ser el periodo entero, que es '
+            .'exactamente lo que el rector eligio al cerrar con «pasa a cero».');
 
         $this->assertSame(1.0, (float) $despues->cobertura,
-            'La cobertura sigue por debajo de 1 con todo escrito: entonces el semáforo del '
+            'La cobertura sigue por debajo de 1 con todo escrito: entonces el semaforo del '
             .'periodo cerrado se queda gris para siempre, que es el hueco que esta fase mata.');
 
         $this->assertSame(self::ACUMULADA, round((float) $despues->parcial, 2),
             'La parcial y la definitiva siguen diciendo cosas distintas en un periodo '
-            .'cerrado: la familia vería un número y el boletín otro.');
+            .'cerrado: la familia veria un numero y el boletin otro.');
     }
 
     /**
-     * **`fuera`: las casillas se quedan vacías y la definitiva pasa a ser la parcial.**
+     * **`fuera`: las casillas se quedan vacias y la definitiva sigue siendo la parcial.**
      *
-     * Y tiene que pasar a serlo. Sin esto, `cero` y `fuera` imprimirían exactamente el
-     * mismo boletín —la definitiva no normaliza— y la decisión del rector no tendría
-     * ninguna consecuencia observable.
+     * **Este test cambio de sentido el 22 sep 2026 sin cambiar una sola asercion sobre el
+     * resultado.** Antes probaba que `fuera` MOVIA la definitiva --de la acumulada a la
+     * parcial-- porque el resto del tiempo no normalizaba; ahora prueba que NO la mueve,
+     * porque ya era la parcial desde que se abrio el periodo. El numero que se comprueba
+     * es el mismo; lo que cambio es de donde viene.
      *
-     * **Se mira `notas_finales`, que es lo que imprime el boletín**, y no sólo lo que
-     * devuelve el cálculo: la mitad cara de esta salida es que el cierre **reescribe**
-     * las definitivas del periodo, porque después de cerrar ya no lo hace nadie
-     * (`ponerAlDiaUnInforme` no escribe en un periodo cerrado, decisión del 17 sep).
+     * Sigue haciendo falta: es el que dice que `fuera` **no escribe ceros**, que es lo
+     * unico que lo separa de `cero` ahora que la formula es la misma en los dos.
+     *
+     * **Se mira `notas_finales`, que es lo que imprime el boletin**, y no solo lo que
+     * devuelve el calculo: la mitad cara de esta salida es que el cierre **reescribe** las
+     * definitivas del periodo, porque despues de cerrar ya no lo hace nadie
+     * (`ponerAlDiaUnInforme` no escribe en un periodo cerrado, decision del 17 sep).
      */
     #[Test]
-    public function cerrar_con_fuera_hace_que_la_definitiva_sea_la_parcial(): void
+    public function cerrar_con_fuera_no_mueve_la_definitiva_porque_ya_era_la_parcial(): void
     {
         $ctx = $this->laPlanillaDelLienzo();
 
         DefinitivasDeAsignatura::recalcular($ctx['asignatura'], $ctx['periodo']);
 
-        $this->assertSame(self::ACUMULADA, (float) $this->definitivaGuardada($ctx),
-            'De partida la definitiva guardada tiene que ser la acumulada.');
+        $this->assertSame(self::PARCIAL, round((float) $this->definitivaGuardada($ctx), 2),
+            'De partida la definitiva guardada tiene que ser la parcial: con el periodo '
+            .'abierto lo no calificado no cuenta, y eso ya no depende de ninguna eleccion.');
 
         $this->elegir($ctx['year'], CierreDeLoNoCalificado::FUERA);
         $this->cerrar($ctx['periodo'])->assertStatus(200);
 
         $this->assertSame(3, $this->casillasVacias($ctx),
-            'Se cerró con «queda fuera de la cuenta» y se escribieron ceros igual.');
+            'Se cerro con «queda fuera de la cuenta» y se escribieron ceros igual.');
 
-        $this->assertSame(self::PARCIAL, (float) $this->filaDe($ctx, $ctx['alumno'])->nota,
-            'El cálculo sigue dando la acumulada en un periodo cerrado con «fuera».');
+        $this->assertSame(self::PARCIAL, round((float) $this->filaDe($ctx, $ctx['alumno'])->nota, 2),
+            'El calculo dejo de dar la parcial en un periodo cerrado con «fuera».');
 
-        $this->assertSame(self::PARCIAL, (float) $this->definitivaGuardada($ctx),
-            'El cálculo normaliza y `notas_finales` se quedó con la acumulada. El boletín '
-            .'imprime la tabla, así que la decisión del rector no llegaría al papel — y '
-            .'nadie la va a reescribir después: con el periodo cerrado, ponerAlDiaUnInforme '
+        $this->assertSame(self::PARCIAL, round((float) $this->definitivaGuardada($ctx), 2),
+            'El calculo da la parcial y `notas_finales` se quedo con otra cosa. El boletin '
+            .'imprime la tabla, asi que la decision del rector no llegaria al papel -- y '
+            .'nadie la va a reescribir despues: con el periodo cerrado, ponerAlDiaUnInforme '
             .'no escribe.');
     }
 
@@ -426,14 +442,20 @@ class ElCierreYLoNoCalificadoTest extends CasoDeContrato
     }
 
     /**
-     * **Reabrir devuelve el cálculo de siempre, y no hace falta borrar la marca.**
+     * **Reabrir no cambia el cálculo, y no hace falta borrar la marca.**
      *
-     * `normalizaLaDefinitiva()` exige **cerrado y** marcado, así que la reapertura
-     * deshace el efecto sola. La marca se conserva a propósito: es el registro de cómo
-     * se cerró la vez anterior, y volver a cerrar vuelve a elegir.
+     * Este caso también se dio la vuelta el 22 sep 2026. Comprobaba que la reapertura
+     * **deshacía** la normalización —`normalizaLaDefinitiva()` exigía cerrado *y*
+     * marcado—; ahora normalizar es lo normal, así que abrir y cerrar con `fuera` dan
+     * el mismo número y lo que se comprueba es que **no salta** a la acumulada.
+     *
+     * La marca se conserva a propósito: es el registro de cómo se cerró la vez
+     * anterior, y volver a cerrar vuelve a elegir. Eso no ha cambiado, y es lo que
+     * impide que reabrir un periodo cerrado con `cero` lo deje con los ceros puestos y
+     * sin decir por qué.
      */
     #[Test]
-    public function reabrir_devuelve_el_calculo_de_siempre_sin_borrar_la_marca(): void
+    public function reabrir_no_cambia_el_calculo_y_no_borra_la_marca(): void
     {
         $ctx = $this->laPlanillaDelLienzo();
 
@@ -444,10 +466,10 @@ class ElCierreYLoNoCalificadoTest extends CasoDeContrato
 
         $this->cerrar($ctx['periodo'], true)->assertStatus(200);
 
-        $this->assertSame(self::ACUMULADA, (float) $this->filaDe($ctx, $ctx['alumno'])->nota,
-            'Con el periodo REABIERTO la definitiva sigue normalizando. Mientras un periodo '
-            .'está abierto la definitiva es la de siempre, para todos y sin excepción: es lo '
-            .'que prometen las fases 0 a 3.');
+        $this->assertSame(self::PARCIAL, (float) $this->filaDe($ctx, $ctx['alumno'])->nota,
+            'Con el periodo REABIERTO la definitiva dejó de normalizar y volvió a la suma '
+            .'cruda. Ya no hay ningún estado en que lo no calificado pese como un cero, '
+            .'salvo el cierre que lo pidió con «pasa a cero».');
 
         $this->assertSame(CierreDeLoNoCalificado::FUERA,
             DB::table('periodos')->where('id', $ctx['periodo'])->value('cierre_sin_calificar'),
@@ -458,18 +480,25 @@ class ElCierreYLoNoCalificadoTest extends CasoDeContrato
     // ── Las puertas de al lado ──────────────────────────────────────────────
 
     /**
-     * **El recálculo por grupo no deshace un cierre con `fuera`.**
+     * **El recálculo por grupo escribe la misma cuenta, y por eso ya no hace falta
+     * cerrarle la puerta.**
      *
      * `definitivas_periodos/calcular-grupo-periodo` es otro escritor de `notas_finales`
-     * con **su propia consulta**, la acumulada a pelo. Sin este corte, pulsarlo después
-     * de cerrar con `fuera` borraría las definitivas normalizadas y escribiría las
-     * otras, **en silencio y con 200**: el mismo número producido por dos botones
-     * distintos, que es la §3.4 del 10.
+     * con **su propia consulta**. Hasta el 22 sep 2026 esa consulta era la acumulada a
+     * pelo, así que pulsar el botón después de cerrar con `fuera` habría borrado las
+     * definitivas normalizadas y escrito las otras **en silencio y con 200**: el mismo
+     * número por dos botones distintos, que es la §3.4 del 10. El corte era un 422.
      *
-     * Se mira la tabla y no sólo el 422, por lo de siempre.
+     * Invertida la regla, ese 422 habría saltado en **todos** los periodos abiertos de
+     * los dieciséis colegios —el botón, muerto—, así que se le enseñó la cuenta. Lo que
+     * este caso comprueba ahora es lo mismo que comprobaba entonces, por el otro lado:
+     * que después de pulsarlo la fila **no cambia**.
+     *
+     * Se mira la tabla y no sólo el código HTTP, por lo de siempre: este método empieza
+     * por un `DELETE`, así que «no la cambió» incluye «no la dejó sin escribir».
      */
     #[Test]
-    public function el_recalculo_por_grupo_no_deshace_un_cierre_con_fuera(): void
+    public function el_recalculo_por_grupo_escribe_la_misma_cuenta_que_el_cierre(): void
     {
         $ctx = $this->laPlanillaDelLienzo();
 
@@ -485,11 +514,13 @@ class ElCierreYLoNoCalificadoTest extends CasoDeContrato
                 'num_periodo' => $ctx['num_periodo'],
             ]);
 
-        $r->assertStatus(422);
+        $r->assertStatus(200);
 
         $this->assertSame(self::PARCIAL, (float) $this->definitivaGuardada($ctx),
-            'El botón de recalcular el grupo contestó 422 y reescribió igual, o peor: borró '
-            .'la fila. Ese método empieza por un DELETE.');
+            'El botón de recalcular el grupo dejó otra nota que la que dejó el cierre. Es la '
+            .'§3.4 del 10: el mismo número producido por dos botones distintos, y el alumno '
+            .'cambiando según cuál se pulse. O peor, borró la fila: ese método empieza por '
+            .'un DELETE.');
     }
 
     /**

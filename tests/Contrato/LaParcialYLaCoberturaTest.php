@@ -90,15 +90,25 @@ class LaParcialYLaCoberturaTest extends CasoDeContrato
     use LaPlanillaDelLienzo;
 
     /**
-     * La parcial es la nota de lo evaluado, y la acumulada sigue siendo la de hoy.
+     * **La definitiva y la parcial son el mismo número desde el 22 sep 2026.**
+     *
+     * Hasta ese día este test se llamaba *«…y la acumulada no se mueve»* y fijaba lo
+     * contrario: `nota` era `Σ aporte` —16,66, con las tres casillas sin calificar
+     * pesando como ceros— y `parcial` era 47,6. Joseth lo invirtió con el caso delante:
+     * el 16,66 no es la nota de este alumno, es la del que sí tuvo todas las casillas.
+     *
+     * **Que los dos campos coincidan no los hace redundantes**, y por eso siguen
+     * comprobándose los dos: se separan en el único caso que queda —un periodo cerrado
+     * con `cero`—, y `parcial` se publica también donde no hay definitiva escrita.
      */
-    public function test_la_parcial_va_sobre_lo_evaluado_y_la_acumulada_no_se_mueve(): void
+    public function test_la_definitiva_es_la_parcial_y_va_sobre_lo_evaluado(): void
     {
         $ctx = $this->laPlanillaDelLienzo();
         $fila = $this->filaDe($ctx, $ctx['alumno']);
 
-        $this->assertSame(16.66, (float) $fila->nota,
-            'La acumulada dejó de ser Σ aporte: eso es la definitiva que cierra el periodo.');
+        $this->assertSame(47.6, (float) $fila->nota,
+            'La definitiva no se normalizó por el peso de lo evaluado: volvió a ser la suma '
+            .'cruda, que es la nota del que sí tuvo las cinco casillas.');
 
         $this->assertSame(47.6, (float) $fila->parcial,
             'La parcial no se normalizó por el peso de lo evaluado.');
@@ -268,7 +278,10 @@ class LaParcialYLaCoberturaTest extends CasoDeContrato
 
         $fila = $this->filaDe($ctx, $ctx['alumno']);
 
-        $this->assertSame(13.3, (float) $fila->nota);
+        // 13,30 era la acumulada, y hasta el 22 sep 2026 era esto lo que se guardaba. Hoy
+        // la definitiva ya viene dividida, así que este renglón dice lo mismo que el de
+        // abajo **en el otro modo de reparto**, que es lo que este caso vino a comprobar.
+        $this->assertSame(47.5, (float) $fila->nota);
 
         $this->assertSame(47.5, (float) $fila->parcial,
             'La parcial salió '.$fila->parcial.': con el reparto en `promedio` los cinco '
@@ -331,14 +344,18 @@ class LaParcialYLaCoberturaTest extends CasoDeContrato
     }
 
     /**
-     * **Lo que se guarda sigue siendo la acumulada.**
+     * **Lo que se guarda es la parcial, y se guarda UNA vez.**
      *
-     * Es el caso que protege lo que no puede moverse: `notas_finales` es la que cierra
-     * el periodo y la que imprimen los dieciséis colegios, y el fallo caro de esta
-     * fase no es equivocar la parcial sino escribirla donde va la otra —el alumno
-     * pasaría de 16,66 a 47,60 y **el boletín sería creíble**.
+     * Este caso nació diciendo lo contrario —*«la parcial no llega a la columna de la
+     * definitiva»*— y protegía `notas_finales` de moverse: el alumno pasaría de 16,66 a
+     * 47,60 y *«el boletín sería creíble»*. **El 22 sep 2026 Joseth decidió que el
+     * boletín diga 47,60**, porque el 16,66 era creíble y era de otro alumno.
+     *
+     * Lo que el caso sigue comprobando y no ha cambiado: que se escriba **una sola
+     * fila**. El duplicado es el fallo caro de esta tabla y no depende de qué fórmula
+     * la llene.
      */
-    public function test_la_parcial_no_llega_a_la_columna_de_la_definitiva(): void
+    public function test_la_definitiva_guardada_es_la_parcial_y_hay_una_sola(): void
     {
         $ctx = $this->laPlanillaDelLienzo();
 
@@ -351,9 +368,9 @@ class LaParcialYLaCoberturaTest extends CasoDeContrato
             ->value('nota');
 
         $this->assertNotNull($guardada, 'No se escribió ninguna definitiva.');
-        $this->assertSame(16.66, (float) $guardada,
-            'La columna de la definitiva se quedó con '.$guardada.': la parcial no se guarda '
-            .'en ninguna parte, y menos encima de la que cierra el periodo.');
+        $this->assertSame(47.6, (float) $guardada,
+            'La columna de la definitiva se quedó con '.$guardada.': lo que se guarda es la '
+            .'nota sobre lo evaluado, y una suma cruda ahí es la nota de otro alumno.');
 
         $this->assertSame(1, DB::table('notas_finales')
             ->where('alumno_id', $ctx['alumno'])
@@ -381,8 +398,11 @@ class LaParcialYLaCoberturaTest extends CasoDeContrato
 
         $this->assertSame(47.6, $suyo['parcial']);
         $this->assertSame(0.35, $suyo['cobertura']);
-        $this->assertSame(16.66, $suyo['definitiva']['nota'],
-            'La parcial se coló dentro de `definitiva`, que es lo que quedó GUARDADO.');
+        // Los dos campos dicen el mismo número desde el 22 sep 2026 y **siguen siendo dos
+        // campos**: `definitiva` es lo que quedó GUARDADO y `parcial` lo que se calculó.
+        // Se separan en el periodo cerrado con `cero`, que es el único caso que queda.
+        $this->assertSame(47.6, $suyo['definitiva']['nota'],
+            'La definitiva guardada no es la nota sobre lo evaluado.');
 
         $delGrupo = DefinitivasDeAsignatura::recalcular($ctx['asignatura'], $ctx['periodo']);
 

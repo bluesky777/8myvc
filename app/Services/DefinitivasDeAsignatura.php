@@ -656,24 +656,23 @@ class DefinitivasDeAsignatura
         // son porque las dos se construyen con este fragmento.
         $peso = RepartoDeLaNota::pesoDeLaNota($modo);
 
-        // **La única línea de la fase 4 que toca el cálculo, y sólo se enciende cuando
-        // un rector lo pide.** `false` es el estado de los 36 periodos de la copia de
-        // desarrollo y el de los dieciséis colegios el día del despliegue, y con `false`
-        // la consulta de abajo es **byte por byte la de ayer**.
+        // **Desde el 22 sep 2026 esto es `true` salvo que un rector pidiera lo
+        // contrario al cerrar**, así que la definitiva que se guarda es la nota sobre
+        // lo evaluado y una casilla sin calificar deja de pesar como un cero. La
+        // decisión, el caso que la provocó (34,8 contra 47 en el mismo alumno) y lo
+        // que deja de gobernar viven en {@see CierreDeLoNoCalificado::normalizaLaDefinitiva}.
         //
-        // Se pregunta por el PERIODO y no por el año, y eso es la regla dura del
-        // encargo hecha mecanismo: lo que gobierna es `periodos.cierre_sin_calificar`
-        // —lo que se aplicó el día que se cerró—, no la elección vigente del rector.
-        // Con la elección, un cambio de opinión en octubre movería las definitivas de
-        // los periodos que ya están cerrados e impresos; con la congelada **no hay
-        // ninguna secuencia de pulsaciones que los alcance**. El porqué entero vive en
-        // {@see CierreDeLoNoCalificado}.
+        // Se sigue preguntando por el PERIODO y no por el año: lo que gobierna es
+        // `periodos.cierre_sin_calificar` —lo que se aplicó el día que se cerró—, no
+        // la elección vigente del rector, porque con la elección un cambio de opinión
+        // en octubre movería las definitivas de los periodos ya impresos.
         $normaliza = CierreDeLoNoCalificado::normalizaLaDefinitiva($periodoId);
 
-        // **La definitiva de un periodo cerrado con `fuera` ES la parcial**, literalmente
-        // la misma expresión que la columna de al lado — no una fórmula gemela. Escribirla
-        // dos veces sería la decimoséptima copia del reparto, que es justo lo que
-        // `RepartoDeLaNota` existe para no tener.
+        // **La definitiva ES la parcial**, literalmente la misma expresión que la
+        // columna de al lado — no una fórmula gemela. Escribirla dos veces sería la
+        // decimoséptima copia del reparto, que es justo lo que `RepartoDeLaNota` existe
+        // para no tener. Que las dos columnas coincidan ahora no las hace redundantes:
+        // `parcial` se publica también donde no hay definitiva escrita.
         //
         // El `COALESCE(..., 0)` de fuera no cambia: sin nada evaluado la división da
         // `NULL` y la definitiva vuelve a ser 0, que es la regla 1 —*«un 0 aquí significa

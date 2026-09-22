@@ -106,6 +106,14 @@ class NotaFinal extends Model {
 	 *
 	 * Se usa la forma correlacionada y no `JOIN_ESTADO` porque aquí **no hay
 	 * `matriculas` dentro de la derivada** — la `m` de la consulta de fuera no llega.
+	 *
+	 * **Las cuatro `def_materia_auto_N` se dividen entre el peso de lo calificado desde
+	 * el 22 sep 2026**, igual que la que escribe `DefinitivasDeAsignatura`. Esta pantalla
+	 * enseña la automática **al lado de la guardada** para que se vea cuál está
+	 * desactualizada: si las dos no salen de la misma fórmula, los cuatro periodos de
+	 * cada alumno aparecerían en desacuerdo consigo mismos y el aviso perdería el
+	 * sentido. El porqué de dividir, en
+	 * {@see \App\Support\CierreDeLoNoCalificado::normalizaLaDefinitiva}.
 	 */
 	public static function consultaAlumnosGrupoNotaFinal(string $modo = RepartoDeLaNota::PORCENTAJE): string
 	{
@@ -117,10 +125,10 @@ class NotaFinal extends Model {
 							CAST(nf4.nota AS DOUBLE) as nota_final_per4, nf4.id as nf_id_4, nf4.recuperada as recuperada_4, nf4.manual as manual_4, nf4.updated_by as updated_by_4, nf4.created_at as created_at_4, nf4.updated_at as updated_at_4,
                             rf.id as recu_id, rf.year as recu_year, rf.nota as recu_nota, rf.updated_at as recu_updated_at, rf.updated_by as recu_updated_by,
                             
-                            cast(r1.DefMateria as decimal(7,4)) as def_materia_auto_1, r1.updated_at as updated_at_def_1, IF(nf1.updated_at > r1.updated_at, FALSE, TRUE) AS nfinal1_desactualizada, r1.periodo_id as periodo_id1, 
-                            cast(r2.DefMateria as decimal(7,4)) as def_materia_auto_2, r2.updated_at as updated_at_def_2, IF(nf2.updated_at > r2.updated_at, FALSE, TRUE) AS nfinal2_desactualizada, r2.periodo_id as periodo_id2, 
-                            cast(r3.DefMateria as decimal(7,4)) as def_materia_auto_3, r3.updated_at as updated_at_def_3, IF(nf3.updated_at > r3.updated_at, FALSE, TRUE) AS nfinal3_desactualizada, r3.periodo_id as periodo_id3, 
-                            cast(r4.DefMateria as decimal(7,4)) as def_materia_auto_4, r4.updated_at as updated_at_def_4, IF(nf4.updated_at > r4.updated_at, FALSE, TRUE) AS nfinal4_desactualizada, r4.periodo_id as periodo_id4, 
+                            cast(r1.DefMateria / NULLIF(r1.PesoEvaluado, 0) as decimal(7,4)) as def_materia_auto_1, r1.updated_at as updated_at_def_1, IF(nf1.updated_at > r1.updated_at, FALSE, TRUE) AS nfinal1_desactualizada, r1.periodo_id as periodo_id1, 
+                            cast(r2.DefMateria / NULLIF(r2.PesoEvaluado, 0) as decimal(7,4)) as def_materia_auto_2, r2.updated_at as updated_at_def_2, IF(nf2.updated_at > r2.updated_at, FALSE, TRUE) AS nfinal2_desactualizada, r2.periodo_id as periodo_id2, 
+                            cast(r3.DefMateria / NULLIF(r3.PesoEvaluado, 0) as decimal(7,4)) as def_materia_auto_3, r3.updated_at as updated_at_def_3, IF(nf3.updated_at > r3.updated_at, FALSE, TRUE) AS nfinal3_desactualizada, r3.periodo_id as periodo_id3, 
+                            cast(r4.DefMateria / NULLIF(r4.PesoEvaluado, 0) as decimal(7,4)) as def_materia_auto_4, r4.updated_at as updated_at_def_4, IF(nf4.updated_at > r4.updated_at, FALSE, TRUE) AS nfinal4_desactualizada, r4.periodo_id as periodo_id4, 
                             
 							u.imagen_id, IFNULL(i.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as imagen_nombre, 
 							a.foto_id, IFNULL(i2.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as foto_nombre
@@ -135,10 +143,11 @@ class NotaFinal extends Model {
 						left join notas_finales nf4 on nf4.alumno_id=a.id and nf4.asignatura_id=:asign_id4 and nf4.periodo=4
                         
                         left join (
-							SELECT df1.alumno_id, df1.periodo_id, MAX(df1.updated_at) as updated_at, df1.numero_periodo, sum( df1.ValorUnidad ) DefMateria 
+							SELECT df1.alumno_id, df1.periodo_id, MAX(df1.updated_at) as updated_at, df1.numero_periodo, sum( df1.ValorUnidad ) DefMateria, sum( df1.PesoEvaluado ) PesoEvaluado 
                             FROM(
                                 SELECT n.alumno_id, u.periodo_id, u.id as unidad_id, p1.numero as numero_periodo, MAX(n.updated_at) as updated_at, 
-                                    sum( ('.RepartoDeLaNota::aportacionALaDefinitiva($modo).') ) ValorUnidad
+                                    sum( ('.RepartoDeLaNota::aportacionALaDefinitiva($modo).') ) ValorUnidad,
+                                    sum( CASE WHEN n.nota IS NULL THEN 0 ELSE ('.RepartoDeLaNota::pesoDeLaNota($modo).') END ) PesoEvaluado
                                 FROM asignaturas asi 
                                 inner join unidades u on u.asignatura_id=asi.id and u.deleted_at is null
                                 inner join subunidades s on s.unidad_id=u.id and s.deleted_at is null
@@ -152,10 +161,11 @@ class NotaFinal extends Model {
 						)r1 ON r1.alumno_id=a.id
                         
                         left join (
-							SELECT df1.alumno_id, df1.periodo_id, MAX(df1.updated_at) as updated_at, df1.numero_periodo, sum( df1.ValorUnidad ) DefMateria 
+							SELECT df1.alumno_id, df1.periodo_id, MAX(df1.updated_at) as updated_at, df1.numero_periodo, sum( df1.ValorUnidad ) DefMateria, sum( df1.PesoEvaluado ) PesoEvaluado 
                             FROM(
                                 SELECT n.alumno_id, u.periodo_id, u.id as unidad_id, p1.numero as numero_periodo, MAX(n.updated_at) as updated_at, 
-                                    sum( ('.RepartoDeLaNota::aportacionALaDefinitiva($modo).') ) ValorUnidad
+                                    sum( ('.RepartoDeLaNota::aportacionALaDefinitiva($modo).') ) ValorUnidad,
+                                    sum( CASE WHEN n.nota IS NULL THEN 0 ELSE ('.RepartoDeLaNota::pesoDeLaNota($modo).') END ) PesoEvaluado
                                 FROM asignaturas asi 
                                 inner join unidades u on u.asignatura_id=asi.id and u.deleted_at is null
                                 inner join subunidades s on s.unidad_id=u.id and s.deleted_at is null
@@ -169,10 +179,11 @@ class NotaFinal extends Model {
 						)r2 ON r2.alumno_id=a.id
                         
                         left join (
-							SELECT df1.alumno_id, df1.periodo_id, MAX(df1.updated_at) as updated_at, df1.numero_periodo, sum( df1.ValorUnidad ) DefMateria 
+							SELECT df1.alumno_id, df1.periodo_id, MAX(df1.updated_at) as updated_at, df1.numero_periodo, sum( df1.ValorUnidad ) DefMateria, sum( df1.PesoEvaluado ) PesoEvaluado 
                             FROM(
                                 SELECT n.alumno_id, u.periodo_id, u.id as unidad_id, p1.numero as numero_periodo, MAX(n.updated_at) as updated_at, 
-                                    sum( ('.RepartoDeLaNota::aportacionALaDefinitiva($modo).') ) ValorUnidad
+                                    sum( ('.RepartoDeLaNota::aportacionALaDefinitiva($modo).') ) ValorUnidad,
+                                    sum( CASE WHEN n.nota IS NULL THEN 0 ELSE ('.RepartoDeLaNota::pesoDeLaNota($modo).') END ) PesoEvaluado
                                 FROM asignaturas asi 
                                 inner join unidades u on u.asignatura_id=asi.id and u.deleted_at is null
                                 inner join subunidades s on s.unidad_id=u.id and s.deleted_at is null
@@ -186,10 +197,11 @@ class NotaFinal extends Model {
 						)r3 ON r3.alumno_id=a.id
                         
                         left join (
-							SELECT df1.alumno_id, df1.periodo_id, MAX(df1.updated_at) as updated_at, df1.numero_periodo, sum( df1.ValorUnidad ) DefMateria 
+							SELECT df1.alumno_id, df1.periodo_id, MAX(df1.updated_at) as updated_at, df1.numero_periodo, sum( df1.ValorUnidad ) DefMateria, sum( df1.PesoEvaluado ) PesoEvaluado 
                             FROM(
                                 SELECT n.alumno_id, u.periodo_id, u.id as unidad_id, p1.numero as numero_periodo, MAX(n.updated_at) as updated_at,
-                                    sum( ('.RepartoDeLaNota::aportacionALaDefinitiva($modo).') ) ValorUnidad
+                                    sum( ('.RepartoDeLaNota::aportacionALaDefinitiva($modo).') ) ValorUnidad,
+                                    sum( CASE WHEN n.nota IS NULL THEN 0 ELSE ('.RepartoDeLaNota::pesoDeLaNota($modo).') END ) PesoEvaluado
                                 FROM asignaturas asi 
                                 inner join unidades u on u.asignatura_id=asi.id and u.deleted_at is null
                                 inner join subunidades s on s.unidad_id=u.id and s.deleted_at is null
@@ -328,12 +340,13 @@ class NotaFinal extends Model {
         
 
 		$consulta = 'SELECT r1.alumno_id,
-			    cast(r1.DefMateria as decimal(7,4)) as def_materia_auto, r1.updated_at, r1.periodo_id
+			    cast(r1.DefMateria / NULLIF(r1.PesoEvaluado, 0) as decimal(7,4)) as def_materia_auto, r1.updated_at, r1.periodo_id
 			FROM (
-				SELECT df1.alumno_id, df1.periodo_id, MAX(df1.updated_at) as updated_at, df1.numero_periodo, sum( df1.ValorUnidad ) DefMateria 
+				SELECT df1.alumno_id, df1.periodo_id, MAX(df1.updated_at) as updated_at, df1.numero_periodo, sum( df1.ValorUnidad ) DefMateria, sum( df1.PesoEvaluado ) PesoEvaluado 
 				FROM(
 					SELECT n.alumno_id, u.periodo_id, u.id as unidad_id, p1.numero as numero_periodo, MAX(n.updated_at) as updated_at, 
-						sum( ('.RepartoDeLaNota::aportacionALaDefinitiva($modo).') ) ValorUnidad
+						sum( ('.RepartoDeLaNota::aportacionALaDefinitiva($modo).') ) ValorUnidad,
+                                    sum( CASE WHEN n.nota IS NULL THEN 0 ELSE ('.RepartoDeLaNota::pesoDeLaNota($modo).') END ) PesoEvaluado
 					FROM asignaturas asi 
 					inner join unidades u on u.asignatura_id=asi.id and u.deleted_at is null
 					inner join subunidades s on s.unidad_id=u.id and s.deleted_at is null

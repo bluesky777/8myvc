@@ -384,7 +384,23 @@ class Asignatura extends Model {
 		// redondear **antes** de promediar volvía a empatar el promedio del año igual
 		// que lo hacía la columna. Y es lo que hacía que la planilla y el boletín
 		// dijeran números distintos del mismo alumno.
-		$asignatura->nota_asignatura = $nota_asignatura; // Definitiva de la materia
+		// **Desde el 22 sep 2026 la definitiva que sale de aquí es la nota sobre lo
+		// evaluado**, no la suma cruda: una casilla que nadie ha calificado deja de pesar
+		// como un cero. Decisión de Joseth con el caso delante —el mismo alumno salía con
+		// 34,8 en la planilla y 47 en el semáforo, y el 34,8 era la nota del que sí tuvo
+		// las siete casillas—. El porqué entero, en
+		// {@see \App\Support\CierreDeLoNoCalificado::normalizaLaDefinitiva}.
+		//
+		// **Con la asignatura entera calificada no se mueve ni un decimal**, y eso no es una
+		// esperanza: `peso_evaluado` vale entonces lo mismo que `peso_total`, y el ×10.000
+		// que lleva dentro `parcial()` deshace exactamente los dos `/100` del bucle. Lo que
+		// sí se mueve es la asignatura cuyos porcentajes **no suman 100**, porque ahí el
+		// divisor deja de ser 10.000; era el caso c) de las tres preguntas del 19 sep y
+		// ahora tiene respuesta: se reparte entre lo que hay.
+		//
+		// El `?? 0` conserva la regla 1 —*«un 0 aquí significa sin notas, no sacó cero»*— y
+		// conserva el tipo: este campo es numérico en las seis pantallas que lo leen.
+		$asignatura->nota_asignatura = LaParcialYLaCobertura::parcial($nota_asignatura, $peso_evaluado) ?? 0; // Definitiva de la materia
 
 		// **Las dos fórmulas viven en `App\Support\LaParcialYLaCobertura` desde el 20 sep
 		// 2026, y aquí no queda más que la llamada.** No es aseo: la [Fase 2 del

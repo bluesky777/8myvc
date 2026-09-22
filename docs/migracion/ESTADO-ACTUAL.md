@@ -8,6 +8,37 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+> ## ✅ LA DEFINITIVA IGNORA LO NO CALIFICADO, EN LOS DIECISÉIS (22 sep 2026)
+>
+> **Decisión de Joseth (D8), y contradice a propósito lo que prometían las fases 0–3 del
+> [43](43-lo-que-todavia-no-se-ha-calificado.md).** Un alumno con cinco casillas de siete
+> salía con **34,8** en la planilla y **47** en el semáforo: los dos números correctos,
+> `34,8 ÷ 0,74 = 47`, y el que se guardaba era el del alumno que sí tuvo las siete.
+>
+> `CierreDeLoNoCalificado::normalizaLaDefinitiva()` **invirtió su condición** —`true` salvo
+> periodo cerrado con `cero`— y con ella las **otras siete bocas** que calculaban la
+> definitiva sin pasar por ahí: `DefinitivasDeAsignatura`, `Asignatura::calculoAlumnoNotas`,
+> `NotasController::putDetailed`, `DefinitivasPeriodosController`, `NotaFinal` (×5),
+> `BolfinalesController`, `EditnotaController` y el diagnóstico de `YearsController`. En los
+> clientes, las dos reconstrucciones de «Total» (`promedio-ponderado.ts` y `NotasCtrl.ts`);
+> **`myvc_flutter` no calcula nada y hereda**.
+>
+> **El hallazgo que no se habría buscado:** `DefinitivasPeriodosController` tenía un
+> `if (normalizaLaDefinitiva(...)) abort(422)` de la fase 4. Al invertir el interruptor, ese
+> 422 pasaba a saltar **en todos los periodos abiertos** y dejaba muerto el botón *«Calcular
+> definitivas per N»* — justo el que Joseth nombró en el encargo. *Un interruptor que se
+> invierte se busca por sus lectores, no por su nombre.*
+>
+> **Sin migración y sin tocar una sola nota guardada**, por instrucción explícita: las
+> definitivas se moverán cuando algo las recalcule. Los periodos ya cerrados también
+> normalizan si algo los recalcula, decisión suya y con motivo escrito (*«el null no se
+> permitía hasta antes del deploy de ayer»*).
+>
+> **Lo que queda y es suyo:** la **nota de unidad** (`RepartoDeLaNota::notaDeLaUnidad`) sigue
+> siendo la suma cruda, así que un criterio a medio calificar todavía puede imprimir
+> «Debilidad». Se probó a cambiarla y **se revirtió**: son dos implementaciones, una en SQL y
+> otra en PHP, y la de PHP alimenta el acumulador de la definitiva. §Fase 6 del 43.
+
 > ## ✅ LOS CUATRO RELOJES: CENSADOS, Y LA PUERTA DE `NOW()` CERRADA (21 sep 2026)
 >
 > Joseth pidió el censo de los usos de reloj para poder **transformar la hora al

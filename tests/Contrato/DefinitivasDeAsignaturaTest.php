@@ -186,8 +186,10 @@ class DefinitivasDeAsignaturaTest extends CasoDeContrato
      *
      * Es el caso de la §4.2 —el `MAX` de hoy es ciego a los borrados y declara la
      * definitiva al día con un valor que ya no corresponde—, comprobado por el
-     * número y no por la bandera. Sin la nota de 5, quedan 4, 3 y 2 → **2,25**.
-     * (Decía «→ 2»: ese último salto es el que quitó la migración.)
+     * número y no por la bandera. Sin la nota de 5, quedan 4, 3 y 2 → **3,0**.
+     * (Decía «→ 2,25» hasta el 22 sep 2026, y antes «→ 2»: el primero lo quitó la
+     * migración a decimal; el segundo, la definitiva normalizada — la casilla borrada
+     * ya no pesa en el divisor, así que 9 se reparte entre tres cuartos y no entre uno.)
      */
     public function test_al_borrar_una_nota_la_definitiva_baja(): void
     {
@@ -204,7 +206,7 @@ class DefinitivasDeAsignaturaTest extends CasoDeContrato
         DB::table('notas')->where('id', $borrable)->update(['deleted_at' => Reloj::ahora()]);
 
         DefinitivasDeAsignatura::recalcular($this->ids['asignatura'], $this->ids['periodo']);
-        $this->assertSame(2.25, (float) $this->definitivaDe($this->ids['alumno1'])->nota);
+        $this->assertSame(3.0, (float) $this->definitivaDe($this->ids['alumno1'])->nota);
     }
 
     /**

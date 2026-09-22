@@ -1402,13 +1402,14 @@ class YearsController extends Controller {
 		$fila = DB::selectOne(
 			'SELECT COUNT(*) AS cambian, MAX(ABS(t.dif)) AS salto
 			   FROM (
-				SELECT CAST(COALESCE(c.suma, 0) AS DECIMAL(7,4)) - nf.nota AS dif
+				SELECT CAST(COALESCE(c.suma / NULLIF(c.peso_evaluado, 0), 0) AS DECIMAL(7,4)) - nf.nota AS dif
 				  FROM notas_finales nf
 				  INNER JOIN periodos p ON p.id = nf.periodo_id AND p.deleted_at IS NULL
 				  LEFT JOIN (
 					SELECT n.alumno_id, u.asignatura_id, u.periodo_id,
 					       u.alumno_id AS dueno,
-					       SUM('.RepartoDeLaNota::aportacionALaDefinitiva($despues).') AS suma
+					       SUM('.RepartoDeLaNota::aportacionALaDefinitiva($despues).') AS suma,
+					       SUM(CASE WHEN n.nota IS NULL THEN 0 ELSE ('.RepartoDeLaNota::pesoDeLaNota($despues).') END) AS peso_evaluado
 					  FROM unidades u
 					  INNER JOIN subunidades s ON s.unidad_id = u.id AND s.deleted_at IS NULL
 					  INNER JOIN notas n ON n.subunidad_id = s.id AND n.deleted_at IS NULL

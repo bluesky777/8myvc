@@ -201,12 +201,13 @@ class BolfinalesController extends Controller {
 		foreach ($alumno->asignaturas as $asignatura) {
 			
 			$consulta = 'SELECT alumno_id, asignatura_id, periodo_id, numero_periodo,
-							creditos, sum( ValorUnidad ) DefMateria, cantidad_ausencia, cantidad_tardanza 
+							creditos, sum( ValorUnidad ) / NULLIF(sum( PesoEvaluado ), 0) DefMateria, cantidad_ausencia, cantidad_tardanza 
 						FROM(
 							SELECT n.alumno_id, a.id as asignatura_id, a.profesor_id, 
 								a.creditos, u.periodo_id, u.definicion, u.id as unidad_id, u.porcentaje as porc_unidad, 
 								s.id as subunidad_id, s.definicion as definicion_subunidad, s.porcentaje as porcentaje_subunidad, p.numero as numero_periodo, 
 								sum( ('.RepartoDeLaNota::aportacionALaDefinitiva($modo).') ) ValorUnidad,
+								sum( CASE WHEN n.nota IS NULL THEN 0 ELSE ('.RepartoDeLaNota::pesoDeLaNota($modo).') END ) PesoEvaluado,
 								aus.cantidad_ausencia, tar.cantidad_tardanza
 							FROM asignaturas a 
 							inner join unidades u on u.asignatura_id=a.id and u.deleted_at is null
