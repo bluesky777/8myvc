@@ -3,6 +3,7 @@
 namespace Tests\Contrato;
 
 use App\Support\Autoriza;
+use App\Support\CandadoDeLaPlantilla;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -45,6 +46,20 @@ use PHPUnit\Framework\Attributes\Test;
  */
 class CandadoDeLaPlantillaTest extends CasoDeContrato
 {
+    /**
+     * Con el candado suspendido estos casos no miden nada, y borrarlos sería
+     * tener que volver a escribirlos.
+     *
+     * Se saltan **leyendo el interruptor**, no a mano: el día que
+     * `CandadoDeLaPlantilla::SUSPENDIDO` vuelva a `false`, vuelven solos. El
+     * porqué de la suspensión está en la cabecera de esa constante.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+    }
+
     /**
      * Un docente llano, su periodo abierto y una asignatura suya.
      *

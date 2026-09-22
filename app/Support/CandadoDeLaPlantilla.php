@@ -72,6 +72,30 @@ use Illuminate\Support\Facades\DB;
  * 422 haría que el front enseñara «revisa los campos», que es mentira — no hay
  * nada que revisar, hay que pedirle a la coordinación que lo cambie en la
  * plantilla.
+ *
+ * ## Estuvo apagado unas horas el 21 sep 2026, y el porqué importa
+ *
+ * A la mañana siguiente de desplegarlo, los colegios reportaron que los docentes no
+ * podían cambiar el porcentaje de subunidades **con las que llevaban meses
+ * trabajando**. El candado hacía lo que se decidió; lo que no significa lo que
+ * parece es la columna: `por_defecto = 1` no quiere decir «la puso la coordinación»,
+ * quiere decir «salió de la plantilla del año», y la marca el sembrador viejo
+ * (`UnidadesController:173`, `true` literal) en **toda** unidad y subunidad que crea
+ * la primera vez que alguien abre una asignatura sin unidades. O sea casi todas.
+ * `created_by` tampoco las distingue: es el propio docente que abrió la pantalla.
+ *
+ * **Joseth lo resolvió el mismo día y contra la propuesta que se le llevó**, que era
+ * distinguir cuáles se había hecho suyas el docente:
+ *
+ * > Que el sistema cree la unidad al abrir una asignatura vacía **no la hace del
+ * > docente**. La creó el sistema, sale de la plantilla, y por defecto es. El docente
+ * > no la edita. Y si la edita alguien con `can_edit_plantilla_notas`, **la auditoría
+ * > tiene que decir quién**.
+ *
+ * Así que el interruptor de suspensión **desaparece** —una constante que ya no puede
+ * cambiar es código muerto con forma de decisión— y lo que entra en su lugar es la
+ * línea de auditoría en los dos `putUpdate`. Vuelve lo que reportaron los colegios y
+ * se acepta a sabiendas: si hay que revisarlo, se revisa con una medición delante.
  */
 class CandadoDeLaPlantilla
 {

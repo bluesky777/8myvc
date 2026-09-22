@@ -473,38 +473,3 @@ parameters:
             path: app/Http/Controllers/Alumnos/ImportarController.php
             count: 1
 
-        # ---- El candado de la plantilla, SUSPENDIDO A MANO el 21 sep 2026 ----
-        # `CandadoDeLaPlantilla::SUSPENDIDO` está en `true` esperando una decisión
-        # de Joseth (§P6: mirar si la fila sigue igual que la plantilla, acotarlo
-        # al sembrador nuevo, o dejarlo y avisar a los colegios). Mientras lo esté,
-        # el `if` de la primera línea de cada método es siempre cierto y todo lo de
-        # debajo es inalcanzable — que es EXACTAMENTE lo que se quiso al suspenderlo.
-        #
-        # **No se borra nada.** Borrar el cuerpo dejaría el candado en verde y sin
-        # candado, y volver a encenderlo sería volver a escribirlo entero: la
-        # decisión de Joseth se quedaría sin nada que encender. Estas cuatro
-        # entradas se quitan de aquí el día que `SUSPENDIDO` pase a `false`, y si
-        # ese día sobra alguna, es que el interruptor no volvió donde estaba.
-        -
-            message: '#^If condition is always true\.$#'
-            path: app/Support/CandadoDeLaPlantilla.php
-            count: 2
-        -
-            message: '#^Unreachable statement \- code above always terminates\.$#'
-            path: app/Support/CandadoDeLaPlantilla.php
-            count: 2
-
-        # Las dos que se quedan sin llamador por lo mismo: `exigir()` y
-        # `exigirElLote()` cortan antes de usarlas. Siguen siendo el cuerpo del
-        # candado, no código muerto.
-        -
-            message: '#^Static method App\\Support\\CandadoDeLaPlantilla\:\:(cambia|mensaje)\(\) is unused\.$#'
-            path: app/Support/CandadoDeLaPlantilla.php
-            count: 2
-
-        # El test del candado, por la misma suspensión y por el mismo motivo: se
-        # salta solo y dice por qué, en vez de borrar los casos.
-        -
-            message: '#^If condition is always true\.$#'
-            path: tests/Contrato/CandadoDeLaPlantillaTest.php
-            count: 1

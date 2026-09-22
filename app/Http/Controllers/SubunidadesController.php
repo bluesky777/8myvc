@@ -284,6 +284,14 @@ class SubunidadesController extends Controller
         // 2026 esos dos tests **pararon exactamente este cambio**, propuesto como si
         // fuera un arreglo. Lo que SÍ frena el vaciado es el candado, y sólo para lo
         // que es del colegio: pedir `null` sobre algo guardado es un cambio.
+        // Se copia ANTES de pisarlo: después del `save()` el modelo ya sólo sabe a
+        // qué quedó, y de qué venía no lo puede reconstruir nadie.
+        $antes = [
+            'definicion' => $subunidad->definicion,
+            'porcentaje' => $subunidad->porcentaje,
+            'nota_default' => $subunidad->nota_default,
+        ];
+
         $subunidad->definicion = Request::input('definicion', $subunidad->definicion);
         $subunidad->porcentaje = Request::input('porcentaje', $subunidad->porcentaje);
         $subunidad->nota_default = $nota_def;
@@ -294,6 +302,30 @@ class SubunidadesController extends Controller
         }
 
         $subunidad->save();
+
+        /*
+         * **Quién tocó una fila que es del colegio.** El candado de la plantilla deja
+         * pasar aquí a quien tenga `can_edit_plantilla_notas`, y ésa es justo la razón
+         * por la que esta línea hace falta: lo que el candado impide a un docente, un
+         * coordinador sí puede hacerlo, y entonces el porcentaje que decide la
+         * definitiva de un periodo entero **lo cambió alguien y nadie sabe quién**.
+         * Decisión de Joseth del 21 sep 2026, pegada a encender el candado.
+         *
+         * Los dos valores van como estructura y no como cadena: `definicion` y
+         * `porcentaje` son dos cosas, y pegadas no se vuelven a separar cuando la
+         * definición lleva un guión dentro. Es la misma forma que usa el alta, quince
+         * líneas más arriba, para que la pantalla no tenga que leer dos formatos.
+         */
+        Auditoria::registrar()
+            ->editar('subunidad', (int) $subunidad->id)
+            ->en(periodo: $user->periodo_id)
+            ->de($antes)
+            ->a([
+                'definicion' => $subunidad->definicion,
+                'porcentaje' => $subunidad->porcentaje,
+                'nota_default' => $subunidad->nota_default,
+            ])
+            ->guardar();
 
         // Fase 3 de 10-definitivas.md: el recálculo lo hace el servicio único, y
         // **deja de depender de que el cliente mande `asignatura_id`**. Ese
