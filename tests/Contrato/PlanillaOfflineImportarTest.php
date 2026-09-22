@@ -3,6 +3,7 @@
 namespace Tests\Contrato;
 
 use App\Exports\LibroDeNotas;
+use App\Services\LaPlanillaQueSeSube;
 use App\Support\Autoriza;
 use App\Support\EscalaDeNotas;
 use App\Support\FirmaDelLibro;
@@ -655,6 +656,164 @@ class PlanillaOfflineImportarTest extends CasoDeContrato
         $this->assertStringContainsString('Descargue el libro otra vez', $r->json('bloqueos.0.motivo'),
             'El peldaño 5 es el que evita el callejón sin salida: un error que no ofrece salida '
             .'obliga a llamar por teléfono.');
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Sin la hoja `_myvc`: el clasificador de los peldaños 3, 4 y 5
+    //
+    // `LaPlanillaQueSeSube::sinHojaOculta()` es de donde cuelgan los tres caminos
+    // que esta fase no trabaja, y **el 5 ya está desplegado**: es la frase y la
+    // salida que ve un docente que sube un archivo que no se reconoce. Los 3 y 4 se
+    // van a construir encima (§10 del plan), así que esto es una RED, no un
+    // rediseño: ata lo que el método hace HOY para que quien lo cambie sepa qué
+    // está cambiando.
+    //
+    // El caso de arriba —«un archivo que no es una planilla»— pasa por aquí sin
+    // decirlo: un `.txt` lo lee PhpSpreadsheet como CSV y llega con una pestaña
+    // llamada `Worksheet`, así que lo que escribe ese motivo es esta rama. Lo que
+    // no había era ni un caso de los peldaños 3 y 4.
+    //
+    // Los libros se fabrican como todos los de aquí: **se baja uno de verdad con la
+    // fase 1** y se le quita la hoja `_myvc`, que es lo único que separa los
+    // peldaños 1 y 2 de estos tres.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    #[Test]
+    public function sin_la_hoja_oculta_pero_con_la_columna_id_es_el_peldano_3(): void
+    {
+        $caso = $this->unaPlanilla();
+
+        // Lo que deja un docente que borró la hoja que no entendía: la rejilla
+        // entera, con su enlace a la portada y su columna ID.
+        $ruta = $this->libroSinLaHojaOculta($caso['ruta'], portada: true, enlace: true, id: 'ID');
+
+        $r = $this->ensayo($caso['token'], $ruta)->assertStatus(200);
+
+        $this->assertSame(3, $r->json('peldano'));
+        $this->assertSame('peldano_3', $r->json('bloqueos.0.tipo'));
+
+        // Y el ID manda **sobre las otras dos marcas**: quitadas la portada y el
+        // enlace, el libro sigue siendo del 3 y no del 4. El orden del método es
+        // `conId` primero y `reconocible` después, y es lo que decide cuál de los
+        // dos arreglos de la fase 3 se le ofrece a quien sube.
+        $solo = $this->libroSinLaHojaOculta($caso['ruta'], portada: false, enlace: false, id: 'ID');
+
+        $this->assertSame(3, $this->ensayo($caso['token'], $solo)->assertStatus(200)->json('peldano'));
+    }
+
+    #[Test]
+    public function sin_id_pero_con_el_enlace_a_la_portada_es_el_peldano_4(): void
+    {
+        $caso = $this->unaPlanilla();
+
+        // Sin la pestaña de portada y sin rótulo en C2: lo único que queda es el
+        // «← Volver a la portada» de `A1`, y el método sólo le mira la flecha.
+        $ruta = $this->libroSinLaHojaOculta($caso['ruta'], portada: false, enlace: true, id: null);
+
+        $r = $this->ensayo($caso['token'], $ruta)->assertStatus(200);
+
+        $this->assertSame(4, $r->json('peldano'));
+        $this->assertSame('peldano_4', $r->json('bloqueos.0.tipo'));
+    }
+
+    #[Test]
+    public function la_pestana_de_portada_sola_ya_saca_el_libro_del_peldano_5(): void
+    {
+        $caso = $this->unaPlanilla();
+
+        // Ni enlace ni columna ID en ninguna pestaña. Lo único que queda del libro
+        // es **el nombre de una pestaña**.
+        $ruta = $this->libroSinLaHojaOculta($caso['ruta'], portada: true, enlace: false, id: null);
+
+        $r = $this->ensayo($caso['token'], $ruta)->assertStatus(200);
+
+        // **Y con eso basta**, que es de las cosas que sorprenden: la portada
+        // enciende `reconocible` por su NOMBRE, sin mirarle una sola celda. O sea
+        // que cualquier libro con una pestaña llamada «Bienvenida» —de este colegio
+        // o del club de lectura— deja de ser peldaño 5 y **pierde la salida
+        // escrita**: en vez de «descargue el libro otra vez» le contesta «casar a
+        // los alumnos por nombre es la fase 3 y todavía no está».
+        $this->assertSame(4, $r->json('peldano'));
+        $this->assertSame('peldano_4', $r->json('bloqueos.0.tipo'));
+    }
+
+    #[Test]
+    public function sin_mapa_sin_enlace_y_sin_id_es_el_peldano_5_con_su_frase_entera(): void
+    {
+        $caso = $this->unaPlanilla();
+
+        $ruta = $this->libroSinLaHojaOculta($caso['ruta'], portada: false, enlace: false, id: null);
+
+        $r = $this->ensayo($caso['token'], $ruta)->assertStatus(200);
+
+        $this->assertSame(5, $r->json('peldano'));
+        $this->assertSame('peldano_5', $r->json('bloqueos.0.tipo'));
+
+        // **La frase entera y no un trozo, porque es la que lee el docente.** Las
+        // tres cosas que nombra son las tres que el método acaba de mirar, y la
+        // salida del final es lo único que separa este peldaño de un callejón sin
+        // salida. Cambiarla es cambiar una pantalla desplegada.
+        $this->assertSame(
+            'Este archivo no parece una planilla de MyVc: no trae la hoja interna «'
+            .LibroDeNotas::METADATOS.'», ninguna pestaña tiene el enlace a la portada y ninguna '
+            .'tiene la columna ID. Descargue el libro otra vez desde Notas → Trabajar sin internet '
+            .'y escriba las notas sobre ése.',
+            $r->json('bloqueos.0.motivo')
+        );
+    }
+
+    #[Test]
+    public function once_hojas_sin_id_y_una_con_id_mandan_el_libro_entero_al_peldano_3(): void
+    {
+        $caso = $this->unaPlanilla();
+
+        // Once pestañas donde no hay forma de atar una fila a un alumno, y una que
+        // sí. **`tiene_id` es de una hoja; `peldano` es del libro**, así que gana la
+        // única que la tiene y las once viajan de polizón.
+        $ruta = $this->libroSinLaHojaOculta($caso['ruta'], portada: false, enlace: false, id: null,
+            tocar: static function (Spreadsheet $libro): void {
+                for ($i = count($libro->getSheetNames()); $i < 11; $i++) {
+                    $libro->createSheet()->setTitle('Sin ID '.$i);
+                }
+
+                $conId = $libro->createSheet();
+                $conId->setTitle('La única con ID');
+                $conId->setCellValueExplicit('C'.LaPlanillaQueSeSube::FILA_CABECERA, 'ID', DataType::TYPE_STRING);
+            });
+
+        // La cuenta se comprueba, que es justo de lo que habla el caso: once y una.
+        $lector = LaPlanillaQueSeSube::abrir($ruta);
+
+        try {
+            $this->assertCount(12, $lector->pestanas);
+            $this->assertSame(3, $lector->peldano);
+        } finally {
+            $lector->cerrar();
+        }
+
+        // Y el libro entero se lo lleva puesto: el docente ve «conserva la columna
+        // ID» de un libro en el que once de doce hojas no la tienen. **No es un
+        // fallo que se arregle aquí**: es el diseño de hoy, y la §10.5 del plan dice
+        // que el contrato de la fase 3 tendrá que decir `tiene_id` por hoja.
+        $this->assertSame(3, $this->ensayo($caso['token'], $ruta)->assertStatus(200)->json('peldano'));
+    }
+
+    #[Test]
+    public function el_rotulo_id_se_reconoce_en_minusculas_y_con_espacios(): void
+    {
+        $caso = $this->unaPlanilla();
+
+        // Sin portada y sin enlace **a propósito**: así, si el `strcasecmp` o el
+        // `trim` dejaran de valer, el libro no se cae al peldaño 4 —que se parece—
+        // sino al 5, y el rojo dice lo que pasó.
+        foreach ([' ID ', 'id', 'Id', "\tiD\n"] as $rotulo) {
+            $ruta = $this->libroSinLaHojaOculta($caso['ruta'], portada: false, enlace: false, id: $rotulo);
+
+            $r = $this->ensayo($caso['token'], $ruta)->assertStatus(200);
+
+            $this->assertSame(3, $r->json('peldano'),
+                'Con '.json_encode($rotulo).' en la celda del rótulo sigue siendo el peldaño 3.');
+        }
     }
 
     #[Test]
@@ -2523,6 +2682,67 @@ class PlanillaOfflineImportarTest extends CasoDeContrato
     private function texto(Worksheet $hoja, string $celda, string $valor): void
     {
         $hoja->setCellValueExplicit($celda, $valor, DataType::TYPE_STRING);
+    }
+
+    /**
+     * El libro de la fase 1 **sin la hoja `_myvc`**, con las tres marcas que mira
+     * {@see LaPlanillaQueSeSube::sinHojaOculta} puestas o quitadas a voluntad.
+     *
+     * Se parte de un libro descargado de verdad —y no de uno fabricado a mano— por
+     * lo mismo que el resto de este test: las tres marcas son **cadenas concretas**
+     * («← Volver a la portada», «ID», el nombre de la portada) y un libro inventado
+     * las probaría contra sí mismo. Quitar `_myvc` es exactamente lo que separa los
+     * peldaños 1 y 2 de los otros tres.
+     *
+     * `$id` es `null` para vaciar la celda del rótulo y una cadena para escribirla,
+     * que es lo que hace falta para probar el `strcasecmp` + `trim` del método.
+     *
+     * @param  ?callable(Spreadsheet): void  $tocar  para añadir pestañas antes de guardar
+     */
+    private function libroSinLaHojaOculta(string $ruta, bool $portada, bool $enlace, ?string $id,
+        ?callable $tocar = null): string
+    {
+        $libro = IOFactory::load($ruta);
+        $libro->removeSheetByIndex($libro->getIndex($libro->getSheetByName(LibroDeNotas::METADATOS)));
+
+        if (! $portada) {
+            $libro->removeSheetByIndex($libro->getIndex($libro->getSheetByName(LibroDeNotas::PORTADA)));
+        }
+
+        // **Todas las hojas y no la de la asignatura del caso**: el método recorre
+        // las que haya, así que una marca que se quedara puesta por descuido en otra
+        // pestaña cambiaría el peldaño y el test pasaría midiendo otra cosa.
+        foreach ($libro->getSheetNames() as $nombre) {
+            if ($nombre === LibroDeNotas::PORTADA) {
+                continue;
+            }
+
+            $hoja = $libro->getSheetByName($nombre);
+
+            if (! $enlace) {
+                // Vaciar de verdad, no escribir cadena vacía: se está probando la
+                // celda en blanco.
+                $hoja->getCell('A1')->setValue(null);
+            }
+
+            $celda = 'C'.LaPlanillaQueSeSube::FILA_CABECERA;
+
+            if ($id === null) {
+                $hoja->getCell($celda)->setValue(null);
+            } else {
+                $this->texto($hoja, $celda, $id);
+            }
+        }
+
+        if ($tocar !== null) {
+            $tocar($libro);
+        }
+
+        // La activa puede haberse ido con la portada, y el escritor no guarda un
+        // libro cuya hoja activa no existe.
+        $libro->setActiveSheetIndex(0);
+
+        return $this->guardar($libro);
     }
 
     private function guardar(Spreadsheet $libro): string
