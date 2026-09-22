@@ -245,11 +245,15 @@ libro perfectamente pintado**.
    reproduzco: con este predicado me salen 629, 773 y 831, y sin filtrar borrados 704, 883
    y 970. La diferencia no cambia el hecho —el 39 es el actual y no está vacío—, pero el
    número que vale es el que va con su consulta al lado.*
-6. **El ensayo y la importación (fases 2 a 5) no existen.** El libro ya lleva todo lo que
+6. ~~**El ensayo y la importación (fases 2 a 5) no existen.** El libro ya lleva todo lo que
    necesitan —el mapa, el espejo y la firma—, y
    `PlanillaOfflineTest::la_firma_se_puede_recalcular_desde_lo_que_el_libro_lleva_escrito`
    comprueba que se pueden reconstruir **leyendo sólo las celdas**, que es lo único que la
-   fase 2 va a tener.
+   fase 2 va a tener.~~ **HECHO, las cuatro, y cada una con su documento**:
+   [50](50-el-ensayo-y-la-escritura-de-la-planilla.md) (fases 2 y 3),
+   [51](51-las-ausencias-de-la-planilla.md) (fase 4) y
+   [52](52-el-acta-y-subir-por-otro.md) (fase 5). La corazonada se cumplió: las tres piezas que este
+   documento dejó dentro del libro son exactamente de las que vive el lector.
 8. **`sin_pasar` arranca en 0 en todo el seed**: las 1.184 notas del docente de prueba están
    todas puestas. Por eso el test no compara un número grande contra otro, sino **el salto**:
    vacía una nota y comprueba que la cuenta sube en uno. Contra datos de verdad no se ha

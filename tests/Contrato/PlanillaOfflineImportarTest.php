@@ -3,6 +3,7 @@
 namespace Tests\Contrato;
 
 use App\Exports\LibroDeNotas;
+use App\Support\Autoriza;
 use App\Support\EscalaDeNotas;
 use App\Support\FirmaDelLibro;
 use App\Support\Reloj;
@@ -45,6 +46,15 @@ use PHPUnit\Framework\Attributes\Test;
  */
 class PlanillaOfflineImportarTest extends CasoDeContrato
 {
+    /**
+     * La confirmación de la D4, tal y como la manda la pantalla.
+     *
+     * Constante y no literal repetido en cinco tests: si el nombre de la sección
+     * cambiara, lo que pasaría con el literal suelto es que **tres tests seguirían
+     * en verde midiendo «sin confirmar»** mientras creen medir «con confirmación».
+     */
+    private const POR_OTRO = ['por_otro' => ['decision' => 'confirmo']];
+
     /** Los ficheros temporales de este test, para borrarlos al terminar. @var list<string> */
     private array $temporales = [];
 
@@ -657,10 +667,325 @@ class PlanillaOfflineImportarTest extends CasoDeContrato
             $this->markTestSkipped('El seed no tiene un segundo docente con cuenta.');
         }
 
-        // La D4 —coordinación sube por otro— es la fase 5 y viene con su acta de lo
-        // que entró. Adelantarla aquí sería escribir notas en nombre de alguien sin
-        // ese acta.
+        // **Un docente SIN el permiso de la D4 sigue recibiendo 403**, y la fase 5 no
+        // lo cambió: lo que abrió fue la puerta de coordinación, no la de al lado.
+        // `puedeSubirLaPlanillaDeOtro` es superusuario o `can_edit_plantilla_notas`, y
+        // un docente del seed no es ninguna de las dos cosas.
         $this->importar($this->tokenDe($otro->username), $caso['ruta'])->assertStatus(403);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // La D4 — coordinación sube por otro (fase 5)
+    //
+    // Las dos preguntas son distintas y por eso se comprueban por separado: el
+    // permiso dice si esta persona **puede**, y la confirmación si **quiso** sobre
+    // este libro. Un test que sólo mirara la primera daría por buena una versión en
+    // la que pulsar «Siguiente» escribe las notas de un grupo que nadie ha mirado.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * **Sin el permiso, el ensayo sigue siendo un callejón sin salida con su
+     * motivo.**
+     *
+     * Se mira en el ensayo y no en la subida porque es donde la pantalla lee: el
+     * 403 de `importar` ya lo fija el test de arriba, y lo que aquí importa es que
+     * el docente ajeno vea **por qué** en vez de descubrirlo al pulsar.
+     */
+    #[Test]
+    public function d4_un_docente_ajeno_sin_permiso_sigue_bloqueado_con_libro_de_otro_docente(): void
+    {
+        $caso = $this->unaPlanilla();
+        $otro = $this->otroDocenteConCuenta($caso['profesor_id']);
+
+        if ($otro === null) {
+            $this->markTestSkipped('El seed no tiene un segundo docente con cuenta.');
+        }
+
+        $r = $this->ensayo($this->tokenDe($otro->username), $caso['ruta'])->assertStatus(200);
+
+        $this->assertSame(['libro_de_otro_docente'], array_column($r->json('bloqueos'), 'tipo'));
+        $this->assertFalse($r->json('libro.puede_por_otro'),
+            'Sin el permiso, la pantalla no puede ofrecer la confirmación: no hay nada que confirmar.');
+        $this->assertStringContainsString('coordinación académica', $r->json('bloqueos.0.motivo'));
+    }
+
+    /**
+     * **Con el permiso, el bloqueo cambia de cara**: ya no es una pared, es una
+     * confirmación.
+     */
+    #[Test]
+    public function d4_con_el_permiso_el_ensayo_ofrece_subir_por_otro(): void
+    {
+        $caso = $this->unaPlanilla();
+        $coordinacion = $this->unCoordinador();
+
+        $r = $this->ensayo($this->tokenDe($coordinacion->username), $caso['ruta'])->assertStatus(200);
+
+        $this->assertSame(['subir_por_otro'], array_column($r->json('bloqueos'), 'tipo'));
+        $this->assertTrue($r->json('libro.puede_por_otro'));
+        $this->assertFalse($r->json('libro.por_otro_confirmado'),
+            'Tener el permiso no es haber confirmado: son las dos preguntas de la D4.');
+    }
+
+    /**
+     * **Sin confirmar no entra una sola nota**, y es la mitad de la D4 que se cae
+     * sola si nadie la fija.
+     *
+     * El 422 lo pone el paso de los bloqueos, que va **antes** de instanciar la
+     * escritura, así que la comprobación de verdad no es el código de estado: es la
+     * huella de las seis tablas antes y después. Un día que alguien mueva el orden
+     * de ese `if`, el 422 podría seguir saliendo con media planilla dentro.
+     */
+    #[Test]
+    public function d4_sin_confirmar_la_importacion_da_422_y_no_escribe_ni_una_nota(): void
+    {
+        $caso = $this->unaPlanilla();
+        $coordinacion = $this->unCoordinador();
+
+        $nuevo = $this->otroValorPara($caso, $caso['fila'], $caso['columna']);
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'], [[$caso['fila'], $caso['columna'], $nuevo]]);
+
+        $antes = $this->huellaDeLaBase();
+
+        $r = $this->importar($this->tokenDe($coordinacion->username), $ruta)->assertStatus(422);
+
+        $this->assertSame(['subir_por_otro'], array_column($r->json('bloqueos'), 'tipo'));
+
+        $this->assertSame($antes, $this->huellaDeLaBase(),
+            'Un bloqueo sin resolver no puede escribir NADA: media planilla dentro y un error '
+            .'delante es peor que no haber subido.');
+    }
+
+    /**
+     * **Con la confirmación entra, y el rastro lleva a las dos personas.**
+     *
+     * Las tres cosas que se comprueban aquí son las tres que el plan pide juntas, y
+     * separarlas dejaría pasar la versión mala de cada una:
+     *
+     * 1. La nota entra (si no, el permiso no sirve de nada).
+     * 2. El bloqueo aparece en `bloqueos_resueltos` y **no desaparece**: el acta y
+     *    la pantalla tienen que poder decir que esto se subió por otro, y un bloqueo
+     *    que se esfuma al resolverse deja la subida indistinguible de una normal.
+     * 3. La línea de auditoría nombra **a los dos**. Sin esto, el rastro dice que
+     *    coordinación editó la nota 88.412 y el docente cuyo libro entró no aparece
+     *    en ningún sitio — que es justo el dato que se reclama.
+     */
+    #[Test]
+    public function d4_con_la_confirmacion_escribe_y_queda_auditado_con_las_dos_personas(): void
+    {
+        $caso = $this->unaPlanilla();
+        $coordinacion = $this->unCoordinador();
+        $token = $this->tokenDe($coordinacion->username);
+
+        $nuevo = $this->otroValorPara($caso, $caso['fila'], $caso['columna']);
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'], [[$caso['fila'], $caso['columna'], $nuevo]]);
+
+        $ensayo = $this->ensayo($token, $ruta, self::POR_OTRO)->assertStatus(200);
+
+        $this->assertSame([], $ensayo->json('bloqueos'));
+        $this->assertSame(['subir_por_otro'], array_column($ensayo->json('bloqueos_resueltos'), 'tipo'));
+        $this->assertTrue($ensayo->json('libro.por_otro_confirmado'));
+
+        $this->importar($token, $ruta, self::POR_OTRO)->assertStatus(200);
+
+        $this->assertSame($nuevo, $this->notaDe($caso['alumno_id'], $caso['subunidad_id']));
+
+        $nota = DB::selectOne(
+            'SELECT id FROM notas WHERE alumno_id = ? AND subunidad_id = ? AND deleted_at IS NULL',
+            [$caso['alumno_id'], $caso['subunidad_id']]
+        );
+
+        $linea = DB::selectOne(
+            'SELECT actor_user_id, resumen FROM auditoria
+              WHERE entidad = "nota" AND entidad_id = ? ORDER BY id DESC LIMIT 1',
+            [$nota->id]
+        );
+
+        $this->assertNotNull($linea, 'La escritura por otro tiene que dejar rastro como cualquier otra.');
+        $this->assertSame((int) $coordinacion->id, (int) $linea->actor_user_id,
+            'Quien sube es quien actúa: el rastro no puede fingir que lo hizo el docente.');
+        $this->assertStringContainsString('por cuenta de', (string) $linea->resumen,
+            'Un rastro con una sola persona no contesta la pregunta que esta fase existe para contestar.');
+        $this->assertStringContainsString(
+            $this->nombreDelProfesor($caso['profesor_id']), (string) $linea->resumen
+        );
+    }
+
+    /**
+     * **Un periodo cerrado no se abre con el permiso de la D4 ni con la
+     * confirmación.**
+     *
+     * Es la primera de las tres cosas que `Autoriza::puedeSubirLaPlanillaDeOtro` no
+     * relaja, y la que más fácil sería perder: subir *por* un docente y subir *a* un
+     * periodo cerrado se parecen en la pantalla y son dos decisiones distintas — la
+     * segunda es del colegio y tiene la suya.
+     */
+    #[Test]
+    public function d4_un_periodo_cerrado_no_se_escribe_ni_con_permiso_ni_con_confirmacion(): void
+    {
+        $caso = $this->unaPlanilla();
+        $coordinacion = $this->unCoordinador();
+
+        $nuevo = $this->otroValorPara($caso, $caso['fila'], $caso['columna']);
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'], [[$caso['fila'], $caso['columna'], $nuevo]]);
+
+        $antes = $this->notaDe($caso['alumno_id'], $caso['subunidad_id']);
+
+        // Se cierra DESPUÉS de bajar el libro, que es el caso de verdad: el docente
+        // se llevó la planilla con el periodo abierto y el colegio lo cerró mientras
+        // él pasaba las notas.
+        DB::update('UPDATE periodos SET profes_pueden_editar_notas = 0 WHERE id = ?', [$caso['periodo_id']]);
+
+        $r = $this->importar($this->tokenDe($coordinacion->username), $ruta, self::POR_OTRO)
+            ->assertStatus(422);
+
+        $this->assertStringContainsString('Ninguna hoja', (string) $r->json('msg'));
+
+        $this->assertSame($antes, $this->notaDe($caso['alumno_id'], $caso['subunidad_id']),
+            'El permiso de la D4 no abre un periodo cerrado, y la confirmación tampoco.');
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // El acta (fase 5)
+    //
+    // Un `.xlsx` y no un PDF: en este backend no hay librería de PDF —los informes
+    // los imprime el front desde el navegador— y el acta se pinta con el mismo
+    // PhpSpreadsheet que genera la planilla. El porqué entero está en la cabecera
+    // de `App\Services\ActaDeLaImportacion`.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * **Las tres puertas y la que está cerrada.**
+     *
+     * La cuarta —un docente ajeno— es la que hace útil a las otras tres: el acta
+     * lleva dentro el recuento de las notas de un grupo, o sea lo mismo que la
+     * planilla, y si se pudiera pedir por número sería un listado del colegio a
+     * razón de una petición por `id`.
+     */
+    #[Test]
+    public function el_acta_la_piden_quien_subio_el_dueno_del_libro_y_coordinacion_y_no_un_docente_ajeno(): void
+    {
+        $caso = $this->unaPlanilla();
+        $coordinacion = $this->unCoordinador();
+        $token = $this->tokenDe($coordinacion->username);
+
+        $nuevo = $this->otroValorPara($caso, $caso['fila'], $caso['columna']);
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'], [[$caso['fila'], $caso['columna'], $nuevo]]);
+
+        $id = $this->importar($token, $ruta, self::POR_OTRO)->assertStatus(200)->json('importacion_id');
+
+        $this->assertNotNull($id, 'Sin `importacion_id` en la respuesta no hay forma de pedir el acta.');
+
+        // 1 · quien la subió
+        $this->acta($token, $id)->assertStatus(200);
+
+        // 2 · el docente dueño del libro, que es la mitad que hace útil a la fase:
+        //     sin esto, coordinación sube por él y él no tiene con qué comprobarlo.
+        $this->acta($caso['token'], $id)->assertStatus(200);
+
+        // 3 · un docente ajeno, que no.
+        $otro = $this->otroDocenteConCuenta($caso['profesor_id']);
+
+        if ($otro === null) {
+            $this->markTestSkipped('El seed no tiene un segundo docente con cuenta.');
+        }
+
+        $r = $this->acta($this->tokenDe($otro->username), $id)->assertStatus(403);
+
+        $this->assertStringContainsString('no es suya', (string) $r->json('message'),
+            'Un 403 sin motivo manda a mirar los roles, que es el sitio equivocado.');
+    }
+
+    /**
+     * **El acta cuenta lo HECHO y no lo prometido**, y el caso que lo demuestra es
+     * aquel en que las dos cifras difieren.
+     *
+     * Se fabrica con el presupuesto a cero: el ensayo promete las cuatro filas del
+     * libro y la petición escribe **una**, porque el bucle para en cuanto ha
+     * estudiado la primera. Un acta que leyera el plan diría cuatro, y ése es
+     * exactamente el error que la hace inútil — *«entraron 312 notas» de una
+     * importación en la que entraron once*.
+     */
+    #[Test]
+    public function el_acta_cuenta_lo_hecho_y_no_lo_prometido(): void
+    {
+        $caso = $this->unaPlanilla(4);
+
+        $celdas = [];
+
+        foreach ($caso['filas'] as $fila) {
+            $celdas[] = [$fila, $caso['columna'], $this->otroValorPara($caso, $fila, $caso['columna'])];
+        }
+
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'], $celdas);
+
+        // Lo PROMETIDO, medido con el ensayo y con el presupuesto entero.
+        $prometido = (int) $this->ensayo($caso['token'], $ruta)->assertStatus(200)->json('totales.entran');
+
+        $this->assertGreaterThan(1, $prometido,
+            'Si el plan promete una sola nota, este test no distingue lo hecho de lo prometido.');
+
+        config(['importacion.segundos_por_peticion' => 0.0]);
+
+        $r = $this->importar($caso['token'], $ruta)->assertStatus(200);
+
+        config(['importacion.segundos_por_peticion' => 20.0]);
+
+        $this->assertFalse($r->json('terminado'), 'El corte es el que fabrica la diferencia.');
+
+        $acta = $this->leerElActa($caso['token'], (int) $r->json('importacion_id'));
+
+        $this->assertSame((string) $r->json('hechos.notas_escritas'), $this->delActa($acta, 'Notas escritas'),
+            'El acta tiene que decir lo mismo que la respuesta de la subida: las dos salen del '
+            .'recorrido que escribió.');
+
+        $this->assertNotSame((string) $prometido, $this->delActa($acta, 'Notas escritas'),
+            'Ésta es la razón de existir del acta: si contara el plan, diría cuatro donde entró una.');
+    }
+
+    /**
+     * **Una importación cortada y continuada da un acta con el total**, no con la
+     * última tanda.
+     *
+     * Es la otra mitad de lo mismo, y la que se rompe si `hechos` pisa en vez de
+     * acumular: la última pasada de una importación de cuatro filas cortada en la
+     * primera escribe **tres**, y un acta que guardara sólo la última diría que
+     * entraron tres de las cuatro que hay en la base.
+     */
+    #[Test]
+    public function el_acta_de_una_importacion_reanudada_trae_el_total_acumulado(): void
+    {
+        $caso = $this->unaPlanilla(4);
+
+        $celdas = [];
+
+        foreach ($caso['filas'] as $fila) {
+            $celdas[] = [$fila, $caso['columna'], $this->otroValorPara($caso, $fila, $caso['columna'])];
+        }
+
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'], $celdas);
+
+        config(['importacion.segundos_por_peticion' => 0.0]);
+        $primera = $this->importar($caso['token'], $ruta)->assertStatus(200);
+        config(['importacion.segundos_por_peticion' => 20.0]);
+
+        $segunda = $this->importar($caso['token'], $ruta)->assertStatus(200);
+
+        $this->assertTrue($segunda->json('reanudada'));
+        $this->assertTrue($segunda->json('terminado'));
+
+        $escritas = (int) $primera->json('hechos.notas_escritas') + (int) $segunda->json('hechos.notas_escritas');
+
+        $this->assertGreaterThan((int) $segunda->json('hechos.notas_escritas'), $escritas,
+            'Sin dos tandas con escrituras en las dos, este test no distingue acumular de pisar.');
+
+        $acta = $this->leerElActa($caso['token'], (int) $segunda->json('importacion_id'));
+
+        $this->assertSame((string) $escritas, $this->delActa($acta, 'Notas escritas'),
+            'El acta de una importación reanudada tiene que traer el total, no la última tanda.');
+
+        $this->assertStringContainsString('Sí', (string) $this->delActa($acta, 'Reanudada'),
+            'Y tiene que decir que se cortó: las notas llevan la hora de la segunda pasada.');
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -2145,6 +2470,132 @@ class PlanillaOfflineImportarTest extends CasoDeContrato
         $libro->disconnectWorksheets();
 
         return $destino;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Los ayudantes de la D4 y del acta
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Alguien de coordinación: **personal llano con `can_edit_plantilla_notas`**.
+     *
+     * Llano y no superusuario a propósito. Con la columna puesta, todo lo que estos
+     * tests demuestran es «el superusuario puede», que es menos y además tapa el
+     * caso real: la coordinadora del colegio no es superusuaria.
+     */
+    private function unCoordinador(): object
+    {
+        $usuario = $this->usuarioLlanoDelPersonal();
+
+        $this->assertSame(0, (int) $usuario->is_superuser,
+            'El sujeto NO puede ser superusuario: con la columna puesta el permiso no diría nada.');
+
+        $this->darPermisoDeLaPlantilla((int) $usuario->id);
+
+        return $usuario;
+    }
+
+    /**
+     * Le da `can_edit_plantilla_notas` **por la vía real**: permiso → rol → usuario.
+     *
+     * Lo monta el test y no el seed porque `database/dumps/test-seed.sql` hace
+     * `TRUNCATE` de `permissions`, `permission_role`, `roles` y `role_user` antes de
+     * insertar, y las migraciones corren **antes** del seed: lo que siembra la
+     * migración del permiso no sobrevive a construir la base. Y va por rol y no
+     * inventando una columna porque así es como el permiso llega a `perms` del
+     * contexto, que es lo que `Autoriza` mira.
+     */
+    private function darPermisoDeLaPlantilla(int $userId): void
+    {
+        $permiso = DB::table('permissions')->where('name', Autoriza::PERMISO_PLANTILLA_NOTAS)->value('id')
+            ?? DB::table('permissions')->insertGetId([
+                'name' => Autoriza::PERMISO_PLANTILLA_NOTAS,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        $rol = DB::table('roles')->where('name', 'CoordinacionDePrueba')->value('id')
+            ?? DB::table('roles')->insertGetId([
+                'name' => 'CoordinacionDePrueba',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        if (! DB::table('permission_role')->where('permission_id', $permiso)->where('role_id', $rol)->exists()) {
+            DB::table('permission_role')->insert(['permission_id' => $permiso, 'role_id' => $rol]);
+        }
+
+        if (! DB::table('role_user')->where('user_id', $userId)->where('role_id', $rol)->exists()) {
+            DB::table('role_user')->insert(['user_id' => $userId, 'role_id' => $rol]);
+        }
+    }
+
+    private function nombreDelProfesor(int $profesorId): string
+    {
+        $fila = DB::selectOne('SELECT nombres, apellidos FROM profesores WHERE id = ?', [$profesorId]);
+
+        return trim(($fila->nombres ?? '').' '.($fila->apellidos ?? ''));
+    }
+
+    private function acta(string $token, int $importacionId): TestResponse
+    {
+        // **Con `Accept: application/json`, y no es decoración.** Sin la cabecera, el
+        // 403 vuelve como página HTML y `->json('message')` no encuentra el motivo:
+        // el test falla enseñando la excepción cruda en vez de la comprobación, que
+        // es media hora buscando un fallo que no existe. Y es además lo que manda el
+        // front, así que sin ella se estaría probando otra respuesta.
+        return $this->withToken($token)
+            ->get('/api/planilla-offline/acta/'.$importacionId, ['Accept' => 'application/json']);
+    }
+
+    /**
+     * Baja el acta y la devuelve como rejilla.
+     *
+     * **Se lee el `.xlsx` de verdad y no una respuesta JSON**, y es lo que hace que
+     * este test valga: el acta es un archivo, y lo que hay que comprobar es lo que
+     * dice el archivo que la gente abre.
+     *
+     * @return list<array<int, mixed>>
+     */
+    private function leerElActa(string $token, int $importacionId): array
+    {
+        $r = $this->acta($token, $importacionId)->assertStatus(200);
+
+        $destino = tempnam(sys_get_temp_dir(), 'acta-').'.xlsx';
+        $this->temporales[] = $destino;
+
+        copy($this->archivoDescargado($r), $destino);
+
+        $libro = IOFactory::load($destino);
+        $hoja = $libro->getSheetByName('Acta');
+
+        $this->assertNotNull($hoja, 'El acta tiene que venir en una hoja que se llame «Acta».');
+
+        $rejilla = $hoja->toArray(null, true, false, false);
+
+        $libro->disconnectWorksheets();
+
+        return $rejilla;
+    }
+
+    /**
+     * El valor de la columna B del renglón cuya columna A es `$etiqueta`.
+     *
+     * Devuelve **cadena** aunque la casilla lleve un número: lo que se compara es lo
+     * que el acta imprime, y un `assertSame(1, '1')` fallaría por el tipo diciendo
+     * que el acta está mal cuando no lo está.
+     *
+     * @param  list<array<int, mixed>>  $acta
+     */
+    private function delActa(array $acta, string $etiqueta): ?string
+    {
+        foreach ($acta as $fila) {
+            if (trim((string) ($fila[0] ?? '')) === $etiqueta) {
+                return (string) ($fila[1] ?? '');
+            }
+        }
+
+        $this->fail('El acta no trae el renglón «'.$etiqueta.'».');
     }
 
     /** @param array<string, mixed> $respuestas */

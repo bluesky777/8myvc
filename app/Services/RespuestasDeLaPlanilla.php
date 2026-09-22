@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Support\Autoriza;
+
 /**
  * Lo que el docente decidió sobre el libro de notas que está subiendo.
  *
@@ -93,7 +95,7 @@ class RespuestasDeLaPlanilla
      * @var list<string>
      */
     private const APLICADAS = ['estructura', 'celdas', 'escala', 'choques', 'reserva', 'filas',
-        'ausencias', 'firma'];
+        'ausencias', 'firma', 'por_otro'];
 
     /**
      * Las que se aceptan y **no** se interpretan, con el motivo que la respuesta
@@ -201,6 +203,32 @@ class RespuestasDeLaPlanilla
         }
 
         return ($firma['decision'] ?? null) === 'confirmo';
+    }
+
+    /**
+     * Si alguien de coordinación confirmó que sube la planilla **de otra persona**
+     * (D4, fase 5).
+     *
+     * **No es una casilla de «acepto» y no se puede dar por puesta.** El permiso
+     * ({@see Autoriza::puedeSubirLaPlanillaDeOtro}) dice que esa
+     * persona *puede*; esto dice que *quiso*, sobre este libro y en esta subida.
+     * Sin las dos cosas no se escribe una sola nota.
+     *
+     * Por qué hacen falta las dos, y no es ceremonia: quien tiene el permiso lo
+     * tiene para **todos** los docentes del colegio, así que confundirse de
+     * archivo es escribir las notas de un grupo que no se había mirado. Un bloqueo
+     * que hay que resolver a mano obliga a leer de quién es el libro —el motivo lo
+     * dice con su nombre— antes de que pase nada.
+     */
+    public function confirmaSubirPorOtro(): bool
+    {
+        $porOtro = $this->crudas['por_otro'] ?? null;
+
+        if (! is_array($porOtro)) {
+            return false;
+        }
+
+        return ($porOtro['decision'] ?? null) === 'confirmo';
     }
 
     /**

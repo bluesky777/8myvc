@@ -128,6 +128,7 @@
         "GET api/piars-alumnos/alumnos/{grupo_id}",
         "GET api/piars-grupos/contexto-de-grupo/{grupo_id}",
         "GET api/piars-grupos/grupos",
+        "GET api/planilla-offline/acta/{importacion_id}",
         "GET api/planilla-offline/libro/{periodo_id}",
         "GET api/planilla-offline/periodos",
         "GET api/planilla-offline/planilla/{asignatura_id}/{periodo_id}",

@@ -146,7 +146,19 @@ class RelojUnicoTest extends TestCase
         //
         // *Esto se dejó rojo desde `b1978b8` hasta el 21 sep 2026 porque la suite
         // entera no se corrió antes de commitear. No se coló: se contó tarde.*
-        'app/Services/PuntoDeControlDeImportacion.php' => 13,
+        //
+        // Y **CATORCE** con la de `guardarHechos()` (fase 5 de «notas sin internet»,
+        // [52](../../docs/migracion/52-el-acta-y-subir-por-otro.md)): escribe la columna
+        // `hechos` —el acta de lo que entró— y, en el mismo `UPDATE`, `updated_at`. **La
+        // misma columna que las otras trece**, así que vale palabra por palabra lo de
+        // arriba: ponerla en Bogotá metería la segunda zona justo en la columna contra
+        // la que `marcarAbandonadas()` compara su corte de diez minutos, y ese corte
+        // sale de `now()`. La tabla se mueve entera o no se mueve.
+        //
+        // Lo que sí va con el reloj de esa fase es el acta: `ActaDeLaImportacion` imprime
+        // la hora con `Reloj::ahora()` porque **sale por pantalla y no entra en ninguna
+        // columna**, que es exactamente la línea que separa los dos casos.
+        'app/Services/PuntoDeControlDeImportacion.php' => 14,
     ];
 
     #[Test]

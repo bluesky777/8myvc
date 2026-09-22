@@ -185,6 +185,7 @@
     "GET api/piars-config": "App\\Http\\Controllers\\Piars\\PiarsConfigController@getIndex",
     "GET api/piars-grupos/contexto-de-grupo/{grupo_id}": "App\\Http\\Controllers\\Piars\\PiarsGruposController@getContextoDeGrupo",
     "GET api/piars-grupos/grupos": "App\\Http\\Controllers\\Piars\\PiarsGruposController@getGrupos",
+    "GET api/planilla-offline/acta/{importacion_id}": "App\\Http\\Controllers\\PlanillaOfflineController@getActa",
     "GET api/planilla-offline/libro/{periodo_id}": "App\\Http\\Controllers\\PlanillaOfflineController@getLibro",
     "GET api/planilla-offline/periodos": "App\\Http\\Controllers\\PlanillaOfflineController@getPeriodos",
     "GET api/planilla-offline/planilla/{asignatura_id}/{periodo_id}": "App\\Http\\Controllers\\PlanillaOfflineController@getPlanilla",

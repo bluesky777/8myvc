@@ -1051,6 +1051,45 @@ class Autoriza
     }
 
     /**
+     * Quién puede **subir** la planilla de otro docente (D4, fase 5).
+     *
+     * ## Es MÁS ESTRECHA que la de bajar, y ésa es toda la decisión
+     *
+     * {@see puedeDescargarLaPlanillaDeOtro} se permite ser ancha con un argumento
+     * escrito arriba: lo que sale por las rutas de lectura es la planilla que esa
+     * persona **ya puede ver por la web**, sólo que en un `.xlsx`. Aquí no se saca
+     * nada: se **escriben las notas de un grupo entero a nombre de otra persona**,
+     * y eso no lo vuelve inofensivo ninguna comprobación posterior.
+     *
+     * Así que se cae la rama de {@see esAdministrativo}: **`Secretario` puede bajar
+     * el libro y no puede subirlo**. Secretaría administra la estructura del
+     * colegio —matrículas, grupos, papeles— y por eso ve la planilla; calificar es
+     * de quien enseña, y decidir sobre una calificación ajena es de coordinación
+     * académica. La D4 dice literalmente «coordinación», y
+     * {@see puedeEditarPlantillaNotas} —superusuario o `can_edit_plantilla_notas`—
+     * es exactamente ese alcance y no uno parecido.
+     *
+     * ## Las tres cosas que esto NO relaja, y conviene leerlas juntas
+     *
+     * 1. **El periodo tiene que estar abierto igual.** Subir *por* un docente no es
+     *    subir *a* un periodo cerrado: eso es otra decisión, del colegio, y tiene
+     *    su propia pantalla. Quien busque el porqué de un 400 con este permiso
+     *    puesto, es esto.
+     * 2. **Hace falta confirmarlo a mano.** El ensayo convierte el bloqueo del
+     *    libro ajeno en un bloqueo que se resuelve con `por_otro`, no en vía libre:
+     *    escribir las notas de otro no puede ocurrir por inercia de pulsar
+     *    «Siguiente».
+     * 3. **Queda auditado con las dos personas.** Quien sube y por quién.
+     *
+     * Y como en su hermana, **no incluye `auth.personal`**: eso ya lo pone la ruta,
+     * y esto se pregunta además.
+     */
+    public static function puedeSubirLaPlanillaDeOtro($user): bool
+    {
+        return self::puedeEditarPlantillaNotas($user);
+    }
+
+    /**
      * Corta con 403 si no se cumple.
      */
     public static function exigir(bool $condicion, string $mensaje): void

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Exports\LibroDeNotas;
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
+use App\Services\ActaDeLaImportacion;
 use App\Services\EnsayoDeLaPlanilla;
 use App\Services\EscrituraDeNotasImportadas;
 use App\Services\LaPlanillaQueSeDescarga;
@@ -315,12 +316,14 @@ class PlanillaOfflineController extends Controller
      *
      * ## El orden es el que importa
      *
-     * 1. Se abre el libro y se comprueba **de quién es** (403 si es de otro).
+     * 1. Se abre el libro y se comprueba **quién puede subirlo** (403 si no puede).
      * 2. Se toma el cerrojo del archivo, para que dos pestañas no reanuden lo mismo.
      * 3. Se ensaya **con el punto de control**, así que lo ya aplicado ni se
      *    estudia.
      * 4. Si hay bloqueos, **422 y no se escribe nada**.
      * 5. Se aplica el plan, fila a fila, cada una en su transacción.
+     * 6. Se anota **lo que entró** en `importaciones.hechos`, que es lo que el acta
+     *    lee cuando alguien pregunta semanas después.
      *
      * ## La autorización, que aquí es más estrecha que en la descarga
      *
@@ -330,11 +333,22 @@ class PlanillaOfflineController extends Controller
      * - **Se exige periodo abierto**, y se exige por hoja: la F3 dice que un periodo
      *   cerrado se lleva por delante sus hojas *y nada más*, así que no es una
      *   guarda que tire la petición sino un filtro que deja pasar el resto. Si no
-     *   queda ninguna hoja que escribir, 422 con los motivos.
-     * - **El docente sólo escribe lo suyo.** La D4 —coordinación sube por otro— es
-     *   la **fase 5**, y viene con el acta de lo que entró, que es lo que hace falta
-     *   cuando el docente y coordinación no están de acuerdo. Dejarla entreabierta
-     *   aquí sería escribir notas en nombre de alguien sin ese acta.
+     *   queda ninguna hoja que escribir, 422 con los motivos. **Subir *por* un
+     *   docente no relaja esto**: el permiso de la D4 no abre un periodo cerrado.
+     * - **El docente sólo escribe lo suyo, y coordinación escribe el de otro
+     *   diciéndolo.** Es la D4, y desde la fase 5 está abierta: quien tiene
+     *   {@see Autoriza::puedeSubirLaPlanillaDeOtro} pasa esta puerta, y lo que le
+     *   espera dentro es el bloqueo `subir_por_otro` —que hay que resolver a mano—
+     *   y el acta de lo que entró. Quien no lo tiene sigue recibiendo 403 aquí.
+     *
+     * ## Y por qué la confirmación NO se comprueba en este método
+     *
+     * Porque **el 422 de los bloqueos ya la hace cumplir, y lo hace antes de
+     * escribir nada**: `subir_por_otro` es un bloqueo como los demás, así que sin
+     * la sección `por_otro` en las instrucciones el paso 4 devuelve 422 **con el
+     * plan entero sin aplicar**. Repetir aquí la comprobación sería una segunda
+     * puerta que hay que mantener de acuerdo con la primera, y el día que dejaran
+     * de estarlo la que mandaría sería la de abajo.
      */
     public function postImportar()
     {
@@ -368,7 +382,7 @@ class PlanillaOfflineController extends Controller
             ], 422);
         }
 
-        $this->exigirQueElLibroSeaSuyo($lector);
+        $this->exigirPoderSubirEsteLibro($lector);
 
         $year = (int) ($lector->cabecera['year'] ?? 0);
 
@@ -423,6 +437,19 @@ class PlanillaOfflineController extends Controller
             $entran = array_values(array_filter($ensayo->plan, static fn ($h) => $h['entra'] === true));
 
             if ($entran === []) {
+                // **«No entró nada» también es un acta, y es la que hace falta.** Aquí
+                // el libro era legítimo y aun así no se escribió una línea —el periodo
+                // se cerró mientras el docente pasaba las notas, casi siempre—, así que
+                // lo que hay que poder contestar después es *por qué*, hoja por hoja.
+                // Sin esto, esta fila de `importaciones` quedaría sin `hechos` y el acta
+                // diría «es anterior al acta», que es falso.
+                $this->anotarLoHecho(
+                    $punto, $diagnostico,
+                    new EscrituraDeNotasImportadas($this->user, $punto),
+                    $ensayo,
+                    $this->contextoDeLaImportacion($diagnostico, $punto)
+                );
+
                 return response()->json([
                     'ok' => false,
                     'msg' => 'Ninguna hoja de este libro se puede escribir ahora mismo.',
@@ -431,7 +458,15 @@ class PlanillaOfflineController extends Controller
                 ], 422);
             }
 
-            $escritura = new EscrituraDeNotasImportadas($this->user, $punto);
+            $contexto = $this->contextoDeLaImportacion($diagnostico, $punto);
+
+            // **El rastro lleva las dos personas cuando son dos** (D4). Sin esto, la
+            // línea de auditoría de cada nota dice que la editó coordinación y el
+            // docente cuyo libro entró no aparece en ningún sitio — que es justo el
+            // dato que se reclama el día que se reclama algo.
+            $escritura = new EscrituraDeNotasImportadas(
+                $this->user, $punto, $contexto['por_cuenta_de']['nombre'] ?? null
+            );
 
             try {
                 $escritura->aplicar($ensayo->plan, (int) $diagnostico['totales']['filas_descartadas']);
@@ -439,11 +474,18 @@ class PlanillaOfflineController extends Controller
                 // La fila queda en 'fallida', que se reanuda igual que 'en_proceso':
                 // lo escrito hasta aquí está anotado y la siguiente subida del mismo
                 // archivo continúa desde ahí.
+                //
+                // **Y el acta se escribe igual, antes de relanzar.** Lo que entró antes
+                // del error está escrito en `notas`; un acta que sólo contara las
+                // pasadas que acabaron bien sería un acta que no cuenta lo que entró,
+                // y el caso en que alguien la pide es precisamente éste.
+                $this->anotarLoHecho($punto, $diagnostico, $escritura, $ensayo, $contexto);
                 $punto->fallar($e);
                 throw $e;
             }
 
             $punto->anotarElTotal($ensayo->filasDelLibro);
+            $this->anotarLoHecho($punto, $diagnostico, $escritura, $ensayo, $contexto);
 
             // **Sólo se cierra si de verdad terminó.** Si se acabó el tiempo, la fila
             // se queda en `en_proceso` con su avance, que es justo lo que `abrir()`
@@ -494,13 +536,29 @@ class PlanillaOfflineController extends Controller
     }
 
     /**
-     * Que el libro sea del docente que lo sube. **403 con el motivo, no en
-     * silencio.**
+     * **Quién puede subir ESTE libro.** 403 con el motivo, no en silencio.
      *
-     * La D4 deja a coordinación subir por cualquier docente y es la **fase 5**: trae
-     * su propio camino de autorización y su acta descargable de lo que entró.
-     * Adelantarla aquí sería escribir notas en nombre de alguien sin ese acta, y el
-     * día que se reclame no habría con qué contestar.
+     * Dos puertas, y en ese orden:
+     *
+     * 1. **El dueño**, que es el caso de siempre y el de los cincuenta y tres
+     *    docentes: si el libro lleva su `profesor_id`, pasa.
+     * 2. **Coordinación** (D4, fase 5): {@see Autoriza::puedeSubirLaPlanillaDeOtro}
+     *    —superusuario o `can_edit_plantilla_notas`—. **Más estrecha que la de
+     *    bajar**: `Secretario` baja el libro de un docente y no lo sube. El porqué
+     *    está entero en el docblock de ese método.
+     *
+     * ## Aquí se contesta «puede», y en el ensayo se contesta «quiso»
+     *
+     * Esta puerta deja pasar a coordinación **sin preguntar nada más**, y no es un
+     * descuido: dentro le espera el bloqueo `subir_por_otro`, que hay que resolver
+     * a mano con la sección `por_otro` de las instrucciones. Las dos preguntas son
+     * distintas y por eso están en sitios distintos — el permiso vale para los
+     * cincuenta y tres docentes del colegio, así que confundirse de archivo es
+     * escribir las notas de un grupo que nadie ha mirado, y lo único que lo evita
+     * es tener que **leer de quién es el libro** antes de que pase nada.
+     *
+     * Y lo que esta puerta **no** relaja: el periodo sigue teniendo que estar
+     * abierto. Subir *por* un docente no es subir *a* un periodo cerrado.
      *
      * `persona_id` y no `user_id` — para un `Profesor` es `profesores.id`, que es lo
      * que compara `asignaturas.profesor_id`; para un administrativo es `users.id`, o
@@ -508,7 +566,7 @@ class PlanillaOfflineController extends Controller
      * `tipo === 'Profesor'`, que es la misma trampa que ya tiene escrita
      * {@see profesorPedido}.
      */
-    private function exigirQueElLibroSeaSuyo(LaPlanillaQueSeSube $lector): void
+    private function exigirPoderSubirEsteLibro(LaPlanillaQueSeSube $lector): void
     {
         $propio = ($this->user->tipo ?? '') === 'Profesor' ? (int) $this->user->persona_id : null;
         $delLibro = (int) ($lector->cabecera['profesor_id'] ?? 0);
@@ -517,12 +575,220 @@ class PlanillaOfflineController extends Controller
             return;
         }
 
+        if (Autoriza::puedeSubirLaPlanillaDeOtro($this->user)) {
+            return;
+        }
+
         $lector->cerrar();
 
         Autoriza::exigir(false,
-            'Esta planilla es de otro docente, y por ahora cada docente sólo puede subir la suya. '
-            .'Que coordinación suba la planilla de un docente es la fase 5 de «notas sin internet», '
-            .'y viene con el acta de lo que entró.'
+            'Esta planilla es de otro docente, y cada docente sólo puede subir la suya. '
+            .'Subir la planilla de otro es cosa de coordinación académica.'
+        );
+    }
+
+    /**
+     * Las dos personas y el libro, tal y como el acta los va a imprimir.
+     *
+     * Se arma aquí —y no dentro del acta— porque es el único sitio donde están a la
+     * vez la sesión de quien sube y la cabecera del libro que se está subiendo.
+     *
+     * **Los nombres se guardan, los ids también.** Los ids para poder decidir quién
+     * puede pedir el acta, y los nombres porque una cuenta se borra y entonces el
+     * nombre guardado es lo único que queda de quién fue. Es la misma regla que ya
+     * sigue `auditoria.actor_nombre`.
+     *
+     * `por_cuenta_de` es `null` cuando el libro es de quien lo sube, y no una copia
+     * de la misma persona: un acta que dijera «por cuenta de sí mismo» en las
+     * cincuenta y tres subidas normales convertiría en ruido el único renglón que
+     * importa en la subida rara.
+     *
+     * @param  array<string, mixed>  $diagnostico
+     * @return array<string, mixed>
+     */
+    private function contextoDeLaImportacion(array $diagnostico, PuntoDeControlDeImportacion $punto): array
+    {
+        $libro = $diagnostico['libro'] ?? [];
+        $profesor = $libro['profesor'] ?? [];
+
+        $esMio = ($libro['es_mio'] ?? false) === true;
+
+        return [
+            'subio' => [
+                'user_id' => (int) $this->user->user_id,
+                'nombre' => trim((string) ($this->user->nombres ?? '').' '.($this->user->apellidos ?? ''))
+                    ?: ($this->user->username ?? null),
+                'tipo' => $this->user->tipo ?? null,
+            ],
+            'por_cuenta_de' => $esMio ? null : [
+                'profesor_id' => $profesor['id'] ?? null,
+                'nombre' => $profesor['nombre'] ?? null,
+            ],
+            'libro' => [
+                'profesor_id' => $profesor['id'] ?? null,
+                'profesor' => $profesor['nombre'] ?? null,
+                'year_id' => $libro['year_id'] ?? null,
+                'periodo_id' => $libro['periodo_id'] ?? null,
+                'periodo_numero' => $libro['periodo_numero'] ?? null,
+                'descargado_at' => $libro['descargado_at'] ?? null,
+            ],
+            'reanudada' => $punto->reanudada(),
+        ];
+    }
+
+    /**
+     * Deja escrito en la fila de `importaciones` **lo que esta pasada hizo**.
+     *
+     * Las dos columnas, y son dos porque contestan dos preguntas distintas:
+     *
+     * - **`hechos`** — el recuento de lo que entró, por hoja, con las dos personas.
+     *   Es el acta.
+     * - **`avisos`** — lo que no entró y **no tiene hoja**: la F4 (un «4,5» que
+     *   aparece en seis hojas) y la F5. Se acumulan aparte porque se agrupan por
+     *   valor y no por hoja, y porque esa columna ya existía y ya sabe acumular.
+     *
+     * **Esta familia no las escribía.** `postImportar` las devolvía en la respuesta
+     * y las perdía al contestar; el importador de alumnos sí las guardaba desde la
+     * migración de septiembre. Es el agujero que la fase 5 viene a cerrar, y la
+     * frase que lo resume es la del encargo: *el acta tiene que contar lo que entró,
+     * no lo que se prometió*.
+     *
+     * @param  array<string, mixed>  $diagnostico
+     * @param  array<string, mixed>  $contexto
+     */
+    private function anotarLoHecho(PuntoDeControlDeImportacion $punto, array $diagnostico,
+        EscrituraDeNotasImportadas $escritura, EnsayoDeLaPlanilla $ensayo, array $contexto): void
+    {
+        $punto->guardarHechos(ActaDeLaImportacion::deLaPasada($diagnostico, $escritura, $contexto));
+        $punto->guardarAvisos($ensayo->avisos());
+    }
+
+    /**
+     * `GET planilla-offline/acta/{importacion_id}` — **el acta de lo que entró**.
+     *
+     * Un `.xlsx`. El porqué —que en este backend no hay librería de PDF y que los
+     * informes los imprime el front desde el navegador— está entero en la cabecera
+     * de {@see ActaDeLaImportacion}.
+     *
+     * ## Quién la puede pedir, y por qué son exactamente tres
+     *
+     * 1. **Quien la subió.** Es su propio recibo.
+     * 2. **El docente dueño del libro.** Es el que más derecho tiene a saber qué se
+     *    escribió en sus notas, y es la mitad que hace útil a la fase entera: sin
+     *    esto, coordinación podría subir por él y él no tendría con qué comprobarlo.
+     * 3. **Quien puede subir por otro** ({@see Autoriza::puedeSubirLaPlanillaDeOtro}).
+     *    Quien puede hacerlo tiene que poder revisarlo — el suyo y el de sus
+     *    compañeros de coordinación.
+     *
+     * **Un docente no puede leer el acta de otro**, y el 403 lo dice con su motivo:
+     * el acta lleva dentro los nombres de los alumnos de un grupo y el recuento de
+     * sus notas, o sea lo mismo que la planilla, y la puerta de la planilla ya es
+     * ésta. Que un docente pudiera pedir actas por `id` sería un listado de las
+     * notas del colegio a razón de una petición por número.
+     *
+     * ## Los dos 404, que no son el mismo
+     *
+     * - **No existe, o no es de una planilla.** Las importaciones de alumnos viven
+     *   en la misma tabla y no tienen acta: pedirla es pedir un documento que no
+     *   existe para esa fila.
+     * - **Es de una planilla y no tiene `hechos`.** Sólo puede pasar con las de
+     *   antes de esta migración. Se contesta 404 **con ese motivo** y no un acta de
+     *   ceros, que se leería como «no entró nada» — que es falso y es peor que no
+     *   contestar.
+     */
+    public function getActa($importacion_id): BinaryFileResponse
+    {
+        $fila = DB::selectOne(
+            'SELECT id, tipo, huella, archivo, year, estado, error, created_by, inicio, fin,
+                    created_at, hechos, avisos
+               FROM importaciones WHERE id = ?',
+            [(int) $importacion_id]
+        );
+
+        if ($fila === null || $fila->tipo !== 'planilla') {
+            abort(404, 'No hay ninguna importación de planilla con ese número.');
+        }
+
+        $hechos = json_decode((string) ($fila->hechos ?? ''), true);
+        $hechos = is_array($hechos) ? $hechos : [];
+
+        $this->exigirPoderVerElActa($fila, $hechos);
+
+        if ($hechos === []) {
+            abort(404, 'Esa importación no tiene acta: o se quedó en un bloqueo y no llegó a mirar '
+                .'ninguna hoja, o es anterior a que el acta existiera. Se guardó por dónde iba, '
+                .'pero no el recuento de lo que entró.');
+        }
+
+        $avisos = json_decode((string) ($fila->avisos ?? ''), true);
+
+        // LAS FECHAS SE CONVIERTEN ANTES DE QUE EL ACTA LAS VEA.
+        //
+        // `importaciones` es la excepción declarada de `RelojUnicoTest`: se escribe
+        // entera con `now()`, o sea en **UTC**, y ahí se queda. La decisión de mover
+        // la tabla sigue siendo de quien lleve las importaciones; el porqué largo
+        // está en `Alumnos/ImportarController.php` §«LAS FECHAS SE CONVIERTEN AL
+        // LEER», que hace esto mismo para la pantalla.
+        //
+        // **Y el acta no lo hacía**, así que hasta el 21 sep 2026 el Excel decía
+        // «Empezó a las 14:41» donde la pantalla de esa misma fila decía las 9:41.
+        // La misma tabla leída de dos maneras en el mismo repo, y el Excel es el que
+        // se imprime y se archiva. Ver el 53 §4.2.
+        //
+        // La conversión vive en el servicio y no aquí a propósito: eran tres
+        // lectores de la misma fila y sólo uno se acordaba.
+        $fila = PuntoDeControlDeImportacion::enLaHoraDelColegio($fila);
+
+        $libro = ActaDeLaImportacion::construir($fila, $hechos, is_array($avisos) ? $avisos : []);
+
+        $ruta = tempnam(sys_get_temp_dir(), 'acta-importacion-');
+
+        if ($ruta === false) {
+            abort(500, 'No se pudo preparar el acta.');
+        }
+
+        (new Xlsx($libro))->save($ruta);
+        $libro->disconnectWorksheets();
+
+        // `deleteFileAfterSend`, por lo mismo que la descarga de la planilla: el acta
+        // lleva dentro los nombres de los alumnos, y `storage/` de dieciséis colegios
+        // acumulando una copia por consulta es un archivo que nadie mira nunca.
+        return response()->download($ruta, ActaDeLaImportacion::nombreDeArchivo($fila, $hechos), [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Las tres puertas del acta. **403 con el motivo**, que aquí es media respuesta.
+     *
+     * El orden es el barato primero: quien subió se decide con la columna que ya
+     * está en la fila, y el dueño del libro con el `profesor_id` que el acta guardó.
+     * Ninguna de las dos consulta nada.
+     *
+     * Si `hechos` está vacío —una importación anterior al acta— no se sabe de quién
+     * era el libro, así que la puerta del docente dueño **no se puede abrir**: queda
+     * quien la subió y quien tenga el permiso. Se prefiere quedarse corto: un 403 de
+     * más manda a preguntar, y uno de menos enseña las notas de un grupo ajeno.
+     *
+     * @param  array<string, mixed>  $hechos
+     */
+    private function exigirPoderVerElActa(object $fila, array $hechos): void
+    {
+        if ($fila->created_by !== null && (int) $fila->created_by === (int) $this->user->user_id) {
+            return;
+        }
+
+        $delLibro = $hechos['contexto']['libro']['profesor_id'] ?? null;
+        $propio = ($this->user->tipo ?? '') === 'Profesor' ? (int) $this->user->persona_id : null;
+
+        if ($delLibro !== null && $propio !== null && (int) $delLibro === $propio) {
+            return;
+        }
+
+        Autoriza::exigir(
+            Autoriza::puedeSubirLaPlanillaDeOtro($this->user),
+            'El acta de una importación la pueden ver quien la subió, el docente dueño del libro '
+            .'y coordinación académica. Ésta no es suya.'
         );
     }
 
@@ -623,11 +889,13 @@ class PlanillaOfflineController extends Controller
     private function anotarLaDescarga(
         object $periodo, object $profesor, array $asignaturaIds, string $nombre, string $ruta
     ): void {
+        $ahora = Reloj::ahoraTexto();
+
         DB::insert(
             'INSERT INTO descargas_de_planilla
                 (user_id, profesor_id, year_id, periodo_id, periodo_abierto, asignaturas,
                  hojas, nombre_archivo, huella, bytes, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 (int) $this->user->user_id,
                 $profesor->id,
@@ -639,6 +907,13 @@ class PlanillaOfflineController extends Controller
                 $nombre,
                 hash_file('sha256', $ruta),
                 (int) (filesize($ruta) ?: 0),
+                // Y no `NOW()`, que es lo que decía aquí. `config/database.php` no
+                // fija la zona de la sesión, así que `NOW()` es el reloj del cPanel
+                // de cada colegio. Y esta fecha **se compara**: el acta la pone al
+                // lado de la de la importación para decir si el libro que se subió
+                // es el que se descargó. Con dos relojes esa comparación es un
+                // sorteo. Ver el 53 §1.
+                $ahora, $ahora,
             ]
         );
     }

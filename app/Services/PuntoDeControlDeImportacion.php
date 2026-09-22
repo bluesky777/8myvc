@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Support\Reloj;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -61,6 +63,49 @@ class PuntoDeControlDeImportacion
     public const COMPLETADA = 'completada';
 
     public const FALLIDA = 'fallida';
+
+    /**
+     * Las claves de una hoja del acta que se **suman** entre pasadas.
+     *
+     * Van declaradas y no deducidas de `is_numeric` por una razón que se ve de
+     * inmediato en cuanto falta: `asignatura_id` es un número y **no se suma**.
+     * Con la regla automática, una hoja que apareciera en dos tandas acabaría
+     * apuntando a la asignatura 604 porque 302 + 302 son 604, y el acta diría que
+     * las notas entraron en una asignatura que no existe.
+     *
+     * **Y las que faltan en esta lista faltan a propósito**, que es la parte que
+     * no se adivina. Lo que se suma tiene que ser *lo que hizo esta pasada*, y sólo
+     * lo es cuando la pasada siguiente **no lo vuelve a contar**:
+     *
+     * - `escritas`, `borradas`, `ausencias_*` — se suman: las filas que el punto de
+     *   control da por hechas ni se estudian en la pasada siguiente, así que cada
+     *   escritura se cuenta una vez y sólo una.
+     * - `se_quedan_fuera` — **se suma sólo si la hoja entró**, y se sustituye si no.
+     *   Ver {@see juntarLasHojas}.
+     * - Las filas descartadas **no son un contador**: viajan como lista de
+     *   identificadores en `descartadas` y se unen sin repetir, porque una fila que
+     *   no se puede escribir tampoco se marca como hecha y **la vuelve a diagnosticar
+     *   cada pasada**. Sumarlas diría que una importación reanudada tres veces
+     *   descartó el triple de filas de las que tenía el archivo.
+     *
+     * @var list<string>
+     */
+    private const CONTADORES_DE_HOJA = [
+        'escritas', 'borradas', 'ausencias_creadas', 'ausencias_borradas', 'indicadores_creados',
+    ];
+
+    /**
+     * Lo que en una hoja del acta es un **conjunto** y no un número: se une sin
+     * repetir.
+     *
+     * Las dos por el mismo motivo —lo que no se pudo hacer se vuelve a diagnosticar
+     * en cada pasada— y por eso llevan identidad propia: los motivos son su propio
+     * texto, y las filas descartadas el `id` estable que les pone la F6
+     * (`hoja` + fila + tipo), que es el mismo en las dos tandas.
+     *
+     * @var list<string>
+     */
+    private const LISTAS_DE_HOJA = ['motivos', 'descartadas'];
 
     /** Mapa `nombre de hoja` => última fila (base 0) que se sabe aplicada. */
     private array $avance;
@@ -307,6 +352,206 @@ class PuntoDeControlDeImportacion
     }
 
     /**
+     * **Lo que esta pasada HIZO**, sumado a lo que hicieron las anteriores.
+     *
+     * Es lo que el acta (`GET planilla-offline/acta/{id}`) imprime, y la razón de
+     * que exista la columna: la respuesta de `postImportar` ya cuenta lo hecho,
+     * pero se va con la respuesta. Semanas después, cuando alguien pregunta qué
+     * entró, lo único que queda es esta fila.
+     *
+     * ## Acumula, como los avisos y al revés que las respuestas
+     *
+     * La regla de esta clase ya estaba escrita un método más arriba y aquí manda
+     * igual: **un aviso es algo que pasó y una respuesta es una instrucción
+     * vigente**. Lo hecho es de los primeros, y además es la razón por la que esto
+     * se pidió con nombre propio: *una importación cortada y continuada tiene que
+     * dar un acta con el total, no con la última tanda*. Si esto pisara, el acta de
+     * una importación de cuarenta filas cortada en la treinta y nueve diría que
+     * entró **una** nota.
+     *
+     * Lo único que pisa es `contexto` —quién subió, por cuenta de quién, de qué
+     * libro—, y pisa porque describe **la importación**, no la pasada: es el mismo
+     * archivo y el mismo libro en las dos tandas. Con dos excepciones dentro, que
+     * son justo las que cuentan la historia de las tandas:
+     *
+     * - **`pasadas`** se incrementa. Es lo que hace que el acta pueda decir «se
+     *   subió en tres veces» en vez de fingir que fue de una.
+     * - **`reanudada`** se queda en `true` en cuanto lo fue una vez. La pregunta
+     *   del acta no es «¿fue reanudada la última pasada?» sino «¿esta importación
+     *   se cortó alguna vez?», y ésa sólo se puede contestar acumulando: la
+     *   **última** pasada de una importación cortada es la que la terminó, y si
+     *   sólo se guardara la suya el acta diría que no hubo corte.
+     *
+     * ## Y por qué se escribe también cuando la pasada revienta
+     *
+     * Porque las filas que se escribieron antes del error **están escritas**. Un
+     * acta que sólo contara las pasadas que terminaron bien sería, exactamente, un
+     * acta que no cuenta lo que entró — y el caso en que alguien la pide es el
+     * caso en que algo salió mal.
+     *
+     * @param  array<string, mixed>  $deEstaPasada  `totales`, `por_hoja`, `indicadores`, `contexto`
+     */
+    public function guardarHechos(array $deEstaPasada): void
+    {
+        $fila = DB::selectOne('SELECT hechos FROM importaciones WHERE id = ?', [$this->id]);
+        $previo = json_decode((string) ($fila->hechos ?? ''), true);
+        $previo = is_array($previo) ? $previo : [];
+
+        $todo = [
+            'totales' => $this->sumar($previo['totales'] ?? [], $deEstaPasada['totales'] ?? []),
+            'por_hoja' => $this->juntarLasHojas($previo['por_hoja'] ?? [], $deEstaPasada['por_hoja'] ?? []),
+            'indicadores' => $this->juntarLosIndicadores(
+                $previo['indicadores'] ?? [], $deEstaPasada['indicadores'] ?? []
+            ),
+            'contexto' => array_merge($previo['contexto'] ?? [], $deEstaPasada['contexto'] ?? []),
+        ];
+
+        $todo['contexto']['pasadas'] = (int) ($previo['contexto']['pasadas'] ?? 0) + 1;
+        $todo['contexto']['reanudada'] = ($previo['contexto']['reanudada'] ?? false)
+            || ($deEstaPasada['contexto']['reanudada'] ?? false);
+
+        DB::update(
+            'UPDATE importaciones SET hechos = ?, updated_at = ? WHERE id = ?',
+            [json_encode($todo, JSON_UNESCAPED_UNICODE), now(), $this->id]
+        );
+    }
+
+    /**
+     * Suma dos mapas de contadores, **conservando las claves que sólo tiene uno**.
+     *
+     * No es un `array_map` sobre uno de los dos: una pasada que no creó ningún
+     * indicador no trae esa clave, y quedarse con las del previo perdería las
+     * nuevas. Lo que no sea un número se ignora en vez de convertirse en cero
+     * silenciosamente.
+     *
+     * @param  array<string, mixed>  $previo
+     * @param  array<string, mixed>  $nuevo
+     * @return array<string, int>
+     */
+    private function sumar(array $previo, array $nuevo): array
+    {
+        $suma = [];
+
+        foreach ([$previo, $nuevo] as $mapa) {
+            foreach ($mapa as $clave => $valor) {
+                if (is_numeric($valor)) {
+                    $suma[$clave] = ($suma[$clave] ?? 0) + (int) $valor;
+                }
+            }
+        }
+
+        return $suma;
+    }
+
+    /**
+     * Las hojas de las dos tandas, **juntadas por nombre de hoja**.
+     *
+     * Por el nombre y no por la posición porque el orden de las hojas de una
+     * pasada reanudada no es el de la primera: las que quedaron enteras detrás del
+     * punto de control ni se estudian, así que la segunda tanda trae menos hojas y
+     * en otro orden. Sumar por índice mezclaría las notas de Matemáticas con las
+     * de Sociales **sin dar ningún error**.
+     *
+     * Los motivos y las filas descartadas se unen sin repetir: lo que no se pudo
+     * hacer se vuelve a diagnosticar en cada pasada, y un acta con «el periodo está
+     * cerrado» escrito tres veces se lee peor, no mejor.
+     *
+     * ## La excepción que no se adivina: `se_quedan_fuera` de una hoja que NO entró
+     *
+     * Cuando una hoja entera se cae —periodo cerrado, asignatura que ya no es de
+     * este docente— el ensayo cuenta **todas** sus casillas como «se quedan fuera»,
+     * y lo vuelve a hacer idéntico en cada pasada: esa hoja no tiene ninguna fila
+     * marcada como hecha, así que nada la salta. Sumarlo diría que una planilla de
+     * 40 casillas dejó fuera 120 en tres tandas.
+     *
+     * Así que si la pasada nueva dice que la hoja está `fuera`, su cuenta
+     * **sustituye** en vez de sumarse; si la hoja entró, se suma, porque entonces
+     * cada pasada sólo ha mirado las casillas que le tocaban. Los demás contadores
+     * se suman en los dos casos: una hoja `fuera` no escribe nada, así que los suyos
+     * son ceros y sumarlos no cambia nada — y el día que una hoja entre en la
+     * primera tanda y se caiga en la segunda (el colegio cerró el periodo entre
+     * medias), lo escrito **sigue escrito** y el acta tiene que decirlo.
+     *
+     * @param  array<string, mixed>  $previo
+     * @param  array<string, mixed>  $nuevo
+     * @return array<string, mixed>
+     */
+    private function juntarLasHojas(array $previo, array $nuevo): array
+    {
+        foreach ($nuevo as $nombre => $hoja) {
+            if (! isset($previo[$nombre]) || ! is_array($previo[$nombre])) {
+                $previo[$nombre] = $hoja;
+
+                continue;
+            }
+
+            $antes = $previo[$nombre];
+
+            $listas = [];
+
+            foreach (self::LISTAS_DE_HOJA as $clave) {
+                $listas[$clave] = array_values(array_unique(array_merge(
+                    is_array($antes[$clave] ?? null) ? $antes[$clave] : [],
+                    is_array($hoja[$clave] ?? null) ? $hoja[$clave] : [],
+                )));
+            }
+
+            $contadores = array_flip(self::CONTADORES_DE_HOJA);
+
+            $fuera = [
+                'se_quedan_fuera' => ($hoja['fuera'] ?? false) === true
+                    ? (int) ($hoja['se_quedan_fuera'] ?? 0)
+                    : (int) ($antes['se_quedan_fuera'] ?? 0) + (int) ($hoja['se_quedan_fuera'] ?? 0),
+            ];
+
+            $previo[$nombre] = array_merge(
+                $antes,
+                $hoja,
+                $this->sumar(
+                    array_intersect_key($antes, $contadores),
+                    array_intersect_key($hoja, $contadores),
+                ),
+                $fuera,
+                $listas,
+            );
+        }
+
+        return $previo;
+    }
+
+    /**
+     * Los indicadores creados por las dos tandas, **sin repetir la misma subunidad**.
+     *
+     * El de-duplicado no es defensivo de más: la F9 es idempotente por nombre
+     * —vuelve a encontrar el indicador que ya creó en vez de crear otro— así que
+     * una pasada reanudada puede volver a *reportar* la misma subunidad sin
+     * haberla creado dos veces. Un acta que la contara dos veces diría que
+     * coordinación creó dos columnas donde hay una.
+     *
+     * @param  list<array<string, mixed>>  $previo
+     * @param  list<array<string, mixed>>  $nuevo
+     * @return list<array<string, mixed>>
+     */
+    private function juntarLosIndicadores(array $previo, array $nuevo): array
+    {
+        $vistos = [];
+        $todos = [];
+
+        foreach (array_merge($previo, $nuevo) as $indicador) {
+            $llave = (string) ($indicador['subunidad_id'] ?? json_encode($indicador));
+
+            if (isset($vistos[$llave])) {
+                continue;
+            }
+
+            $vistos[$llave] = true;
+            $todos[] = $indicador;
+        }
+
+        return $todos;
+    }
+
+    /**
      * Lo que contestó la persona, para que reanudar no obligue a contestarlo
      * otra vez.
      *
@@ -356,7 +601,7 @@ class PuntoDeControlDeImportacion
      */
     public static function pendienteDe(string $tipo, int $year): ?object
     {
-        return DB::selectOne(
+        return self::enLaHoraDelColegio(DB::selectOne(
             'SELECT i.id, i.archivo, i.huella, i.year, i.avance, i.filas, i.filas_totales, i.estado, i.error,
                     i.avisos, i.respuestas, i.inicio, i.fin, i.created_by,
                     COALESCE(
@@ -369,7 +614,45 @@ class PuntoDeControlDeImportacion
              WHERE i.tipo = ? AND i.year = ? AND i.estado <> ?
              ORDER BY i.id DESC LIMIT 1',
             [$tipo, $year, self::COMPLETADA]
-        );
+        ));
+    }
+
+    /**
+     * Las fechas de esta tabla, pasadas a la hora del colegio.
+     *
+     * **`importaciones` está entera en UTC y ahí se queda.** Es la excepción
+     * declarada de `Tests\Contrato\RelojUnicoTest` —escrito en el texto y no como
+     * `{@see}`, porque un `{@see}` con la barra delante hace que Pint añada un
+     * `use Tests\…` y esto es `app/`: con `composer install --no-dev` ese import
+     * apunta a nada—: se escribe con `now()`
+     * porque `inicio` y `fin` sólo se restan entre sí, y moverla dejaría la
+     * columna con dos relojes en su historia —la enfermedad que {@see Reloj} vino
+     * a curar—. Mover la tabla sigue siendo decisión de quien lleve las
+     * importaciones.
+     *
+     * Lo que NO puede seguir pasando es que cada lector se acuerde por su cuenta.
+     * El 21 sep 2026 había tres y **sólo uno convertía**: la pantalla decía
+     * «empezada a las 9:41» y el acta en Excel de esa misma fila decía las 14:41.
+     * Así que la conversión vive aquí, con la tabla, y no en el que lee.
+     *
+     * El mismo argumento que justifica `Reloj::ahoraTexto()`, en el otro sentido:
+     * existe **para que no haya que acordarse**.
+     */
+    public static function enLaHoraDelColegio(?object $fila): ?object
+    {
+        if ($fila === null) {
+            return null;
+        }
+
+        foreach (['inicio', 'fin', 'created_at', 'updated_at'] as $campo) {
+            if (! empty($fila->{$campo})) {
+                $fila->{$campo} = Carbon::parse($fila->{$campo}, 'UTC')
+                    ->setTimezone(Reloj::ZONA)
+                    ->format('Y-m-d H:i:s');
+            }
+        }
+
+        return $fila;
     }
 
     /**

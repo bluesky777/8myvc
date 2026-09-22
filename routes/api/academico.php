@@ -174,10 +174,24 @@ Route::get('planilla-offline/planilla/{asignatura_id}/{periodo_id}', [PlanillaOf
 //     cierre tiene el resto entrando. Tirarlo entero por una es la clase de error
 //     que hace que la gente deje de usar una función.
 //
-// La D4 —que coordinación suba por otro docente— es la **fase 5** y hoy da 403 con
-// el motivo dentro (`exigirQueElLibroSeaSuyo`).
+// La D4 —que coordinación suba por otro docente— es la **fase 5** y ya está
+// abierta: `exigirPoderSubirEsteLibro` deja pasar a quien tenga
+// `Autoriza::puedeSubirLaPlanillaDeOtro` —más estrecha que la de bajar: el
+// `Secretario` baja y no sube— y dentro le espera el bloqueo `subir_por_otro`, que
+// hay que resolver a mano. **Subir por otro NO abre un periodo cerrado.**
 Route::post('planilla-offline/ensayo', [PlanillaOfflineController::class, 'postEnsayo'])->middleware('auth.personal');
 Route::post('planilla-offline/importar', [PlanillaOfflineController::class, 'postImportar'])->middleware('auth.personal');
+
+// Y la de la FASE 5: el acta de lo que entró, en `.xlsx`.
+//
+// **`auth.personal` y el permiso dentro**, por lo mismo que sus cinco hermanas: lo
+// que decide quién puede verla no está en la URL sino en la fila —quién la subió y
+// de qué docente era el libro—, así que sólo se puede contestar después de leerla.
+// Las tres puertas están en `exigirPoderVerElActa`: quien la subió, el docente
+// dueño del libro y quien puede subir por otro. **Un docente no puede leer el acta
+// de otro**: lleva dentro los nombres de los alumnos de un grupo y el recuento de
+// sus notas, o sea lo mismo que la planilla.
+Route::get('planilla-offline/acta/{importacion_id}', [PlanillaOfflineController::class, 'getActa'])->middleware('auth.personal');
 
 // BoletinIndependienteController
 //

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Grupo;
+use App\Support\Autoriza;
 use App\Support\EscalaDeNotas;
 use App\Support\ParecidoDeNombres;
 use App\Support\RepartoDeLaNota;
@@ -133,6 +134,9 @@ class EnsayoDeLaPlanilla
 
     /** @var list<array<string, mixed>> */
     private array $bloqueosResueltos = [];
+
+    /** Coordinación confirmó que sube por otro (D4). Sin esto, `EscrituraDeNotasImportadas` no escribe. */
+    private bool $porOtroConfirmado = false;
 
     /** @var list<array<string, mixed>> */
     private array $hojas = [];
@@ -453,16 +457,56 @@ class EnsayoDeLaPlanilla
             return;
         }
 
-        $this->bloqueos[] = [
-            'tipo' => 'libro_de_otro_docente',
+        $deQuien = $this->profesorDelLibro === null
+            ? 'otro docente'
+            : trim(($this->profesorDelLibro->nombres ?? '').' '.($this->profesorDelLibro->apellidos ?? ''));
+
+        /*
+         * ── LA D4, Y POR QUÉ SON DOS PREGUNTAS Y NO UNA ──────────────────────────
+         *
+         * `puedeSubirLaPlanillaDeOtro` contesta **si esta persona puede**; es un
+         * permiso del colegio entero y no dice nada de *este* archivo. La segunda
+         * pregunta es si **quiso**, y esa se contesta sobre el libro que tiene
+         * delante.
+         *
+         * Hacen falta las dos porque el permiso es ancho de por sí: quien lo tiene
+         * lo tiene para los cincuenta y tres docentes, así que confundirse de
+         * archivo —o subir el que un compañero dejó en la carpeta compartida— es
+         * escribir las notas de un grupo que nadie ha mirado. Un bloqueo que hay
+         * que resolver a mano obliga a **leer de quién es el libro antes de que
+         * pase nada**, y el motivo lo dice con su nombre.
+         *
+         * Es la misma forma que `firma_rota` unas líneas más arriba, y no por
+         * simetría: las dos son «se puede seguir, pero no en silencio».
+         */
+        if (! Autoriza::puedeSubirLaPlanillaDeOtro($this->usuario)) {
+            $this->bloqueos[] = [
+                'tipo' => 'libro_de_otro_docente',
+                'hoja' => null,
+                'motivo' => 'Este libro es de '.$deQuien.', y cada docente sólo puede subir el suyo. '
+                    .'Subir la planilla de otro es cosa de coordinación académica.',
+            ];
+
+            return;
+        }
+
+        $bloqueo = [
+            'tipo' => 'subir_por_otro',
             'hoja' => null,
-            'motivo' => 'Este libro es de '
-                .($this->profesorDelLibro === null
-                    ? 'otro docente'
-                    : trim(($this->profesorDelLibro->nombres ?? '').' '.($this->profesorDelLibro->apellidos ?? '')))
-                .', y por ahora cada docente sólo puede subir el suyo. Subir la planilla de otro '
-                .'(coordinación) es la fase 5 de «notas sin internet», y viene con el acta de lo que entró.',
+            'motivo' => 'Este libro es de '.$deQuien.'. Usted puede subirlo por esa persona, pero '
+                .'confírmelo antes: lo que entre quedará registrado a nombre de los dos, y el acta '
+                .'dirá quién lo subió y por quién.',
         ];
+
+        if ($this->respuestas->confirmaSubirPorOtro()) {
+            $bloqueo['resuelto_por'] = 'confirmo';
+            $this->bloqueosResueltos[] = $bloqueo;
+            $this->porOtroConfirmado = true;
+
+            return;
+        }
+
+        $this->bloqueos[] = $bloqueo;
     }
 
     // ── Una hoja ─────────────────────────────────────────────────────────────
@@ -2216,6 +2260,26 @@ class EnsayoDeLaPlanilla
                 ],
                 'descargado_at' => $cabecera['generado'] ?? null,
                 'es_mio' => $this->esMio,
+
+                /*
+                 * Los dos que la pantalla necesita para no adivinar: `puede_por_otro`
+                 * decide si enseña la confirmación o el callejón sin salida, y
+                 * `por_otro_confirmado` si el botón de importar puede encenderse.
+                 * Con el libro propio los dos son irrelevantes y van en `false`.
+                 */
+                /*
+                 * `colegioOk` TAMBIEN, y no es de adorno: cuando el libro es de otro
+                 * colegio o de otro año, el metodo de arriba vuelve antes de mirar de
+                 * quien es, asi que `esMio` se queda en `false` por no haberse
+                 * preguntado nunca --no por ser de otro docente--. Sin esta condicion,
+                 * `! $esMio && puede…` da `true` y la pantalla ofreceria confirmar
+                 * «subo por esa persona» al lado de un bloqueo `libro_de_otro_sitio`
+                 * que ninguna confirmacion resuelve. Un boton que no lleva a ninguna
+                 * parte es peor que no tener boton.
+                 */
+                'puede_por_otro' => $this->colegioOk && ! $this->esMio
+                    && Autoriza::puedeSubirLaPlanillaDeOtro($this->usuario),
+                'por_otro_confirmado' => $this->porOtroConfirmado,
             ],
 
             // **UN PLAN RECORTADO NO PUEDE DECIR QUE SÍ**, y `null` no es `false`:
@@ -2277,6 +2341,15 @@ class EnsayoDeLaPlanilla
             'se_borran' => $cuentas['se_borran'],
             'se_quedan_fuera' => $cuentas['se_quedan_fuera'],
             'sin_pasar' => $cuentas['sin_pasar'],
+
+            /*
+             * **Ya se contaba por hoja y no salía de aquí** (`$cuentas` lo lleva desde
+             * la fase 3); lo que faltaba era publicarlo. Lo estrena el acta de la fase
+             * 5, que tiene que decir **por hoja** cuántas filas se descartaron, y
+             * dividir el total del libro entre las hojas después es imposible: la F6
+             * agrupa por fila, no por asignatura.
+             */
+            'filas_descartadas' => $cuentas['filas_descartadas'],
 
             // La frase corta de la fila: el motivo si la hoja se cae, y si no, lo que
             // queda por pasar. **`null` cuando no hay nada que decir**, para que la

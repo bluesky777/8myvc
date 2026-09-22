@@ -141,10 +141,32 @@ class EscrituraDeNotasImportadas
     /** Índice de `porHoja` por nombre de hoja, para no buscar en la lista. @var array<string,int> */
     private array $dondeVaLaHoja = [];
 
+    /**
+     * @param  ?string  $porCuentaDe  el docente dueño del libro, **sólo cuando no es
+     *                                quien sube** (D4, fase 5). Ver {@see porCuentaDe}.
+     */
     public function __construct(
         private object $usuario,
         private PuntoDeControlDeImportacion $punto,
+        private ?string $porCuentaDe = null,
     ) {}
+
+    /**
+     * **Las dos personas en cada línea de rastro**, cuando son dos.
+     *
+     * Coordinación puede subir la planilla de un docente (D4), y entonces el
+     * `created_by` de la nota es coordinación: el docente cuyo libro entró **no
+     * aparecería en ningún sitio**. Es exactamente el dato que hace falta el día
+     * que el docente y coordinación no están de acuerdo en qué se subió — el mismo
+     * día por el que existe el acta.
+     *
+     * Devuelve la línea tal cual cuando sube el dueño, que es el caso normal: una
+     * nota «por cuenta de sí mismo» sería ruido en todas las demás.
+     */
+    private function porCuentaDe(Auditoria $linea): Auditoria
+    {
+        return $this->porCuentaDe === null ? $linea : $linea->porCuentaDe($this->porCuentaDe);
+    }
 
     /**
      * Aplica el plan del ensayo.
@@ -330,13 +352,14 @@ class EscrituraDeNotasImportadas
         // fila se deshace, las líneas se deshacen con ella. Una línea por nota y no
         // una por archivo: la pregunta que la tabla contesta es «quién tocó ESTA
         // nota», y la respuesta tiene que poder ser «una planilla de Excel».
-        Auditoria::registrar()
-            ->editar('nota', (int) $nota->id)
-            ->deAlumno($alumnoId, NombreDelAlumno::de($alumnoId))
-            ->en(periodo: $periodoId)
-            ->de($anterior)
-            ->a($valor)
-            ->guardar();
+        $this->porCuentaDe(
+            Auditoria::registrar()
+                ->editar('nota', (int) $nota->id)
+                ->deAlumno($alumnoId, NombreDelAlumno::de($alumnoId))
+                ->en(periodo: $periodoId)
+                ->de($anterior)
+                ->a($valor)
+        )->guardar();
 
         if ($valor === null) {
             $this->hechos['notas_borradas']++;
@@ -526,9 +549,11 @@ class EscrituraDeNotasImportadas
             'origen' => 'planilla sin internet',
         ];
 
-        $linea = Auditoria::registrar()
-            ->deAlumno($alumnoId, NombreDelAlumno::de($alumnoId))
-            ->en(asignatura: $asignaturaId, periodo: $periodoId);
+        $linea = $this->porCuentaDe(
+            Auditoria::registrar()
+                ->deAlumno($alumnoId, NombreDelAlumno::de($alumnoId))
+                ->en(asignatura: $asignaturaId, periodo: $periodoId)
+        );
 
         if ($accion === Auditoria::BORRAR) {
             $linea->borrar('ausencia', $id)->de($valor);
@@ -620,10 +645,11 @@ class EscrituraDeNotasImportadas
                 [$this->usuario->user_id, $historialId, $id, $nombre.' -- '.$peso.'%', $ahora]
             );
 
-            Auditoria::registrar()
-                ->crear('subunidad', $id)
-                ->a(['definicion' => $nombre, 'porcentaje' => $peso, 'origen' => 'planilla sin internet'])
-                ->guardar();
+            $this->porCuentaDe(
+                Auditoria::registrar()
+                    ->crear('subunidad', $id)
+                    ->a(['definicion' => $nombre, 'porcentaje' => $peso, 'origen' => 'planilla sin internet'])
+            )->guardar();
 
             // **La subunidad y sus notas nacen juntas** (§5.1 del doc 10). Sin esto
             // queda una ventana en la que la definitiva se guarda sin el aporte del

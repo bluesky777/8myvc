@@ -225,9 +225,12 @@ los separa.
    escrito, y por un motivo que es el propio caso: ese indicador **no tiene columna en la hoja**, que
    es exactamente el problema del que avisa.
 3. **La escritura no está cronometrada.** El ensayo sí (§2.5). Medirla exige escribir en un colegio.
-4. **La D4 —coordinación sube por otro— es la fase 5** y hoy da **403 con el motivo dentro**. La
+4. ~~**La D4 —coordinación sube por otro— es la fase 5** y hoy da **403 con el motivo dentro**. La
    puerta de la descarga es más ancha (`Autoriza::puedeDescargarLaPlanillaDeOtro`) y la de escribir
-   no puede serlo sin el acta que esa fase trae.
+   no puede serlo sin el acta que esa fase trae.~~ **HECHO**, y con documento propio:
+   [52](52-el-acta-y-subir-por-otro.md). La de escribir salió **más estrecha que la de bajar** y no
+   igual de ancha —`Secretario` baja el libro y no lo sube—, y el acta existe: `GET
+   planilla-offline/acta/{id}`, en `.xlsx`. Ver también la §11 de este documento.
 5. ~~**Las ausencias y tardanzas (D5) son la fase 4.** El ensayo las cuenta y las declara como aviso
    con el motivo; la importación no escribe ni una.~~ **HECHO**, y con documento propio:
    [51](51-las-ausencias-de-la-planilla.md). `familias.ausencias` ya no son avisos, son decisiones —
@@ -584,3 +587,31 @@ y ahí se borran tres con sus fechas. Llamarlo `sube` lo metería en el grupo cu
 En ese caso concreto hay además una segunda red —`base !== espejo` lo convierte en choque y gana el
 sistema—, pero **la red no vale como argumento**: un libro de formato 1 no tiene espejo de
 asistencia y ahí la dirección es lo único que separa «añadir» de «borrar».
+
+---
+
+## 11 · Lo que la fase 5 movió de aquí — 21 sep 2026
+
+La fase 5 (coordinación y el acta, [52](52-el-acta-y-subir-por-otro.md)) tocó tres cosas que este
+documento da por fijas. Se anotan aquí, al lado de donde se leen, y no sólo allí:
+
+1. **`exigirQueElLibroSeaSuyo` ya no existe**: se llama `exigirPoderSubirEsteLibro` y tiene **dos**
+   puertas. La primera es la de siempre —el dueño—; la segunda es
+   `Autoriza::puedeSubirLaPlanillaDeOtro`. Un docente ajeno **sin** ese permiso sigue recibiendo el
+   mismo 403 de siempre en `POST planilla-offline/importar`.
+
+   Y ahí estaba el agujero que la fase 5 encontró: el bloqueo `subir_por_otro` del ensayo se había
+   escrito antes, y **el controlador cortaba con 403 tres líneas antes de que el ensayo corriera**.
+   El camino existía entero y era inalcanzable por la única ruta que escribe. En `ensayo` sí
+   funcionaba —esa ruta no tiene la guarda—, así que el síntoma habría sido: la pantalla ofrece la
+   confirmación, el usuario la marca, y al importar sale un 403 que no tiene que ver con nada de lo
+   que acaba de leer.
+
+2. **`RespuestasDeLaPlanilla::NO_APLICADAS` sigue vacía, y `APLICADAS` tiene una más**: `por_otro`.
+   Era el mecanismo que la §10.1 decía que «se queda montado para la fase 5», y se usó tal cual.
+
+3. **`libro` lleva dos campos nuevos en el contrato del ensayo**: `puede_por_otro` y
+   `por_otro_confirmado`, para que la pantalla no tenga que deducir si enseña la confirmación o el
+   callejón sin salida. Y `por_hoja[]` lleva `filas_descartadas`, que **ya se contaba por hoja y no
+   salía**: lo estrena el acta, que tiene que decirlo por hoja y no puede dividir el total del libro
+   después —la F6 agrupa por fila, no por asignatura—.
