@@ -383,6 +383,33 @@ un solo año, con `RastroDeLaMigracion::anotar()` delante.
 
 ---
 
+## §7. La primera medición en pantalla: **cero desfase en tres muestras de tres años**
+
+La hizo `myvc-front-89` en Chrome el 22 sep 2026, en cuanto `4d8dd4c` hizo viajar
+`matriculas.updated_at` hasta la rejilla. Es la primera vez que este censo se comprueba
+**donde lo ve una persona** y no en una columna de la base:
+
+```
+matricula 2212 · celda «25 ene 2026, 11:07 p. m.» ↔ 2026-01-25 23:07:05
+matricula 1921 · celda «2 sep 2025, 8:12 p. m.»  ↔ 2025-09-02 20:12:27
+alumno    1    · celda «22 ago 2018, 6:59 p. m.» ↔ 2018-08-22 18:59:09
+```
+
+**Lo que hace válida la medida son los años, no las filas.** Están elegidas de 2018, 2025
+y 2026 a propósito: la enfermedad de §3 —EDT con horario de verano, una hora de más de
+marzo a noviembre y la correcta el resto— **se habría visto en una y no en las otras**.
+Tres coincidencias exactas en tres años distintos es lo que un desfase estacional no puede
+producir. Una sola fila no habría dicho nada.
+
+De paso salió que `buscar/por-apellido` **nunca estuvo rota**: su consulta ya seleccionaba
+`a.updated_at` (`BuscarController.php:12`), sólo que no había columna que lo pintara.
+
+> **Y lo que esta medición NO demuestra**, que es la mitad del renglón: dice que **el front
+> no mete desfase**, no que la hora escrita sea la correcta. Para eso hace falta comparar
+> contra líneas de `auditoria`, y hoy **`matricula` no tiene ni una**: el censo de
+> entidades da `nota 7339 · subunidad 496 · comportamiento 255 · …` y ni `matricula` ni
+> `alumno`. La medida se repite cuando la fase 4 instrumente esa tabla.
+
 ## El precio de mudar una tabla, visto en dos filas
 
 La mudanza de `importaciones` (§6.4) se hizo porque **no había filas viejas**. Unas horas
