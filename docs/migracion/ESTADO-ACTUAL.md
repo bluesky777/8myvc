@@ -112,6 +112,30 @@
 > aditivas. Ninguna de las dos escribe sus filas de auditoría antes del `UPDATE` — decisión
 > 7, y es lo que se construye ahora para que la siguiente no pueda repetirlo.
 >
+> **2.bis · COMPROBACIÓN QUE VA ANTES DEL DESPLIEGUE, no después** — la trajo
+> `8myvc-b8` con `560af5f`, que mudó `importaciones` a hora de Bogotá:
+>
+> ```sql
+> SELECT COUNT(*) FROM importaciones;   -- en los DIECISIETE
+> ```
+>
+> **Si sale 0 en todos, el cambio es gratis y se despliega.** Si alguno tiene filas, esas
+> fechas se quedaron en UTC, quedan cinco horas por delante de las nuevas, y **la decisión
+> de mudar la tabla vuelve a estar abierta**: sería exactamente la enfermedad que `Reloj`
+> vino a curar, dos relojes en una columna.
+>
+> El cambio se autorizó porque la tabla parecía vacía —es del 20 ago, la importación de
+> alumnos es de principios de año y la de notas la está construyendo el front—. **Pero la
+> base de desarrollo tiene 2 filas**, contadas el 22 sep: eso no dice nada de los
+> diecisiete, y sí dice que la tabla se escribe en la práctica y que la cuenta no es una
+> formalidad.
+>
+> *Y la lección, que es de Joseth y vale para cualquier decisión bloqueada:* la excepción
+> llevaba un mes en pie por un coste —«reparar las filas viejas»— que **nadie había
+> comprobado que existiera**. Preguntó «¿y hay filas?» y no las había. **Un coste que
+> bloquea una decisión se mide sobre los datos que hay, no sobre los que la tabla podría
+> tener.**
+>
 > **3 · Y sigue pendiente de antes**: redesplegar los dieciséis por el arreglo del reloj
 > —los tres relojes en la misma comparación—, que se cerró el 21 sep y no ha llegado a
 > ningún colegio.
