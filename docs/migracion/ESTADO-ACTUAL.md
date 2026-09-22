@@ -41,6 +41,18 @@
 > | **L2** | El contrato con `myvc_front`: la columna y el modal | tras L1 |
 > | **L3…** | Ensanchar la fase 4 por dominio. Hoy **42 de 221 métodos con rastro; 178 sin ninguno** (`tools/escrituras-sin-auditoria.php`, que **no ve Eloquent**: 178 es suelo) | en curso |
 >
+> ### Hecho el 21 sep, `88beb44` — la decisión 7
+>
+> `auditoria` gana **`valor_anterior_num` / `valor_nuevo_num`** (`int`, nullable, sin
+> índice): restaurar deja de necesitar funciones de JSON, que en MariaDB 10.5 no son lo
+> mismo que en el MySQL 8 del docker. Las rellena `de()`/`a()` sólo si el valor es un
+> entero exacto. **Queda escrito y sin construir**: una migración que sobrescribe datos
+> escribe sus filas de auditoría antes, en UNA sentencia con el mismo `WHERE`. De 48
+> migraciones, 7 tocan datos y **4 sobrescriben lo que ya existía** — una es
+> `el_correo_del_acudiente_en_su_cuenta`, que pisa `users.email` sin dejar rastro.
+> Y falta el `tools/` que liste, antes de desplegar, qué migraciones de la tanda escriben
+> datos.
+>
 > Las tres reglas de respuesta que no vuelven a preguntarse: las rutas nuevas son
 > **aditivas** (no retiran nada hasta la fase 7), **un vacío es `200` con lista vacía y
 > nunca un `400`**, y el modal lee de `auditoria`, jamás de `bitacoras`.

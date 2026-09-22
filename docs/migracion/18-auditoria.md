@@ -1094,6 +1094,75 @@ Lo único que el espejo compra de verdad es *reconstruir la fila entera tal cual
 estaba*. Eso ya cabe donde está: `valor_anterior` y `valor_nuevo` son `json`, y una
 fila completa entra. **Se hace en la tabla que lo necesite, no en noventa.**
 
+### La séptima, contestada el 21 sep 2026 — la trajo una nota que no se podía recuperar
+
+**El caso, que es de verdad y es de esta semana.** La migración
+[`2026_09_19_500000_la_casilla_vacia.php`](../../database/migrations/2026_09_19_500000_la_casilla_vacia.php)
+vació **20.655** notas en la copia de desarrollo, y su `down()` dice por escrito que no
+las devuelve a donde estaban. Se recuperan —el `WHERE` sólo tocó filas que nadie había
+editado nunca, así que valían el `nota_default` de su subunidad, y los seis caminos que
+escriben `notas.nota` sellan `updated_by`—, pero eso fue **suerte, no diseño**: si hubiera
+tocado filas ya calificadas, hoy no habría de dónde sacarlas.
+
+**[DECISIÓN 7] Dos columnas enteras al lado del JSON, y una migración que sobrescribe
+datos escribe sus filas de auditoría antes de sobrescribirlos.** Las dos mitades salen
+del mismo encargo de Joseth y hay que leerlas juntas.
+
+**La primera mitad: `valor_anterior_num` y `valor_nuevo_num`.** `int`, nullable, sin
+índice. Las rellena `Auditoria::de()`/`a()` **sólo cuando el valor es un entero exacto**;
+un decimal, una frase o una fila entera dejan `NULL` y el JSON conserva la verdad. El
+motivo no es la velocidad —a esta escala leer JSON de veinte mil filas no se nota— sino
+el motor: **en MariaDB 10.5 `json` es `LONGTEXT` con un `CHECK`**, y un script de
+restauración con `->>` pasa la suite en el docker y se comporta distinto en los
+dieciséis. Y es `int`, no «tres dígitos»: **la celda espejo tiene el mismo tipo que la
+columna que espeja**.
+
+**La segunda mitad: la migración escribe su propia historia.** Lo propuse primero como
+una tabla de respaldo aparte y **Joseth lo corrigió en el sitio**: serían dos mecanismos
+y el mismo dato dos veces, cuando lo que se quiere es que *cada cambio cree su fila de
+historia*. Tiene razón. Lo que no cambia es el porqué hace falta escribirlo a mano:
+**una migración no pasa por la aplicación**. `Auditoria` es un servicio PHP que vive
+dentro de una petición —con actor, sesión, IP y ruta—; una migración es SQL contra la
+base. Si no lo escribe la migración, no lo escribe nadie.
+
+Y es **una sentencia, no un bucle**: el mismo `WHERE` del `UPDATE`, corrido antes.
+
+```sql
+INSERT INTO auditoria (accion, entidad, entidad_id, actor_tipo, valor_anterior_num,
+                       resumen, ruta, ocurrido_en)
+SELECT 'editar', 'nota', n.id, 'sistema', n.nota,
+       'migración: la casilla vacía', '2026_09_19_500000', ?
+  FROM notas n /* ... el mismo JOIN y el mismo WHERE que el UPDATE ... */;
+```
+
+**No es trabajo en cada despliegue, y el número lo dice.** Medido el 21 sep 2026:
+
+| | |
+|---|---|
+| migraciones en total | **48** |
+| tocan datos | **7** |
+| de ésas, sólo siembran —un rol, dos permisos—: nada que perder, `down()` las deshace | 3 |
+| **sobrescriben datos que ya existían** | **4** |
+
+```bash
+ls database/migrations/*.php | wc -l
+grep -lE "DB::update\(|DB::delete\(|DB::insert\(|DB::table\([^)]*\)->(update|delete|insert)" \
+    database/migrations/*.php | wc -l
+```
+
+Las cuatro son `la_casilla_vacia` (notas), `reparar_la_hora_escrita_dos_veces`,
+`interruptores_de_certificados` (`years`) y **`el_correo_del_acudiente_en_su_cuenta`, que
+hace `UPDATE users SET email` fila a fila y se lleva por delante el correo anterior sin
+dejar rastro** — el mismo fallo de la casilla vacía, en otra tabla, y nadie lo había
+mirado. Cuatro de cuarenta y ocho, y una sentencia cada una.
+
+> **Y la parte que no es técnica.** Joseth dijo que no leyó el `UPDATE` de esa migración
+> «entre tanto texto», y tiene razón: una migración que destruye datos no puede ser
+> legible sólo dentro de un docblock de 160 líneas. Falta un `tools/` que, antes de
+> desplegar, liste **qué migraciones de la tanda escriben datos** y lo ponga delante en
+> tres líneas. `ensayo-de-la-tanda.sh` contesta si la tanda corre y cuánto tarda, **no
+> qué se lleva por delante**.
+
 ## Lo que se arregla de camino, y no cuesta aparte
 
 - `Bitacora::saveUpdateNota()` **no lo llama nadie**: código muerto, y sin ruta.

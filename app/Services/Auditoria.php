@@ -249,6 +249,8 @@ final class Auditoria
         'year_id' => null,
         'valor_anterior' => null,
         'valor_nuevo' => null,
+        'valor_anterior_num' => null,
+        'valor_nuevo_num' => null,
         'resumen' => null,
         'ip' => null,
         'ruta' => null,
@@ -341,6 +343,7 @@ final class Auditoria
     public function de(mixed $valor): self
     {
         $this->fila['valor_anterior'] = $this->aJson($valor);
+        $this->fila['valor_anterior_num'] = $this->aEntero($valor);
 
         return $this;
     }
@@ -349,6 +352,7 @@ final class Auditoria
     public function a(mixed $valor): self
     {
         $this->fila['valor_nuevo'] = $this->aJson($valor);
+        $this->fila['valor_nuevo_num'] = $this->aEntero($valor);
 
         return $this;
     }
@@ -615,6 +619,46 @@ final class Auditoria
      * null **de JSON** y no un NULL de SQL: `valor_anterior IS NULL` dejaría de
      * encontrarlo. Son dos cosas distintas y la pantalla filtra por la segunda.
      */
+    /**
+     * El mismo valor, en un entero, **cuando cabe sin perder nada**. Si no, `null`.
+     *
+     * Es la copia que hace que restaurar sea `UPDATE notas n JOIN auditoria a ...
+     * SET n.nota = a.valor_anterior_num`, sin una sola función de JSON. El motivo
+     * entero está en la cabecera de la migración `2026_09_21_200000`: en MariaDB
+     * 10.5 `json` es `LONGTEXT` con un `CHECK`, y lo que se escribe contra el
+     * docker con MySQL 8 no es lo que corre en los dieciséis.
+     *
+     * **`null` no es un fallo, es la respuesta correcta** para todo lo que no sea
+     * un entero exacto: una frase, una fila entera, un `43.75`. El JSON de al lado
+     * conserva la verdad, y esta columna no la aproxima nunca — una nota
+     * restaurada desde un valor redondeado sería peor que no restaurarla.
+     */
+    private function aEntero(mixed $valor): ?int
+    {
+        if (is_bool($valor) || ! is_scalar($valor) || ! is_numeric($valor)) {
+            return null;
+        }
+
+        $numero = $valor + 0;
+
+        // Un decimal de verdad se queda fuera: ver arriba. `43.0` sí entra.
+        if (is_float($numero) && (float) (int) $numero !== $numero) {
+            return null;
+        }
+
+        $entero = (int) $numero;
+
+        // Fuera del rango de un `int` de MySQL no se escribe. El docker lo
+        // truncaría en silencio y MariaDB abortaría la fila entera —y con ella
+        // el rastro—, que son las dos formas de perder el dato que se quería
+        // guardar. El JSON ya lo tiene.
+        if ($entero < -2147483648 || $entero > 2147483647) {
+            return null;
+        }
+
+        return $entero;
+    }
+
     private function aJson(mixed $valor): ?string
     {
         if ($valor === null) {
