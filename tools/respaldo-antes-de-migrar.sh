@@ -80,9 +80,15 @@ fi
 
 # `cut -d= -f2-` y no `-f2`: una clave con un `=` dentro es normal y partirla por el
 # primero la deja a medias sin decir nada.
+#
+# Y el `tr -d '\r'` no es precaución: los `.env` de la cuenta de `lalvirtual` tienen
+# fin de línea de Windows (visto el 22 sep 2026), así que el nombre de la base salía
+# como `micolevi_lalvirtual\r`. El error que da MySQL es «Incorrect database name», y
+# el retorno de carro **se come la mitad del propio mensaje** al imprimirlo, así que
+# ni siquiera se lee entero. Los de `micolev1` son LF y ahí no pasaba nada.
 leer_del_env() {
     local clave="$1" valor
-    valor=$(grep -m1 "^${clave}=" .env | cut -d= -f2-)
+    valor=$(grep -m1 "^${clave}=" .env | cut -d= -f2- | tr -d '\r')
     valor="${valor%\"}"
     valor="${valor#\"}"
     valor="${valor%\'}"

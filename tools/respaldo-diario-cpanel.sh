@@ -92,11 +92,14 @@ FALLADOS=""
 for carpeta in $RAIZ; do
     [ -f "${carpeta}/.env" ] || continue
 
-    base=$(grep -m1 '^DB_DATABASE=' "${carpeta}/.env" | cut -d= -f2- | tr -d '"'"'"'')
-    usuario=$(grep -m1 '^DB_USERNAME=' "${carpeta}/.env" | cut -d= -f2- | tr -d '"'"'"'')
-    clave=$(grep -m1 '^DB_PASSWORD=' "${carpeta}/.env" | cut -d= -f2- | tr -d '"'"'"'')
-    servidor=$(grep -m1 '^DB_HOST=' "${carpeta}/.env" | cut -d= -f2- | tr -d '"'"'"'')
+    base=$(grep -m1 '^DB_DATABASE=' "${carpeta}/.env" | cut -d= -f2- | tr -d '\r' | tr -d '"'"'"'')
+    usuario=$(grep -m1 '^DB_USERNAME=' "${carpeta}/.env" | cut -d= -f2- | tr -d '\r' | tr -d '"'"'"'')
+    clave=$(grep -m1 '^DB_PASSWORD=' "${carpeta}/.env" | cut -d= -f2- | tr -d '\r' | tr -d '"'"'"'')
+    servidor=$(grep -m1 '^DB_HOST=' "${carpeta}/.env" | cut -d= -f2- | tr -d '\r' | tr -d '"'"'"'')
 
+    # El `tr -d '\r'` de arriba: los `.env` de la cuenta de `lalvirtual` vienen con
+    # fin de línea de Windows, y sin quitarlo la base se llama `nombre\r` y `mysqldump`
+    # contesta «Incorrect database name» con el mensaje medio pisado por el retorno.
     if [ -z "$base" ] || [ -z "$usuario" ]; then
         apuntar "SIN .env legible: ${carpeta}"
         MAL=$((MAL + 1))

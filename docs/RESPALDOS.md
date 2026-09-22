@@ -51,6 +51,18 @@ Tres cosas de esta pantalla que se pagan caro:
 La bitácora queda en `~/respaldos/diario/bitacora.log` y la tanda no rota si el día no
 quedó limpio: un día malo no se lleva por delante los días buenos.
 
+**Cuánto ocupa, medido el 22 sep 2026** y no estimado: los **17** volcados de `micolev1`
+—dieciséis colegios más `demo`— suman **252 MB** comprimidos. Los extremos son `quibdo` con
+43 MB y `coab_saravena` con 38 MB; el más pequeño, `colbosque_tame`, 2,3 MB. Con siete días
+son ~1,8 GB, que es de donde sale el `TOPE_MB=4000` de fábrica: avisa antes de que la cuota
+apriete, no cuando ya apretó.
+
+> **Y un tropiezo que costó dos intentos**: los `.env` de la cuenta de `lalvirtual` tienen fin de
+> línea de Windows, así que el nombre de la base sale como `micolevi_lalvirtual\r`. MySQL contesta
+> «Incorrect database name» y **el retorno de carro se come la mitad del propio mensaje** al
+> imprimirlo, así que ni se lee entero. Los dos guiones lo quitan; un bucle escrito a mano en la
+> terminal, no.
+
 ## 2. Lo que hay que preguntarle al proveedor — las cuatro preguntas
 
 El proveedor **puede** estar haciendo copias diarias ya; también puede no estar
