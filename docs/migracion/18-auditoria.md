@@ -792,14 +792,40 @@ lista de trabajo de la fase 4 y la que dice cuándo está terminada.
 > escriben con Eloquent no lo mide**, y `matriculas` es una de ellas. Quien la publique
 > tiene que decir de qué población habla.
 >
-> ##### Lo que de `matriculas` sigue SIN rastro
+> ##### Lo que de `matriculas` sigue SIN rastro — **recontado, porque la primera lista estaba mal**
 >
-> `ChangeAskedController::putAceptarAlumno`,
-> `DetallesController::putEliminarMatriculaDestroy`,
-> `LoginController::putCrearPrematricula`, `FormulariosInscripcionController`,
-> `FusionDeAlumnos::fusionar` y el importador de alumnos. **El modal de una matrícula
-> tocada por esos caminos sale vacío o incompleto**, y eso es indistinguible de «no se
-> tocó». Van en su propio lote.
+> La lista que se publicó aquí el 22 sep nombraba a
+> `ChangeAskedController::putAceptarAlumno`, `FormulariosInscripcionController` y
+> `FusionDeAlumnos::fusionar`. **Los tres tocan `matriculas` sólo con un `JOIN` para
+> leer.** Salió de copiar la salida de `tools/escrituras-sin-auditoria.php` sin mirar
+> **qué tabla** escribía cada fila —la herramienta agrupa por método, no por tabla—, que
+> es exactamente lo que su cabecera advierte. Y se dejaba fuera cuatro que sí escriben.
+>
+> **El censo se hace buscando la escritura, no el nombre:**
+>
+> ```bash
+> grep -rnE "(INSERT INTO|UPDATE|DELETE FROM) +matriculas" app/
+> grep -rn "new Matricula|Matricula::findOrFail|Matricula::onlyTrashed" app/
+> ```
+>
+> **Ya con rastro** (`1a81f6e`, `952bc6f`): los diez de `MatriculasController`, las dos
+> rutas de `Matricula::matricularUno()`, el borrado **físico** de
+> `DetallesController::putEliminarMatriculaDestroy` y las dos escrituras públicas de
+> `LoginController::putCrearPrematricula`, éstas con `sinActor()` porque el endpoint no
+> tiene sesión.
+>
+> **Sin rastro todavía:** `Alumnos/GuardarAlumno`, `Alumnos/ImportarController`,
+> `PromovidosController`, `AlumnosController:385` y `ProfesoresController:203` —los dos
+> crean con `new Matricula`— y una escritura de `PrematriculasController`. **El modal de
+> una matrícula tocada sólo por esos caminos sale vacío**, y eso es indistinguible de
+> «no se tocó».
+>
+> Y una que **no es trabajo sino decisión**: `PromovidosController` recalcula la
+> promoción de un grupo entero en un `foreach`. La regla de esta casa dice «se audita el
+> acto y no la fila», y el acto es **un** recálculo; pero la columna «Historial» enseña
+> las líneas **de una matrícula concreta**, así que una sola línea por grupo no aparece
+> en el modal de ningún alumno. Las dos lecturas son defendibles y **la decisión es de
+> Joseth**, no de la sesión que pase por ahí.
 
 Por dominio, y en este orden, porque es el orden en que se reclama:
 
