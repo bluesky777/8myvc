@@ -517,6 +517,71 @@ class AuditoriaDeLasMatriculasTest extends CasoDeContrato
     }
 
     /**
+     * El recálculo de promoción deja línea **por matrícula** y **con `actor_tipo`
+     * de sistema** — y la segunda pulsación seguida **no deja ninguna**.
+     *
+     * Las dos mitades son la misma decisión vista por sus dos lados, y por eso van
+     * en el mismo caso:
+     *
+     * - **Por matrícula y no una por el acto**, aunque la regla de la casa sea «se
+     *   audita el acto y no la fila». Aquí esa regla se rompería a sí misma: el modal
+     *   se sirve por `auditoria/entidad/matricula/{id}`, que filtra por `entidad_id`,
+     *   así que una línea de acto con `entidad_id` nulo **no aparecería en el
+     *   historial de ningún alumno** — y la pregunta que esto contesta es de un
+     *   alumno concreto.
+     * - **Sólo si cambió**, que es lo que hace viable lo anterior. El cálculo es
+     *   idempotente: repetirlo reescribe las mismas filas con los mismos valores. Sin
+     *   esa guarda, cada pulsación metería una línea por alumno diciendo lo mismo, y
+     *   con el tope de 300 del lector ocho pulsaciones dejan una matrícula sin
+     *   historial visible.
+     *
+     * El caso fuerza el cambio poniendo un `promovido` que el cálculo no puede
+     * devolver, en vez de confiar en que el seed esté en el estado bueno: un caso que
+     * dependa del valor que traiga el seed pasa o falla por razones que no son las
+     * suyas.
+     */
+    public function test_el_recalculo_de_promocion_deja_linea_solo_cuando_cambia(): void
+    {
+        $token = $this->tokenDeSuperusuario();
+
+        $matricula = DB::selectOne("SELECT m.id, m.alumno_id, m.grupo_id
+              FROM matriculas m
+             INNER JOIN grupos g ON g.id = m.grupo_id AND g.deleted_at IS NULL
+             INNER JOIN years y ON y.id = g.year_id AND y.actual = 1 AND y.deleted_at IS NULL
+             WHERE m.deleted_at IS NULL AND m.estado IN ('MATR','ASIS','PREM')
+             ORDER BY m.id LIMIT 1");
+
+        $this->assertNotNull($matricula, 'El seed necesita una matrícula viva del año actual.');
+
+        DB::update('UPDATE matriculas SET promovido = ? WHERE id = ?',
+            ['Sin calcular todavía', $matricula->id]);
+
+        $llamar = fn () => $this->withToken($token)
+            ->putJson('/api/promovidos/calcular-grupo', ['grupo_id' => $matricula->grupo_id])
+            ->assertStatus(200);
+
+        $llamar();
+
+        $lineas = $this->lineasDe((int) $matricula->id);
+
+        $this->assertCount(1, $lineas, 'El recálculo no dejó la línea de esta matrícula.');
+        $this->assertSame(Auditoria::EDITAR, $lineas[0]->accion);
+        $this->assertSame('sistema', $lineas[0]->actor_tipo,
+            'La línea se atribuye a una persona: nadie tecleó este cálculo.');
+        $this->assertNull($lineas[0]->actor_user_id);
+        $this->assertSame('Sin calcular todavía',
+            json_decode((string) $lineas[0]->valor_anterior, true)['promovido'],
+            'El valor anterior se leyó después de machacarlo en memoria.');
+        $this->assertEquals($matricula->alumno_id, $lineas[0]->alumno_id);
+
+        // Y la segunda, que es la mitad que evita llenar el historial de ruido.
+        $llamar();
+
+        $this->assertCount(1, $this->lineasDe((int) $matricula->id),
+            'La segunda pulsación volvió a anotar un cambio que no ocurrió.');
+    }
+
+    /**
      * **Y el control que dice que estos casos miden algo**: sin tocar nada, la
      * matrícula no tiene líneas.
      *

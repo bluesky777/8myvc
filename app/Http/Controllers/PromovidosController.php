@@ -2,6 +2,7 @@
 
 
 
+use App\Services\Auditoria;
 use App\Support\Reloj;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
@@ -53,6 +54,16 @@ class PromovidosController extends Controller {
 		
 
 		foreach ($alumnos as $alumno) {
+
+			/*
+			 * **El valor viejo se guarda AQUÍ y no junto al `UPDATE`**, porque para
+			 * entonces ya no existe: `definitivasMateriasXPeriodo()` pone `promedio` y
+			 * `cant_lost_asig` a cero en la línea siguiente, y `$alumno->promovido` se
+			 * machaca unas líneas más abajo con el diagnóstico nuevo. `Grupo::alumnos()`
+			 * ya trae los cuatro en la misma consulta, así que esto no cuesta ni una
+			 * consulta más — que es la condición para poder auditar dentro de un bucle.
+			 */
+			$promovidoAntes = $alumno->promovido;
 
 			// Todas las materias con sus unidades y subunides
 			$this->definitivasMateriasXPeriodo($alumno, $grupo_id, $this->user->year_id, $year->periodos, $this->user->si_recupera_materia_recup_indicador );
@@ -149,6 +160,48 @@ class PromovidosController extends Controller {
 				':matricula_id' => $alumno->matricula_id,
 				':actualizado' => Reloj::ahora(),
 			]);
+
+			/*
+			 * **Una línea por matrícula, y SÓLO si la promoción cambió de verdad.**
+			 *
+			 * Las dos mitades de esa frase son decisiones distintas y cada una tiene su
+			 * motivo:
+			 *
+			 * **Por matrícula, y no una por el acto.** La regla de la casa es «se audita
+			 * el acto y no la fila» —un reseteo de 2.358 contraseñas deja UNA línea—,
+			 * pero aquí esa regla se rompería a sí misma: el modal de «Historial» se
+			 * sirve por `auditoria/entidad/matricula/{id}`, que filtra por `entidad_id`,
+			 * así que **una línea de acto con `entidad_id` nulo no aparece en el
+			 * historial de ningún alumno**. Y la pregunta que esto contesta es
+			 * exactamente de un alumno: «¿por qué figuro como no promovido?».
+			 *
+			 * **Sólo si cambió, y eso es lo que hace viable lo anterior.** Este cálculo
+			 * es idempotente —medido: segunda llamada seguida, 37 `UPDATE` y **0 filas
+			 * distintas**— así que sin este `if` cada pulsación del botón metería una
+			 * línea por alumno diciendo lo mismo. Con el tope de 300 del lector, ocho
+			 * pulsaciones dejarían una matrícula sin historial visible. Un recálculo que
+			 * no cambia nada **no es un hecho que contar**.
+			 *
+			 * **`porElSistema()`** porque no lo tecleó nadie, y es lo que el comentario
+			 * de arriba ya daba por hecho al decir que la diferencia persona/sistema «la
+			 * distingue `actor_tipo` en la línea de auditoría». Hasta hoy esa línea no
+			 * existía y la frase apuntaba a un sitio vacío.
+			 *
+			 * `$res` se mira además del cambio de valor: el `UPDATE` lleva
+			 * `AND promovido NOT LIKE '%(manual)%'`, así que en una decidida a mano no
+			 * toca nada y no hay nada que anotar.
+			 */
+			if ($res > 0 && $promovidoAntes !== $diagnostico) {
+				Auditoria::registrar()
+					->editar('matricula', (int) $alumno->matricula_id)
+					->deAlumno((int) $alumno->alumno_id)
+					->en(grupo: (int) $grupo_id, year: (int) $this->user->year_id)
+					->de(['promovido' => $promovidoAntes])
+					->a(['promovido' => $diagnostico])
+					->porElSistema()
+					->resumen('El recálculo del grupo cambió la promoción a «'.$diagnostico.'»')
+					->guardar();
+			}
 			
 			
 		}
