@@ -143,6 +143,62 @@ class Subunidad extends Model {
 	}
 	
 
+	/**
+	 * Las mismas filas que {@see deUnidadCalculada}, pero de **varias unidades a la
+	 * vez** y agrupadas por la suya.
+	 *
+	 * Existe desde el 22 sep 2026, cuando la nota de unidad dejó el SQL y pasó a
+	 * calcularse en PHP: sin esto, `Unidad::deAsignaturaCalculada` habría necesitado
+	 * **una consulta por unidad** para poder sumar, que sobre un boletín de grupo son
+	 * cuatro por asignatura y por alumno. Con el `IN` es **una por asignatura**.
+	 *
+	 * **La consulta es la de la hermana con dos cambios y ni uno más**: el `IN` en vez
+	 * del `=`, y `s.unidad_id` en el `SELECT` para poder agrupar al volver. Se escribe
+	 * así a propósito —copiada y no factorizada— porque la de al lado es contrato de
+	 * cuatro informes y una plantilla compartida haría que tocar una moviera la otra
+	 * sin que nadie lo pidiera.
+	 *
+	 * Con la lista vacía devuelve `[]` **sin ir a la base**: un `IN ()` es un error de
+	 * sintaxis en MySQL, y una asignatura sin unidades es un caso normal, no un fallo.
+	 *
+	 * @param  list<int>  $unidad_ids
+	 * @return array<int, list<object>>  unidad_id => sus subunidades, en orden
+	 */
+	public static function deLasUnidadesCalculadas(array $unidad_ids, $alumno_id, $year_id): array
+	{
+		if ($unidad_ids === []) {
+			return [];
+		}
+
+		$modo = RepartoDeLaNota::modoDelAnio($year_id);
+
+		$marcas = implode(',', array_fill(0, count($unidad_ids), '?'));
+
+		$consulta = 'SELECT s.unidad_id, n.id as nota_id, s.id as subunidad_id, s.definicion as definicion_subunidad, s.porcentaje as porcentaje_subunidad,
+						s.nota_default, s.orden as orden_subunidad, s.inicia_at, s.finaliza_at, '.RepartoDeLaNota::valorDeLaNota($modo).' as valor_nota, n.nota, e.desempenio,
+						n.nota_original, n.nota_nivelacion, n.nivelada_at, n.nivelacion_obs,
+						s.definicion, s.porcentaje, e.desempenio, IF(n.nota<?, "nota-perdida-bold", "") as clase_perdida, n.nota
+					FROM subunidades s
+					left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and n.alumno_id=?
+					left join escalas_de_valoracion e ON e.porc_inicial<=n.nota and n.nota < e.porc_final + 1 and e.deleted_at is null and e.year_id=?
+					where s.unidad_id IN ('.$marcas.') and s.deleted_at is null
+					order by s.unidad_id, s.orden';
+
+		$filas = DB::select($consulta, array_merge(
+			[User::$nota_minima_aceptada, $alumno_id, $year_id],
+			array_map('intval', $unidad_ids)
+		));
+
+		$porUnidad = [];
+
+		foreach ($filas as $fila) {
+			$porUnidad[(int) $fila->unidad_id][] = $fila;
+		}
+
+		return $porUnidad;
+	}
+
+
 	public static function notas($subunidad_id)
 	{
 		$notas = Nota::where('subunidad_id', '=', $subunidad_id)->get();

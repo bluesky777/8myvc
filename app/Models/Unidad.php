@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 
 use App\Models\Debugging;
+use App\Support\LaParcialYLaCobertura;
 use App\Support\RepartoDeLaNota;
 use App\Support\SellaConElReloj;
 
@@ -176,68 +177,121 @@ class Unidad extends Model {
 		 */
 		$alcance = \App\Services\BoletinIndependiente::alcance((int) $alumno_id, (int) $periodo_id);
 
-		if($con_desempenio==='fortaleza_debilidad'){
-			
-			$consulta = 'SELECT u.id as unidad_id, u.definicion as definicion_unidad, u.porcentaje as porcentaje_unidad, IF('.RepartoDeLaNota::notaDeLaUnidad($modo).' < :nota_minima, "Debilidad", "Fortaleza") as desempenio,
-							u.asignatura_id, u.orden as orden_unidad, u.periodo_id, '.RepartoDeLaNota::notaDeLaUnidad($modo).' as nota_unidad
-						FROM unidades u
-						left join subunidades s ON s.unidad_id=u.id and s.deleted_at is null
-						left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and n.alumno_id=:alumno_id
-						where u.asignatura_id=:asignatura_id and u.periodo_id=:periodo_id and u.deleted_at is null and u.alumno_id <=> :alcance
-						group by u.id 
-						order by u.orden, u.id';
+		/*
+		 * ═══ LA NOTA DE LA UNIDAD SE CALCULA AQUÍ, EN PHP, DESDE EL 22 SEP 2026 ═══
+		 *
+		 * Vivía dentro de la consulta —un `SUM` sobre dos `LEFT JOIN` y un `GROUP BY u.id`—
+		 * y bajó a PHP por encargo de Joseth: *«lo hice en SQL porque creí que era más
+		 * rápido para la página, además sólo se calculaba por porcentaje; hoy se podría
+		 * calcular por promedio a petición de cada colegio»*. Las dos mitades de esa frase
+		 * son el motivo entero:
+		 *
+		 *  - **El modo `promedio`.** En SQL, repartir a partes iguales obliga a contar las
+		 *    subunidades vivas con una **subconsulta correlacionada** por fila
+		 *    ({@see RepartoDeLaNota::pesoDeSubunidad}), medida en su día en **×2 de
+		 *    `Handler_read_key`**. Aquí es `count($subunidades)`.
+		 *  - **La fórmula deja de estar en dos idiomas.** Era la misma cuenta escrita en SQL
+		 *    aquí y en PHP en `Asignatura::calculoAlumnoNotas`, y la de aquí se quedó atrás
+		 *    el día que la casilla vacía dejó de contar: dos sitios, dos verdades.
+		 *
+		 * **Las subunidades se traen en UNA consulta para toda la asignatura**, no una por
+		 * unidad ({@see \App\Models\Subunidad::deLasUnidadesCalculadas}); antes esta consulta
+		 * ya las recorría por dentro para poder sumar, así que lo que cambia es dónde se
+		 * suma, no cuántas filas se leen.
+		 *
+		 * **Y la respuesta no se mueve ni un byte**: mismas claves, mismo orden y
+		 * `nota_unidad` sigue viajando como **cadena** —lo que devolvía `ROUND()` por PDO—,
+		 * porque de esta consulta cuelgan cuatro informes y los cuatro clientes. Un refactor
+		 * que «de paso» arregla el tipo deja de ser comprobable.
+		 */
+		$consulta = 'SELECT u.id as unidad_id, u.definicion as definicion_unidad, u.porcentaje as porcentaje_unidad,
+						u.asignatura_id, u.orden as orden_unidad, u.periodo_id
+					FROM unidades u
+					where u.asignatura_id=:asignatura_id and u.periodo_id=:periodo_id and u.deleted_at is null and u.alumno_id <=> :alcance
+					order by u.orden, u.id';
 
-			$unidades = DB::select($consulta, [
-				':nota_minima'		=> $nota_minima,
-				':alumno_id'		=> $alumno_id,
-				':asignatura_id'	=> $asignatura_id,
-				':periodo_id'		=> $periodo_id,
-				':alcance'			=> $alcance
-			]);
+		$unidades = DB::select($consulta, [
+			':asignatura_id'	=> $asignatura_id,
+			':periodo_id'		=> $periodo_id,
+			':alcance'			=> $alcance,
+		]);
 
+		$porUnidad = \App\Models\Subunidad::deLasUnidadesCalculadas(
+			array_map(fn ($u) => (int) $u->unidad_id, $unidades), $alumno_id, $year_id
+		);
 
-			
-		} else if ($con_desempenio == 'con_desempenio') {
-			
-			$consulta = 'SELECT * 
-						FROM
-						(SELECT u.id as unidad_id, u.definicion as definicion_unidad, u.porcentaje as porcentaje_unidad, 
-							u.asignatura_id, u.orden as orden_unidad, u.periodo_id, '.RepartoDeLaNota::notaDeLaUnidad($modo).' as nota_unidad
-						FROM unidades u
-						left join subunidades s ON s.unidad_id=u.id and s.deleted_at is null
-						left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and n.alumno_id=:alumno_id
-						where u.asignatura_id=:asignatura_id and u.periodo_id=:periodo_id and u.deleted_at is null and u.alumno_id <=> :alcance
-						group by u.id ) r1
-						left join escalas_de_valoracion e ON e.porc_inicial<=r1.nota_unidad and r1.nota_unidad < e.porc_final + 1 and e.deleted_at is null and e.year_id=:year_id
-						order by r1.orden_unidad, r1.unidad_id';
+		// Las escalas del año, una vez y no una por unidad: es una consulta que no depende de
+		// la unidad, y sólo hace falta en la rama que las unía.
+		$escalas = $con_desempenio === 'con_desempenio'
+			? self::escalasDelAnio($year_id)
+			: [];
 
-			$unidades = DB::select($consulta, [
-				':alumno_id'		=> $alumno_id,
-				':asignatura_id'	=> $asignatura_id,
-				':periodo_id'		=> $periodo_id,
-				':alcance'			=> $alcance,
-				':year_id'			=> $year_id,
-			]);
-			
-		}else{
-			$consulta = 'SELECT u.id as unidad_id, u.definicion as definicion_unidad, u.porcentaje as porcentaje_unidad, 
-							u.asignatura_id, u.orden as orden_unidad, u.periodo_id, '.RepartoDeLaNota::notaDeLaUnidad($modo).' as nota_unidad
-						FROM unidades u
-						left join subunidades s ON s.unidad_id=u.id and s.deleted_at is null
-						left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and n.alumno_id=:alumno_id
-						where u.asignatura_id=:asignatura_id and u.periodo_id=:periodo_id and u.deleted_at is null and u.alumno_id <=> :alcance
-						group by u.id 
-						order by u.orden, u.id';
+		$calculadas = [];
 
-			$unidades = DB::select($consulta, [
-				':alumno_id'		=> $alumno_id,
-				':asignatura_id'	=> $asignatura_id,
-				':periodo_id'		=> $periodo_id,
-				':alcance'			=> $alcance
-			]);
+		foreach ($unidades as $unidad) {
+			$nota = LaParcialYLaCobertura::deSusSubunidades(
+				$porUnidad[(int) $unidad->unidad_id] ?? [], $modo
+			);
+
+			// **`ROUND` a entero y devuelto como cadena**, que es lo que hacía la consulta. El
+			// redondeo va aquí y no dentro del helper por lo mismo que decía
+			// `RepartoDeLaNota::notaDeLaUnidad`: se redondea una vez, al final y después de
+			// dividir.
+			$unidad->nota_unidad = $nota === null ? null : (string) (int) round($nota);
+
+			if ($con_desempenio === 'fortaleza_debilidad') {
+				// El `IF(... < :nota_minima, ...)` de la consulta, con su misma rareza: con
+				// `nota_unidad` nula, `NULL < x` es `NULL` en SQL y aquí es `null` — una
+				// unidad sin una sola casilla calificada no es ni lo uno ni lo otro.
+				$desempenio = $unidad->nota_unidad === null
+					? null
+					: ((float) $unidad->nota_unidad < (float) $nota_minima ? 'Debilidad' : 'Fortaleza');
+
+				// **El orden de las claves es el del `SELECT` que había**, y el objeto se
+				// reconstruye para conservarlo: `desempenio` iba entre `porcentaje_unidad` y
+				// `asignatura_id`, y un JSON con las mismas claves en otro orden mueve las
+				// instantáneas de contrato sin que haya cambiado ningún dato.
+				$ordenado = new \stdClass;
+				$ordenado->unidad_id = $unidad->unidad_id;
+				$ordenado->definicion_unidad = $unidad->definicion_unidad;
+				$ordenado->porcentaje_unidad = $unidad->porcentaje_unidad;
+				$ordenado->desempenio = $desempenio;
+				$ordenado->asignatura_id = $unidad->asignatura_id;
+				$ordenado->orden_unidad = $unidad->orden_unidad;
+				$ordenado->periodo_id = $unidad->periodo_id;
+				$ordenado->nota_unidad = $unidad->nota_unidad;
+
+				$unidad = $ordenado;
+			}
+
+			if ($con_desempenio === 'con_desempenio') {
+				// El `LEFT JOIN` con `escalas_de_valoracion` y su `SELECT *`: las columnas de
+				// la escala se pegan **detrás** de las de la unidad. Con `LEFT JOIN` y sin
+				// banda que case, esas claves siguen ahí en `null` —por eso se escriben todas
+				// aunque no haya escala—, y la regla de la banda es
+				// `porc_inicial <= nota < porc_final + 1`: el `+ 1` y nunca un `<=`, que es lo
+				// que vigila `CentinelaDeLaReglaDeLaBandaTest`.
+				$banda = null;
+
+				if ($unidad->nota_unidad !== null) {
+					foreach ($escalas as $escala) {
+						if ((float) $escala->porc_inicial <= (float) $unidad->nota_unidad
+							&& (float) $unidad->nota_unidad < (float) $escala->porc_final + 1) {
+							$banda = $escala;
+							break;
+						}
+					}
+				}
+
+				foreach (self::columnasDeLaEscala() as $columna) {
+					$unidad->{$columna} = $banda?->{$columna};
+				}
+			}
+
+			$calculadas[] = $unidad;
 		}
 
-		return $unidades;
+		return $calculadas;
 	}
 
 
@@ -341,6 +395,52 @@ class Unidad extends Model {
 		$result->items = $unidades;
 
 		return $result;
+	}
+
+
+	/**
+	 * Las bandas de valoración del año, **una vez por llamada y no una por unidad**.
+	 *
+	 * Sustituyen al `LEFT JOIN escalas_de_valoracion` que llevaba dentro la consulta de
+	 * `deAsignaturaCalculada`. Se ordenan por `porc_inicial` y se toma **la primera que
+	 * case**, y ahí hay una diferencia con el `JOIN` que conviene tener escrita: si dos
+	 * bandas se solaparan, el `JOIN` devolvía **la unidad repetida** —una fila por banda— y
+	 * esto devuelve una sola. Es un colegio mal configurado en los dos casos; lo que cambia
+	 * es que antes el boletín imprimía el criterio dos veces y ahora no.
+	 *
+	 * @return list<object>
+	 */
+	private static function escalasDelAnio($year_id): array
+	{
+		return array_values(DB::select(
+			'SELECT * FROM escalas_de_valoracion
+			  WHERE year_id = ? AND deleted_at IS NULL
+			  ORDER BY porc_inicial, id',
+			[$year_id]
+		));
+	}
+
+	/**
+	 * Los nombres de columna de `escalas_de_valoracion`, para poder **poner todas en `null`**
+	 * cuando ninguna banda case.
+	 *
+	 * Es la mitad del `LEFT JOIN` que se olvida al traducirlo a PHP: sin banda, la fila
+	 * seguía trayendo las claves vacías, y un cliente que pregunte por `valoracion` no
+	 * encuentra lo mismo si la clave no está que si está en `null`.
+	 *
+	 * **Se leen del esquema y no se escriben a mano**: es la regla de esta casa para las
+	 * columnas —`tools/columnas-en-los-modelos.php` existe por lo mismo—, y aquí además una
+	 * lista a mano se quedaría corta el día que la tabla gane una columna, que es justo lo
+	 * que `SELECT *` repartía solo. Se cachea por proceso porque no cambia dentro de una
+	 * petición y este método se llama por unidad.
+	 *
+	 * @return list<string>
+	 */
+	private static function columnasDeLaEscala(): array
+	{
+		static $columnas = null;
+
+		return $columnas ??= \Illuminate\Support\Facades\Schema::getColumnListing('escalas_de_valoracion');
 	}
 
 }

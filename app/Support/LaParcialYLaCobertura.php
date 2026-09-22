@@ -155,6 +155,70 @@ final class LaParcialYLaCobertura
     }
 
     /**
+     * **La nota de una unidad a partir de sus subunidades, en PHP.** `null` cuando no hay ni
+     * una casilla calificada — sin redondear: quien la publica decide cómo la imprime.
+     *
+     * Es la fórmula que hasta el 22 sep 2026 vivía **dentro de la consulta**
+     * ({@see RepartoDeLaNota::notaDeLaUnidad}), y bajó aquí por encargo de
+     * Joseth: *«lo hice en SQL porque creí que era más rápido para la página, y además sólo
+     * se calculaba por porcentaje»*. Con el modo `promedio` ya en producción, la versión SQL
+     * necesitaba una subconsulta correlacionada para contar las subunidades vivas —medida en
+     * su día: **×2 en `Handler_read_key`**— y aquí eso es `count($subunidades)`.
+     *
+     * **El peso de cada casilla sale del mismo sitio que en el resto de la clase**: el
+     * porcentaje que el docente tecleó, o `100/n` repartido a partes iguales si el año va por
+     * `promedio`. El `$n` son **las subunidades vivas de la unidad**, que es exactamente lo
+     * que trae `Subunidad::deLasUnidadesCalculadas` —su `WHERE` ya descarta las borradas—, y
+     * por eso este método las cuenta en vez de preguntar.
+     *
+     * @param  list<object>  $subunidades  filas con `nota` y `porcentaje_subunidad`
+     */
+    public static function deSusSubunidades(array $subunidades, string $modo): ?float
+    {
+        $cuantas = count($subunidades);
+
+        if ($cuantas === 0) {
+            return null;
+        }
+
+        $nota = 0.0;
+        $pesoEvaluado = 0.0;
+
+        foreach ($subunidades as $subunidad) {
+            // **En `promedio` el peso es 1 y no `100/n`.** Todas valen igual, así que la
+            // media de las calificadas es `Σnota ÷ cuántas`, y el `n` se cancela solo. Es la
+            // misma cuenta que hacía el SQL —peso `1/n` arriba y abajo— sin arrastrar un
+            // periódico en binario.
+            $peso = $modo === RepartoDeLaNota::PROMEDIO
+                ? 1.0
+                : (float) ($subunidad->porcentaje_subunidad ?? 0);
+
+            // **`!== null` y no `> 0`**, como en los otros dos divisores de esta clase: el
+            // `null` es «sin calificar» y el 0 es una nota que alguien puso.
+            if (($subunidad->nota ?? null) === null) {
+                continue;
+            }
+
+            $nota += (float) $subunidad->nota * $peso;
+            $pesoEvaluado += $peso;
+        }
+
+        // **La división es UNA y al final, y no pasa por `deLaUnidad`**, que es la hermana
+        // que usan los dos calculadores de la definitiva. No es duplicar: los de allí
+        // acumulan `nota × porcentaje / 100` casilla a casilla —la forma que tenían escrita
+        // desde siempre— y aquí se acumula `nota × porcentaje` a secas, con los dos `/100`
+        // cancelándose contra el divisor.
+        //
+        // **La diferencia se midió, no se supuso.** Con el `/100` dentro del bucle, PHP
+        // discrepaba del SQL en **4 de 289.963** pares (unidad, alumno) de la copia de
+        // desarrollo, siempre un punto y siempre a la baja: MySQL divide `porcentaje/100` en
+        // DECIMAL exacto y PHP en binario, así que un 47,5 de MySQL era un 47,4999… aquí y
+        // `round()` lo mandaba al otro lado. Acumulando enteros no hay coma que redondear
+        // hasta el final, y las **289.963 coinciden**.
+        return $pesoEvaluado <= 0 ? null : (float) ($nota / $pesoEvaluado);
+    }
+
+    /**
      * Qué parte del plan se ha evaluado, como **factor de 0 a 1**. `null` cuando no hay nada
      * que calificar.
      *

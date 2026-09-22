@@ -317,38 +317,25 @@ final class RepartoDeLaNota
         return '('.self::pesoDeUnidad($u).')*('.self::pesoDeSubunidad($modo, $s).')';
     }
 
-    /**
-     * La nota de una unidad: la suma de sus notas pesadas, **redondeada a entero**.
-     * Cuatro sitios, los cuatro en `Models\Unidad`.
+    /*
+     * ── AQUÍ VIVÍA `notaDeLaUnidad()`, Y SE BORRÓ EL 22 SEP 2026 ──────────────────
      *
-     * El `ROUND` sin segundo argumento es a entero, y va **fuera** del `SUM`: se
-     * redondea una vez, al final. Ponerlo dentro redondearía cada sumando y el
-     * resultado bailaría con el número de subunidades — que es justo el fallo que
-     * la Entrega 5 tiene que evitar cuando el denominador pase a ser `1/n`.
+     * Devolvía `ROUND(sum(n.nota * <pesoSub>))` y era la nota de un criterio calculada
+     * dentro de la consulta. La misma cuenta estaba escrita **también en PHP**, en
+     * `Asignatura::calculoAlumnoNotas`, y el día que la casilla vacía dejó de contar sólo
+     * se enteró una de las dos: dos sitios, dos verdades.
+     *
+     * Ahora la hace {@see \App\Support\LaParcialYLaCobertura::deSusSubunidades} y la usa
+     * `Unidad::deAsignaturaCalculada`, que trae las subunidades y suma en PHP. Encargo de
+     * Joseth, con su motivo: en SQL el modo `promedio` obliga a contar las subunidades
+     * vivas con una subconsulta correlacionada por fila, y en PHP es un `count()`.
+     *
+     * **Se borra en vez de dejarla muerta** porque un helper que sigue ahí es un helper
+     * que alguien vuelve a llamar, y volvería a partir la fórmula en dos idiomas. Que las
+     * dos daban el mismo número está medido: **289.963 pares (unidad, alumno) de la copia
+     * de desarrollo, 0 discrepancias** — y las 4 que hubo antes de afinarlo eran el `/100`
+     * dentro del bucle, que en binario deja un 47,4999… donde MySQL pone 47,5.
      */
-    public static function notaDeLaUnidad(string $modo = self::PORCENTAJE, string $s = 's', string $n = 'n'): string
-    {
-        $peso = self::pesoDeSubunidad($modo, $s);
-
-        // **Dividida entre el peso de lo calificado desde el 22 sep 2026**, igual que la
-        // definitiva de la que es un piso. Aquí se notaba más que en la definitiva, y por
-        // eso se hizo aparte: este número no se lee como nota sino como **palabra** —la
-        // rama `fortaleza_debilidad` lo compara con la mínima y `con_desempenio` lo cruza
-        // con `escalas_de_valoracion`—, así que una casilla sin calificar imprimía
-        // «Debilidad» en la cara de un alumno por lo que su profesor no había puesto
-        // todavía. **899 de 136.059** pares (unidad, alumno) cambiaban de valoración en el
-        // periodo abierto del colegio del docker, **816** dejando de contar como perdidos.
-        //
-        // Con la unidad entera calificada el divisor es la suma de los pesos y esto es la
-        // cuenta de siempre. Sin una sola casilla puesta sigue dando `NULL` —lo daba ya,
-        // por `SUM(peso × NULL)`—, que es lo que deja la columna vacía en vez de escribir
-        // un cero que nadie sacó, y lo que los snapshots declaran como `null|string`.
-        //
-        // **El `ROUND` sigue fuera y a entero**, como estaba: se redondea una vez, al
-        // final, y después de dividir. Dentro del `SUM` bailaría con el número de
-        // subunidades.
-        return "ROUND(sum(({$n}.nota*{$peso}))/NULLIF(sum(CASE WHEN {$n}.nota IS NULL THEN 0 ELSE {$peso} END), 0))";
-    }
 
     /**
      * Lo que aporta **una** nota suelta a su unidad, con un decimal. Dos sitios,

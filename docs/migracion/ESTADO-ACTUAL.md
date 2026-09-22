@@ -48,6 +48,17 @@
 >
 > **Tumba D20** (doc 28 §5.5, *«el denominador son las subunidades que existen»*) con su propio
 > argumento, y queda anotado allí. 0 de 9 años en modo `promedio`, así que no movió a nadie.
+>
+> **Y la fórmula bajó del SQL a PHP el mismo día** (§Fase 8, encargo suyo): `deAsignaturaCalculada`
+> ya no lleva `SUM`, ni los dos `LEFT JOIN`, ni el `GROUP BY`, ni el join con las escalas; trae
+> las subunidades de la asignatura en **una** consulta y suma en PHP. `notaDeLaUnidad` se borró.
+> **289.963 pares comparados contra la fórmula vieja, 0 discrepancias** — y las 4 de la primera
+> pasada eran el `/100` dentro del bucle: MySQL divide en DECIMAL exacto y PHP en binario, así
+> que un 47,5 llegaba como 47,4999… Se acumula en enteros y se divide una sola vez.
+>
+> De paso cayó un aviso que conviene saber: **`@property int $nota` de `App\Models\Nota` miente**
+> —la columna es anulable desde la fase 0— porque esas anotaciones salen del volcado, que es la
+> foto **anterior** a esa migración. Regenerarlas con la herramienta la devuelve a `int`.
 
 > ## ✅ LOS CUATRO RELOJES: CENSADOS, Y LA PUERTA DE `NOW()` CERRADA (21 sep 2026)
 >

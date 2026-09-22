@@ -18,10 +18,18 @@ use stdClass;
  * Generado desde database/schema/mysql-schema.sql — no se edita a mano.
  * Ver tools/columnas-en-los-modelos.php.
  *
+ * **Con una excepción escrita a mano, y el motivo importa: `nota` es `?int`.** La columna es
+ * anulable desde `2026_09_19_500000_la_casilla_vacia` y aquí decía `int` hasta el 22 sep 2026.
+ * No fue un despiste al teclear: el volcado del que sale esta lista es la foto de producción
+ * **anterior** a esa migración, y ahí la columna sigue siendo `int NOT NULL DEFAULT '0'`. O sea
+ * que **regenerar este bloque con la herramienta la devuelve a `int`** — el volcado no sabe de
+ * las 49 migraciones que vinieron después. Lo delató Larastan, leyendo un `$nota->nota !== null`
+ * como una comparación que nunca podría ser falsa.
+ *
  * --- columnas de la tabla, generadas por tools/columnas-en-los-modelos.php ---
  *
  * @property int $id
- * @property int $nota
+ * @property ?int $nota
  * @property int $subunidad_id
  * @property int $alumno_id
  * @property ?int $created_by

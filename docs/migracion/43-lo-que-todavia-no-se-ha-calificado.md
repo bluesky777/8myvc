@@ -1351,6 +1351,73 @@ movió la nota de nadie. Queda anotado en el 28, junto al párrafo que invierte.
 
 ---
 
+### Fase 8 — la fórmula baja del SQL a PHP · **ESCRITA el 22 sep 2026**
+
+**Encargo de Joseth, al ver la fase 7 terminada:** *«si puedes hacer el cálculo sin SQL, sólo
+trayendo las unidades/subunidades y calculando con PHP, hazlo. Lo hice en SQL porque creí que
+era más rápido para la página, además sólo se calculaba por porcentaje; hoy en día se podría
+calcular por promedio a petición de cada colegio.»*
+
+Las dos mitades de esa frase son el motivo entero, y las dos habían envejecido:
+
+- **El modo `promedio`.** En SQL, repartir a partes iguales obliga a contar las subunidades
+  vivas con una **subconsulta correlacionada por fila** ({@see `RepartoDeLaNota::pesoDeSubunidad`}),
+  medida en su día en **×2 de `Handler_read_key`**. En PHP es `count($subunidades)`.
+- **La fórmula estaba en dos idiomas.** La misma cuenta, en SQL dentro de `Unidad` y en PHP
+  dentro de `Asignatura::calculoAlumnoNotas`. La de PHP se enteró de la fase 7 y **la de SQL
+  también, pero por separado**: dos sitios que hay que acordarse de mover juntos son dos sitios
+  que un día se separan.
+
+#### Qué cambió
+
+`Unidad::deAsignaturaCalculada` ya no lleva `SUM`, ni los dos `LEFT JOIN`, ni el `GROUP BY u.id`,
+ni el `LEFT JOIN escalas_de_valoracion`. Trae las unidades, pide **las subunidades de toda la
+asignatura en una sola consulta** (`Subunidad::deLasUnidadesCalculadas`, con `IN`) y suma en
+PHP con `LaParcialYLaCobertura::deSusSubunidades`. El desempeño «Fortaleza/Debilidad» y la banda
+de la escala se resuelven también en PHP. **`RepartoDeLaNota::notaDeLaUnidad` se borró**: un
+helper que se queda es un helper que alguien vuelve a llamar.
+
+#### Que no movió ningún número está MEDIDO
+
+**289.963 pares (unidad, alumno) de la copia de desarrollo, 0 discrepancias** contra la fórmula
+SQL. Y las **4** que hubo en la primera pasada son lo que vale la pena escribir: acumulando
+`nota × porcentaje / 100` casilla a casilla, PHP discrepaba de MySQL en cuatro pares, **siempre
+un punto y siempre a la baja**. No era el redondeo de `round()`: MySQL divide `porcentaje/100`
+en **DECIMAL exacto** y PHP en binario, así que un 47,5 de MySQL llegaba aquí como 47,4999… y
+caía al otro lado. Se arregló **acumulando `nota × porcentaje` sin dividir** y dejando los dos
+`/100` que se cancelan contra el divisor: enteros hasta el final, una sola división y ninguna
+coma que redondear por el camino.
+
+*Una traducción de SQL a PHP no se comprueba leyéndola: se corre contra la base entera y se
+cuenta cuántas filas cambian.*
+
+#### Lo que el SQL resolvía solo y hay que escribir a mano
+
+Son los cuatro sitios por donde una traducción así se rompe, y por eso el test nuevo
+(`LaNotaDeLaUnidadEnPhpTest`, comprobado rompiéndolo) los fija uno a uno:
+
+| Lo que hacía el SQL | Lo que hay que escribir |
+|---|---|
+| `SUM` de cero filas da `NULL` | `count() === 0` devuelve `null`, no 0 |
+| `ROUND()` y PDO devolvían **cadena** | `(string) (int) round(...)`, porque el tipo es contrato de cuatro clientes |
+| `IF(NULL < x, …)` es `NULL` | sin nota no hay ni «Fortaleza» ni «Debilidad» |
+| `LEFT JOIN` sin fila deja **las claves en `null`** | se escriben todas las columnas de la escala, leídas del esquema |
+
+Y una diferencia que sí se acepta, escrita porque nadie la buscaría: con **dos bandas
+solapadas** el `JOIN` devolvía la unidad **repetida** —una fila por banda— y ahora devuelve una.
+Es un colegio mal configurado en los dos casos; lo que cambia es que antes el boletín imprimía
+el criterio dos veces.
+
+#### El aviso que cayó de paso
+
+Larastan leyó `$nota->nota !== null` como una comparación imposible: `@property int $nota` en
+`App\Models\Nota` decía que la columna no era anulable. **Lo es desde la fase 0**, y la
+anotación no estaba mal tecleada — sale de `database/schema/mysql-schema.sql`, que es la foto de
+producción **anterior** a esa migración. O sea que `tools/columnas-en-los-modelos.php` la
+devolvería a `int`: *el volcado no sabe de las 49 migraciones que vinieron después*.
+
+---
+
 ---
 
 ## 7 · Lo que este documento no ha medido
