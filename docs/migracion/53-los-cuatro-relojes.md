@@ -383,6 +383,35 @@ un solo año, con `RastroDeLaMigracion::anotar()` delante.
 
 ---
 
+## El precio de mudar una tabla, visto en dos filas
+
+La mudanza de `importaciones` (§6.4) se hizo porque **no había filas viejas**. Unas horas
+después, `8myvc-b7` avisó de que la base de desarrollo tenía **dos**, y resultaron ser la
+mejor ilustración posible de lo que la premisa venía a evitar. Las dos son de pruebas de la
+importación de planilla, del mismo día y del mismo usuario:
+
+| id | `created_at` en la columna | escrita de verdad a las (UTC) | con qué reloj |
+|---:|---|---|---|
+| 2 | `2026-09-22 09:48:13` | 09:48 | `now()` — UTC |
+| 3 | `2026-09-22 05:08:57` | **10:08** | `Reloj::ahora()` — Bogotá |
+
+La 3 se escribió **veinte minutos después** que la 2, y `ORDER BY created_at` **las devuelve
+al revés**. Nada en la fila dice cuál es cuál. Es exactamente lo que le pasaba a
+`bitacoras.created_at` —12 filas en UTC contra 74 en Bogotá— y el motivo por el que existe
+{@see Reloj}: *ordenar por esa columna no da una línea de tiempo*.
+
+**Lo que esto NO cambia:** la decisión sigue siendo correcta, porque se tomó sobre los
+diecisiete y allí la premisa es que no hay filas. Lo que sí hace es convertir una premisa en
+algo que **hay que comprobar y no dar por hecho**, que es justo lo que dijo `8myvc-b7`:
+alguien escribió esas dos filas aquí, y si un colegio probó la importación de alumnos desde
+el 20 ago, tendrá las suyas.
+
+**Lo que sí cambia:** el aviso pasa al bloque de despliegue de
+[ESTADO-ACTUAL](ESTADO-ACTUAL.md), que es donde se mira a las tres de la mañana, y no sólo a
+este documento, que es donde se mira cuando ya se sabe que hay un problema de relojes.
+
+---
+
 ## La quinta forma en que una suite miente: el árbol se movió debajo
 
 CLAUDE.md lista cuatro —muerta, contaminada, cortada por timeout, base desfasada—. La noche
