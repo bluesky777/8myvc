@@ -591,16 +591,24 @@ final class LaPlanillaQueSeDescarga
      * Cuántas ausencias y cuántas tardanzas tiene cada alumno en ese periodo y esa
      * asignatura.
      *
-     * **Se cuentan filas, que es lo que `ausencias` guarda** (§3.6 del plan): una
-     * por evento, con su fecha. El libro sólo puede llevar el total, y por eso la
-     * D5 —importar esas dos columnas— es de la **fase 4** y no de ésta: subir un
-     * conteo crea filas fechadas el día de la importación y bajarlo **borra** filas
-     * con sus fechas, que es lo que leen las planillas de acudientes.
+     * **Se cuentan filas** (`COUNT(*)`), que es lo que `ausencias` guarda (§3.6 del
+     * plan): una por evento, con su fecha. En este proyecto conviven dos criterios
+     * de recuento sobre estos mismos datos —unos endpoints cuentan filas y otros
+     * suman `cantidad_ausencia`, y **dan números distintos**—, así que el que
+     * imprime el libro tiene que ser el mismo que lea la importación.
      *
-     * En la fase 1 las dos columnas salen **rellenas y bloqueadas para nadie**: se
-     * pueden escribir, porque quitarles la casilla escondería que existen, pero
-     * **nada de lo que se escriba ahí se lee todavía**. Está dicho en su comentario
-     * dentro del libro.
+     * **Y esto es lo único que las cuenta.** Desde la fase 4 (doc 51) el mismo
+     * resultado viaja **dos veces** en el libro: a la celda visible y al espejo de
+     * `asistencia` en el mapa de `_myvc`, que es lo que hace posible la D3 sobre
+     * estas dos columnas. Las dos salen de aquí a propósito: contarlo por segundo
+     * camino dejaría que un día el libro dijera una cosa en la celda y otra en su
+     * propio espejo, y la D3 se decidiría con la que nadie ve.
+     *
+     * El precio de que la columna sólo lleve **el total del periodo** sigue siendo
+     * el de siempre y lo paga la fase 4: subir un conteo crea filas fechadas el día
+     * de la importación —no el día que el alumno faltó— y bajarlo **borra** filas
+     * con sus fechas, que son las que leen las planillas de los acudientes. Por eso
+     * bajar no ocurre sin que alguien lo pida.
      *
      * @param  list<object>  $alumnos
      * @return array<int, object{ausencias:int, tardanzas:int}>

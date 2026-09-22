@@ -44,6 +44,16 @@ use Throwable;
  * la D3 *seguiría funcionando y mintiendo*. Por eso el peldaño 2 no compara: da
  * **todas** las celdas con valor por cambiadas y pide confirmar la lista.
  *
+ * ## Y la sexta pregunta, que no es un peldaño: DE QUÉ VERSIÓN ES EL LIBRO
+ *
+ * `_myvc!B1` lleva el número de formato, y desde la fase 4 hay dos vivos: el 1 —sin
+ * el espejo de la asistencia— y el 2. **Un libro se comprueba con su propio
+ * número** ({@see FirmaDelLibro::FORMATOS_QUE_SE_LEEN}), que es lo único que evita
+ * que subir la versión mande al peldaño 2 a todos los libros que ya andan por
+ * fuera. Y un número que este servidor no conoce **no es firma rota**: es peldaño 5
+ * con su motivo y su salida, porque lo que hay delante es un libro de otro
+ * despliegue y no un manipulador.
+ *
  * ## Por qué PhpSpreadsheet directo y no `Excel::import`
  *
  * El importador de alumnos lee con `maatwebsite/excel` y un `ToArray`, y aquí no
@@ -295,6 +305,22 @@ class LaPlanillaQueSeSube
             ? (int) $meta->getCell('B1')->getValue()
             : null;
 
+        // **Un formato que este servidor no conoce no es «firma rota».** Se declara
+        // con su número y su salida, como el peldaño 5, y NO se intenta comprobar la
+        // firma: hacerlo la daría por rota —porque el número entra en lo que se
+        // firma— y mandaría a buscar un manipulador donde lo que hay es un libro de
+        // otro despliegue. `null` se deja pasar: no dice de qué formato es, y
+        // entonces manda la firma, que es la que sabe contestar.
+        if ($this->versionFormato !== null
+            && ! in_array($this->versionFormato, FirmaDelLibro::FORMATOS_QUE_SE_LEEN, true)) {
+            $this->peldano = 5;
+            $this->motivo = 'Este libro es de la versión de formato '.$this->versionFormato
+                .' y este servidor lee hasta la '.FirmaDelLibro::FORMATO.'. Descargue el libro otra vez '
+                .'desde Notas → Trabajar sin internet y pase las notas a ése.';
+
+            return;
+        }
+
         $cabecera = json_decode((string) $meta->getCell('B2')->getValue(), true);
         $firma = (string) $meta->getCell('B3')->getValue();
 
@@ -352,9 +378,16 @@ class LaPlanillaQueSeSube
             return;
         }
 
+        // **Con el número que el libro declara, no con el de hoy.** Es lo que deja
+        // que un libro bajado antes de la fase 4 —formato 1, sin el espejo de la
+        // asistencia— siga validando su firma en vez de caer en bloque al peldaño 2
+        // el día del despliegue, sin que nadie lo hubiera tocado. Lo que le pasa a
+        // ese libro es otra cosa y se decide arriba, en el ensayo: su familia de
+        // ausencias se comporta como si no hubiera espejo.
         $this->firmaValida = FirmaDelLibro::comprobar(
             ['libro' => $cabecera, 'hojas' => $this->mapas],
-            $firma
+            $firma,
+            $this->versionFormato
         );
 
         $this->peldano = $this->firmaValida ? 1 : 2;

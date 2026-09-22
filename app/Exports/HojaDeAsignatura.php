@@ -489,10 +489,17 @@ final class HojaDeAsignatura
         $rotulos = [
             'Def' => 'La definitiva que sale de lo que hay escrito en esta fila. Es ORIENTATIVA y no se '
                 ."sube nunca: la de verdad la calcula el servidor.\nEstá bloqueada.",
-            'Aus' => 'Ausencias del periodo en esta asignatura. En esta versión se muestran para consultarlas; '
-                .'todavía no se suben.',
-            'Tar' => 'Tardanzas del periodo en esta asignatura. En esta versión se muestran para consultarlas; '
-                .'todavía no se suben.',
+            // **El comentario dice lo que cuesta, no sólo lo que hace.** Un total que
+            // sube crea faltas fechadas el día de la importación —no el día que el
+            // alumno faltó—, y uno que baja BORRA filas con sus fechas, que son las que
+            // leen las planillas de ausencias de los acudientes. Quien vaya a escribir
+            // aquí tiene que saberlo antes de escribir, no después de subir.
+            'Aus' => "Ausencias del periodo en esta asignatura.\nSubir este total crea faltas con la fecha "
+                ."del día en que se importe, no la del día que faltó.\nBajarlo borra faltas y se pregunta "
+                .'aparte antes de hacerlo.',
+            'Tar' => "Tardanzas del periodo en esta asignatura.\nSubir este total crea tardanzas con la fecha "
+                ."del día en que se importe, no la del día que llegó tarde.\nBajarlo borra tardanzas y se "
+                .'pregunta aparte antes de hacerlo.',
         ];
 
         foreach (array_keys($rotulos) as $i => $rotulo) {
@@ -1020,6 +1027,21 @@ final class HojaDeAsignatura
      * cambió»—. Sin él, el servidor vería un 45 y no sabría si lo escribió hoy o si
      * ya estaba, y el choque de la F7 no se podría definir.
      *
+     * ## Y desde la fase 4, también el espejo de `Aus` y `Tar`
+     *
+     * Los dos conteos de asistencia van en `asistencia`, y hacen falta por lo mismo
+     * que el de las notas: sin ellos, «el docente subió las faltas de 2 a 4» no se
+     * distingue de «el docente no tocó la columna y alguien anotó dos faltas en la
+     * web desde que se bajó el libro». La primera crea dos filas fechadas hoy; la
+     * segunda no tiene que hacer nada.
+     *
+     * **Van dentro del `json` del mapa y no en filas sueltas como el espejo de las
+     * notas**, y eso no contradice la razón por la que aquél se partió: lo que se
+     * temía allí era el tope de 32.767 caracteres de una celda, y allí el tamaño es
+     * *alumnos x indicadores*. Aquí son **dos números por alumno** y el mapa ya
+     * lleva la lista entera de alumnos en `filas`, así que esto la acompaña sin
+     * cambiarle el orden de magnitud: un grupo de 45 son ~1,8 KB.
+     *
      * @param  array<int,int>  $porAlumno  fila => alumno_id
      * @return array<string, mixed>
      */
@@ -1057,6 +1079,22 @@ final class HojaDeAsignatura
             $espejo[(string) $alumnoId] = $fila;
         }
 
+        // **Los mismos números que se imprimen en las columnas `Aus` y `Tar`**, y
+        // salen de la misma fuente (`LaPlanillaQueSeDescarga::asistenciaDe`) para que
+        // no puedan discrepar. Si se contaran aquí por segunda vez, el día que una de
+        // las dos consultas cambiara el libro diría una cosa en la celda y otra en su
+        // propio espejo — y la D3 se decidiría con la que nadie ve.
+        $asistencia = [];
+
+        foreach ($porAlumno as $alumnoId) {
+            $suya = $this->planilla->asistencia[$alumnoId] ?? null;
+
+            $asistencia[(string) $alumnoId] = [
+                'ausencias' => (int) ($suya->ausencias ?? 0),
+                'tardanzas' => (int) ($suya->tardanzas ?? 0),
+            ];
+        }
+
         $tres = $this->primeraDeLasTres();
 
         return [
@@ -1071,6 +1109,7 @@ final class HojaDeAsignatura
             'columna_aus' => Coordinate::stringFromColumnIndex($tres + 1),
             'columna_tar' => Coordinate::stringFromColumnIndex($tres + 2),
             'espejo' => $espejo,
+            'asistencia' => $asistencia,
         ];
     }
 }

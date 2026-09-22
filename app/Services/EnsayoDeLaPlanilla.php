@@ -172,13 +172,28 @@ class EnsayoDeLaPlanilla
      */
     private array $filas = [];
 
-    /** @var list<array{hoja:string, descripcion:string}> F8 — avisos, fase 4. */
-    private array $avisosDeAusencias = [];
+    /**
+     * F8 — los conteos de ausencias y tardanzas que cambiaron.
+     *
+     * **Desde la fase 4 son decisiones y ya no avisos.** Su llave es la columna
+     * —`hoja` + `tipo`— partida además **por la dirección**, que es lo que ninguna
+     * otra familia necesita: subir y bajar no valen lo mismo ni tienen el mismo
+     * defecto.
+     *
+     * @var list<array<string, mixed>>
+     */
+    private array $ausencias = [];
 
     /** @var array<string, int> */
     private array $totales = [
         'casillas' => 0, 'cambiaron' => 0, 'entran' => 0, 'se_borran' => 0,
         'se_quedan_fuera' => 0, 'filas_descartadas' => 0, 'definitivas_a_recalcular' => 0,
+
+        // **Aparte de `casillas` y de `cambiaron`, y no por orden**: una falta no es
+        // una casilla de nota y sumarla al mismo montón rompería la igualdad
+        // `cambiaron = entran + se_borran + se_quedan_fuera` que la pantalla usa para
+        // que sus tres números sumen el total (decisión (j) del doc 50).
+        'ausencias_que_suben' => 0, 'ausencias_que_bajan' => 0,
     ];
 
     /** @var list<array<string, mixed>> */
@@ -271,8 +286,17 @@ class EnsayoDeLaPlanilla
             $avisos[] = '«'.$fila['hoja'].'»: '.$fila['titulo'].'. '.$fila['si_no_hago_nada'];
         }
 
-        foreach ($this->avisosDeAusencias as $aviso) {
-            $avisos[] = '«'.$aviso['hoja'].'»: '.$aviso['descripcion'];
+        // **Sólo los conteos que NO entraron**, que es la mitad que hay que decir en
+        // voz alta: los que sí entraron ya se cuentan en `hechos`. Es la misma regla
+        // que las filas resueltas de la F6 — un aviso detrás de algo que sí se hizo
+        // es peor que no decir nada.
+        foreach ($this->ausencias as $renglon) {
+            if ($renglon['decision'] === RespuestasDeLaPlanilla::AUSENCIAS_APLICAR) {
+                continue;
+            }
+
+            $avisos[] = '«'.$renglon['hoja'].'» '.($renglon['alumno'] ?? 'alumno '.$renglon['alumno_id'])
+                .' ('.$renglon['tipo'].'): '.$renglon['si_no_hago_nada'];
         }
 
         foreach ($this->celdas as $renglon) {
@@ -604,8 +628,6 @@ class EnsayoDeLaPlanilla
         $resueltas = $this->estudiarLasFilas($nombre, $mapa, $filas, $deLaRejilla, $matriculados,
             $asignatura, $cuentas);
 
-        $this->avisarDeLasAusencias($nombre, $mapa, $asignaturaId, $periodoId, $deLaRejilla);
-
         $alumnos = array_values(array_unique(array_merge(
             $deLaRejilla,
             array_map(static fn (array $r) => $r['alumno_id'], $resueltas)
@@ -613,6 +635,16 @@ class EnsayoDeLaPlanilla
 
         $notas = $this->notasDeHoy($asignaturaId, $periodoId, $alumnos);
         $nombres = $this->nombresDe($alumnos);
+
+        // **La F8 va aquí, con los nombres ya en la mano**: cada renglón lleva el
+        // alumno con nombre y apellido, porque la pantalla pregunta «¿borro dos
+        // faltas de Fulano?» y no «¿borro dos faltas del alumno 1055?».
+        //
+        // Se estudia la hoja entera de una vez —una consulta— y lo que sale se
+        // reparte por alumno en el bucle de abajo, para que cada fila entre en la
+        // transacción de su alumno y en su punto de control. Igual que las notas.
+        $asistencia = $this->estudiarLasAusencias($nombre, $mapa, $asignaturaId, $periodoId,
+            $deLaRejilla, $matriculados, $ficha['asignatura'], $nombres);
 
         $delPlan = [
             'hoja' => $nombre, 'asignatura_id' => $asignaturaId, 'asignatura' => $ficha['asignatura'],
@@ -658,9 +690,17 @@ class EnsayoDeLaPlanilla
 
             $this->filasEstudiadas++;
 
-            if ($celdas !== []) {
+            $suya = $asistencia[$alumnoId] ?? [];
+
+            // **La asistencia entra en la fila aunque no haya ni una nota que
+            // escribir**, y por eso la condición tiene dos mitades: el caso normal de
+            // esta fase es un docente que sólo corrigió las faltas de un alumno. Sin
+            // esto, esa fila no estaría en el plan y su transacción —la que lleva el
+            // punto de control— no existiría.
+            if ($celdas !== [] || $suya !== []) {
                 $delPlan['filas'][] = [
                     'indice' => $indice, 'fila' => $fila, 'alumno_id' => $alumnoId, 'celdas' => $celdas,
+                    'asistencia' => $suya,
                 ];
             }
         }
@@ -693,6 +733,12 @@ class EnsayoDeLaPlanilla
                     $delPlan['filas'][] = [
                         'indice' => $resuelta['indice'], 'fila' => $resuelta['fila'],
                         'alumno_id' => $resuelta['alumno_id'], 'celdas' => $celdas,
+
+                        // **Sin asistencia, y a propósito**: las casillas `Aus` y `Tar`
+                        // del bloque del final nacen vacías, así que leerlas sería ver
+                        // un hueco donde el sistema tiene faltas. Ver la cabecera de
+                        // {@see estudiarLasAusencias}.
+                        'asistencia' => [],
                     ];
                 }
             }
@@ -1748,33 +1794,334 @@ class EnsayoDeLaPlanilla
     }
 
     /**
-     * F8 / D5: las columnas `Aus` y `Tar`.
+     * F8 / D5: las columnas `Aus` y `Tar`. **La fase 4.**
      *
-     * **Se cuentan y se declaran como aviso, no como decisión.** Es el mismo
-     * mecanismo que `RespuestasDeLaImportacion::NO_APLICADAS` y existe por lo mismo:
-     * el libro **ya trae** esas dos columnas rellenas y escribibles (decisión (e)
-     * del doc 49), así que un docente puede cambiarlas creyendo que entran.
+     * ## Por qué esta familia es distinta de las otras siete
      *
-     * Y no se escriben porque no es gratis (§3.6 del plan): la columna sólo lleva el
-     * total del periodo, así que **subir un conteo crea filas fechadas el día de la
-     * importación** y bajarlo **borra** filas con sus fechas — que son las que leen
-     * las planillas de ausencias de los acudientes. Eso es la fase 4.
+     * **Una ausencia no es un número: es una fila con fecha.** `ausencias` guarda
+     * una por evento, con su `fecha_hora` y su `tipo`, y la columna del Excel sólo
+     * puede llevar **el total del periodo**. De ahí sale todo lo demás (§3.6 del
+     * plan):
+     *
+     * - Subir de 2 a 4 **crea dos filas fechadas el día de la importación**, no el
+     *   día que el alumno faltó.
+     * - Bajar de 4 a 2 **borra** dos filas, y con ellas sus fechas.
+     * - **Las planillas de ausencias para acudientes leen esas fechas.**
+     *
+     * Y de ahí la regla que gobierna la fase entera: **subir es añadir y baja el
+     * listón; bajar es borrar historia y no ocurre sin que alguien lo pida.** Son
+     * los dos defectos asimétricos de {@see RespuestasDeLaPlanilla}, y la única
+     * asimetría de todo el asistente.
+     *
+     * ## La D3 vale igual aquí, con el espejo que la fase 4 le añadió al libro
+     *
+     * Las tres puntas son las mismas —espejo, base, archivo— y la regla 1 es la
+     * misma: **si el archivo trae lo mismo que el espejo, no se toca nada aunque la
+     * base haya cambiado**. Es exactamente el caso que hace falta proteger: el
+     * docente baja el libro, no toca la columna `Aus`, y mientras tanto secretaría
+     * anota dos faltas en la web. Sin el espejo, el archivo diría «2» contra una
+     * base de «4» y el importador borraría las dos.
+     *
+     * **Un libro de la versión de formato anterior no trae ese espejo**, y entonces
+     * esta familia se comporta como si no lo hubiera: se compara archivo contra
+     * base, no hay choques que declarar y los defectos siguen siendo los de la
+     * dirección. No revienta y no se calla.
+     *
+     * ## Sólo la rejilla
+     *
+     * Las filas escritas a mano del bloque del final (F6) **no entran aquí**, y no
+     * es un olvido: esas casillas nacen vacías en el libro, así que leerlas sería
+     * ver un hueco donde el sistema tiene faltas y eso se leería como «bajar a 0»
+     * en cada fila que alguien resolviera. Una fila a mano trae notas; la asistencia
+     * de esa persona se toca en su fila de la rejilla o no se toca.
+     *
+     * ## Y sólo los que siguen matriculados
+     *
+     * El alumno cuyo `ID` estaba al descargar y hoy ya no está en el grupo (F6,
+     * `ya_no_esta_en_el_grupo`) **no entra**, por lo mismo que sus notas: la
+     * escritura se salta su fila entera, así que enseñar un renglón decidible sobre
+     * sus faltas sería prometer algo que la importación no va a hacer. Lo que se le
+     * dice es lo que ya dice su renglón de la F6 — se retiró, y sus casillas se
+     * quedan fuera.
      *
      * @param  array<string, mixed>  $mapa
-     * @param  list<int>  $alumnos
+     * @param  list<int>  $alumnos  los de la rejilla
+     * @param  array<int, mixed>  $matriculados  los que siguen en el grupo
+     * @param  array<int, string>  $nombres
+     * @return array<int, list<array{tipo:string, tipo_db:string, direccion:string, cuantas:int}>>
+     *                                                                                             lo que hay que escribir, por alumno
      */
-    private function avisarDeLasAusencias(string $hoja, array $mapa, int $asignaturaId, int $periodoId, array $alumnos): void
+    private function estudiarLasAusencias(string $hoja, array $mapa, int $asignaturaId, int $periodoId,
+        array $alumnos, array $matriculados, ?string $asignatura, array $nombres): array
     {
-        $aus = (string) ($mapa['columna_aus'] ?? '');
-        $tar = (string) ($mapa['columna_tar'] ?? '');
+        $letras = [
+            RespuestasDeLaPlanilla::AUSENCIAS => (string) ($mapa['columna_aus'] ?? ''),
+            RespuestasDeLaPlanilla::TARDANZAS => (string) ($mapa['columna_tar'] ?? ''),
+        ];
 
-        if ($aus === '' || $tar === '' || $alumnos === []) {
-            return;
+        if ($letras[RespuestasDeLaPlanilla::AUSENCIAS] === ''
+            || $letras[RespuestasDeLaPlanilla::TARDANZAS] === ''
+            || $alumnos === []) {
+            return [];
         }
 
+        // El singular es el de la base (`ausencias.tipo`); el plural es el del
+        // contrato del front. Se cruzan aquí y en ningún otro sitio.
+        $enLaBase = [
+            RespuestasDeLaPlanilla::AUSENCIAS => 'ausencia',
+            RespuestasDeLaPlanilla::TARDANZAS => 'tardanza',
+        ];
+
+        $base = $this->asistenciaDeHoy($asignaturaId, $periodoId, $alumnos);
+        $aEscribir = [];
+
+        foreach (($mapa['filas'] ?? []) as $fila => $alumno) {
+            $alumnoId = (int) $alumno;
+
+            // El que ya no está en el grupo se salta entero, igual que sus notas: la
+            // escritura no toca su fila, así que un renglón decidible sobre sus faltas
+            // sería una promesa que nadie va a cumplir.
+            if (! isset($matriculados[$alumnoId])) {
+                continue;
+            }
+
+            foreach ($letras as $tipo => $letra) {
+                $leido = $this->interpretar($this->lector->celda($hoja, $letra.(int) $fila));
+
+                // **Sólo un entero no negativo cuenta como un conteo.** Una casilla
+                // vacía es la D9 —«no la toques»— y un `4,5`, un guion o un texto en
+                // una columna que cuenta faltas no tienen lectura posible: no hay
+                // «media falta» ni «borrar la cuenta». No se declaran como problema
+                // (F4) porque no son casillas de nota y arrastrarlas a esa pantalla
+                // ofrecería «interpretar como N» sobre algo que no es una nota.
+                if ($leido['tipo'] !== 'entero' || $leido['valor'] < 0) {
+                    continue;
+                }
+
+                $renglon = $this->decidirElConteo(
+                    $hoja, $alumnoId, $tipo, (int) $leido['valor'],
+                    $base[$alumnoId][$enLaBase[$tipo]] ?? 0,
+                    $this->delEspejoDeLaAsistencia($mapa, $alumnoId, $tipo),
+                    $this->porQueNoHayEspejo($mapa, $alumnoId, $tipo),
+                    $asignatura, $nombres[$alumnoId] ?? null
+                );
+
+                if ($renglon === null) {
+                    continue;
+                }
+
+                $this->ausencias[] = $renglon;
+
+                $this->totales[$renglon['direccion'] === RespuestasDeLaPlanilla::SUBE
+                    ? 'ausencias_que_suben'
+                    : 'ausencias_que_bajan']++;
+
+                if ($renglon['decision'] !== RespuestasDeLaPlanilla::AUSENCIAS_APLICAR) {
+                    continue;
+                }
+
+                $aEscribir[$alumnoId][] = [
+                    'tipo' => $tipo,
+                    'tipo_db' => $enLaBase[$tipo],
+                    'direccion' => $renglon['direccion'],
+                    'cuantas' => $renglon['cuantas'],
+                ];
+            }
+        }
+
+        return $aEscribir;
+    }
+
+    /**
+     * Un conteo: las tres puntas, la dirección y la decisión. `null` si no se toca.
+     *
+     * Es la {@see decidirLaCelda} de la F8, y las dos reglas que la separan de
+     * aquélla están escritas dentro:
+     *
+     * 1. **El choque lo gana el sistema y aquí no hay excepción que valga.** En las
+     *    notas la pantalla de §6.3 deja repasarlos uno a uno; el contrato de esta
+     *    familia se decide por columna y dirección, así que no hay sitio donde
+     *    contestar «en este alumno manda el archivo». Antes que inventarlo, **se
+     *    deja ganar al sistema siempre** y el renglón lo dice: el conteo cambió en
+     *    los dos sitios y quien lo tocó en la web sabía lo que hacía.
+     * 2. **El defecto depende de la dirección**, y es lo único asimétrico de todo
+     *    el asistente.
+     *
+     * ## Y la tercera, que es la que nadie adivina: LA DIRECCIÓN SE MIDE CONTRA LA BASE
+     *
+     * *(Añadido el 21 sep 2026, preguntándolo el front. El plan no lo contesta.)*
+     *
+     * Las tres puntas pueden apuntar a sitios distintos: **el libro pide 4, al
+     * descargar había 2, y el sistema tiene ahora 5**. Respecto al espejo eso es una
+     * subida; respecto a la base es una bajada. `direccion` dice **`baja`**, y el
+     * criterio es el de la fase entera: *lo que importa es lo que se va a borrar, y
+     * ahí se van a borrar tres filas con sus fechas*. Llamarlo `sube` lo metería en
+     * el grupo cuyo defecto es `aplicar`, y borraría historia con el defecto de
+     * añadir — exactamente lo que esta fase existe para no hacer.
+     *
+     * En ese caso concreto hay además una segunda red: `base !== espejo` lo convierte
+     * en **choque**, así que gana el sistema y no se toca nada. Pero la red no se
+     * puede usar como argumento, porque **un libro sin espejo no la tiene** —formato
+     * 1— y ahí la dirección es lo único que separa «añadir» de «borrar».
+     *
+     * @param  ?string  $sinEspejo  por qué no hay espejo, para que la frase lo diga
+     * @return ?array<string, mixed>
+     */
+    private function decidirElConteo(string $hoja, int $alumnoId, string $tipo, int $archivo, int $base,
+        ?int $espejo, ?string $sinEspejo, ?string $asignatura, ?string $alumno): ?array
+    {
+        // **La D3, regla 1, y es la que protege la historia.** El docente no tocó la
+        // columna: lo que traiga la base es de quien la tocó en la web y no se pisa.
+        if ($espejo !== null && $archivo === $espejo) {
+            return null;
+        }
+
+        // Ya está como el archivo lo pide. Pasa de verdad y a menudo: al reanudar una
+        // importación cortada, las filas ya aplicadas llegan aquí con la base movida.
+        if ($archivo === $base) {
+            return null;
+        }
+
+        // **Contra la base y no contra el espejo.** Ver la cabecera: lo que decide si
+        // esto es «añadir» o «borrar historia» es lo que va a pasarle a las filas que
+        // hay hoy, no de dónde venía el número.
+        $sube = $archivo > $base;
+        $direccion = $sube ? RespuestasDeLaPlanilla::SUBE : RespuestasDeLaPlanilla::BAJA;
+        $cuantas = abs($archivo - $base);
+        $choque = $espejo !== null && $base !== $espejo;
+
+        $porDefecto = RespuestasDeLaPlanilla::porDefectoSegunLaDireccion($direccion);
+
+        // **La llave es la tripleta `hoja` + `tipo` + `direccion`**, y la dirección no
+        // es un adorno de la llave: en la misma columna de la misma hoja es normal que
+        // a unos alumnos les suban las faltas y a otros les bajen. Agrupar por el par y
+        // deducir la dirección contestaría el grupo mixto con **una sola** entrada, y
+        // la mitad se aplicaría con el defecto de la otra mitad.
+        $decision = $choque
+            ? RespuestasDeLaPlanilla::AUSENCIAS_DEJAR
+            : $this->respuestas->queHacerConLasAusencias($hoja, $tipo, $direccion);
+
+        $palabra = $tipo === RespuestasDeLaPlanilla::AUSENCIAS ? 'ausencia' : 'tardanza';
+
+        return [
+            'id' => substr(sha1($hoja.'|'.$alumnoId.'|'.$tipo), 0, 16),
+            'hoja' => $hoja,
+            'asignatura' => $asignatura,
+            'alumno' => $alumno,
+            'alumno_id' => $alumnoId,
+            'tipo' => $tipo,
+            'espejo' => $espejo,
+            'base' => $base,
+            'archivo' => $archivo,
+            'direccion' => $direccion,
+            'cuantas' => $cuantas,
+            'choque' => $choque,
+
+            // **De más: el front no los lee y viajan igual.** El renglón del contrato
+            // no tiene `decision`, así que la pantalla pinta el defecto por su cuenta y
+            // **manda la sección entera con las dos decisiones explícitas** — como ya
+            // hace con `choques`. Estos dos campos son para lo otro: `por_defecto` deja
+            // comparar de un vistazo lo que el servidor haría con lo que la pantalla
+            // pintó, y `decision` es **lo que de verdad va a pasar con las respuestas
+            // que llegaron**, que es lo que hace que volver a ensayar enseñe el plan
+            // corregido y no el de antes de decidir. De `decision` salen además los
+            // avisos de después de escribir.
+            'por_defecto' => $porDefecto,
+            'decision' => $decision,
+
+            'si_no_hago_nada' => $this->siNoHagoNadaConElConteo($choque, $sube, $cuantas, $base, $archivo,
+                $palabra, $porDefecto, $espejo === null ? $sinEspejo : null),
+        ];
+    }
+
+    /**
+     * La frase de «qué pasa si no hago nada», que **la escribe el servidor**.
+     *
+     * Y con el espejo dentro cuando no lo hay, que es lo que el front no puede
+     * deducir: `espejo: null` pintado como un guion no distingue *«el libro es de
+     * una versión anterior y no guarda cuántas faltas había al descargarlo»* de
+     * *«había cero»* — y la segunda es un número, no un desconocido. Las dos cosas
+     * cambian lo que uno haría con el renglón, así que van en la frase que el
+     * docente ya está mirando.
+     */
+    private function siNoHagoNadaConElConteo(bool $choque, bool $sube, int $cuantas, int $base, int $archivo,
+        string $palabra, string $porDefecto, ?string $sinEspejo): string
+    {
+        $plural = $cuantas === 1 ? '' : 's';
+        $coletilla = $sinEspejo === null ? '' : ' '.$sinEspejo;
+
+        if ($choque) {
+            return 'Este conteo cambió en el archivo y en el sistema desde que se bajó el libro: el archivo '
+                .'dice '.$archivo.' y ahora hay '.$base.'. **Manda el sistema** y se queda en '.$base
+                .'. Si el número bueno es el del archivo, corríjalo en la pantalla de asistencia.';
+        }
+
+        if ($sube) {
+            return ($porDefecto === RespuestasDeLaPlanilla::AUSENCIAS_APLICAR
+                ? 'Se crearán '.$cuantas.' '.$palabra.$plural.' con la fecha del día en que se importe, '
+                    .'no la del día que faltó: la columna sólo trae el total. Pasará de '.$base.' a '.$archivo.'.'
+                : 'No se crea nada: se queda en '.$base.'.').$coletilla;
+        }
+
+        return 'No se borra nada: se queda en '.$base.'. Bajarlo a '.$archivo.' significa **borrar '
+            .$cuantas.' '.$palabra.$plural.' con su fecha**, que son las que salen en la planilla de '
+            .'ausencias del acudiente, así que sólo pasa si se pide.'.$coletilla;
+    }
+
+    /**
+     * Por qué este renglón viene **sin espejo**, dicho con palabras.
+     *
+     * `null` cuando sí lo hay. Las tres causas son distintas y sólo una es un
+     * problema del libro, así que decir «no hay espejo» a las tres sería no decir
+     * nada:
+     *
+     * 1. **Firma rota** (peldaño 2): el espejo existe y no se puede creer.
+     * 2. **Formato anterior**: el libro se bajó antes de que esto se guardara.
+     * 3. **El alumno no estaba** en la rejilla al descargar el libro.
+     *
+     * @param  array<string, mixed>  $mapa
+     */
+    private function porQueNoHayEspejo(array $mapa, int $alumnoId, string $tipo): ?string
+    {
+        if ($this->delEspejoDeLaAsistencia($mapa, $alumnoId, $tipo) !== null) {
+            return null;
+        }
+
+        if (! $this->lector->firmaValida) {
+            return 'Y no se puede saber cuántas faltas había al bajar el libro, porque su firma no cuadra: '
+                .'lo que la hoja interna diga del pasado no es de fiar.';
+        }
+
+        if (! is_array($mapa['asistencia'] ?? null)) {
+            return 'Y no se puede saber cuántas faltas había al bajar el libro: **este libro es de una '
+                .'versión anterior** y todavía no las guardaba. Se compara contra lo que hay hoy, así que '
+                .'si alguien anotó faltas en la web desde entonces, esa diferencia sale aquí sin ser suya. '
+                .'Volver a descargar el libro quita este aviso.';
+        }
+
+        return 'Y no se puede saber cuántas faltas había al bajar el libro: este alumno no estaba en la '
+            .'lista ese día.';
+    }
+
+    /**
+     * Los dos conteos de hoy, por alumno y por tipo. **Una consulta por hoja.**
+     *
+     * Es la misma que usa `LaPlanillaQueSeDescarga::asistenciaDe` para llenar las
+     * columnas `Aus` y `Tar`, y tiene que serlo: si contaran distinto, el libro
+     * enseñaría un número y el ensayo compararía contra otro.
+     *
+     * **Cuenta filas** (`COUNT(*)`) y no suma `cantidad_ausencia`. En este proyecto
+     * conviven los dos criterios sobre estos mismos datos y **dan números
+     * distintos**; el que manda aquí es el que el libro imprimió.
+     *
+     * @param  list<int>  $alumnos
+     * @return array<int, array<string, int>>
+     */
+    private function asistenciaDeHoy(int $asignaturaId, int $periodoId, array $alumnos): array
+    {
         $marcas = implode(',', array_fill(0, count($alumnos), '?'));
 
-        $hoy = DB::select(
+        $filas = DB::select(
             "SELECT a.alumno_id, a.tipo, COUNT(*) AS cuantas
                FROM ausencias a
               WHERE a.asignatura_id = ? AND a.periodo_id = ? AND a.deleted_at IS NULL
@@ -1785,45 +2132,45 @@ class EnsayoDeLaPlanilla
 
         $contados = [];
 
-        foreach ($hoy as $fila) {
-            $contados[(int) $fila->alumno_id][$fila->tipo] = (int) $fila->cuantas;
+        foreach ($filas as $fila) {
+            $contados[(int) $fila->alumno_id][(string) $fila->tipo] = (int) $fila->cuantas;
         }
 
-        $suben = 0;
-        $bajan = 0;
+        return $contados;
+    }
 
-        foreach (($mapa['filas'] ?? []) as $fila => $alumno) {
-            $alumnoId = (int) $alumno;
-
-            foreach (['ausencia' => $aus, 'tardanza' => $tar] as $tipo => $letra) {
-                $leido = $this->interpretar($this->lector->celda($hoja, $letra.(int) $fila));
-
-                if ($leido['tipo'] !== 'entero') {
-                    continue;
-                }
-
-                $ahora = $contados[$alumnoId][$tipo] ?? 0;
-
-                if ($leido['valor'] > $ahora) {
-                    $suben++;
-                } elseif ($leido['valor'] < $ahora) {
-                    $bajan++;
-                }
-            }
+    /**
+     * El espejo de un conteo: **lo que había el día de la descarga**, o `null`.
+     *
+     * `null` en tres casos y los tres legítimos, que es la razón de que quien llama
+     * tenga que tratarlo como «no comparable» y nunca como cero:
+     *
+     * 1. **La firma está rota** (peldaño 2). El espejo no vale para nada.
+     * 2. **El libro es de la versión de formato 1**, de antes de la fase 4: el mapa
+     *    no trae `asistencia` porque cuando se generó nadie la iba a leer.
+     * 3. El alumno no estaba en la rejilla al descargar.
+     *
+     * @param  array<string, mixed>  $mapa
+     */
+    private function delEspejoDeLaAsistencia(array $mapa, int $alumnoId, string $tipo): ?int
+    {
+        if (! $this->lector->firmaValida) {
+            return null;
         }
 
-        if ($suben === 0 && $bajan === 0) {
-            return;
+        $asistencia = $mapa['asistencia'] ?? null;
+
+        if (! is_array($asistencia)) {
+            return null;
         }
 
-        $this->avisosDeAusencias[] = [
-            'hoja' => $hoja,
-            'descripcion' => 'Cambió '.($suben + $bajan).' conteo(s) de ausencias o tardanzas ('.$suben
-                .' hacia arriba, '.$bajan.' hacia abajo) y **no se importan**: eso es la fase 4. La columna '
-                .'sólo lleva el total del periodo, así que subir un conteo crearía filas fechadas hoy —no el '
-                .'día que faltó— y bajarlo borraría filas con sus fechas, que son las que leen las planillas '
-                .'de acudientes.',
-        ];
+        $suya = $asistencia[$alumnoId] ?? $asistencia[(string) $alumnoId] ?? null;
+
+        if (! is_array($suya) || ! isset($suya[$tipo]) || ! is_numeric($suya[$tipo])) {
+            return null;
+        }
+
+        return (int) $suya[$tipo];
     }
 
     // ── Lo que sale ──────────────────────────────────────────────────────────
@@ -1900,10 +2247,10 @@ class EnsayoDeLaPlanilla
                 // persona distinta.
                 'filas' => $this->filas,
 
-                // La que sigue siendo **aviso y no decisión**, con el motivo escrito
-                // desde aquí: es una fase futura del plan y el libro ya trae dentro
-                // lo que la dispara.
-                'ausencias' => $this->avisosDeAusencias,
+                // **F8, y desde la fase 4 también es una decisión.** Con dos defectos
+                // distintos según la dirección —el único sitio del asistente donde eso
+                // pasa—, porque subir añade y bajar borra historia.
+                'ausencias' => $this->ausencias,
             ],
         ];
     }

@@ -75,8 +75,41 @@ final class FirmaDelLibro
      * que entra en la firma, un libro viejo tiene que fallar la comprobación con
      * un motivo legible —«formato 1, y aquí se espera el 2»— en vez de fallar
      * como «firma rota», que manda a buscar un manipulador que no existe.
+     *
+     * ## 2 desde la fase 4 (21 sep 2026), y la subida NO es gratis
+     *
+     * El mapa de cada hoja lleva ahora `asistencia` —el espejo de los conteos de
+     * `Aus` y `Tar`—, porque sin él la D3 no se puede aplicar a esas dos columnas:
+     * el servidor vería un 4 y no sabría si lo escribió el docente hoy o si ya
+     * estaba al descargar. Ese campo va **dentro** de lo firmado, así que **todos
+     * los libros que ya andan por fuera cambian de firma**.
+     *
+     * Y por eso lo que sube es el número, no la validez: un libro de formato 1
+     * **se sigue leyendo**, se comprueba con su propio número y su familia de
+     * asistencia se comporta como si no hubiera espejo (ver
+     * {@see FORMATOS_QUE_SE_LEEN}). Degradarlos todos al peldaño 2 habría sido
+     * exactamente el fallo del que esta clase avisa arriba: una alarma que salta
+     * sola deja de leerse.
      */
-    public const FORMATO = 1;
+    public const FORMATO = 2;
+
+    /**
+     * Los formatos que este servidor sabe comprobar, del más viejo al de hoy.
+     *
+     * **Un libro se comprueba con el número que él mismo declara**, y no con el de
+     * hoy. Es lo único que deja convivir los libros bajados ayer con los de hoy: si
+     * se comprobaran todos contra el número actual, subir la versión rompería la
+     * firma de cada libro que anduviera por fuera —sin que nadie los hubiera
+     * tocado— y los mandaría al peldaño 2 en bloque, que es el peor sitio al que
+     * mandar a alguien que no ha hecho nada mal.
+     *
+     * Un número que **no** esté en esta lista no es «firma rota»: es un libro de un
+     * despliegue más nuevo (o más viejo) que este servidor, y quien lo lee tiene
+     * que decirlo con esas palabras y ofrecer bajarlo otra vez.
+     *
+     * @var list<int>
+     */
+    public const FORMATOS_QUE_SE_LEEN = [1, 2];
 
     /** El algoritmo, escrito una vez. No es configurable a propósito. */
     private const ALGORITMO = 'sha256';
@@ -85,10 +118,13 @@ final class FirmaDelLibro
      * La firma de unos datos, en hexadecimal.
      *
      * @param  array<array-key, mixed>  $datos  lo que va en la hoja `_myvc`, sin la propia firma
+     * @param  ?int  $formato  el número con el que se firma; `null` es el de hoy. Sólo lo pasa
+     *                         quien **comprueba** un libro viejo: firmar uno nuevo con un
+     *                         formato viejo sería escribir una mentira dentro del fichero
      */
-    public static function firmar(array $datos): string
+    public static function firmar(array $datos, ?int $formato = null): string
     {
-        return hash_hmac(self::ALGORITMO, self::canonico($datos), self::clave());
+        return hash_hmac(self::ALGORITMO, self::canonico($datos, $formato), self::clave());
     }
 
     /**
@@ -102,10 +138,13 @@ final class FirmaDelLibro
      * que la incorrecta y **es la que no hay que volver a mirar**.
      *
      * @param  array<array-key, mixed>  $datos
+     * @param  ?int  $formato  el que el propio libro declara en `_myvc!B1`; `null` es el de
+     *                         hoy. Pasarlo es lo que deja que un libro bajado antes de la
+     *                         fase 4 siga validando (ver {@see FORMATOS_QUE_SE_LEEN})
      */
-    public static function comprobar(array $datos, string $firma): bool
+    public static function comprobar(array $datos, string $firma, ?int $formato = null): bool
     {
-        return hash_equals(self::firmar($datos), $firma);
+        return hash_equals(self::firmar($datos, $formato), $firma);
     }
 
     /**
@@ -121,11 +160,16 @@ final class FirmaDelLibro
      * tildes y eñes, y el escapado `\uXXXX` de PHP no es estable entre versiones
      * para todos los puntos de código.
      *
+     * El número de formato entra aquí y no al lado, que es lo que hace posible
+     * comprobar un libro viejo sin relajar nada: se firma con **su** número, así
+     * que un formato 1 y un formato 2 con los mismos datos dan firmas distintas y
+     * ninguno puede hacerse pasar por el otro.
+     *
      * @param  array<array-key, mixed>  $datos
      */
-    private static function canonico(array $datos): string
+    private static function canonico(array $datos, ?int $formato = null): string
     {
-        $ordenados = self::ordenar(['formato' => self::FORMATO, 'datos' => $datos]);
+        $ordenados = self::ordenar(['formato' => $formato ?? self::FORMATO, 'datos' => $datos]);
 
         return (string) json_encode(
             $ordenados,

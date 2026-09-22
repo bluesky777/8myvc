@@ -232,25 +232,60 @@ class RespuestasDeLaPlanillaTest extends TestCase
     // ── Lo que no se aplica, se dice ─────────────────────────────────────────
 
     #[Test]
-    public function las_secciones_de_fases_futuras_se_declaran_no_aplicadas(): void
+    public function las_ausencias_salieron_de_no_aplicadas_al_llegar_la_fase_4(): void
     {
         $respuestas = new RespuestasDeLaPlanilla([
-            'ausencias' => [['hoja' => '3B MAT', 'alumno_id' => 1055, 'ausencias' => 4]],
+            'ausencias' => [['hoja' => '3B MAT', 'tipo' => 'ausencias', 'direccion' => 'baja',
+                'decision' => 'aplicar']],
         ]);
 
         $resumen = $respuestas->resumen();
-        $secciones = array_column($resumen['no_aplicadas'], 'seccion');
 
-        sort($secciones);
+        // **Y no es cosmética, es lo que hace que la pantalla exista**, igual que
+        // pasó con `filas` en la fase 3: el front borra el paso entero de una
+        // sección declarada no aplicada, así que devolverla a esa lista serviría la
+        // F8 y no se vería. Con la fase 4 la lista se queda **vacía**, y el
+        // mecanismo sigue montado para la 5.
+        $this->assertSame([], array_column($resumen['no_aplicadas'], 'seccion'));
+        $this->assertSame(['ausencias'], $resumen['aplicadas']);
+    }
 
-        // **Una decisión que se ignora en silencio es el mismo silencio que este
-        // módulo vino a quitar.** El libro ya trae las columnas de ausencias
-        // rellenas y escribibles, así que la pantalla puede mandarlas sin saberlo.
-        $this->assertSame(['ausencias'], $secciones);
+    // ── F8: el defecto que no es simétrico ───────────────────────────────────
 
-        foreach ($resumen['no_aplicadas'] as $renglon) {
-            $this->assertNotEmpty($renglon['motivo'], 'Lo que no se aplica va con su motivo al lado.');
-        }
+    #[Test]
+    public function el_defecto_de_las_ausencias_no_es_simetrico(): void
+    {
+        $sinDecir = new RespuestasDeLaPlanilla([]);
+
+        // **El punto entero de la fase 4.** Subir añade filas y baja el listón;
+        // bajar borra filas con sus fechas —las que leen las planillas de ausencias
+        // de los acudientes— y no ocurre sin que alguien lo pida.
+        $this->assertSame('aplicar', $sinDecir->queHacerConLasAusencias('3B MAT', 'ausencias', 'sube'));
+        $this->assertSame('dejar', $sinDecir->queHacerConLasAusencias('3B MAT', 'ausencias', 'baja'));
+    }
+
+    #[Test]
+    public function la_misma_columna_se_contesta_distinto_en_cada_direccion(): void
+    {
+        // El caso normal, y el que rompería una llave de dos piezas: en la misma hoja
+        // y el mismo tipo, a unos alumnos les suben las faltas y a otros les bajan.
+        // Con la llave en el par `hoja` + `tipo`, una de las dos entradas se perdería
+        // y la mitad se aplicaría con el defecto de la otra mitad.
+        $respuestas = new RespuestasDeLaPlanilla([
+            'ausencias' => [
+                ['hoja' => '3B MAT', 'tipo' => 'ausencias', 'direccion' => 'sube', 'decision' => 'dejar'],
+                ['hoja' => '3B MAT', 'tipo' => 'ausencias', 'direccion' => 'baja', 'decision' => 'aplicar'],
+            ],
+        ]);
+
+        // Y las dos al revés de su defecto, que es lo que prueba que **manda lo que
+        // llega** y no el criterio de esta clase.
+        $this->assertSame('dejar', $respuestas->queHacerConLasAusencias('3B MAT', 'ausencias', 'sube'));
+        $this->assertSame('aplicar', $respuestas->queHacerConLasAusencias('3B MAT', 'ausencias', 'baja'));
+
+        // Ni el otro tipo ni la otra hoja heredan nada: caen a su defecto.
+        $this->assertSame('dejar', $respuestas->queHacerConLasAusencias('3B MAT', 'tardanzas', 'baja'));
+        $this->assertSame('aplicar', $respuestas->queHacerConLasAusencias('4A GEO', 'ausencias', 'sube'));
     }
 
     #[Test]

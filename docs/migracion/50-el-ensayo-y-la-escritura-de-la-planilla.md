@@ -22,7 +22,7 @@ ser del espejo firmado: *«sólo entra lo que el docente cambió»*.
 | `POST planilla-offline/ensayo` | El diagnóstico. **No escribe nada** |
 | `POST planilla-offline/importar` | La escritura, **reanudable** por huella del fichero |
 | `App\Services\LaPlanillaQueSeSube` | El lector del `.xlsx` que vuelve, y **quién decide el peldaño** |
-| `App\Services\EnsayoDeLaPlanilla` | Las familias F1–F7 y F9, más el aviso de F8 |
+| `App\Services\EnsayoDeLaPlanilla` | Las familias F1–F7 y F9, más el aviso de F8 *(la F8 pasó a decisión en la fase 4 — §10)* |
 | `App\Support\ParecidoDeNombres` | *(fase 3)* Cuánto se parecen dos nombres, y el umbral **medido** |
 | `App\Services\EscrituraDeNotasImportadas` | Siembra, escribe, audita y recalcula una vez por par |
 | `App\Services\RespuestasDeLaPlanilla` | Las decisiones que manda el front, leídas sin creerse nada |
@@ -228,8 +228,13 @@ los separa.
 4. **La D4 —coordinación sube por otro— es la fase 5** y hoy da **403 con el motivo dentro**. La
    puerta de la descarga es más ancha (`Autoriza::puedeDescargarLaPlanillaDeOtro`) y la de escribir
    no puede serlo sin el acta que esa fase trae.
-5. **Las ausencias y tardanzas (D5) son la fase 4.** El ensayo las cuenta y las declara como aviso
-   con el motivo; la importación no escribe ni una.
+5. ~~**Las ausencias y tardanzas (D5) son la fase 4.** El ensayo las cuenta y las declara como aviso
+   con el motivo; la importación no escribe ni una.~~ **HECHO**, y con documento propio:
+   [51](51-las-ausencias-de-la-planilla.md). `familias.ausencias` ya no son avisos, son decisiones —
+   con **el único defecto asimétrico del asistente**: `sube` → `aplicar`, `baja` → `dejar`. Tres
+   cosas de allí tocan lo escrito aquí: `RespuestasDeLaPlanilla::NO_APLICADAS` **se quedó vacía**,
+   `FirmaDelLibro::FORMATO` subió a **2** y el mapa de `_myvc` lleva ahora `asistencia`. Ver
+   también la §10 de este documento.
 6. ~~**Las filas que no se reconocen (F6) son la fase 3.**~~ **HECHO la misma noche**: la §7 de este
    documento. `familias.filas` ya no son avisos, son decisiones por fila — y se sigue sin crear a
    nadie.
@@ -547,3 +552,35 @@ Y una consecuencia de reutilizar `importaciones` que conviene saber antes de lee
 minutos sin escribir— **no filtra por tipo**, así que también limpia las planillas a medias. Es lo
 que se quiere, y se anota porque el comando se llama `importaciones:abandonadas` y su documentación
 sólo habla de alumnos.
+
+---
+
+## 10 · Lo que la fase 4 movió de aquí — 21 sep 2026
+
+La fase 4 (las ausencias, [51](51-las-ausencias-de-la-planilla.md)) tocó tres cosas que este
+documento da por fijas. Se anotan aquí, al lado de donde se leen, y no sólo allí:
+
+1. **`RespuestasDeLaPlanilla::NO_APLICADAS` está vacía.** `ausencias` era la última que quedaba y
+   salió de la lista. El mecanismo se queda montado para la fase 5.
+2. **`FirmaDelLibro::FORMATO` es 2, y un libro se comprueba con el número que él declara**
+   (`FORMATOS_QUE_SE_LEEN = [1, 2]`). Sin eso, subir la versión habría degradado al peldaño 2 todos
+   los libros que ya andan por fuera sin que nadie los hubiera tocado. Un formato desconocido es
+   **peldaño 5 con su salida**, no firma rota.
+3. **El mapa de `_myvc` lleva `asistencia`** —dos números por alumno—, dentro del `json` de la hoja
+   y no en filas sueltas: la razón por la que el espejo de las notas se partió era el tope de 32.767
+   caracteres de una celda, y aquél crece con *alumnos × indicadores* mientras que éste no. Y **el
+   punto 8 de la §6 sigue abierto**: `reservadas` sigue sin decir de qué unidad es cada columna.
+
+### Y la pregunta que este documento no contestaba: la dirección se mide contra la BASE
+
+Las tres puntas pueden apuntar a sitios distintos: **el libro pide 4, al descargar había 2, y el
+sistema tiene ahora 5.** Respecto al espejo eso es una subida; respecto a la base es una bajada.
+
+**`direccion` dice `baja`**, y el criterio es el de la fase entera —*bajar es borrar historia y no
+ocurre sin que alguien lo pida*—: lo que importa es lo que se le va a hacer a las filas que hay hoy,
+y ahí se borran tres con sus fechas. Llamarlo `sube` lo metería en el grupo cuyo defecto es
+`aplicar`, y borraría historia con el defecto de añadir.
+
+En ese caso concreto hay además una segunda red —`base !== espejo` lo convierte en choque y gana el
+sistema—, pero **la red no vale como argumento**: un libro de formato 1 no tiene espejo de
+asistencia y ahí la dirección es lo único que separa «añadir» de «borrar».

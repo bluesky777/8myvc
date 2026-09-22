@@ -5,6 +5,7 @@ namespace Tests\Contrato;
 use App\Exports\LibroDeNotas;
 use App\Support\EscalaDeNotas;
 use App\Support\FirmaDelLibro;
+use App\Support\Reloj;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
@@ -827,38 +828,352 @@ class PlanillaOfflineImportarTest extends CasoDeContrato
         $this->assertSame(41, $this->notaDe($caso['alumno_id'], $caso['subunidad_id']));
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // F8 / D5 — las ausencias y las tardanzas (fase 4)
+    //
+    // La regla que gobierna los ocho tests de abajo, y que es lo único que hay que
+    // recordar de esta familia: **subir es añadir y baja el listón; bajar es borrar
+    // historia y no ocurre sin que alguien lo pida.**
+    //
+    // Y el orden de cada caso importa por lo que dice la §5 del doc 50: lo que
+    // fabrica el estado de partida va **antes** de bajar el libro —queda en el
+    // espejo— y lo que simula «alguien tocó la web» va **después**.
+    // ─────────────────────────────────────────────────────────────────────────
+
     #[Test]
-    public function las_ausencias_se_cuentan_y_se_declaran_no_aplicadas(): void
+    public function f8_subir_un_conteo_crea_faltas_fechadas_hoy_y_marcadas_como_de_la_planilla(): void
     {
-        $caso = $this->unaPlanilla();
+        $caso = $this->conFaltas(0, 'ausencia');
 
-        $aus = (string) $caso['mapa']['columna_aus'];
-
-        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'], [[$caso['fila'], $aus, 7]]);
-
-        $antes = DB::selectOne('SELECT COUNT(*) AS n FROM ausencias WHERE deleted_at IS NULL')->n;
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'],
+            [[$caso['fila'], (string) $caso['mapa']['columna_aus'], 3]]);
 
         $r = $this->ensayo($caso['token'], $ruta)->assertStatus(200);
 
-        $familia = $r->json('familias.ausencias');
+        $renglon = $this->conteoDe($r, $caso['alumno_id'], 'ausencias');
 
-        $this->assertCount(1, $familia);
-        $this->assertSame($caso['hoja'], $familia[0]['hoja']);
-        $this->assertNotEmpty($familia[0]['descripcion'],
-            'El libro trae esas columnas rellenas y escribibles, así que callarlo sería prometer que entraron. '
-            .'La pantalla lo pinta como aviso con este texto, así que tiene que poder leerse.');
+        $this->assertSame('sube', $renglon['direccion']);
+        $this->assertSame(3, $renglon['cuantas']);
+        $this->assertSame(0, $renglon['base']);
+        $this->assertSame(3, $renglon['archivo']);
+        $this->assertFalse($renglon['choque']);
+
+        // **El defecto de subir es aplicar**, y el renglón lo dice para que la
+        // pantalla lo pinte ya marcado en vez de deducirlo.
+        $this->assertSame('aplicar', $renglon['por_defecto']);
+
+        // Y `si_no_hago_nada` dice el precio: la fecha no es la del día que faltó.
+        $this->assertStringContainsString('no la del día que faltó', $renglon['si_no_hago_nada']);
 
         $r = $this->importar($caso['token'], $ruta)->assertStatus(200);
 
-        $this->assertSame($antes, DB::selectOne('SELECT COUNT(*) AS n FROM ausencias WHERE deleted_at IS NULL')->n,
-            'Importar las ausencias es la fase 4: subir un conteo crearía filas fechadas hoy.');
+        $this->assertSame(3, $r->json('hechos.ausencias_creadas'));
+        $this->assertSame(0, $r->json('hechos.ausencias_borradas'));
 
-        // **Y se dice en voz alta después de escribir.** «Entraron 312 notas» no le
-        // dice nada a nadie si además se cambiaron seis ausencias y ninguna entró.
-        $this->assertNotEmpty(
-            array_filter($r->json('avisos'), static fn ($a) => str_contains($a, 'ausencias')),
-            'Lo que no entró tiene que salir en los avisos de la importación, no sólo en el ensayo.'
+        $filas = $this->faltasDe($caso, 'ausencia');
+
+        $this->assertCount(3, $filas, 'Subir de 0 a 3 son tres filas, una por falta.');
+
+        foreach ($filas as $falta) {
+            // La fecha es la del día de la importación y no hay otra posible: el día
+            // que el alumno faltó **no está en el archivo**.
+            $this->assertSame(Reloj::ahora()->toDateString(), substr((string) $falta->fecha_hora, 0, 10));
+
+            // Y las reglas de negocio copiadas de `postAgregarAusencia`, una por una.
+            $this->assertSame('ausencia', $falta->tipo);
+            $this->assertSame(1, (int) $falta->cantidad_ausencia);
+            $this->assertNull($falta->cantidad_tardanza);
+            $this->assertSame(0, (int) $falta->entrada,
+                'La columna del libro es de una asignatura, o sea faltas a clase y no de portería.');
+        }
+
+        // **La marca de que vino de una planilla vive en `auditoria`**, que es el
+        // rastro que esta familia usa desde el 22 ago 2026 (`AusenciasController`).
+        // Sin ella, quien mire la planilla del acudiente ve tres faltas el mismo día
+        // y no tiene dónde preguntar por qué.
+        $linea = DB::selectOne(
+            'SELECT valor_nuevo FROM auditoria
+              WHERE entidad = "ausencia" AND accion = "crear" AND entidad_id = ?
+              ORDER BY id DESC LIMIT 1',
+            [(int) $filas[0]->id]
         );
+
+        $this->assertNotNull($linea, 'Una falta creada por la planilla sin su línea de auditoría.');
+        $this->assertStringContainsString('planilla sin internet', (string) $linea->valor_nuevo);
+    }
+
+    #[Test]
+    public function f8_bajar_un_conteo_no_borra_nada_si_nadie_lo_pide(): void
+    {
+        $caso = $this->conFaltas(4, 'ausencia');
+
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'],
+            [[$caso['fila'], (string) $caso['mapa']['columna_aus'], 2]]);
+
+        $r = $this->ensayo($caso['token'], $ruta)->assertStatus(200);
+
+        $renglon = $this->conteoDe($r, $caso['alumno_id'], 'ausencias');
+
+        $this->assertSame('baja', $renglon['direccion']);
+        $this->assertSame(2, $renglon['cuantas']);
+        $this->assertSame(4, $renglon['espejo'], 'El libro se bajó con las cuatro faltas ya puestas.');
+
+        // **El defecto asimétrico, que es el punto de la fase entera.**
+        $this->assertSame('dejar', $renglon['por_defecto']);
+        $this->assertStringContainsString('No se borra nada', $renglon['si_no_hago_nada']);
+
+        $r = $this->importar($caso['token'], $ruta)->assertStatus(200);
+
+        $this->assertSame(0, $r->json('hechos.ausencias_borradas'));
+        $this->assertCount(4, $this->faltasDe($caso, 'ausencia'),
+            'Bajar borra historia con sus fechas, y eso no pasa sin que alguien lo pida con esa sección puesta.');
+
+        // Y se dice en voz alta después de escribir: «entraron 312 notas» no cuenta
+        // que además había dos faltas esperando una decisión.
+        $this->assertNotEmpty(
+            array_filter($r->json('avisos'), static fn ($a) => str_contains($a, 'No se borra nada')),
+            'Lo que se quedó esperando tiene que salir en los avisos de la importación.'
+        );
+    }
+
+    #[Test]
+    public function f8_bajar_con_la_decision_puesta_borra_las_mas_recientes_y_por_el_camino_blando(): void
+    {
+        $caso = $this->conFaltas(0, 'ausencia');
+
+        // Cuatro faltas **antes** de bajar el libro, para que el espejo diga 4: tres
+        // de días distintos y **una sin fecha**, que en los datos de verdad son tres
+        // de cada cuatro (420 de 544 en `caz_zaragoza`, 21 sep 2026). El orden en que
+        // caen es lo único que este test mira.
+        $this->ponerFaltas($caso, 'ausencia', ['2026-03-02 07:10:00', '2026-05-11 07:10:00',
+            '2026-08-20 07:10:00', null]);
+
+        $caso = $this->bajarLaDe($caso['docente']);
+
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'],
+            [[$caso['fila'], (string) $caso['mapa']['columna_aus'], 2]]);
+
+        $r = $this->importar($caso['token'], $ruta, [
+            'ausencias' => [[
+                'hoja' => $caso['hoja'], 'tipo' => 'ausencias', 'direccion' => 'baja',
+                'decision' => 'aplicar',
+            ]],
+        ])->assertStatus(200);
+
+        $this->assertSame(2, $r->json('hechos.ausencias_borradas'));
+
+        $vivas = $this->faltasDe($caso, 'ausencia');
+        $dias = array_map(static fn ($f) => substr((string) $f->fecha_hora, 0, 10), $vivas);
+
+        // **La sin fecha primero, y después la más reciente de las fechadas.** Lo
+        // primero porque una falta que no está en ningún día no sale en ninguna
+        // consulta por fecha, así que borrarla no le quita nada a nadie; lo segundo
+        // porque la vieja es la que sostiene una citación o un proceso, y la reciente
+        // es la que todavía se puede recordar y volver a anotar con su día.
+        $this->assertSame(['2026-03-02', '2026-05-11'], $dias,
+            'Con el orden natural de MySQL —los NULL al final en un DESC— habrían caído las dos fechadas '
+            .'recientes y la que no dice nada habría sobrevivido: destruir la única información que hay '
+            .'para conservar la que no existe.');
+
+        // **Camino blando, nunca `DELETE`**, y firmado: la fila borrada es justo lo
+        // que se mira cuando alguien reclama.
+        $borradas = DB::select(
+            'SELECT deleted_by FROM ausencias
+              WHERE alumno_id = ? AND asignatura_id = ? AND periodo_id = ? AND tipo = "ausencia"
+                AND deleted_at IS NOT NULL',
+            [$caso['alumno_id'], $caso['asignatura_id'], $caso['periodo_id']]
+        );
+
+        $this->assertCount(2, $borradas, 'Un `DELETE` de verdad se llevaría la fila y con ella el rastro.');
+
+        foreach ($borradas as $falta) {
+            $this->assertNotNull($falta->deleted_by,
+                'En la copia de producción del 22 ago 2026 había 5.689 ausencias borradas y 5.684 sin autor.');
+        }
+    }
+
+    #[Test]
+    public function f8_d3_lo_que_el_docente_no_toco_no_se_toca_aunque_la_base_haya_cambiado(): void
+    {
+        $caso = $this->conFaltas(2, 'ausencia');
+
+        // Y **después** de bajar el libro, alguien anota dos más en la web. Es el caso
+        // que la D3 existe para proteger: el docente no tocó la columna `Aus`, así que
+        // su «2» no es una orden de bajar el conteo a la mitad.
+        $this->ponerFaltas($caso, 'ausencia', [null, null]);
+
+        $r = $this->ensayo($caso['token'], $caso['ruta'])->assertStatus(200);
+
+        $this->assertSame([], $r->json('familias.ausencias'),
+            'El archivo trae lo mismo que el espejo: esa columna no se decide, pase lo que pase con la base.');
+
+        $this->importar($caso['token'], $caso['ruta'])->assertStatus(200);
+
+        $this->assertCount(4, $this->faltasDe($caso, 'ausencia'),
+            'Sin el espejo, el importador habría visto «archivo 2 contra base 4» y habría borrado las dos.');
+    }
+
+    #[Test]
+    public function f8_cambio_en_los_dos_sitios_es_un_choque_y_manda_el_sistema(): void
+    {
+        $caso = $this->conFaltas(2, 'tardanza');
+
+        // El docente sube a 5 en su libro; mientras tanto alguien anota una más en la
+        // web. Cambió en los dos sitios y a valores distintos: eso es un choque.
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'],
+            [[$caso['fila'], (string) $caso['mapa']['columna_tar'], 5]]);
+
+        $this->ponerFaltas($caso, 'tardanza', [null]);
+
+        $r = $this->ensayo($caso['token'], $ruta)->assertStatus(200);
+
+        $renglon = $this->conteoDe($r, $caso['alumno_id'], 'tardanzas');
+
+        $this->assertTrue($renglon['choque']);
+        $this->assertSame(2, $renglon['espejo']);
+        $this->assertSame(3, $renglon['base']);
+        $this->assertSame(5, $renglon['archivo']);
+        $this->assertSame('dejar', $renglon['decision'],
+            'Manda el sistema, como en las notas: quien lo tocó en la web sabía lo que hacía.');
+
+        // Y **ni siquiera pidiéndolo**: el contrato de esta familia se decide por
+        // columna y dirección, así que no hay sitio donde contestar «en este alumno
+        // manda el archivo». Antes que inventarlo, gana el sistema siempre.
+        $this->importar($caso['token'], $ruta, [
+            'ausencias' => [[
+                'hoja' => $caso['hoja'], 'tipo' => 'tardanzas', 'direccion' => 'sube',
+                'decision' => 'aplicar',
+            ]],
+        ])->assertStatus(200);
+
+        $this->assertCount(3, $this->faltasDe($caso, 'tardanza'));
+    }
+
+    #[Test]
+    public function f8_las_dos_direcciones_de_la_misma_columna_se_contestan_por_separado(): void
+    {
+        $caso = $this->conFaltas(0, 'ausencia', 2);
+
+        // El caso normal y el que rompería una llave de dos piezas: **la misma hoja y
+        // la misma columna, con un alumno que sube y otro que baja**. Si la llave
+        // fuera `hoja` + `tipo`, las dos direcciones se contestarían con una sola
+        // entrada y la mitad se aplicaría con el defecto de la otra mitad.
+        $este = $this->paraElAlumno($caso, 1);
+        $this->ponerFaltas($este, 'ausencia', [null, null, null]);
+
+        $caso = $this->bajarLaDe($caso['docente'], 2);
+        $este = $this->paraElAlumno($caso, 1);
+
+        $aus = (string) $caso['mapa']['columna_aus'];
+
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'], [
+            [$caso['filas'][0], $aus, 2],   // 0 -> 2, sube
+            [$caso['filas'][1], $aus, 1],   // 3 -> 1, baja
+        ]);
+
+        $r = $this->ensayo($caso['token'], $ruta)->assertStatus(200);
+
+        $this->assertSame('sube', $this->conteoDe($r, $caso['alumnos'][0], 'ausencias')['direccion']);
+        $this->assertSame('baja', $this->conteoDe($r, $caso['alumnos'][1], 'ausencias')['direccion']);
+
+        // Se contesta **sólo la bajada**. La subida no viene en la sección y cae a su
+        // propio defecto, que es aplicar — que es justo lo que la pantalla pinta.
+        $r = $this->importar($caso['token'], $ruta, [
+            'ausencias' => [[
+                'hoja' => $caso['hoja'], 'tipo' => 'ausencias', 'direccion' => 'baja',
+                'decision' => 'aplicar',
+            ]],
+        ])->assertStatus(200);
+
+        $this->assertSame(2, $r->json('hechos.ausencias_creadas'));
+        $this->assertSame(2, $r->json('hechos.ausencias_borradas'));
+
+        $this->assertCount(2, $this->faltasDe($this->paraElAlumno($caso, 0), 'ausencia'));
+        $this->assertCount(1, $this->faltasDe($este, 'ausencia'));
+    }
+
+    #[Test]
+    public function f8_una_seccion_que_dice_dejar_gana_al_defecto_de_subir(): void
+    {
+        $caso = $this->conFaltas(0, 'ausencia');
+
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'],
+            [[$caso['fila'], (string) $caso['mapa']['columna_aus'], 3]]);
+
+        // El defecto de subir es aplicar, pero **manda lo que llegue**. Es la mitad
+        // que impide que los dos lados tengan defectos propios y dejen de coincidir
+        // en silencio: si la sección viaja, se obedece tal cual.
+        $r = $this->importar($caso['token'], $ruta, [
+            'ausencias' => [[
+                'hoja' => $caso['hoja'], 'tipo' => 'ausencias', 'direccion' => 'sube',
+                'decision' => 'dejar',
+            ]],
+        ])->assertStatus(200);
+
+        $this->assertSame(0, $r->json('hechos.ausencias_creadas'));
+        $this->assertCount(0, $this->faltasDe($caso, 'ausencia'));
+    }
+
+    #[Test]
+    public function f8_un_libro_de_la_version_de_formato_anterior_se_sigue_leyendo(): void
+    {
+        $caso = $this->conFaltas(2, 'ausencia');
+
+        // Un libro tal y como lo generaba el despliegue de antes de la fase 4: sin
+        // `asistencia` en el mapa, con `B1 = 1` y **firmado con el formato 1**.
+        $ruta = $this->reescribirMetadatos($caso['ruta'], null, static function (array $mapas) {
+            foreach ($mapas as $i => $mapa) {
+                unset($mapas[$i]['asistencia']);
+            }
+
+            return $mapas;
+        }, true, 1);
+
+        $ruta = $this->escribiendo($ruta, $caso['hoja'],
+            [[$caso['fila'], (string) $caso['mapa']['columna_aus'], 5]]);
+
+        $r = $this->ensayo($caso['token'], $ruta)->assertStatus(200);
+
+        // **Lo primero, que no reviente ni degrade**: la firma sigue valiendo, porque
+        // se comprueba con el número que el libro declara y no con el de hoy.
+        $r->assertJson(['peldano' => 1, 'firma_valida' => true, 'version_formato' => 1]);
+
+        $renglon = $this->conteoDe($r, $caso['alumno_id'], 'ausencias');
+
+        // Sin espejo, esta familia se comporta como si no lo hubiera: se compara
+        // archivo contra base, y no hay choque que declarar.
+        $this->assertNull($renglon['espejo']);
+        $this->assertFalse($renglon['choque']);
+        $this->assertSame('sube', $renglon['direccion']);
+
+        // Y el `null` **lo explica el servidor**: pintado como un guion, la pantalla
+        // no sabría si quiere decir «el libro no lo trae» o «había cero», y la
+        // segunda es un número y no un desconocido.
+        $this->assertStringContainsString('versión anterior', $renglon['si_no_hago_nada']);
+
+        $this->importar($caso['token'], $ruta)->assertStatus(200);
+
+        $this->assertCount(5, $this->faltasDe($caso, 'ausencia'),
+            'Un libro de la versión anterior se lee entero: lo que le falta es el espejo, no la función.');
+    }
+
+    #[Test]
+    public function f8_un_libro_de_una_version_que_este_servidor_no_conoce_no_es_firma_rota(): void
+    {
+        $caso = $this->unaPlanilla();
+
+        $ruta = $this->reescribirMetadatos($caso['ruta'], null, null, true, 99);
+
+        $r = $this->ensayo($caso['token'], $ruta)->assertStatus(200);
+
+        // No es el peldaño 2 —«alguien tocó este archivo»— sino el 5 con su salida:
+        // lo que hay delante es un libro de otro despliegue, y mandar a buscar un
+        // manipulador que no existe es peor que no decir nada.
+        $r->assertJson(['peldano' => 5]);
+
+        $this->assertNotEmpty(array_filter($r->json('bloqueos'),
+            static fn ($b) => str_contains((string) ($b['motivo'] ?? ''), 'Descargue el libro otra vez')),
+            'El peldaño 5 es el que evita el callejón sin salida: tiene que ofrecer la salida.');
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -1147,9 +1462,21 @@ class PlanillaOfflineImportarTest extends CasoDeContrato
 
         $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'], [
             [$caso['fila'], $caso['columna'], $this->otroValorPara($caso, $caso['fila'], $caso['columna'])],
+
+            // Y también sus faltas, para la F8: el docente escribió en la columna `Aus`
+            // de una fila cuya persona ya no está en el grupo.
+            [$caso['fila'], (string) $caso['mapa']['columna_aus'], 9],
         ]);
 
         $r = $this->ensayo($caso['token'], $ruta)->assertStatus(200);
+
+        // **Sus faltas tampoco se preguntan.** La escritura se salta su fila entera,
+        // así que un renglón decidible sobre sus ausencias sería una promesa que la
+        // importación no va a cumplir. Lo que se le dice es lo de abajo: se retiró.
+        $this->assertSame([], array_values(array_filter(
+            $r->json('familias.ausencias') ?? [],
+            static fn ($a) => (int) $a['alumno_id'] === $caso['alumno_id']
+        )), 'Un renglón de ausencias de quien ya no está en el grupo es una decisión que no se aplica.');
 
         $suya = array_values(array_filter(
             $this->filasDelTipo($r, 'ya_no_esta_en_el_grupo'),
@@ -1350,6 +1677,113 @@ class PlanillaOfflineImportarTest extends CasoDeContrato
         $docente = $this->docenteConPlanilla($cuantasFilas);
 
         return $this->bajarLaDe($docente, $cuantasFilas);
+    }
+
+    /**
+     * Una planilla cuyo alumno ya tiene `$cuantas` faltas **antes de bajar el
+     * libro**, o sea con el espejo puesto.
+     *
+     * El orden es la trampa de la §5 del doc 50 y aquí muerde igual que con las
+     * notas: poner las faltas después de la descarga no fabrica «el docente las
+     * baja», fabrica un choque.
+     *
+     * **Y empieza vaciando lo que el seed ya trae**, que es lo que costó la primera
+     * corrida: los alumnos del seed **ya tienen faltas** en esa asignatura y ese
+     * periodo, así que «subir de 0 a 3» no era de 0 a 3 y seis tests salieron rojos
+     * con el mismo desfase de uno. Un caso fabricado sobre una población que no se
+     * ha mirado no es un caso: es una coincidencia.
+     *
+     * @return array<string, mixed>
+     */
+    private function conFaltas(int $cuantas, string $tipo, int $cuantosAlumnos = 1): array
+    {
+        $caso = $this->unaPlanilla($cuantosAlumnos);
+
+        // Borrado duro y de la asignatura entera: esto **fabrica el estado de
+        // partida** y no prueba nada —para el borrado está el test del camino
+        // blando—, y vive dentro de la transacción del test, que se deshace al
+        // terminar.
+        DB::delete('DELETE FROM ausencias WHERE asignatura_id = ? AND periodo_id = ?',
+            [$caso['asignatura_id'], $caso['periodo_id']]);
+
+        if ($cuantas > 0) {
+            $this->ponerFaltas($caso, $tipo, array_fill(0, $cuantas, null));
+        }
+
+        return $this->bajarLaDe($caso['docente'], $cuantosAlumnos);
+    }
+
+    /**
+     * Anota faltas a mano, una por fecha. **Un `null` en la lista es una falta sin
+     * fecha**, que es lo que de verdad hay en la base: 420 de las 544 filas vivas
+     * que el libro puede contar en `caz_zaragoza` (21 sep 2026) no están en ningún
+     * día. Rellenárselas aquí fabricaría una población que no existe.
+     *
+     * **Se escriben con `INSERT` y no por `ausencias/*`**, y no es un atajo: esas
+     * rutas son el contrato de `myvc_flutter` y llamarlas desde aquí mezclaría lo
+     * que este test fabrica con lo que este test comprueba.
+     *
+     * @param  array<string, mixed>  $caso
+     * @param  list<?string>  $fechas
+     */
+    private function ponerFaltas(array $caso, string $tipo, array $fechas): void
+    {
+        foreach ($fechas as $fecha) {
+            DB::insert(
+                'INSERT INTO ausencias (alumno_id, asignatura_id, periodo_id, cantidad_ausencia,
+                    cantidad_tardanza, entrada, tipo, fecha_hora, created_by, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, 0, ?, ?, 1, NOW(), NOW())',
+                [$caso['alumno_id'], $caso['asignatura_id'], $caso['periodo_id'],
+                    $tipo === 'tardanza' ? null : 1, $tipo === 'tardanza' ? 1 : null,
+                    $tipo, $fecha]
+            );
+        }
+    }
+
+    /**
+     * Las faltas vivas de ese alumno en esa asignatura y periodo, **de la vieja a la
+     * nueva**, que es el orden en el que este test razona.
+     *
+     * @param  array<string, mixed>  $caso
+     * @return array<int, object>
+     */
+    private function faltasDe(array $caso, string $tipo): array
+    {
+        return DB::select(
+            'SELECT id, tipo, fecha_hora, cantidad_ausencia, cantidad_tardanza, entrada, deleted_by
+               FROM ausencias
+              WHERE alumno_id = ? AND asignatura_id = ? AND periodo_id = ? AND tipo = ?
+                AND deleted_at IS NULL
+              ORDER BY fecha_hora, id',
+            [$caso['alumno_id'], $caso['asignatura_id'], $caso['periodo_id'], $tipo]
+        );
+    }
+
+    /** El mismo caso apuntando a otro de sus alumnos. @param array<string, mixed> $caso */
+    private function paraElAlumno(array $caso, int $cual): array
+    {
+        $caso['alumno_id'] = $caso['alumnos'][$cual];
+        $caso['fila'] = $caso['filas'][$cual];
+
+        return $caso;
+    }
+
+    /**
+     * El renglón de la F8 de un alumno y un tipo. Falla si no está, que es lo que
+     * hace falta: un `assertNull` sobre una familia vacía pasaría igual.
+     *
+     * @return array<string, mixed>
+     */
+    private function conteoDe(TestResponse $r, int $alumnoId, string $tipo): array
+    {
+        foreach (($r->json('familias.ausencias') ?? []) as $renglon) {
+            if ((int) $renglon['alumno_id'] === $alumnoId && $renglon['tipo'] === $tipo) {
+                return $renglon;
+            }
+        }
+
+        $this->fail('La familia de ausencias no trae el renglón de '.$tipo.' del alumno '.$alumnoId
+            .'. Lo que trae: '.json_encode($r->json('familias.ausencias')));
     }
 
     /**
@@ -1634,10 +2068,17 @@ class PlanillaOfflineImportarTest extends CasoDeContrato
      * `$firmar` decide si el libro sale legítimo o con la firma rota, que es
      * exactamente la diferencia entre el peldaño 1 y el 2.
      *
+     * `$formato` fabrica **un libro de una versión de formato distinta de la de
+     * hoy**, y hace falta desde la fase 4: el único caso que hay que poder probar de
+     * verdad es un libro bajado antes de que `_myvc` guardara el espejo de la
+     * asistencia. Se escribe en `B1` **y** se firma con ese número, que es
+     * exactamente lo que hizo el despliegue anterior.
+     *
      * @param  ?callable(array<string,mixed>): array<string,mixed>  $tocarCabecera
      * @param  ?callable(list<array<string,mixed>>): list<array<string,mixed>>  $tocarMapas
      */
-    private function reescribirMetadatos(string $ruta, ?callable $tocarCabecera, ?callable $tocarMapas, bool $firmar): string
+    private function reescribirMetadatos(string $ruta, ?callable $tocarCabecera, ?callable $tocarMapas,
+        bool $firmar, ?int $formato = null): string
     {
         $metadatos = $this->metadatosDe($ruta);
 
@@ -1645,7 +2086,7 @@ class PlanillaOfflineImportarTest extends CasoDeContrato
         $mapas = $tocarMapas === null ? $metadatos['mapas'] : $tocarMapas($metadatos['mapas']);
 
         $firma = $firmar
-            ? FirmaDelLibro::firmar(['libro' => $cabecera, 'hojas' => $mapas])
+            ? FirmaDelLibro::firmar(['libro' => $cabecera, 'hojas' => $mapas], $formato)
             : $metadatos['firma'];
 
         $libro = IOFactory::load($ruta);
@@ -1655,7 +2096,7 @@ class PlanillaOfflineImportarTest extends CasoDeContrato
         $meta->setTitle(LibroDeNotas::METADATOS);
 
         $meta->setCellValue('A1', 'myvc');
-        $meta->setCellValue('B1', FirmaDelLibro::FORMATO);
+        $meta->setCellValue('B1', $formato ?? FirmaDelLibro::FORMATO);
 
         $meta->setCellValue('A2', 'libro');
         $this->texto($meta, 'B2', (string) json_encode($cabecera, JSON_UNESCAPED_UNICODE));

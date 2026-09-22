@@ -61,11 +61,33 @@ use Illuminate\Support\Facades\DB;
  * se agota es el tiempo, no la memoria, y anotar de N en N obliga a reprocesar
  * hasta N-1 filas al reanudar.
  *
+ * ## Las ausencias y las tardanzas (D5, fase 4), que son de otra pasta
+ *
+ * Entran **en la misma transacción de la fila del alumno** y no por un camino
+ * propio, por lo mismo que las filas escritas a mano: lo que se promete y lo que se
+ * hace salen del mismo recorrido, y una fila está aplicada si y sólo si el punto de
+ * control la da por hecha. Pero lo que escriben **no es una nota**:
+ *
+ * - **Subir un conteo CREA filas**, una por falta, con `fecha_hora` del día de la
+ *   importación. No hay otra fecha posible: la columna del Excel sólo lleva el
+ *   total del periodo, así que el día en que el alumno faltó **no está en el
+ *   archivo**. Se dice en el libro, en el ensayo y aquí.
+ * - **Bajar un conteo BORRA filas**, por el camino blando y **las más recientes
+ *   primero** (ver {@see borrarLasMasRecientes}).
+ * - Y **el defecto de bajar es no bajar**: si el ensayo no puso la operación en el
+ *   plan, aquí no hay nada que borrar. La decisión se toma allí, con el espejo y el
+ *   grupo delante; aquí ya no se puede y comprobarla a medias sería peor.
+ *
+ * **Y no se escriben por `ausencias/*`.** Esas seis rutas las comparte
+ * `myvc_flutter`, que es una sola app para los dieciséis colegios y cuyas versiones
+ * viejas conviven meses: lo que se le añade a una ruta que usa la móvil viaja a una
+ * app que no se puede publicar el mismo día. Lo que sí se copia entera es **su
+ * regla de negocio** —el periodo abierto, el tipo, el `entrada`, la fila de
+ * auditoría con el nombre del alumno dentro—, que es lo que de verdad hay que
+ * compartir.
+ *
  * ## Lo que NO escribe, y se dice
  *
- * - **Las ausencias y las tardanzas** (D5). Son la fase 4 y el ensayo las declara
- *   no aplicadas con el motivo. El libro las trae rellenas y escribibles, así que
- *   callarlo sería prometer que entraron.
  * - **La `Def`**. Es una fórmula orientativa y bloqueada; la definitiva sale del
  *   recalculador.
  * - **Ningún alumno**. Es el encargo literal: *«no debe crear el alumno»*.
@@ -99,6 +121,12 @@ class EscrituraDeNotasImportadas
         'notas_escritas' => 0, 'notas_borradas' => 0,
         'definitivas_recalculadas' => 0, 'filas_descartadas' => 0,
         'filas' => 0, 'filas_sembradas' => 0, 'indicadores_creados' => 0,
+
+        // **Faltas, no notas, y por eso van con nombre propio.** Un total que
+        // mezclara «notas escritas» con «faltas creadas» escondería justo lo que hay
+        // que poder leer después: *«se crearon 6 ausencias fechadas hoy»* es una frase
+        // que alguien puede querer deshacer, y *«entraron 318 cosas»* no lo es.
+        'ausencias_creadas' => 0, 'ausencias_borradas' => 0,
     ];
 
     /** Lo hecho hoja a hoja, para la tabla de «prometido contra hecho». @var list<array<string,mixed>> */
@@ -178,7 +206,7 @@ class EscrituraDeNotasImportadas
         }
 
         foreach ($hoja['filas'] as $fila) {
-            $this->aplicarFila($nombre, $fila, $creadas, $periodoId);
+            $this->aplicarFila($nombre, $fila, $creadas, $asignaturaId, $periodoId);
         }
 
         if ($hoja['filas'] !== [] || $creadas !== []) {
@@ -193,15 +221,21 @@ class EscrituraDeNotasImportadas
      * fila entera se deshace y su marca con ella, así que al volver a subir el
      * mismo archivo esa fila se repite —entera y una vez— y las anteriores no.
      *
+     * **Las faltas van dentro de la misma transacción**, detrás de las notas. Si la
+     * fila se deshace, se deshacen con ella: no puede quedar un alumno con dos
+     * ausencias creadas y su nota sin escribir, ni la marca del punto de control
+     * puesta sobre media fila.
+     *
      * @param  array<string, mixed>  $fila
      * @param  array<string, int>  $creadas  columna de reserva => subunidad nueva
      */
-    private function aplicarFila(string $hoja, array $fila, array $creadas, int $periodoId): void
+    private function aplicarFila(string $hoja, array $fila, array $creadas, int $asignaturaId,
+        int $periodoId): void
     {
         $alumnoId = (int) $fila['alumno_id'];
         $indice = (int) $fila['indice'];
 
-        DB::transaction(function () use ($hoja, $fila, $creadas, $periodoId, $alumnoId, $indice) {
+        DB::transaction(function () use ($hoja, $fila, $creadas, $asignaturaId, $periodoId, $alumnoId, $indice) {
             $ahora = Reloj::ahora();
 
             foreach ($fila['celdas'] as $celda) {
@@ -217,6 +251,14 @@ class EscrituraDeNotasImportadas
                 }
 
                 $this->escribirLaNota($hoja, $alumnoId, (int) $subunidadId, $celda['valor'], $periodoId, $ahora);
+            }
+
+            // Y las faltas (F8/D5), **detrás de las notas y dentro de la misma
+            // transacción**. Sólo llegan aquí las que el ensayo decidió aplicar: una
+            // bajada sin su decisión puesta no produce operación, así que aquí no hay
+            // nada que borrar y no hace falta volver a preguntarlo.
+            foreach (($fila['asistencia'] ?? []) as $operacion) {
+                $this->aplicarElConteo($alumnoId, $asignaturaId, $periodoId, $operacion, $ahora);
             }
 
             // **Dentro de la transacción, no después.** Llamarla fuera reabre justo el
@@ -305,6 +347,196 @@ class EscrituraDeNotasImportadas
 
         $this->hechos['notas_escritas']++;
         $this->porHoja[$this->dondeVaLaHoja[$hoja]]['escritas']++;
+    }
+
+    /**
+     * Un conteo de asistencia que cambió: crear faltas o borrarlas (F8 / D5).
+     *
+     * @param  array{tipo:string, tipo_db:string, direccion:string, cuantas:int}  $operacion
+     */
+    private function aplicarElConteo(int $alumnoId, int $asignaturaId, int $periodoId, array $operacion,
+        Carbon $ahora): void
+    {
+        if ($operacion['cuantas'] <= 0) {
+            return;
+        }
+
+        if ($operacion['direccion'] === RespuestasDeLaPlanilla::SUBE) {
+            $this->crearLasFaltas($alumnoId, $asignaturaId, $periodoId, $operacion, $ahora);
+
+            return;
+        }
+
+        $this->borrarLasMasRecientes($alumnoId, $asignaturaId, $periodoId, $operacion, $ahora);
+    }
+
+    /**
+     * Subir el conteo: **una fila por falta, fechada el día de la importación**.
+     *
+     * ## La fecha, que es lo que hay que decir en voz alta
+     *
+     * `fecha_hora` es la de hoy porque **el día en que el alumno faltó no está en el
+     * archivo**: la columna del Excel lleva el total del periodo y nada más. Así que
+     * tres faltas subidas de golpe salen las tres con la fecha de la importación, y
+     * quien mire después la planilla de ausencias del acudiente verá tres el mismo
+     * día. **Eso no es un fallo: es el precio de la columna**, y por eso está escrito
+     * en el comentario de la celda, en el renglón del ensayo y aquí.
+     *
+     * ## Y las reglas de negocio, copiadas de `postAgregarAusencia` una por una
+     *
+     * - `cantidad_ausencia = 1` (o `cantidad_tardanza`), que es lo que hace que
+     *   **contar filas** y **sumar cantidades** den el mismo número para lo que esto
+     *   escribe. Las dos formas conviven en este proyecto y dan resultados distintos;
+     *   la que manda aquí es la que el libro imprimió: `COUNT(*)`.
+     * - `entrada = 0`. La columna del libro es de **una asignatura**, o sea faltas a
+     *   clase, no de portería. Medido sobre `caz_zaragoza` el 21 sep 2026: las 352
+     *   filas con `entrada = 1` tienen las 352 `asignatura_id` a null, así que una
+     *   falta de portería no entra en el total del libro ni puede salir de aquí.
+     * - `tipo` explícito, que es por lo que filtran los cuatro lectores.
+     * - `created_by` es quien sube, que es quien responde por la falta.
+     *
+     * @param  array{tipo:string, tipo_db:string, direccion:string, cuantas:int}  $operacion
+     */
+    private function crearLasFaltas(int $alumnoId, int $asignaturaId, int $periodoId, array $operacion,
+        Carbon $ahora): void
+    {
+        $esTardanza = $operacion['tipo_db'] === 'tardanza';
+
+        for ($i = 0; $i < $operacion['cuantas']; $i++) {
+            DB::insert(
+                'INSERT INTO ausencias (alumno_id, asignatura_id, periodo_id, cantidad_ausencia,
+                    cantidad_tardanza, entrada, tipo, fecha_hora, created_by, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)',
+                [$alumnoId, $asignaturaId, $periodoId,
+                    $esTardanza ? null : 1, $esTardanza ? 1 : null,
+                    $operacion['tipo_db'], $ahora, $this->usuario->user_id, $ahora, $ahora]
+            );
+
+            $this->anotarLaFalta(Auditoria::CREAR, (int) DB::getPdo()->lastInsertId(), $alumnoId,
+                $asignaturaId, $periodoId, $operacion, $ahora);
+
+            $this->hechos['ausencias_creadas']++;
+        }
+    }
+
+    /**
+     * Bajar el conteo: **las más recientes primero, y por el camino blando**.
+     *
+     * ## Las tres decisiones, con su motivo escrito
+     *
+     * **1 · Las más recientes.** Borrar la más antigua tiraría el registro que más se
+     * consulta: la falta vieja es la que sostiene una citación al acudiente, un
+     * proceso disciplinario o un reclamo de meses atrás, y la reciente es la que
+     * todavía se puede recordar y volver a anotar con su día. Y hay un argumento más
+     * fuerte: **la falta que esta misma importación acaba de crear —fechada hoy— es
+     * la más reciente de todas**, así que corregir un error de tecleo subiendo y
+     * bajando deshace lo que se acaba de hacer, en vez de morderle un día real al
+     * historial.
+     *
+     * **2 · Pero LAS QUE NO TIENEN FECHA VAN LAS PRIMERAS**, y esto no estaba en el
+     * plan: lo destapó una medición. *Contado sobre `caz_zaragoza` el 21 sep 2026,
+     * filas vivas:*
+     *
+     * | Población | Filas | Sin `fecha_hora` |
+     * |---|---|---|
+     * | Faltas de clase (`entrada = 0`, con asignatura) — **las que el libro cuenta** | 544 | **420 (77 %)** |
+     * | Faltas de portería (`entrada = 1`) — el libro no las ve | 352 | 0 |
+     *
+     * O sea que **tres de cada cuatro filas que esta columna puede borrar no están
+     * en ningún día**. `AusenciasController::putDeAlumno` ya lo tenía escrito —*«hay
+     * filas que cuentan en los totales y no están en ningún día»*— y cambia la
+     * conclusión: dejando el orden natural de MySQL, que manda los `NULL` al final
+     * en un `DESC`, bajar un conteo se llevaría por delante las pocas filas fechadas
+     * y **dejaría intactas las 420 que no dicen nada**. Sería destruir la única
+     * información que hay para conservar la que no existe.
+     *
+     * Así que el orden es `(fecha_hora IS NULL) DESC, fecha_hora DESC, id DESC`:
+     * primero lo que no tiene nada que perder, y sólo después la regla 1. Sirve
+     * **mejor** al motivo de la regla 1 que su lectura literal — lo que se protege
+     * es el registro que alguien puede consultar, y una falta sin día no sale en
+     * ninguna consulta por fecha.
+     *
+     * **3 · `deleted_at`, nunca `DELETE`.** Toda esta familia borra en blando y la
+     * fila borrada es justo lo que se mira cuando alguien reclama. Con `deleted_by`
+     * puesto, que es lo que la §deleteDestroy de `AusenciasController` dejó escrito
+     * el 22 ago 2026: en la copia de producción de ese día había 5.689 ausencias
+     * borradas y 5.684 sin autor.
+     *
+     * @param  array{tipo:string, tipo_db:string, direccion:string, cuantas:int}  $operacion
+     */
+    private function borrarLasMasRecientes(int $alumnoId, int $asignaturaId, int $periodoId, array $operacion,
+        Carbon $ahora): void
+    {
+        $candidatas = DB::select(
+            'SELECT id, fecha_hora FROM ausencias
+              WHERE alumno_id = ? AND asignatura_id = ? AND periodo_id = ? AND tipo = ?
+                AND deleted_at IS NULL
+              ORDER BY (fecha_hora IS NULL) DESC, fecha_hora DESC, id DESC
+              LIMIT '.(int) $operacion['cuantas'],
+            [$alumnoId, $asignaturaId, $periodoId, $operacion['tipo_db']]
+        );
+
+        foreach ($candidatas as $falta) {
+            DB::update(
+                'UPDATE ausencias SET deleted_by = ?, deleted_at = ?, updated_at = ? WHERE id = ?',
+                [$this->usuario->user_id, $ahora, $ahora, (int) $falta->id]
+            );
+
+            // **Con la fecha que la falta TENÍA**, y por eso se lee antes de borrar: la
+            // pregunta que el colegio hace cuando alguien reclama es «qué falta se
+            // borró», y la respuesta es el día que ya no está en ninguna pantalla.
+            $this->anotarLaFalta(Auditoria::BORRAR, (int) $falta->id, $alumnoId, $asignaturaId, $periodoId,
+                $operacion, $falta->fecha_hora);
+
+            $this->hechos['ausencias_borradas']++;
+        }
+    }
+
+    /**
+     * La línea de auditoría de una falta importada.
+     *
+     * **Sólo `auditoria`, y no `bitacoras`**, que es lo que hacen las seis rutas de
+     * `ausencias/*` desde el 22 ago 2026 (`AusenciasController::anotar`). No es una
+     * excepción de esta clase: `bitacoras` **no tiene vocabulario para una falta** —
+     * sus `affected_element_type` son `Nota`, `NF_UPDATE`, `Nueva subunidad`…— y las
+     * dos pantallas del front que la leen buscan por tipo. Un tipo nuevo ahí sería
+     * una fila que nadie ve, en la tabla que el doc 18 está retirando.
+     *
+     * Lo que sí se copia entero es lo demás: el **nombre del alumno congelado
+     * dentro** —sin él la frase de serie dice «Fulano creó ausencia 4821», que no se
+     * puede leer—, la asignatura y el periodo, y el valor completo de la falta.
+     *
+     * Y **`origen`**, que es lo único que esta línea añade a las de las seis rutas:
+     * es la marca de que la falta vino de una planilla y no de la pantalla de
+     * asistencia. Ver la §de las ausencias en `docs/migracion/51` para dónde NO está
+     * esa marca, que es la fila de `ausencias` misma.
+     *
+     * @param  array{tipo:string, tipo_db:string, direccion:string, cuantas:int}  $operacion
+     */
+    private function anotarLaFalta(string $accion, int $id, int $alumnoId, int $asignaturaId, int $periodoId,
+        array $operacion, mixed $fechaHora): void
+    {
+        $esTardanza = $operacion['tipo_db'] === 'tardanza';
+
+        $valor = [
+            'tipo' => $operacion['tipo_db'],
+            'fecha_hora' => (string) $fechaHora,
+            'cantidad_ausencia' => $esTardanza ? null : 1,
+            'cantidad_tardanza' => $esTardanza ? 1 : null,
+            'origen' => 'planilla sin internet',
+        ];
+
+        $linea = Auditoria::registrar()
+            ->deAlumno($alumnoId, NombreDelAlumno::de($alumnoId))
+            ->en(asignatura: $asignaturaId, periodo: $periodoId);
+
+        if ($accion === Auditoria::BORRAR) {
+            $linea->borrar('ausencia', $id)->de($valor);
+        } else {
+            $linea->crear('ausencia', $id)->a($valor);
+        }
+
+        $linea->guardar();
     }
 
     /**
