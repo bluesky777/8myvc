@@ -146,6 +146,23 @@ class ContextoDeUsuario
      * En las cuatro ramas por el mismo argumento de siempre — `year_pasado_en_bol`
      * estaba en tres de cuatro y reventó la del acudiente.
      *
+     * ## Y `profes_pueden_editar_plantilla` también, en las cuatro (22 sep 2026)
+     *
+     * La cuarta política del año, y la primera que los dos fronts necesitan **antes**
+     * de dejar tocar nada: dice si una unidad con `por_defecto = 1` se puede editar
+     * en este colegio. Sin ella en el contexto, la única forma que tiene una pantalla
+     * de enterarse es **intentarlo y comerse el 403** de `CandadoDeLaPlantilla`, o
+     * sea el lápiz que no hace nada y el error en la cara — que es literalmente el
+     * modo de fallo que aquel candado dice estar evitando al comparar el valor y no
+     * la presencia del campo.
+     *
+     * En las cuatro por lo de siempre, y aquí con un matiz que no tienen las otras:
+     * la rama del **alumno** y la del **acudiente** no editan unidades, así que
+     * parecía sobrar en dos. Va igual. `year_pasado_en_bol` estuvo en tres de cuatro
+     * y reventó la del acudiente con «Undefined property» la primera vez que la pidió
+     * una familia; una columna que viaja en unas ramas y en otras no es una rama
+     * muerta esperando, y ahorrar dos campos en un `SELECT` no paga eso.
+     *
      * ## Y `mostrar_nota_numerica_boletin` también, en las cuatro (18 sep 2026)
      *
      * **Se me olvidó al añadir la columna, y el modo de fallo es exactamente el que
@@ -196,7 +213,7 @@ class ContextoDeUsuario
                                 p.firma_id, i3.nombre as firma_nombre,
                                 "N/A" as grupo_id, ("N/A") as nombre_grupo, ("N/A") as abrev_grupo,
                                 "N/A" as year_matricula_id, per.id as periodo_id, per.numero as numero_periodo, per.profes_pueden_editar_notas, per.profes_pueden_nivelar,
-                                y.id as year_id, y.year, y.nota_minima_aceptada, y.regla_nivelacion, y.modelo_evaluacion, y.reparto_subunidades, y.actual as year_actual, per.actual as periodo_actual,
+                                y.id as year_id, y.year, y.nota_minima_aceptada, y.regla_nivelacion, y.modelo_evaluacion, y.reparto_subunidades, y.profes_pueden_editar_plantilla, y.actual as year_actual, per.actual as periodo_actual,
                                 y.unidad_displayname, y.subunidad_displayname, y.unidades_displayname, y.subunidades_displayname, y.show_materias_todas,
                                 y.genero_unidad, y.genero_subunidad,
                                 y.desempeno_displayname, y.desempenos_displayname, y.genero_desempeno, per.fecha_plazo, y.alumnos_can_see_notas, y.logo_id,
@@ -227,7 +244,7 @@ class ContextoDeUsuario
                                 a.foto_id, IFNULL(i2.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as foto_nombre,
                                 g.id as grupo_id, g.nombre as nombre_grupo, g.abrev as abrev_grupo,
                                 g.year_id as year_matricula_id, per.id as periodo_id, per.numero as numero_periodo,
-                                y.id as year_id, y.year, y.nota_minima_aceptada, y.regla_nivelacion, y.modelo_evaluacion, y.reparto_subunidades, y.actual as year_actual, per.actual as periodo_actual,
+                                y.id as year_id, y.year, y.nota_minima_aceptada, y.regla_nivelacion, y.modelo_evaluacion, y.reparto_subunidades, y.profes_pueden_editar_plantilla, y.actual as year_actual, per.actual as periodo_actual,
                                 y.unidad_displayname, y.subunidad_displayname, y.unidades_displayname, y.subunidades_displayname,
                                 y.genero_unidad, y.genero_subunidad,
                                 y.desempeno_displayname, y.desempenos_displayname, y.genero_desempeno, per.fecha_plazo, y.mostrar_nota_comport_boletin, y.mostrar_nota_numerica_boletin, y.si_recupera_materia_recup_indicador, y.year_pasado_en_bol, y.alumnos_can_see_notas, y.logo_id,
@@ -258,7 +275,7 @@ class ContextoDeUsuario
                                 ac.foto_id, IFNULL(i2.nombre, IF(ac.sexo="F","default_female.png", "default_male.png")) as foto_nombre,
                                 "N/A" as grupo_id, ("N/A") as nombre_grupo, ("N/A") as abrev_grupo,
                                 "N/A" as year_matricula_id, per.id as periodo_id, per.numero as numero_periodo,
-                                y.id as year_id, y.year, y.nota_minima_aceptada, y.regla_nivelacion, y.modelo_evaluacion, y.reparto_subunidades, y.actual as year_actual, per.actual as periodo_actual,
+                                y.id as year_id, y.year, y.nota_minima_aceptada, y.regla_nivelacion, y.modelo_evaluacion, y.reparto_subunidades, y.profes_pueden_editar_plantilla, y.actual as year_actual, per.actual as periodo_actual,
                                 y.unidad_displayname, y.subunidad_displayname, y.unidades_displayname, y.subunidades_displayname,
                                 y.genero_unidad, y.genero_subunidad,
                                 y.desempeno_displayname, y.desempenos_displayname, y.genero_desempeno, per.fecha_plazo, y.si_recupera_materia_recup_indicador, y.mostrar_nota_comport_boletin, y.mostrar_nota_numerica_boletin, y.alumnos_can_see_notas, y.logo_id,
@@ -292,7 +309,7 @@ class ContextoDeUsuario
                                 u.imagen_id as foto_id, IFNULL(i.nombre, IF(u.sexo="F","default_female.png", "default_male.png")) as foto_nombre,
                                 "N/A" as grupo_id, ("N/A") as nombre_grupo, ("N/A") as abrev_grupo,
                                 "N/A" as year_matricula_id, per.id as periodo_id, per.numero as numero_periodo, per.profes_pueden_editar_notas, per.profes_pueden_nivelar,
-                                y.id as year_id, y.year, y.nota_minima_aceptada, y.regla_nivelacion, y.modelo_evaluacion, y.reparto_subunidades, y.actual as year_actual, per.actual as periodo_actual,
+                                y.id as year_id, y.year, y.nota_minima_aceptada, y.regla_nivelacion, y.modelo_evaluacion, y.reparto_subunidades, y.profes_pueden_editar_plantilla, y.actual as year_actual, per.actual as periodo_actual,
                                 y.unidad_displayname, y.subunidad_displayname, y.unidades_displayname, y.subunidades_displayname, y.show_materias_todas,
                                 y.genero_unidad, y.genero_subunidad,
                                 y.desempeno_displayname, y.desempenos_displayname, y.genero_desempeno, per.fecha_plazo, y.si_recupera_materia_recup_indicador, y.year_pasado_en_bol, y.mostrar_nota_comport_boletin, y.mostrar_nota_numerica_boletin, y.alumnos_can_see_notas, y.logo_id,

@@ -96,6 +96,35 @@ use Illuminate\Support\Facades\DB;
  * cambiar es código muerto con forma de decisión— y lo que entra en su lugar es la
  * línea de auditoría en los dos `putUpdate`. Vuelve lo que reportaron los colegios y
  * se acepta a sabiendas: si hay que revisarlo, se revisa con una medición delante.
+ *
+ * ## Y SE REVISÓ EL 22 SEP, sin la medición y por el motivo correcto
+ *
+ * El interruptor vuelve, pero **no como la constante que se quitó**: como
+ * `years.profes_pueden_editar_plantilla`, una columna que el colegio gira desde su
+ * pantalla del plan de evaluación. Joseth lo dijo así —*«prefiero que haya un
+ * booleano a nivel colegio, para que se pueda elegir si los docentes pueden
+ * editarlos o no, aunque sean por defecto»*— y la diferencia con el 21 sep es
+ * entera: aquella constante era una decisión del código disfrazada de interruptor, y
+ * ésta es del colegio.
+ *
+ * Lo que se dio por medir y no se midió era la pregunta equivocada. La medición
+ * buscaba **cuántas** filas del colegio estaba editando un docente, para decidir si
+ * el candado sobraba; y P6 no se cae por un número, se cae porque **la regla no es
+ * la misma en los dieciséis colegios**. Un colegio con el plan de área cerrado
+ * quiere el candado; otro siembra la plantilla como punto de partida y espera que su
+ * docente la ajuste. Con una sola respuesta escrita en el código, uno de los dos
+ * está siempre equivocado.
+ *
+ * **De fábrica es 0**, o sea el comportamiento del 21 sep: desplegar esto no cambia
+ * nada en ningún colegio, y los que se quejaron siguen quejándose hasta que alguien
+ * lo encienda. Eso es lo elegido — el otro defecto abriría la plantilla de los
+ * dieciséis a la vez sin que ningún rector lo hubiera pedido.
+ *
+ * **Y con el interruptor encendido, una fila del colegio se comporta como una del
+ * docente**: se renombra, se repesa, **se borra y se mueve de sitio**. No es sólo
+ * levantar `CAMPOS`. La parte de mover la hace `exigirElLote()`; borrar no pasa por
+ * aquí —esta API nunca lo frenó, sólo lo frenaba la pantalla de `app2`— y eso queda
+ * escrito porque es la asimetría que se encuentra quien venga a buscarla aquí.
  */
 class CandadoDeLaPlantilla
 {
@@ -125,6 +154,16 @@ class CandadoDeLaPlantilla
         }
 
         if (Autoriza::puedeEditarPlantillaNotas($usuario)) {
+            return;
+        }
+
+        // **Y el interruptor del colegio, que es el tercero y el más caro** (22 sep
+        // 2026, `years.profes_pueden_editar_plantilla`). Va el último de los tres a
+        // propósito, por lo que cuesta cada uno: `por_defecto` ya venía en la fila
+        // que el llamante cargó, el permiso puede salir de `perms`, y esto es una
+        // consulta. Puesto el primero, la pagaría **toda** escritura sobre una
+        // unidad; puesto aquí sólo la paga la que de verdad iba a ser un 403.
+        if (self::abiertaALosDocentes($fila, $que)) {
             return;
         }
 
@@ -175,11 +214,25 @@ class CandadoDeLaPlantilla
             return;
         }
 
+        // **El interruptor del colegio entra AQUÍ, en la consulta que ya se hacía, y
+        // no en un `if` de más arriba** (22 sep 2026): el lote llega con ids y no con
+        // un año, y resolverlo aparte sería una segunda consulta para contestar lo
+        // que ésta ya sabe en cuanto pasa por `periodos`. Filtrando por la columna,
+        // las filas de un colegio que abrió la mano **no llegan a la lista de
+        // bloqueadas** y el bucle de abajo no tiene nada que mirar.
+        //
+        // Y va por fila y no por lote aunque el lote sea de una sola asignatura: es
+        // gratis —el `JOIN` ya está— y deja de depender de un invariante que nadie
+        // escribió. El día que un reordenado cruce dos años, cada fila responde por
+        // el suyo.
         $delColegio = DB::table('unidades')
-            ->whereIn('id', array_keys($ordenes))
-            ->where('por_defecto', 1)
-            ->whereNull('deleted_at')
-            ->get(['id', 'orden']);
+            ->join('periodos', 'periodos.id', '=', 'unidades.periodo_id')
+            ->join('years', 'years.id', '=', 'periodos.year_id')
+            ->whereIn('unidades.id', array_keys($ordenes))
+            ->where('unidades.por_defecto', 1)
+            ->where('years.profes_pueden_editar_plantilla', 0)
+            ->whereNull('unidades.deleted_at')
+            ->get(['unidades.id', 'unidades.orden']);
 
         foreach ($delColegio as $fila) {
             $id = (int) $fila->id;
@@ -193,6 +246,58 @@ class CandadoDeLaPlantilla
                     .'Pídeselo a la coordinación, que lo corrige en la plantilla para todos.');
             }
         }
+    }
+
+    /**
+     * ¿Este colegio deja que sus docentes editen lo que puso en la plantilla?
+     *
+     * `years.profes_pueden_editar_plantilla`, la cuarta política del año — decisión
+     * de Joseth del 22 sep 2026, que **corrige P6**. La regla no es la misma en los
+     * dieciséis colegios, así que el código dejó de elegirla; lo que queda aquí es
+     * leerla.
+     *
+     * ## Se lee el año de LA FILA, no el de la sesión
+     *
+     * `$usuario->year_id` estaba a mano y es la respuesta equivocada: un docente
+     * con la sesión en 2026 que corrige una unidad de 2023 —que se puede, mientras
+     * aquel periodo siguiera abierto, y está decidido así en la §27.4— pasaría o no
+     * pasaría según lo que el colegio haya elegido **este** año. La política es del
+     * año al que pertenece la fila, igual que `modelo_evaluacion` y por la misma
+     * razón: *un año cerrado conserva el suyo para siempre*.
+     *
+     * ## Dos consultas y no una, y es la forma barata
+     *
+     * La unidad cuelga de `periodos` y la subunidad de `unidades`, así que el camino
+     * al año tiene un salto más en un caso que en el otro. Se distinguen por `$que`,
+     * que el llamante ya pasa para el mensaje — no hace falta preguntarle a la fila
+     * de qué clase es.
+     *
+     * **Un `false` cuando no se encuentra el año**, que es el lado seguro: si la
+     * fila cuelga de un periodo huérfano, lo que pasa es que el candado sigue
+     * puesto. El otro defecto abriría la plantilla por un dato roto.
+     */
+    private static function abiertaALosDocentes(object $fila, string $que): bool
+    {
+        if ($que === 'subunidad') {
+            $abierta = DB::selectOne(
+                'SELECT y.profes_pueden_editar_plantilla AS abierta
+                   FROM unidades u
+                   JOIN periodos p ON p.id = u.periodo_id
+                   JOIN years y ON y.id = p.year_id
+                  WHERE u.id = ?',
+                [(int) ($fila->unidad_id ?? 0)]
+            );
+        } else {
+            $abierta = DB::selectOne(
+                'SELECT y.profes_pueden_editar_plantilla AS abierta
+                   FROM periodos p
+                   JOIN years y ON y.id = p.year_id
+                  WHERE p.id = ?',
+                [(int) ($fila->periodo_id ?? 0)]
+            );
+        }
+
+        return $abierta !== null && (bool) $abierta->abierta;
     }
 
     /**

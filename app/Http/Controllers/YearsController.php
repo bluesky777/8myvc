@@ -258,6 +258,15 @@ class YearsController extends Controller {
 			// calificado**, que es justo lo que había decidido no hacer. El centinela
 			// del año nuevo es el que no deja olvidar esta línea.
 			$year->cierre_sin_calificar 		 = $pasado->cierre_sin_calificar;
+			// Y la séptima, del 22 sep 2026: si los docentes de este colegio editan lo
+			// que el colegio puso en la plantilla. Se hereda por lo mismo que las seis de
+			// arriba, y el defecto que reaparecería tiene pinta de decisión — es el caso
+			// más claro de todos: el colegio que abrió la mano amanecería con el candado
+			// puesto cada enero, y lo que vería es **exactamente lo que reportaron el 21
+			// sep**, sus docentes sin poder tocar el porcentaje de la unidad que acaban de
+			// sembrar. Un 403 en enero, sin nadie que lo haya decidido y con el rastro
+			// apuntando al candado en vez de a esta línea que faltaría.
+			$year->profes_pueden_editar_plantilla = $pasado->profes_pueden_editar_plantilla;
 			// El año nuevo hereda la elección del anterior por lo mismo que las de
 			// arriba: es una decisión del SIEE del colegio, no algo que se vuelva a
 			// tomar cada enero. Sin esta línea, un colegio que imprime sin número
@@ -1200,7 +1209,7 @@ class YearsController extends Controller {
 			'No tiene permiso para cambiar el modelo de evaluación del colegio.'
 		);
 
-		// **Las DOS políticas del año, y cada una es opcional** (14 sep 2026).
+		// **Las TRES políticas del año, y cada una es opcional** (14 y 22 sep 2026).
 		//
 		// Hasta hoy esta ruta sólo escribía `modelo_evaluacion`. Entra
 		// `reparto_subunidades` —la Entrega 5— **aquí y no en una ruta propia**, por
@@ -1238,12 +1247,39 @@ class YearsController extends Controller {
 			$pedidos[$campo] = $valor;
 		}
 
+		// **Y la tercera política, que NO es un enum y por eso no entra en el bucle**
+		// (22 sep 2026): si los docentes de este colegio pueden cambiar lo que el
+		// colegio puso en la plantilla. Misma ruta y mismo dueño que las dos de
+		// arriba —es otra política de evaluación del mismo año, en la misma pantalla—,
+		// pero su validación es la de un booleano y meterla en `$columnas` habría
+		// pedido inventar un `['0','1']` que no dice lo que pasa.
+		//
+		// **`FILTER_NULL_ON_FAILURE` y no un `(bool)` a pelo.** `(bool) 'no'` es
+		// `true` y `(bool) '0'` es `false`: castear deja pasar cualquier cadena y la
+		// convierte en «sí», que es la peor de las dos direcciones — abrir la
+		// plantilla de un colegio porque alguien mandó una palabra. Con el filtro,
+		// `true/false`, `1/0` y `"true"/"false"` entran y **todo lo demás es 422 con
+		// el nombre del campo delante**, que es la forma de esta ruta.
+		if (Request::has('profes_pueden_editar_plantilla')) {
+			$abierta = filter_var(
+				Request::input('profes_pueden_editar_plantilla'),
+				FILTER_VALIDATE_BOOLEAN,
+				FILTER_NULL_ON_FAILURE
+			);
+
+			if ($abierta === null) {
+				abort(422, '`profes_pueden_editar_plantilla` tiene que ser verdadero o falso.');
+			}
+
+			$pedidos['profes_pueden_editar_plantilla'] = $abierta ? 1 : 0;
+		}
+
 		// **Sin ningún campo NO es un 200 vacío**, que sería la familia de
 		// `tools/respuestas-que-mienten.py`: quien la reciba creería que guardó algo.
 		// Antes esto salía por el 422 de `modelo_evaluacion` cuando faltaba; ahora que
 		// los dos son opcionales, hace falta decirlo.
 		if ($pedidos === []) {
-			abort(422, 'Hace falta `modelo_evaluacion` o `reparto_subunidades`.');
+			abort(422, 'Hace falta `modelo_evaluacion`, `reparto_subunidades` o `profes_pueden_editar_plantilla`.');
 		}
 
 		$year_id = Request::input('year_id', $user->year_id ?? null);
@@ -1372,6 +1408,9 @@ class YearsController extends Controller {
 			'year_id' => (int) $year->id,
 			'modelo_evaluacion' => $year->modelo_evaluacion,
 			'reparto_subunidades' => $year->reparto_subunidades,
+			// Entero y no booleano: es lo que trae `ContextoDeUsuario` en sus cuatro ramas,
+			// y dos representaciones del mismo interruptor son dos ramas en cada front.
+			'profes_pueden_editar_plantilla' => (int) $year->profes_pueden_editar_plantilla,
 			'anterior' => $anterior,
 			'desempeno_displayname' => $year->desempeno_displayname,
 			'desempenos_displayname' => $year->desempenos_displayname,
@@ -2036,6 +2075,13 @@ class YearsController extends Controller {
 				'el permiso de la plantilla de notas'],
 			'reparto_subunidades' => ['El reparto de las subunidades', 'years/modelo-evaluacion',
 				'el permiso de la plantilla de notas'],
+			// **Y la quinta, del 22 sep 2026.** Sin este corte la ruta sería peor que
+			// decorativa: `auth.personal` son 74 cuentas y 53 de ellas son docentes, o
+			// sea que **cualquier docente se abriría en una línea el candado que le
+			// frena la plantilla**, que es exactamente lo que este interruptor existe
+			// para que decida el colegio.
+			'profes_pueden_editar_plantilla' => ['Quién edita la plantilla de notas',
+				'years/modelo-evaluacion', 'el permiso de la plantilla de notas'],
 			'mostrar_nota_numerica_boletin' => ['La nota numérica del boletín',
 				'years/toggle-mostrar-nota-numerica',
 				'ser superusuario, Secretario, Coord académico o Rector'],

@@ -210,6 +210,31 @@ use App\Models\Periodo;
  *
  * @property string $cierre_sin_calificar
  *
+ * Y **quién puede cambiar lo que el colegio puso en la plantilla**, por migración
+ * (`2026_09_22_200000_quien_edita_la_plantilla`): la **cuarta** política del año,
+ * al lado de las tres de arriba y con el mismo dueño que las dos primeras
+ * —`PUT years/modelo-evaluacion`, con `can_edit_plantilla_notas` dentro—.
+ *
+ * `0` de fábrica, que es el comportamiento de hoy: `App\Support\CandadoDeLaPlantilla`
+ * frena el nombre y el porcentaje de toda fila con `por_defecto = 1`. En `1` esa
+ * fila se comporta **como una del docente** —se renombra, se repesa, se borra y se
+ * mueve—, que es la corrección del 22 sep 2026 a P6: *la regla no es la misma en
+ * los dieciséis colegios, así que no le toca al código elegirla*.
+ *
+ * **La lee el backend**, y eso la separa de `modelo_evaluacion`: el candado la
+ * consulta en cada escritura sobre una fila del colegio. Y viaja además en las
+ * cuatro ramas de `ContextoDeUsuario`, porque los dos fronts tienen que pintar la
+ * rejilla abierta o cerrada **antes** de que nadie intente guardar — con el
+ * interruptor apagado, ofrecer un lápiz que contesta 403 es la pantalla averiada de
+ * la que habla `CandadoDeLaPlantilla`.
+ *
+ * Se copia al año siguiente en `YearsController::postStore` y está excluida de
+ * `putToggleCambiarValor` por lo mismo que las otras tres: tiene dueño, y sin ese
+ * corte los 74 `auth.personal` —53 de ellos docentes— se abrirían la plantilla
+ * ellos mismos en una línea.
+ *
+ * @property int $profes_pueden_editar_plantilla
+ *
  * Y los atributos que NO son columnas: el código se los cuelga al modelo en
  * tiempo de ejecución para armar la respuesta, que es un patrón repetido por
  * todo el proyecto. Eloquent los guarda entre los atributos y salen en el JSON,

@@ -36,6 +36,7 @@
     "persona_id": "int",
     "profes_can_edit_alumnos": "int",
     "profes_pueden_editar_notas": "int",
+    "profes_pueden_editar_plantilla": "int",
     "profes_pueden_nivelar": "int",
     "puestos_alfabeticamente": "int",
     "regla_nivelacion": "string",

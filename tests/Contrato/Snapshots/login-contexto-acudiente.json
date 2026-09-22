@@ -34,6 +34,7 @@
     ],
     "persona_id": "int",
     "prematr_antiguos": "int",
+    "profes_pueden_editar_plantilla": "int",
     "regla_nivelacion": "string",
     "reparto_subunidades": "string",
     "roles": [
