@@ -16,16 +16,32 @@ use Illuminate\Support\Carbon;
  * `DB::insert` sobre **la misma tabla** dejan la misma columna con cinco horas de
  * diferencia, y en la fila no queda nada que diga cuál es cuál.
  *
- * No es una hipótesis. Medido el 21 sep 2026 en la copia de `caz_zaragoza`,
- * emparejando cada nota con la subunidad de la que nace —se crean **en la misma
- * petición**, así que entre sus `created_at` no debería haber hueco—:
+ * No es una hipótesis. Emparejando cada nota con la subunidad de la que nace —se
+ * crean **en la misma petición**, así que entre sus `created_at` no debería haber
+ * hueco—, los pares separados 18.000 segundos exactos son las subunidades que
+ * selló Eloquent en UTC mientras sus notas las escribía SQL crudo en Bogotá.
  *
- * | diferencia | pares | quién escribe |
- * |---|---:|---|
- * | 18.000 s exactos (5 h) | 34.903 | alta normal: `Subunidad->save()` (Eloquent, UTC) y sus notas por `Nota::verificarCrearNotas` (Bogotá) |
- * | 0 s | 6.188 | `PeriodosController::putCopiar`, que crea las dos con `new Nota` + `save()`: **las dos en UTC** |
+ * **Medido el 22 sep 2026 contra la base VIVA de `caz-zaragoza`**, y antes contra
+ * la copia del docker, con el mismo resultado:
  *
- * Y las dos familias van de 2018 a 2026 entremezcladas.
+ * | | producción | copia del docker |
+ * |---|---:|---:|
+ * | subunidades con `created_at` | 28.448 | 28.240 |
+ * | …selladas en UTC | **495** | 495 |
+ * | pares (nota, subunidad) que arrastran | **8.058** | 8.058 |
+ * | años | **sólo 2026** | sólo 2026 |
+ *
+ * > **La cifra que había aquí escrita era otra, y no se reproduce.** Decía «34.903
+ * > pares separados 18.000 segundos exactos y 6.188 en el mismo segundo, las dos
+ * > familias de 2018 a 2026», sobre esta misma copia. Se volvió a correr en las dos
+ * > bases y el máximo de cualquier emparejamiento es 8.058, con los nueve años
+ * > anteriores a 2026 en cero. No se ha averiguado de dónde salió la primera; queda
+ * > escrita aquí en vez de borrada, porque **una cifra que no se reproduce es un
+ * > hallazgo y no una errata que tapar**. El detalle, con los tres emparejamientos
+ * > probados, en `docs/migracion/53-los-cuatro-relojes.md` §5.
+ *
+ * Importa porque decide el tamaño de la reparación del histórico: **495 filas de un
+ * solo año**, no treinta y cuatro mil repartidas por nueve.
  *
  * ## Por qué se arregla en el que ESCRIBE y no en el que lee
  *

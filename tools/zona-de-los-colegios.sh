@@ -22,7 +22,7 @@
 # código:
 #
 #   1. `NOW()` en SQL crudo devuelve la hora del SERVIDOR. Eso se fue del código
-#      el 21 sep 2026 —los 20 usos pasaron a `App\Support\Reloj`— y por esa vía
+#      el 21 sep 2026 —las 17 escrituras pasaron a `App\Support\Reloj`— y por esa
 #      ya no entra ninguna hora nueva.
 #
 #   2. **Las 225 columnas `TIMESTAMP`.** Ésas no dependen del código: MySQL las

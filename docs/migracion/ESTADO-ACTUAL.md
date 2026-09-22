@@ -17,7 +17,7 @@
 > `app/User.php`, que no está en `app/Models/` y por eso ningún censo del repo lo
 > miraba— y `NOW()` de MySQL, que es **la hora del cPanel de cada colegio**.
 >
-> **Hecho en esta pasada:** los **20 `NOW()`** de seis ficheros pasaron a
+> **Hecho en esta pasada:** las **17 `NOW()`** de seis ficheros pasaron a
 > `Reloj::ahoraTexto()` (`grep 'NOW()' app/` → 0 fuera de comentarios); la espera del
 > tablero de matrículas dejó de sumar **+300 minutos** a cada fila
 > (`EstacionesController`, y **estrena `Reloj::desdeTexto()`**, que llevaba 0 llamantes);

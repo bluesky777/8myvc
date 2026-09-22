@@ -36,7 +36,7 @@ Medido en `main`, árbol principal, 21 sep 2026.
 | 1b | **Bogotá a mano**, `Carbon::now('America/Bogota')` | lo mismo, decidido en cada sitio | **138** | 53 |
 | 2 | **UTC de PHP**, `now()` / `Carbon::now()` | UTC (`config/app.php`) | **34** | 14 |
 | 3 | **UTC de Eloquent**, `Model::freshTimestamp()` | UTC, y **sin que aparezca un `now()` en el fichero** | 43 modelos escritos + `app/User.php` | — |
-| 4 | **El del servidor MySQL**, `NOW()` | `@@session.time_zone = SYSTEM`: **dieciséis cPanel distintos** | **20** | 6 |
+| 4 | **El del servidor MySQL**, `NOW()` | `@@session.time_zone = SYSTEM`: **dieciséis cPanel distintos** | **17** | 6 |
 
 ```bash
 grep -rn "Reloj::ahora()\|Reloj::ahoraTexto()" app/ --include='*.php' | wc -l      # 60
@@ -67,9 +67,31 @@ código, **no lo ve**.
 - **44 modelos usan `SoftDeletes` y 40 de ellos no llevan el rasgo**: ahí el reloj de UTC no
   entra sólo al crear, entra **al borrar**.
 
+### Una errata que sólo cazó el servidor: eran 17 y publiqué 20
+
+La primera versión de este documento decía **20**. La tabla de debajo sumaba 17 (6+3+3+2+2+1)
+y el titular decía 20: **ninguna orden produjo ese número**, lo escribí de memoria mirando
+una salida de `grep` que aún llevaba dentro las seis líneas de comentario de
+`DefinitivasPeriodosController` y `DefinitivasDeAsignatura`, que mencionan `NOW()` para
+explicar por qué lo quitaron.
+
+**Lo cazó el censo de producción, no una relectura.** Joseth corrió el bucle del
+[54](54-lo-que-espera-a-joseth-de-los-relojes.md) §1 sobre los diecisiete y salió **16 en
+todos**. El 16 contra el 20 no cuadraba de ninguna manera; el 16 contra el 17 de `main` sí,
+y con una explicación: falta el de la planilla offline, que entró en `3e16747` y aún no está
+desplegado.
+
+Dos cosas quedan de aquí, y valen más que la errata:
+
+- **Una cifra sin la orden que la produce al lado no es una cifra.** Ésta llevaba dos días
+  escrita en el documento, en un mensaje de commit y en `ESTADO-ACTUAL`, y pasó por delante
+  de todas las revisiones sin que nadie —yo el primero— sumara la tabla que tenía debajo.
+- **El número redondo es sospechoso.** 17 es un recuento; 20 es un número que alguien
+  recordó.
+
 ### El 4 es nuevo, y es el peor
 
-Los 20 `NOW()` vivos están en **seis ficheros**, y **todas** las tablas que escriben las creó
+Las 17 `NOW()` vivas están en **seis ficheros**, y **todas** las tablas que escriben las creó
 una migración de esta migración —no hay ni una del legado—:
 
 | Fichero | Usos | Tabla |
@@ -139,7 +161,7 @@ porque la mitad de las veces que se va a mirar ya no está.
 
 ### Lo que esto significaba para los `NOW()`
 
-Los 20 `NOW()` que se fueron hoy **no escribían UTC**: escribían EDT. O sea que
+Las 17 `NOW()` que se fueron **no escribían UTC**: escribían EDT. O sea que
 `ordenes_inscripcion`, `pagos_inscripcion`, `colillas_inscripcion`, `informes_recientes`,
 `accesos_favoritos` y `descargas_de_planilla` llevaban **una hora de más de marzo a
 noviembre y la hora correcta el resto del año**, en la misma columna y sin nada que lo
@@ -239,45 +261,57 @@ cosas igual da dieciséis falsos positivos y esconde el único que muerde.
 
 ---
 
-## §5. El histórico: cuánto hay movido
+## §5. El histórico: **495 subunidades, todas de 2026** — medido en producción
 
-Medido en la copia de `caz_zaragoza` del docker, emparejando cada subunidad con la **primera
-nota que nace de ella** —las crea la misma petición, así que su hueco normal es de segundos—:
+Emparejando cada subunidad con la **primera nota que nace de ella** —las crea la misma
+petición, así que su hueco normal es de segundos—, una separación de 18.000 segundos exactos
+significa que la subunidad la selló Eloquent en UTC y sus notas el SQL crudo en Bogotá.
 
-| | |
-|---|---:|
-| subunidades con `created_at` | **28.240** |
-| …selladas en UTC (5 h exactas de separación) | **495 (1,8 %)** |
-| …y de qué años | **todas de 2026** (19,4 % de las 2.557 de ese año) |
-| pares (nota, subunidad) que arrastran | **8.058** de 469.021 |
-| por `updated_at` | **2.261** |
-
-Los 2.261 por `updated_at` **reproducen** los «2.262 pares» que anotó
-`DefinitivasPeriodosController:310`. La orden está en
-`docs/migracion/` — el guion que las produjo se dejó en el scratchpad de la sesión, y la
-consulta es una sola:
+| | copia del docker (21 sep) | **producción, `caz-zaragoza` (22 sep)** |
+|---|---:|---:|
+| subunidades con `created_at` | 28.240 | **28.448** |
+| …selladas en UTC | 495 | **495** |
+| pares (nota, subunidad) que arrastran | 8.058 | **8.058** |
+| años | sólo 2026 | **sólo 2026** |
 
 ```sql
-SELECT COUNT(*) FROM notas n JOIN subunidades s ON s.id = n.subunidad_id
-WHERE ABS(TIMESTAMPDIFF(SECOND, s.updated_at, n.updated_at)) = 18000;
+SELECT COUNT(DISTINCT s.id) AS subunidades_en_utc, COUNT(*) AS pares,
+       MIN(YEAR(s.created_at)) AS desde, MAX(YEAR(s.created_at)) AS hasta
+FROM notas n JOIN subunidades s ON s.id = n.subunidad_id
+WHERE ABS(TIMESTAMPDIFF(SECOND, s.created_at, n.created_at)) = 18000;
+
+SELECT COUNT(*) AS subunidades_totales FROM subunidades WHERE created_at > '2000-01-01';
 ```
 
-> **Y una cifra de este repo NO se reproduce.** La cabecera de `App\Support\SellaConElReloj`
-> dice **«34.903 pares separados 18.000 segundos exactos y 6.188 en el mismo segundo, las dos
-> familias de 2018 a 2026»**, sobre esta misma copia de `caz_zaragoza`. Hoy, 21 sep 2026, el
-> máximo que da cualquier emparejamiento es **8.058**, y **todos son de 2026**: los nueve años
-> anteriores dan **cero**.
->
-> | emparejamiento | pares a 5 h | años |
-> |---|---:|---|
-> | `s.created_at` ↔ `n.created_at` | 8.058 | 2026 |
-> | `s.updated_at` ↔ `n.updated_at` | 2.261 | 2026 |
-> | `s.created_at` ↔ `n.updated_at` | 2.737 | 2026 |
->
-> No se ha averiguado cuál de las dos mediciones describe qué: pueden ser bases distintas, un
-> criterio distinto o una base reconstruida entre medias. **Se anota como discrepancia, no
-> como corrección**, y quien vaya a reparar el histórico la resuelve antes de escribir un
-> `UPDATE`: el número decide si la reparación toca 495 filas o treinta y cuatro mil.
+Las dos siempre juntas: **un número sin su denominador no dice nada.**
+
+### La discrepancia, resuelta: el docblock estaba mal
+
+La cabecera de `App\Support\SellaConElReloj` decía **«34.903 pares separados 18.000
+segundos exactos y 6.188 en el mismo segundo, las dos familias de 2018 a 2026»**, sobre esta
+misma copia de `caz_zaragoza`. **No se reproduce.** Ni en el docker ni en producción, y no
+por poco: el máximo que da cualquier emparejamiento es 8.058, y **los nueve años anteriores
+a 2026 dan cero**.
+
+| emparejamiento | pares a 5 h | años |
+|---|---:|---|
+| `s.created_at` ↔ `n.created_at` | 8.058 | 2026 |
+| `s.updated_at` ↔ `n.updated_at` | 2.261 | 2026 |
+| `s.created_at` ↔ `n.updated_at` | 2.737 | 2026 |
+
+**Lo que sí se reproduce** son los «2.262 pares» que anotó `DefinitivasPeriodosController`:
+hoy dan 2.261, o sea la misma medición con una fila más de por medio. Esa cifra está bien y
+es la de `updated_at`.
+
+Así que la reparación del histórico, si se hace, **toca 495 subunidades y 8.058 notas, todas
+de 2026** — no treinta y cuatro mil repartidas por nueve años. Es una migración pequeña, de
+un solo año, con `RastroDeLaMigracion::anotar()` delante.
+
+> **Y la lección se parece demasiado a la de la errata del §1 para no decirla junta:** las
+> dos cifras malas —el 20 de los `NOW()` y el 34.903 de los pares— estaban escritas en sitios
+> que se leen mucho, llevaban días ahí, y **ninguna de las dos la cazó una relectura**. Las
+> cazó volver a correr la orden. Un número que no lleva su orden al lado no se puede revisar
+> leyéndolo; sólo se puede volver a medir.
 
 ---
 
@@ -285,7 +319,7 @@ WHERE ABS(TIMESTAMPDIFF(SECOND, s.updated_at, n.updated_at)) = 18000;
 
 **Ninguno de estos pasos sirve sin el anterior.**
 
-1. ~~Los 20 `NOW()` pasan a `Reloj::ahoraTexto()`.~~ **HECHO el 21 sep 2026.** Y el §3
+1. ~~Las 17 `NOW()` pasan a `Reloj::ahoraTexto()`.~~ **HECHO el 21 sep 2026.** Y el §3
    explica por qué era el primero y no el tercero: no escribían UTC, escribían **EDT**, o
    sea una hora de más de marzo a noviembre y la correcta el resto del año.
 2. ~~El rasgo `SellaConElReloj` a los modelos cuya tabla ya recibe fechas en Bogotá.~~

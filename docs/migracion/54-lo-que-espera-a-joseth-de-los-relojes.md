@@ -8,7 +8,7 @@ El censo entero está en [53](53-los-cuatro-relojes.md).
 
 ---
 
-## 1 · Cuántos `NOW()` están corriendo HOY en los colegios
+## 1 · ~~Cuántos `NOW()` corren hoy~~ — CONTESTADO el 22 sep: **16 en los diecisiete**
 
 Lo de anoche está en el árbol, **sin desplegar**, y `main` lleva meses sin salir.
 
@@ -22,17 +22,20 @@ done
 **Qué contesta:** cuántas escrituras de cada colegio están poniendo hora **EDT** —una hora
 por delante de Bogotá de marzo a noviembre— ahora mismo.
 
-**Qué cambia según salga:**
+**Resultado: 16 en los diecisiete, sin una sola excepción.** O sea que **el despliegue llegó
+entero** — que era lo que esta consulta venía a descartar.
 
-- **20 en los diecisiete** → es lo esperado; el arreglo de anoche es lo que hay que
-  desplegar y no hay sorpresa.
-- **Números distintos entre colegios** → no todos tienen la misma versión desplegada, y eso
-  es un hallazgo aparte: el despliegue no llegó entero alguna vez.
-- **0 en alguno** → alguien ya lo tocó a mano en ese colegio, y hay que mirar qué más tocó.
+Y de paso cazó una errata mía: yo había publicado **20**, y eran **17** (ver [53](53-los-cuatro-relojes.md) §1).
+El 16 desplegado contra el 17 de `main` cuadra y tiene explicación: falta el de la planilla
+offline, que entró en `3e16747` y no se ha desplegado.
+
+**Lo que queda de aquí:** esas 16 escrituras siguen poniendo hora EDT en los diecisiete hasta
+que se despliegue. No es urgente —lleva años así— pero es una hora de más entre marzo y
+noviembre en las tablas de inscripciones, favoritos e informes recientes.
 
 ---
 
-## 2 · El histórico movido, que decide el tamaño de la reparación
+## 2 · ~~El histórico movido~~ — CONTESTADO el 22 sep: **495 filas, todas de 2026**
 
 En un colegio con datos; `caz-zaragoza` sirve.
 
@@ -49,14 +52,13 @@ SELECT COUNT(*) AS subunidades_totales FROM subunidades WHERE created_at > '2000
 
 **Qué contesta:** cuántas filas habría que reparar, y de qué años.
 
-**Qué cambia según salga:**
+**Resultado (`caz-zaragoza`, 22 sep 2026):** `495 / 8058 / 2026 / 2026` sobre **28.448**
+subunidades. **Reproduce el docker al número**, así que el docblock de
+`App\Support\SellaConElReloj` —que decía 34.903 «de 2018 a 2026»— era el que estaba mal, y
+ya lleva la corrección escrita sin borrar la cifra vieja.
 
-- **~495 / 8.058 / sólo 2026**, como en la copia del docker → la reparación es pequeña y de
-  un solo año, y se puede hacer con una migración con `RastroDeLaMigracion::anotar()`.
-- **~34.903 y «de 2018 a 2026»**, como dice el docblock de `App\Support\SellaConElReloj` →
-  **entonces el que mide mal soy yo**, y hay que averiguar por qué antes de escribir ningún
-  `UPDATE`. La discrepancia está anotada en el [53 §5](53-los-cuatro-relojes.md) con las tres
-  formas de emparejar que probé; ninguna llega a 34.903.
+**Qué significa:** la reparación del histórico, si se hace, es **una migración pequeña de un
+solo año** con `RastroDeLaMigracion::anotar()` delante. No hay que tocar nueve años de notas.
 
 ---
 
