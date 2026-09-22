@@ -79,12 +79,44 @@ git diff --name-only <base> HEAD -- app/ | wc -l
 > previa —`docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md:123`—. Los dos
 > huecos son este paso.
 
-Dentro de la carpeta de cada colegio, **antes de tocar nada**:
+### Dónde se está parado
+
+Por **SSH al alojamiento compartido**, con el usuario de esa cuenta de cPanel, y **dentro de la
+carpeta de un colegio** — la que tiene el `artisan` dentro:
+
+```bash
+cd ~/cads-itagui.micolevirtual.com/8myvc     # una cualquiera; se repite en las diecisiete
+```
+
+Ahí, **antes de tocar nada**, dos comandos y en este orden:
 
 ```bash
 php tools/riesgo-de-la-tanda.php        # ¿qué filas que ya existen pisa la tanda AQUÍ?
 tools/respaldo-antes-de-migrar.sh       # sólo si el de arriba salió con 2
 ```
+
+> ### ⚠️ La PRIMERA vez esto no se puede correr, y es esta vuelta
+>
+> Los dos guiones **viven en el repositorio**, así que llegan al servidor con el mismo `git pull`
+> que va a desplegar la tanda. La noche que los estrena todavía no están ahí. No tiene arreglo y
+> no es un fallo: una comprobación que viaja con el código no puede correr antes de sí misma.
+>
+> **El sustituto para esta vuelta**, que contesta la única pregunta que hoy importa —*¿está este
+> colegio donde creo que está?*—:
+>
+> ```bash
+> for d in ~/*/8myvc; do printf '%-52s ' "$d"; (cd "$d" && php artisan migrate:status | grep -c Pending); done
+> ```
+>
+> **Tiene que dar 3 en todos.** Ese 3 son las tres migraciones aditivas de esta tanda. El colegio
+> que dé más se quedó fuera del `git pull` del 20 sep y tiene `la_casilla_vacia` por delante: a ése
+> no lo migres hasta mirarlo aparte.
+>
+> Y el respaldo de esta vuelta **ya está hecho** —18 bases, 22 sep— con el bucle suelto de
+> [RESPALDOS.md](RESPALDOS.md), que es el mismo `mysqldump` sin necesitar el repositorio.
+>
+> **De la tanda siguiente en adelante**, los dos guiones ya están en cada carpeta y el paso se
+> corre tal cual.
 
 El primero lee las migraciones pendientes **de esta base**, deduce de cada operación
 peligrosa la consulta que la cuenta sin ejecutarla, y la corre dentro de un `START
