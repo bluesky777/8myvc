@@ -1025,6 +1025,62 @@ git diff --name-only <base> HEAD -- app/ | wc -l
 
 Qué trajo, colegio a colegio: [referencia § la tanda del 25–30 ago](DESPLIEGUE-REFERENCIA.md#lo-que-trajo-la-tanda-del-2530-ago-2026--desplegada-el-31-ago-en-9474b50).
 
+## Paso 0. Qué va a pisar esta tanda, y el respaldo — **colegio por colegio, antes del `git pull`**
+
+> **Este paso nació del 20 sep 2026.** Esa noche la tanda vació 407.909 casillas de
+> `notas` en catorce colegios, y nadie lo supo hasta que CADS-Itagüí lo reportó a la
+> mañana siguiente. El relleno estaba decidido y documentado; lo que no había era
+> **un momento en el que alguien viera el número antes**, ni copia de seguridad
+> previa —`docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md:123`—. Los dos
+> huecos son este paso.
+
+Dentro de la carpeta de cada colegio, **antes de tocar nada**:
+
+```bash
+php tools/riesgo-de-la-tanda.php        # ¿qué filas que ya existen pisa la tanda AQUÍ?
+tools/respaldo-antes-de-migrar.sh       # sólo si el de arriba salió con 2
+```
+
+El primero lee las migraciones pendientes **de esta base**, deduce de cada operación
+peligrosa la consulta que la cuenta sin ejecutarla, y la corre dentro de un `START
+TRANSACTION READ ONLY`. Sale con **0** si la tanda no toca ninguna fila que ya exista
+y con **2** si la toca, para que un despliegue encadenado con `&&` se pare solo:
+
+```
+  ROJO   2026_09_19_500000_la_casilla_vacia
+        ALTER sobre `notas` ............................ 469.086 filas
+        UPDATE sobre `notas` ........................... 12.632 filas
+        └─ el down() reescribe filas con un valor fijo: NO devuelve el valor anterior
+```
+
+**La cifra es por colegio y no se puede sacar del repositorio**: son dieciséis bases
+distintas, y en el censo del 21 sep iban de 0 en `coal_bucara` a 79.223 en `coljordan`. Por eso
+el paso va dentro del bucle y no antes de él.
+
+**ROJO no quiere decir «está mal»** —`la_casilla_vacia` era exactamente lo que había que
+hacer— sino *«esto cambia filas que ya existen: míralo ahora, que después no hay
+decisión que tomar»*. Y cuando el `down()` escribe un literal, el aviso de la última
+línea es literal también: **el `rollback` no devuelve esas filas, sólo las aproxima**.
+Lo único que las devuelve es el respaldo.
+
+Lo que el detector **no** ve, y por eso sigue haciendo falta leer la tanda: que el
+código nuevo empiece a escribir mal *después* de migrar. Cuenta lo que la migración
+toca, no lo que el `app/` hará con el esquema nuevo.
+
+Los dieciséis en una pasada, para decidir el orden antes de empezar:
+
+```bash
+for d in /home/micolev1/*.micolevirtual.com/8myvc; do
+  printf '\n===== %s\n' "$d"
+  ( cd "$d" && php tools/riesgo-de-la-tanda.php --callado )
+done            # repetir en la otra cuenta de cPanel (lalvirtual.edu.co)
+```
+
+**El respaldo de este paso no es el de madrugada.** `tools/respaldo-diario-cpanel.sh`
+—el cron de la cuenta— cubre *«ayer funcionaba»*; restaurar el de anoche para deshacer
+un `migrate` del mediodía **borra las notas que los docentes pusieron esa mañana**. El
+de aquí es de hace treinta segundos y es el único que deshace una migración sin coste.
+
 ## Paso 1. Los colegios
 
 **Si un `git pull` imprime `composer.lock`, para en seco**: ese colegio venía atrasado y
