@@ -756,6 +756,51 @@ lista de trabajo de la fase 4 y la que dice cuándo está terminada.
 
 ### Fase 4 — instrumentar, empezando por lo que se pidió
 
+> #### ✅ `matriculas`, cerrada el 22 sep 2026 (`1a81f6e`)
+>
+> Las **once** escrituras: los diez métodos de `MatriculasController`
+> —`putReMatricularuno`, `putSetPromovido`, `putSetAsistente`, `putSetNewAsistente`,
+> `putCambiarFechaRetiro`, `putCambiarFechaMatricula`, `putToggleNuevo`, `putRetirar`,
+> `putDesertar`, `deleteDestroy`— más las dos rutas que entran por
+> `Matricula::matricularUno()`, que comparten una sola línea. Lo fija
+> `AuditoriaDeLasMatriculasTest` (6 casos), y se comprobó que muerde: quitar una línea
+> lo pone rojo, y leer el valor anterior **después** del `save()` también.
+>
+> Entró porque el front montó la columna «Historial» de esa pantalla y **el modal abría
+> vacío**: la celda enseñaba la fecha de `updated_at` y detrás no había ni una línea.
+>
+> **Tres decisiones que se repetirán en los siguientes dominios:**
+>
+> - **El valor anterior sale de `getOriginal()`, leído ANTES del `save()`.** Después,
+>   Eloquent sincroniza el original y la línea diría «de X a X» **sin fallar por ello**:
+>   es un modo de error que no se ve, y por eso tiene su propio caso.
+> - **`deleteDestroy` se anota como `borrar`, no como `editar`.** Pone `RETI` y acto
+>   seguido manda la fila a la papelera. Visto desde fuera ocurrió un borrado; el `RETI`
+>   es cómo está implementado. Se audita el acto.
+> - **`matricularUno()` se audita en el controlador, no en el modelo.** Cuatro ramas
+>   —restaurar de papelera, mover de grupo, crear nueva, el `catch` de rescate— y **un
+>   solo acto**. `wasRecentlyCreated` distingue crear de editar sin rastrear la rama.
+>
+> ##### Y la cifra del detector NO se movió: 78 de 224 antes y después
+>
+> No es un fallo del trabajo ni de la herramienta: los once métodos escriben con
+> **Eloquent** (`$modelo->save()`) y `tools/escrituras-sin-auditoria.php` sólo cuenta
+> `DB::insert/update/delete/statement`, como avisa su cabecera. **Ni estaban en el
+> denominador ni entran ahora en el numerador.**
+>
+> Importa porque esa cifra circula como avance de la fase 4: **para las tablas que se
+> escriben con Eloquent no lo mide**, y `matriculas` es una de ellas. Quien la publique
+> tiene que decir de qué población habla.
+>
+> ##### Lo que de `matriculas` sigue SIN rastro
+>
+> `ChangeAskedController::putAceptarAlumno`,
+> `DetallesController::putEliminarMatriculaDestroy`,
+> `LoginController::putCrearPrematricula`, `FormulariosInscripcionController`,
+> `FusionDeAlumnos::fusionar` y el importador de alumnos. **El modal de una matrícula
+> tocada por esos caminos sale vacío o incompleto**, y eso es indistinguible de «no se
+> tocó». Van en su propio lote.
+
 Por dominio, y en este orden, porque es el orden en que se reclama:
 
 1. **Notas** — editar, borrar, lote, la nota rápida del horario. Es la petición de
