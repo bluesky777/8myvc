@@ -410,6 +410,36 @@ De paso salió que `buscar/por-apellido` **nunca estuvo rota**: su consulta ya s
 > entidades da `nota 7339 · subunidad 496 · comportamiento 255 · …` y ni `matricula` ni
 > `alumno`. La medida se repite cuando la fase 4 instrumente esa tabla.
 
+## §8. Con líneas de verdad: **las cuatro horas en el mismo segundo**
+
+§7 midió la celda contra la columna y sólo podía decir que el front no mete desfase,
+porque `auditoria` no tenía ni una línea de `matricula`. Con la tabla ya instrumentada
+(`1a81f6e`), `myvc-front-89` provocó tres cambios desde la pantalla sobre
+`matriculas.id=2194` y comparó las **cuatro** horas:
+
+```
+modal:  22 sep 2026, 7:42 a. m.
+celda:  22 sep 2026, 7:42 a. m.
+base:   auditoria.ocurrido_en   2026-09-22 07:42:43.523
+        matriculas.updated_at   2026-09-22 07:42:43
+reloj del anfitrión en el instante del PUT: 2026-09-22 07:42:43
+```
+
+**El mismo segundo las cuatro.** Es el cierre del censo: `Reloj::ahora()` escribe en
+`America/Bogota` aunque `config/app.php` diga `UTC`, el `NOW()` de MySQL va cinco horas
+por delante de esas dos columnas —que es **justo por qué** ninguna de las dos lo usa—, y
+en el camino entero no queda nada que compensar al mostrar.
+
+> **Y el fallo que salió de esta misma medición**, porque no se vio hasta que hubo líneas
+> que leer: la misma fila traía `valor_anterior {"fecha_matricula":"2026-01-26"}` y
+> `valor_nuevo {"fecha_matricula":"2026-01-26T00:00:00.000000Z"}` — **el mismo día
+> escrito de dos maneras**, una del valor crudo de la columna y otra del `Carbon` del
+> modelo. Arreglado en `7805063` normalizando en `Auditoria::aJson()`, que es donde se
+> decide, y de paso quitando esa `Z` que decía «UTC» de un dato de Bogotá. **Sin
+> convertir de zona**: convertir habría movido la hora cinco horas, que es cambiar el
+> dato para arreglarle la etiqueta. **No es retroactivo**, así que las líneas ya escritas
+> siguen con sus dos formas.
+
 ## El precio de mudar una tabla, visto en dos filas
 
 La mudanza de `importaciones` (§6.4) se hizo porque **no había filas viejas**. Unas horas
