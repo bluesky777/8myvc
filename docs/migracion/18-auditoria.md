@@ -1080,7 +1080,7 @@ Lo que sí cuesta está en el otro lado. Tres cosas, medidas el 21 sep 2026:
 | Lo que hereda la celda al salir de `updated_at` | Medido |
 |---|---|
 | **el SQL crudo no lo escribe** | de los **169** `DB::update(` de `app/`, **102 no mencionan `updated_at`** en su consulta. Eloquent lo pone solo; el crudo no. Concentrados en `ChangeAskedController` (15), `LoginController`, `AsignaturasController`, `FusionDeAlumnos`. Una fila editada hoy puede enseñar la fecha de hace dos años, o nada |
-| **las columnas convierten con la zona** | **83 de 83** columnas `updated_at` del volcado son `timestamp`. `auditoria.ocurrido_en` es `DATETIME(3)` en Bogotá (decisión 1). **La celda y el modal pueden discrepar en cinco horas**, que es exactamente la queja de «las horas salen raras» con la que nació este documento (§1.2, §1.3) |
+| ~~**las columnas convierten con la zona**~~ **RECTIFICADO el 21 sep** | **83 de 83** columnas `updated_at` del volcado son `timestamp` y `auditoria.ocurrido_en` es `DATETIME(3)` en Bogotá. De ahí escribí que **la celda y el modal discreparían en cinco horas, y es falso**. Ver el recuadro de abajo |
 | **dice «la fila cambió», no «hay algo que enseñar»** | todo lo editado antes de que la fase 4 llegara a ese dominio abre un modal vacío. Es el estado vacío que la fase 5 ya trata como el caso normal y no como el borde |
 
 ```bash
@@ -1094,6 +1094,40 @@ foreach($it as $f){ if(!$f->isFile()||$f->getExtension()!=="php")continue;
     if(stripos(implode("",array_slice($l,$i,8)),"updated_at")!==false)$c++; } }
 echo "$t crudos, $c con updated_at, ",$t-$c," sin\n";'
 ```
+
+> ### Las cinco horas no existen, y la corrección la trajo el censo de relojes
+>
+> Escribí dos veces —aquí y en el canal del front— que la celda `updated_at` y el modal
+> podían discrepar **cinco horas** porque una columna es `timestamp` y la otra `DATETIME`.
+> **Es falso, y el tipo de columna no era el problema.**
+>
+> Un `TIMESTAMP` convierte al escribir **y al leer**, con la regla que la zona tenía ese
+> instante, así que **la ida y la vuelta se cancelan**. Lo que escribe la aplicación es lo
+> que la aplicación lee. Reproducido en el docker con la sesión en `America/New_York`, que
+> es la zona real de las diecisiete instalaciones (`@@system_time_zone = EDT`, medido por
+> Joseth en el servidor el 21 sep, 17 de 17, `tools/zona-de-los-colegios.sh`):
+>
+> ```
+> TIMESTAMP leído      DATETIME leído       ¿coinciden?
+> 2026-07-15 09:00:00  2026-07-15 09:00:00      sí
+> 2026-01-15 09:00:00  2026-01-15 09:00:00      sí
+> 2026-03-08 02:30:00 -> 03:00:00              NO  <- el salto de marzo
+> ```
+>
+> **Lo que sí discrepa, y es otra cosa**: que la aplicación tenga **dos relojes en PHP**
+> —`now()` en la zona de `config/app.php` y `Carbon::now('America/Bogota')`—. Ésa es la
+> discrepancia de verdad, y es la que este documento persigue desde la §1.1. Yo mismo la
+> cometí el 21 sep en `AuditoriaController::getIngresos` (`5a13c68`).
+>
+> **Y queda un residuo real, pequeño y feo**: el segundo domingo de marzo, entre las 02:00
+> y las 02:59, hay una hora de pared que no existe en EDT. Escribimos hora de Bogotá, donde
+> sí existe, y el motor la mueve a las 03:00 **sin dar error**. Una vez al año, durante una
+> hora, de madrugada. No es un motivo para no pintar la columna; es un motivo para que
+> `auditoria.ocurrido_en` siga siendo `DATETIME`, que no convierte y por tanto no salta.
+>
+> Detalle entero del censo en [`53-los-cuatro-relojes.md`](53-los-cuatro-relojes.md) §3.
+> **La decisión 5 no cambia**: la mitad que la sostenía —102 de los 169 `DB::update(` no
+> escriben `updated_at` en absoluto— sigue siendo cierta y es la que pesa.
 
 **[DECISIÓN 5] Una tabla no estrena la columna `Historial` hasta que TODOS los
 caminos que la escriben pongan `updated_at` y `updated_by`.** No se pinta la columna

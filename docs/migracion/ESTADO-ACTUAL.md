@@ -65,9 +65,11 @@
 > **La columna es gratis y yo dije que no lo era.** Sale de `updated_at`, que ya viaja
 > en la fila; el modal es `auditoria/entidad/{tipo}/{id}`, ya especificada. **Cero rutas
 > nuevas, cero instantáneas movidas.** Lo caro es que `updated_at` sea cierto: **102 de
-> los 169 `DB::update(` de `app/` no lo escriben**, y las **83 de 83** columnas
-> `updated_at` del volcado son `timestamp`, que convierte, contra el `DATETIME(3)` de
-> Bogotá de la auditoría — la celda y el modal pueden discrepar en cinco horas.
+> los 169 `DB::update(` de `app/` no lo escriben**. ~~Y que las 83 columnas `updated_at`
+> son `timestamp` y discreparían cinco horas del modal~~ — **eso lo escribí mal y está
+> rectificado**: un `TIMESTAMP` convierte al escribir y al leer, así que la ida y la vuelta
+> se cancelan. Lo que discrepa son los **dos relojes de PHP**, no el tipo de columna. El
+> porqué y la medición, en `18-auditoria.md`, recuadro «Las cinco horas no existen».
 >
 > ### El orden, y lo que bloquea a qué
 >
