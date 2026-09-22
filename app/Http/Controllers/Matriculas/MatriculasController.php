@@ -1,5 +1,6 @@
 <?php namespace App\Http\Controllers\Matriculas;
 
+use App\Services\Auditoria;
 use App\Http\Controllers\Controller;
 
 use Illuminate\Support\Facades\Request;
@@ -544,6 +545,32 @@ class MatriculasController extends Controller {
 				
 			}
 
+			/*
+			 * **Una línea, después de las seis ramas.** Las seis hacen lo mismo visto
+			 * desde fuera —dejar a este alumno en este grupo con este estado— y sólo se
+			 * diferencian en qué columna de fecha tocan. Auditar rama por rama serían
+			 * seis líneas que dicen lo mismo con distinto nombre.
+			 *
+			 * El `in_array` no es defensivo de más: si llega un `estado` que no es
+			 * ninguno de los cinco, **ninguna rama escribió nada**, y sin esta
+			 * comprobación se anotaría un cambio que no ocurrió — y para la fila nueva,
+			 * con un `lastInsertId()` de otra petición.
+			 */
+			if (in_array($estado, ['FORM', 'ASIS', 'PREM', 'PREA', 'MATR'], true)) {
+				$anterior = $matriculas[0] ?? null;
+
+				$linea = Auditoria::registrar();
+				$linea = $anterior === null
+					? $linea->crear('matricula', (int) DB::getPdo()->lastInsertId())
+					: $linea->editar('matricula', (int) $anterior->id);
+
+				$linea->deAlumno((int) $alumno_id)
+					->en(grupo: (int) $grupo_id, year: (int) $year_id)
+					->de($anterior === null ? null : ['estado' => $anterior->estado, 'grupo_id' => $anterior->grupo_id])
+					->a(['estado' => $estado, 'grupo_id' => $grupo_id])
+					->guardar();
+			}
+
 			
 			$consulta = 'SELECT m.id as matricula_id, m.alumno_id, a.no_matricula, a.nombres, a.apellidos, g.nombre as grupo_nombre, g.abrev as grupo_abrev, m.estado, m.nuevo, m.repitente, m.prematriculado, m.fecha_matricula, y.id as year_id, y.year as year 
 				FROM alumnos a 
@@ -591,7 +618,35 @@ class MatriculasController extends Controller {
 
 			$consulta = 'DELETE FROM matriculas WHERE id=?';
 
+			/*
+			 * **La fila se lee ANTES, porque este `DELETE` es físico.** No hay
+			 * `deleted_at` que mirar después ni papelera de la que sacarla: en cuanto
+			 * corre la línea de abajo, de qué grupo y en qué estado estaba ese alumno
+			 * no lo sabe ya nadie. Es el único sitio de este rastro donde no anotar no
+			 * es perder información, es perder el dato entero.
+			 */
+			$fila = DB::selectOne(
+				'SELECT id, alumno_id, grupo_id, estado, prematriculado, fecha_matricula
+				   FROM matriculas WHERE id = ?',
+				[$matricula_id]
+			);
+
 			DB::delete($consulta, [$matricula_id]);
+
+			if ($fila !== null) {
+				Auditoria::registrar()
+					->borrar('matricula', (int) $fila->id)
+					->deAlumno((int) $fila->alumno_id)
+					->en(grupo: (int) $fila->grupo_id)
+					->de([
+						'estado' => $fila->estado,
+						'grupo_id' => $fila->grupo_id,
+						'prematriculado' => $fila->prematriculado,
+						'fecha_matricula' => $fila->fecha_matricula,
+					])
+					->resumen('Quitó la prematrícula — borrado físico, no hay papelera')
+					->guardar();
+			}
 
 			return 'Quitada';
 		} else {
