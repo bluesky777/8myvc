@@ -334,6 +334,59 @@ class AuditoriaDeLasMatriculasTest extends CasoDeContrato
     }
 
     /**
+     * La respuesta dice si el tope de 300 recortó, y lo dice **en los dos sentidos**.
+     *
+     * Lo pidió `myvc-front-89` con el argumento entero: con sólo las líneas, **el
+     * cliente no puede saberlo**. Si le llegan exactamente 300 puede haber 300 justas
+     * o cuatro mil, así que una pantalla que escriba «puede haber más» se equivoca
+     * cuando son 300 exactas — estaría afirmando algo que no sabe. Así que callaba, y
+     * **callar es peor**: el docente lee 300 líneas creyendo que ése es el historial
+     * entero.
+     *
+     * Los dos sentidos en el mismo caso a propósito: una bandera que devolviera
+     * siempre `true` pasaría un caso que sólo mirase el desbordamiento, y una que
+     * devolviera siempre `false` pasaría el contrario. Las dos mitades juntas son la
+     * comprobación; por separado, ninguna lo es.
+     */
+    public function test_la_respuesta_dice_si_el_tope_recorto(): void
+    {
+        $token = $this->tokenDeSuperusuario();
+        $matricula = $this->unaMatricula();
+
+        $this->withToken($token)->putJson('/api/matriculas/toggle-nuevo',
+            ['matricula_id' => $matricula->id, 'is_nuevo' => ((int) $matricula->nuevo) === 1 ? 0 : 1])
+            ->assertStatus(200);
+
+        $ruta = '/api/auditoria/entidad/matricula/'.$matricula->id;
+
+        $corta = $this->withToken($token)->getJson($ruta)->assertStatus(200);
+
+        $this->assertFalse($corta->json('hay_mas'),
+            'Con una línea dice que el tope recortó: la bandera está puesta a mano.');
+
+        // 300 líneas más: con la que ya había, el tope se pasa por una. Se insertan
+        // directas porque lo que se comprueba es el recorte de la lectura, no el
+        // camino de escritura —que ya tiene sus propios casos aquí arriba—.
+        $filas = [];
+        $parametros = [];
+
+        for ($i = 0; $i < 300; $i++) {
+            $filas[] = '(?, ?, ?, ?)';
+            array_push($parametros, 'editar', 'matricula', $matricula->id, '2026-09-22 08:00:00.000');
+        }
+
+        DB::insert('INSERT INTO auditoria (accion, entidad, entidad_id, ocurrido_en) VALUES '
+            .implode(',', $filas), $parametros);
+
+        $larga = $this->withToken($token)->getJson($ruta)->assertStatus(200);
+
+        $this->assertTrue($larga->json('hay_mas'),
+            'Con 301 líneas no dice que el tope recortó, y el cliente no tiene forma de saberlo.');
+        $this->assertCount(300, $larga->json('acciones'),
+            'Se devolvieron más de 300: la fila de sondeo se coló en la respuesta.');
+    }
+
+    /**
      * **Y el control que dice que estos casos miden algo**: sin tocar nada, la
      * matrícula no tiene líneas.
      *

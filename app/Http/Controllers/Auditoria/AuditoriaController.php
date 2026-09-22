@@ -127,15 +127,18 @@ class AuditoriaController extends Controller
                 AND h.created_at < DATE_ADD(?, INTERVAL 1 DAY)
               GROUP BY h.id
               ORDER BY h.id DESC
-              LIMIT '.self::TOPE,
+              LIMIT '.(self::TOPE + 1),
             [$deQuien, $desde, $hasta]
         );
+
+        [$ingresos, $hayMas] = $this->recortadas($ingresos);
 
         return response()->json([
             'user_id' => $deQuien,
             'desde' => $desde,
             'hasta' => $hasta,
             'ingresos' => $ingresos,
+            'hay_mas' => $hayMas,
         ]);
     }
 
@@ -165,9 +168,19 @@ class AuditoriaController extends Controller
         // al revés (§ «La regla del sujeto» del 18).
         Autoriza::exigirVerAuditoriaDe($this->user, $ingreso->user_id);
 
+        /*
+         * **`ASC` aquí y `DESC` en las otras dos, y es a propósito.** Un ingreso es una
+         * sesión acotada y la pregunta es «qué hizo, y en qué orden»; un historial de
+         * entidad o de alumno está abierto por arriba y la pregunta es «qué es lo
+         * último». No es la inconsistencia que se arregló en `f2fcd6c`: aquélla eran
+         * dos rutas contestando lo mismo del revés.
+         */
+        [$acciones, $hayMas] = $this->lineas('a.historial_id = ?', [$id], 'a.id ASC');
+
         return response()->json([
             'ingreso' => $ingreso,
-            'acciones' => $this->lineas('a.historial_id = ?', [$id], 'a.id ASC'),
+            'acciones' => $acciones,
+            'hay_mas' => $hayMas,
         ]);
     }
 
@@ -191,10 +204,13 @@ class AuditoriaController extends Controller
             'No tiene permiso para ver la auditoría'
         );
 
+        [$acciones, $hayMas] = $this->lineas('a.entidad = ? AND a.entidad_id = ?', [$tipo, $id], self::ORDEN);
+
         return response()->json([
             'entidad' => $tipo,
             'entidad_id' => $id,
-            'acciones' => $this->lineas('a.entidad = ? AND a.entidad_id = ?', [$tipo, $id], self::ORDEN),
+            'acciones' => $acciones,
+            'hay_mas' => $hayMas,
         ]);
     }
 
@@ -217,9 +233,12 @@ class AuditoriaController extends Controller
             );
         }
 
+        [$acciones, $hayMas] = $this->lineas('a.alumno_id = ?', [$id], self::ORDEN);
+
         return response()->json([
             'alumno_id' => $id,
-            'acciones' => $this->lineas('a.alumno_id = ?', [$id], self::ORDEN),
+            'acciones' => $acciones,
+            'hay_mas' => $hayMas,
         ]);
     }
 
@@ -233,7 +252,7 @@ class AuditoriaController extends Controller
      */
     private function lineas(string $donde, array $parametros, string $orden): array
     {
-        return DB::select(
+        $filas = DB::select(
             'SELECT a.id, a.accion, a.entidad, a.entidad_id,
                     a.actor_user_id, a.actor_nombre, a.actor_tipo, a.actor_intentado,
                     a.alumno_id, a.alumno_nombre, a.grupo_id, a.asignatura_id,
@@ -245,8 +264,31 @@ class AuditoriaController extends Controller
                FROM auditoria a
               WHERE '.$donde.'
               ORDER BY '.$orden.'
-              LIMIT '.self::TOPE,
+              LIMIT '.(self::TOPE + 1),
             $parametros
         );
+
+        return $this->recortadas($filas);
+    }
+
+    /**
+     * Recorta al tope y deja dicho si sobraba — **sin contar la tabla**.
+     *
+     * Lo pidió `myvc-front-89` el 22 sep 2026 con el argumento entero: con sólo las
+     * líneas, **el tope no se puede detectar desde el cliente**. Si llegan exactamente
+     * 300 puede haber 300 justas o cuatro mil, y una pantalla que escriba «puede haber
+     * más» se equivoca cuando son 300 exactas — estaría afirmando algo que no sabe. Así
+     * que la pantalla callaba, y **callar es peor que no saber**: el docente lee 300
+     * líneas creyendo que ése es el historial entero.
+     *
+     * La bandera no se calcula con un `COUNT(*)`: se piden `TOPE + 1` filas y sobra una
+     * o no sobra. Es exacto y cuesta una fila, mientras que contar es recorrer la tabla
+     * para pintar un número que nadie usa.
+     */
+    private function recortadas(array $filas): array
+    {
+        $hayMas = count($filas) > self::TOPE;
+
+        return [array_slice($filas, 0, self::TOPE), $hayMas];
     }
 }
