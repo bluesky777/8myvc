@@ -26,7 +26,7 @@ test, así que va con la orden que la rehace al lado.
 
 | Qué | Hoy (20–21 sep 2026) | Orden |
 |---|---|---|
-| Rutas | **647** | ver la orden debajo de la tabla |
+| Rutas | **664** | ver la orden debajo de la tabla |
 | Ficheros de controlador | **130** (129 controladores) | `find app/Http/Controllers -name '*.php' \| wc -l` |
 | Clases de controlador | **132** | `grep -rhoE '^[[:space:]]*(final )?(abstract )?class [A-Za-z_]+' app/Http/Controllers \| wc -l` |
 | Rutas públicas | **16** (`RutasPreLoginTest::TOTAL_PUBLICAS`) | correr el test, no restar |
