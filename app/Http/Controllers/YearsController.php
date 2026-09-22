@@ -587,9 +587,110 @@ class YearsController extends Controller {
 		if ($pasado) {
 			$this->copiarElPlanDeArea($pasado, $year, $periodos, $user->user_id, $ahora);
 			$this->copiarLosJefesDeArea($pasado, $year, $user->user_id, $ahora);
+			$this->copiarLaPlantillaDelCompromiso($pasado, $year, $user->user_id, $ahora);
 		}
 
 		return $year;
+	}
+
+
+	/**
+	 * La configuración y los textos del compromiso académico — **el encargo es esto**.
+	 *
+	 * Diseño en `myvc_front/COMPROMISOS-ACADEMICOS.md` §8. La petición fue literal:
+	 * *«que no tengan que estar seleccionando y editando las secciones cada
+	 * periodo»*, y esta línea es la mitad de la respuesta. La otra mitad —que sea
+	 * del año y no del periodo— la fija el esquema.
+	 *
+	 * Se hereda todo, y la regla para saberlo es la que ya separó
+	 * `config_formulario_inscripcion` de `ordenes_inscripcion` unas líneas más
+	 * arriba: **lo que el colegio escribió para decir cómo trabaja se copia; lo que
+	 * ocurrió porque ese año se vivió, no**. Las dos tablas de aquí son de las
+	 * primeras. Los compromisos de los alumnos, que son de las segundas, no las
+	 * toca este método y tendrán que ir declarados en `DATOS_DEL_ANIO` el día que
+	 * existan.
+	 *
+	 * **Y los firmantes de aquí SÍ se heredan, al revés que `years.firmantes_acta`.**
+	 * Merece la línea porque parecen lo mismo y están decididos al contrario:
+	 * aquélla guarda **personas** —nombre, cargo y cédula— y por eso se confirma
+	 * cada año (decisión de Joseth, 31 ago 2026: *un acta firmada por quien ya no
+	 * está es peor que un acta sin firmantes*). `config_compromiso.firmantes`
+	 * guarda **rótulos de cargo**: «Coordinación Académica», «Acudiente». Un cargo
+	 * no se va del colegio en diciembre, y los nombres que van debajo salen de
+	 * `Year::datos()`, que ya se confirma por su lado.
+	 *
+	 * Si el colegio nunca configuró nada, no hay filas y no se copia nada: la
+	 * ausencia significa «los defectos de `PlantillaDelCompromiso`», no «un
+	 * documento en blanco». Es lo mismo que hace `config_formulario_inscripcion`.
+	 */
+	private function copiarLaPlantillaDelCompromiso(Year $pasado, Year $year, int $user_id, Carbon $ahora): void
+	{
+		$config = DB::select('SELECT regla, corte, primaria_activa, primaria_materia_1_id, primaria_materia_2_id,'
+			.' plazo_label, plazo_dias, dias_reclamacion, titulo, subtitulo, muestra_escudo, muestra_foto,'
+			.' muestra_resolucion, col_periodos, col_falta, firmantes, canal_papel, canal_push, canal_correo,'
+			.' firma_digital, pide_segunda_firma FROM config_compromiso WHERE year_id=?;', [$pasado->id]);
+
+		if (count($config) > 0) {
+			$c = $config[0];
+
+			/*
+			 * **Las dos materias del parágrafo de primaria se copian tal cual, y pueden
+			 * apuntar a una materia en la papelera.** Es el mismo caso que el jefe de área
+			 * de aquí abajo y se resuelve igual: la clave ajena la acepta porque `materias`
+			 * tiene borrado lógico, no se filtra —filtrar sería decidir por el colegio— y
+			 * se deja dicho en el log, porque la diferencia entre «el colegio no usaba el
+			 * parágrafo» y «lo usaba sobre una materia que ya no existe» no se reconstruye
+			 * después si nadie la escribe.
+			 *
+			 * `materias` no lleva `year_id`: es del colegio, no del año. Por eso el id
+			 * sigue valiendo en el año nuevo y no hay que remapear nada, al revés que
+			 * `desempenos_por_defecto.periodo_id`.
+			 */
+			DB::insert('INSERT INTO config_compromiso(year_id, regla, corte, primaria_activa, primaria_materia_1_id,'
+				.' primaria_materia_2_id, plazo_label, plazo_dias, dias_reclamacion, titulo, subtitulo,'
+				.' muestra_escudo, muestra_foto, muestra_resolucion, col_periodos, col_falta, firmantes,'
+				.' canal_papel, canal_push, canal_correo, firma_digital, pide_segunda_firma,'
+				.' created_by, created_at, updated_at)'
+				.' VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+				[
+					$year->id, $c->regla, $c->corte, $c->primaria_activa, $c->primaria_materia_1_id,
+					$c->primaria_materia_2_id, $c->plazo_label, $c->plazo_dias, $c->dias_reclamacion,
+					$c->titulo, $c->subtitulo, $c->muestra_escudo, $c->muestra_foto, $c->muestra_resolucion,
+					$c->col_periodos, $c->col_falta, $c->firmantes, $c->canal_papel, $c->canal_push,
+					$c->canal_correo, $c->firma_digital, $c->pide_segunda_firma,
+					$user_id, $ahora, $ahora,
+				]);
+
+			if ((int) $c->primaria_activa === 1) {
+				$vivas = DB::select('SELECT COUNT(*) AS cuantas FROM materias WHERE id IN (?,?) AND deleted_at is null;',
+					[$c->primaria_materia_1_id, $c->primaria_materia_2_id]);
+
+				if ((int) $vivas[0]->cuantas < 2) {
+					Log::warning('Crear el año '.$year->year.' heredó el parágrafo de primaria del compromiso apuntando a una materia que ya no existe.', [
+						'year_id_nuevo'  => $year->id,
+						'year_id_pasado' => $pasado->id,
+						'materias'       => [$c->primaria_materia_1_id, $c->primaria_materia_2_id],
+					]);
+				}
+			}
+		}
+
+		/*
+		 * Los bloques van **por `orden` y luego por `id`**, y el orden importa: es el
+		 * orden en que se imprimen. Un `ORDER BY id` a secas devolvería el orden en que
+		 * el colegio los creó, que después de un arrastre ya no es el orden del papel.
+		 */
+		$bloques = DB::select('SELECT clave, orden, activo, titulo, cuerpo FROM compromiso_bloques'
+			.' WHERE year_id=? ORDER BY orden, id;', [$pasado->id]);
+
+		foreach ($bloques as $bloque) {
+			DB::insert('INSERT INTO compromiso_bloques(year_id, clave, orden, activo, titulo, cuerpo,'
+				.' created_by, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?)',
+				[
+					$year->id, $bloque->clave, $bloque->orden, $bloque->activo,
+					$bloque->titulo, $bloque->cuerpo, $user_id, $ahora, $ahora,
+				]);
+		}
 	}
 
 
