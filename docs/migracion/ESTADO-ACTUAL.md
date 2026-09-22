@@ -62,7 +62,7 @@
 > |---|---|---|
 > | ~~**R1**~~ | ~~El rasgo `SellaConElReloj`~~ **HECHO: 20 en Bogotá, 32 en UTC** | El criterio es **escrituras del SELLO**, no de la tabla: `UPDATE profesores SET tono` no toca `updated_at`. Por contarlo mal se les puso y quitó el rasgo a `Profesor` y `Periodo` el mismo día, y el detector se rehizo tres veces dando tres números plausibles. Ver 53 §6 |
 > | ~~**R2**~~ | ~~Centinela del reloj de Eloquent~~ **HECHO** | `RelojUnicoTest::ningun_modelo_sella_en_utc_sin_estar_declarado`, comprobado **rompiéndolo**. Mira `app/Models/` **y `app/User.php`**, que no está ahí y se le escapaba a todos los censos |
-> | ~~**R3**~~ | ~~`importaciones`~~ **HECHO: se movió a Bogotá, y se acabó la única excepción del repo** | Decisión de Joseth del 22 sep, y la desbloqueó mirar el producto: la tabla es del 20 ago y **ningún colegio la ha usado**, así que no hay filas viejas y el precio que la bloqueaba un mes era cero. **Se comprueba antes de desplegar**: `SELECT COUNT(*) FROM importaciones;` en los diecisiete |
+> | ~~**R3**~~ | ~~`importaciones`~~ **HECHO: se movió a Bogotá, y se acabó la única excepción del repo** | Decisión de Joseth del 22 sep, y la desbloqueó mirar el producto: la tabla es del 20 ago y **ningún colegio la ha usado**, así que no hay filas viejas y el precio que la bloqueaba un mes era cero. El censo que llegó a estar escrito aquí **no se hace** (2.bis): la tabla es nueva, sus rutas están sin desplegar, y Joseth conoce el estado de los diecisiete |
 > | **R4** | La transformación al leer, que es lo que Joseth pidió | Ya es segura: queda **un** reloj escribiendo en cada columna. Lo que falta es el histórico (R6) |
 > | ~~**R5**~~ | ~~Correr `tools/zona-de-los-colegios.sh`~~ **HECHO: EDT en los 17** | El servidor **no va en UTC**: va en hora del este de EEUU, **con horario de verano**. Una hora por delante de Bogotá de marzo a noviembre, igual el resto. Los `NOW()` que se quitaron hoy escribían eso. Ver 53 §3 |
 >
@@ -158,29 +158,39 @@
 > árbol. Y al leer el resultado, **la línea `Tests:` o no hubo suite** — un exit 0 sin esa
 > línea es una suite muerta, no una verde.
 >
-> **1 bis · EL ORDEN DE LOS CUATRO PASOS — aprobado por Joseth el 22 sep 2026.**
+> **1 bis · EL ORDEN DE LOS TRES PASOS — Joseth, 22 sep 2026.**
 >
 > ```
-> censo de importaciones  ->  mudanza de zona  ->  migraciones  ->  código
+> mudanza de zona  ->  migraciones  ->  código
 > ```
 >
-> Lo propuso `myvc-front-89` y el argumento es el que faltaba: **la premisa de
+> > ### ⛔ EL CENSO NO SE HACE. No lo pidió nadie y la pregunta ya está contestada
+> >
+> > Aquí llegó a estar escrito «censo → mudanza → migraciones → código» y **como
+> > aprobado por Joseth**, que es lo que él corrigió el mismo día: *«no aprobé hacer
+> > censo, esa tabla `importaciones` es nueva y vacía en todos los coles»*. La
+> > aprobación que dio fue al **orden**; el censo se coló dentro de ella.
+> >
+> > Y su motivo es más fuerte que la medición que lo sustituye: **él conoce el estado de
+> > los diecisiete**, la tabla nació el 20 ago 2026 y las rutas que la escriben
+> > —`planilla-offline/*`— **están en `main` sin desplegar**. Contar cero en los
+> > diecisiete no habría añadido nada a eso.
+> >
+> > **Lo que NO cambia** —y es la parte del razonamiento que sobrevive—: la premisa de
+> > `560af5f` es cierta *mientras* esa feature no esté desplegada, así que **la mudanza
+> > de zona sigue teniendo que ir por delante del código de la planilla**. Es el orden de
+> > abajo, no una precaución que se pueda saltar.
+>
+> El orden lo propuso `myvc-front-89` y el argumento es el que faltaba: **la premisa de
 > `560af5f` caduca el día del despliegue.** Esa mudanza de `importaciones` a hora de
 > Bogotá se autorizó sobre «ningún colegio ha usado la tabla», que es cierto **hoy**
 > porque las rutas `planilla-offline/*` están en `main` y **sin desplegar**. El día que
 > el código llegue a los dieciséis, la tabla empieza a llenarse y la medición ya no
 > contesta la pregunta que se le hizo.
 >
-> Por eso el censo va **antes** y la mudanza **antes que el código**, no después. Las
-> migraciones van delante del código por otra razón, que ya estaba escrita: sin
-> `importaciones.hechos` la importación revienta **después** de escribir las notas —un
-> 500 con las notas dentro.
->
-> **Y cómo se lee el censo, que es lo que lo hace útil:** si sale `0` en los diecisiete,
-> **eso es lo esperable y no una casualidad afortunada** —la feature no está
-> desplegada—, así que se publica como «0 filas hoy, con la feature sin desplegar», no
-> como «confirmado que nadie la usa». Si sale `> 0` en alguno, la noticia no es «hay
-> filas» sino que **algo que no es esta feature está escribiendo esa tabla**.
+> Por eso la mudanza va **antes que el código**, no después. Las migraciones van delante
+> del código por otra razón, que ya estaba escrita: sin `importaciones.hechos` la
+> importación revienta **después** de escribir las notas —un 500 con las notas dentro.
 >
 > **2 · Las migraciones que sobrescriben datos son DOS, no cuatro.** El número salió mal de
 > aquí dos veces: el `grep` medía «toca datos» y no «pisa un valor que ya había».
@@ -192,23 +202,27 @@
 > aditivas. Ninguna de las dos escribe sus filas de auditoría antes del `UPDATE` — decisión
 > 7, y es lo que se construye ahora para que la siguiente no pueda repetirlo.
 >
-> **2.bis · COMPROBACIÓN QUE VA ANTES DEL DESPLIEGUE, no después** — la trajo
-> `8myvc-b8` con `560af5f`, que mudó `importaciones` a hora de Bogotá:
+> **2.bis · ~~COMPROBACIÓN ANTES DEL DESPLIEGUE~~ — NO SE HACE, decisión de Joseth del
+> 22 sep 2026.** Tres sesiones seguidas escribieron aquí que antes de desplegar había que
+> correr `SELECT COUNT(*) FROM importaciones;` en los diecisiete. **Él lo cerró en una
+> frase**: *«no aprobé hacer censo, esa tabla `importaciones` es nueva y vacía en todos
+> los coles»*.
 >
-> ```sql
-> SELECT COUNT(*) FROM importaciones;   -- en los DIECISIETE
-> ```
+> La medición no le habría dicho nada que no supiera: la tabla nació el **20 ago 2026** y
+> las únicas rutas que la escriben —`planilla-offline/*`— **están en `main` sin
+> desplegar**. Las 2 filas de la base de desarrollo, contadas el 22 sep, son de una
+> sesión conduciendo la pantalla a mano; demuestran que **el camino de código escribe**,
+> que es otra cosa y no dice nada de los diecisiete.
 >
-> **Si sale 0 en todos, el cambio es gratis y se despliega.** Si alguno tiene filas, esas
-> fechas se quedaron en UTC, quedan cinco horas por delante de las nuevas, y **la decisión
-> de mudar la tabla vuelve a estar abierta**: sería exactamente la enfermedad que `Reloj`
-> vino a curar, dos relojes en una columna.
+> **Lo que sí sobrevive de aquel razonamiento, y por eso no se borra:** la premisa de
+> `560af5f` —«ningún colegio ha usado la tabla»— es cierta *mientras* la planilla offline
+> no esté desplegada. Así que **la mudanza de zona tiene que ir por delante del código de
+> la planilla**, que es el orden del punto 1.bis. Eso no era una precaución que dependiera
+> del censo.
 >
-> El cambio se autorizó porque la tabla parecía vacía —es del 20 ago, la importación de
-> alumnos es de principios de año y la de notas la está construyendo el front—. **Pero la
-> base de desarrollo tiene 2 filas**, contadas el 22 sep: eso no dice nada de los
-> diecisiete, y sí dice que la tabla se escribe en la práctica y que la cuenta no es una
-> formalidad.
+> Y la lección del recuento, que vale más que el recuento: **una comprobación se hereda
+> de documento en documento con la misma facilidad que un dato**, y ésta llevaba tres
+> manos escrita como aprobada sin que nadie la hubiera aprobado.
 >
 > *Y la lección, que es de Joseth y vale para cualquier decisión bloqueada:* la excepción
 > llevaba un mes en pie por un coste —«reparar las filas viejas»— que **nadie había

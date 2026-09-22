@@ -371,9 +371,15 @@ un solo año, con `RastroDeLaMigracion::anotar()` delante.
    > datos que hay, no sobre los que la tabla podría tener.** El censo entero miró código
    > durante dos días; esto se resolvió mirando el producto.
 
-   Se comprueba antes de desplegar, que es cuando importa:
-   `SELECT COUNT(*) FROM importaciones;` en los diecisiete. Si alguno tiene filas, esas
-   fechas se quedan en UTC y la decisión vuelve a estar abierta.
+   > **El censo que iba aquí NO se hace.** Llegó a estar escrito que antes de desplegar
+   > había que correr `SELECT COUNT(*) FROM importaciones;` en los diecisiete. Joseth lo
+   > cerró el 22 sep 2026: *«no aprobé hacer censo, esa tabla `importaciones` es nueva y
+   > vacía en todos los coles»*. La tabla nació el 20 ago y las rutas que la escriben
+   > —`planilla-offline/*`— están en `main` **sin desplegar**, así que contar cero no
+   > habría añadido nada. Ver el 2.bis de `ESTADO-ACTUAL`.
+   >
+   > Lo que sí sigue en pie: la premisa es cierta **mientras** esa feature no se
+   > despliegue, así que **la mudanza de zona va por delante del código de la planilla**.
 5. **Entonces, y sólo entonces, la transformación al leer**, que ya está escrita:
    `Reloj::desdeTexto()`. Con un solo reloj detrás, aplicarla a todo es seguro; con cuatro,
    arregla unas filas y rompe otras.
