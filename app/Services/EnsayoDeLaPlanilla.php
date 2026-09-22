@@ -312,15 +312,20 @@ class EnsayoDeLaPlanilla
 
         foreach ($this->celdas as $renglon) {
             if (($renglon['decision'] ?? null) !== RespuestasDeLaPlanilla::CELDA_INTERPRETAR) {
-                $avisos[] = $renglon['veces'].' casilla(s) con «'.$renglon['valor'].'» no entraron. '
+                $avisos[] = ($renglon['veces'] === 1
+                    ? '1 casilla con «'.$renglon['valor'].'» no entró. '
+                    : $renglon['veces'].' casillas con «'.$renglon['valor'].'» no entraron. ')
                     .$renglon['motivo'];
             }
         }
 
         foreach ($this->escala as $renglon) {
             if (($renglon['decision'] ?? null) !== RespuestasDeLaPlanilla::ESCALA_TOPAR) {
-                $avisos[] = $renglon['veces'].' nota(s) con el valor '.$renglon['valor']
-                    .' no entraron: no caben en la escala de este año.';
+                $avisos[] = $renglon['veces'] === 1
+                    ? '1 nota con el valor '.$renglon['valor']
+                        .' no entró: no cabe en la escala de este año.'
+                    : $renglon['veces'].' notas con el valor '.$renglon['valor']
+                        .' no entraron: no caben en la escala de este año.';
             }
         }
 
@@ -1135,9 +1140,11 @@ class EnsayoDeLaPlanilla
                         .'a otro indicador de esta misma asignatura, o dejarlas fuera.',
                     'notas_afectadas' => $afectadas,
                     'decidible' => true,
-                    'si_no_hago_nada' => $afectadas === 0
-                        ? 'No pasa nada: no escribió ninguna nota en esa columna.'
-                        : 'Las '.$afectadas.' nota(s) de esa columna no se importan.',
+                    'si_no_hago_nada' => match (true) {
+                        $afectadas === 0 => 'No pasa nada: no escribió ninguna nota en esa columna.',
+                        $afectadas === 1 => 'La nota que escribió en esa columna no se importa.',
+                        default => 'Las '.$afectadas.' notas de esa columna no se importan.',
+                    },
                     'destinos' => $this->destinosPosibles($vivas),
                 ];
 
@@ -1273,10 +1280,13 @@ class EnsayoDeLaPlanilla
                 // puede distinguir «no se creó porque no lo pidió» de «lo pidió y no
                 // se pudo», que se leen igual y se arreglan distinto.
                 'se_crea' => $vale,
-                'si_no_hago_nada' => $unidad === null
-                    ? 'Esas '.$conValor.' nota(s) no se importan. Y aquí no se puede crear el indicador: la '
-                        .'cabecera de la hoja cambió, así que no se sabe de qué unidad es esta columna.'
-                    : 'Esas '.$conValor.' nota(s) no se importan: ese indicador todavía no existe.',
+                'si_no_hago_nada' => ($conValor === 1
+                    ? 'Esa nota no se importa'
+                    : 'Esas '.$conValor.' notas no se importan')
+                    .($unidad === null
+                        ? '. Y aquí no se puede crear el indicador: la cabecera de la hoja cambió, así que '
+                            .'no se sabe de qué unidad es esta columna.'
+                        : ': ese indicador todavía no existe.'),
             ];
 
             if ($vale) {
@@ -1400,11 +1410,13 @@ class EnsayoDeLaPlanilla
                 'decidible' => false,
                 'resuelta' => false,
                 'titulo' => $nombre.' ya no está en '.$grupo,
-                'si_no_hago_nada' => ($cuantas === 0
-                    ? 'No pasa nada: esa fila no trae ninguna nota escrita.'
-                    : 'Sus '.$cuantas.' nota(s) del libro se quedan fuera.')
-                    .' No es una decisión suya: para que entren tendría que volver a estar matriculado '
-                    .'en '.$grupo.', y eso es cosa de secretaría.',
+                'si_no_hago_nada' => (match (true) {
+                    $cuantas === 0 => 'No pasa nada: esa fila no trae ninguna nota escrita.',
+                    $cuantas === 1 => 'Su única nota del libro se queda fuera.',
+                    default => 'Sus '.$cuantas.' notas del libro se quedan fuera.',
+                })
+                    .' No es una decisión suya: para que '.($cuantas === 1 ? 'entre' : 'entren')
+                    .' tendría que volver a estar matriculado en '.$grupo.', y eso es cosa de secretaría.',
                 'alumno' => [
                     'alumno_id' => $alumnoId,
                     'nombre' => $ficha->nombre ?? null,
@@ -1667,9 +1679,11 @@ class EnsayoDeLaPlanilla
      */
     private function siNoHagoNadaConLaFila(array $candidatos, int $cuantas, string $grupo): string
     {
-        $suyas = $cuantas === 0
-            ? 'Esa fila no trae ninguna nota escrita, así que no se pierde nada'
-            : 'Sus '.$cuantas.' nota(s) se quedan fuera';
+        $suyas = match (true) {
+            $cuantas === 0 => 'Esa fila no trae ninguna nota escrita, así que no se pierde nada',
+            $cuantas === 1 => 'Su única nota se queda fuera',
+            default => 'Sus '.$cuantas.' notas se quedan fuera',
+        };
 
         if ($candidatos === []) {
             return $suyas.'. No hay nadie con ese nombre en '.$grupo.', ni parecido, así que esa fila no se '
@@ -2117,7 +2131,12 @@ class EnsayoDeLaPlanilla
     private function siNoHagoNadaConElConteo(bool $choque, bool $sube, int $cuantas, int $base, int $archivo,
         string $palabra, string $porDefecto, ?string $sinEspejo): string
     {
-        $plural = $cuantas === 1 ? '' : 's';
+        // **Una sola, y toda la frase se mueve con ella**: el sustantivo, el verbo
+        // que lo crea y el relativo que lo recoge al final. Un «se crearán 1 ausencia»
+        // le cuesta al docente un segundo de duda justo cuando está decidiendo si
+        // marca la casilla, y lo que duda es si el sistema entendió el número.
+        $una = $cuantas === 1;
+        $plural = $una ? '' : 's';
         $coletilla = $sinEspejo === null ? '' : ' '.$sinEspejo;
 
         if ($choque) {
@@ -2128,14 +2147,16 @@ class EnsayoDeLaPlanilla
 
         if ($sube) {
             return ($porDefecto === RespuestasDeLaPlanilla::AUSENCIAS_APLICAR
-                ? 'Se crearán '.$cuantas.' '.$palabra.$plural.' con la fecha del día en que se importe, '
-                    .'no la del día que faltó: la columna sólo trae el total. Pasará de '.$base.' a '.$archivo.'.'
+                ? 'Se crear'.($una ? 'á ' : 'án ').$cuantas.' '.$palabra.$plural.' con la fecha del día en '
+                    .'que se importe, no la del día que faltó: la columna sólo trae el total. Pasará de '
+                    .$base.' a '.$archivo.'.'
                 : 'No se crea nada: se queda en '.$base.'.').$coletilla;
         }
 
         return 'No se borra nada: se queda en '.$base.'. Bajarlo a '.$archivo.' significa **borrar '
-            .$cuantas.' '.$palabra.$plural.' con su fecha**, que son las que salen en la planilla de '
-            .'ausencias del acudiente, así que sólo pasa si se pide.'.$coletilla;
+            .$cuantas.' '.$palabra.$plural.' con su fecha**, que '
+            .($una ? 'es la que sale' : 'son las que salen').' en la planilla de ausencias del acudiente, '
+            .'así que sólo pasa si se pide.'.$coletilla;
     }
 
     /**
@@ -2398,8 +2419,12 @@ class EnsayoDeLaPlanilla
             return $ficha['motivo_fuera'];
         }
 
+        if ($cuentas['sin_pasar'] === 1) {
+            return 'Queda 1 casilla sin calificar en esta hoja.';
+        }
+
         if ($cuentas['sin_pasar'] > 0) {
-            return 'Quedan '.$cuentas['sin_pasar'].' casilla(s) sin calificar en esta hoja.';
+            return 'Quedan '.$cuentas['sin_pasar'].' casillas sin calificar en esta hoja.';
         }
 
         return null;
@@ -2530,6 +2555,13 @@ class EnsayoDeLaPlanilla
         $this->celdas[$llave]['veces']++;
         $this->celdas[$llave]['decision'] = $decidido['decision'];
 
+        // **La frase se concuerda aquí y no al crear el renglón**, porque al nacer
+        // `veces` vale cero: ese mismo valor puede salir una vez en el libro o
+        // cuarenta, y hasta que no se cuenta no se sabe cuál de las dos frases es.
+        $this->celdas[$llave]['si_no_hago_nada'] = $this->celdas[$llave]['veces'] === 1
+            ? 'Esa casilla se queda como está: no se escribe nada en ella.'
+            : 'Esas casillas se quedan como están: no se escribe nada en ellas.';
+
         if (count($this->celdas[$llave]['donde']) < self::EJEMPLOS) {
             $this->celdas[$llave]['donde'][] = $this->donde($hoja, $fila, $columna, $alumno);
         }
@@ -2572,10 +2604,13 @@ class EnsayoDeLaPlanilla
     {
         $llave = (string) $valor;
 
-        if (! isset($this->escala[$llave])) {
-            $maximo = EscalaDeNotas::maximo($yearId);
-            $minimo = EscalaDeNotas::minimo($yearId);
+        // Fuera del `if` porque la frase de abajo se rehace en cada anotación. Las
+        // dos están cacheadas por año en {@see EscalaDeNotas}, así que no es una
+        // consulta más.
+        $maximo = EscalaDeNotas::maximo($yearId);
+        $minimo = EscalaDeNotas::minimo($yearId);
 
+        if (! isset($this->escala[$llave])) {
             $this->escala[$llave] = [
                 'valor' => $valor,
                 'veces' => 0,
@@ -2583,14 +2618,16 @@ class EnsayoDeLaPlanilla
                 'minimo' => $minimo,
                 'donde' => [],
                 'alumnos' => [],
-                'si_no_hago_nada' => 'Esas notas no se importan: '.$valor.' no cabe en la escala de este año'
-                    .($maximo === null ? '.' : ', que va de '.($minimo ?? 0).' a '.$maximo.'.')
-                    .($topado === null ? '' : ' Si decide topar, se guardarían como '.$topado.'.'),
+                'si_no_hago_nada' => $this->siNoHagoNadaConLaEscala(1, $valor, $maximo, $minimo, $topado),
             ];
         }
 
         $this->escala[$llave]['veces']++;
         $this->escala[$llave]['decision'] = $decision;
+
+        // Igual que en la F4: la frase se reescribe con el conteo ya subido.
+        $this->escala[$llave]['si_no_hago_nada'] = $this->siNoHagoNadaConLaEscala(
+            (int) $this->escala[$llave]['veces'], $valor, $maximo, $minimo, $topado);
 
         if (count($this->escala[$llave]['donde']) < self::EJEMPLOS) {
             $this->escala[$llave]['donde'][] = $this->donde($hoja, $fila, $columna, $alumno);
@@ -2599,6 +2636,24 @@ class EnsayoDeLaPlanilla
                 $this->escala[$llave]['alumnos'][] = $alumno;
             }
         }
+    }
+
+    /**
+     * La frase de la F5, **concordada con cuántas veces salió ese valor**.
+     *
+     * `$veces` sólo se mira para elegir singular o plural: el número no sale escrito
+     * en la frase —ya viaja en el renglón— y por eso al llamarla basta con decir si
+     * es una o son varias.
+     */
+    private function siNoHagoNadaConLaEscala(int $veces, int $valor, ?int $maximo, ?int $minimo,
+        ?int $topado): string
+    {
+        $una = $veces === 1;
+
+        return ($una ? 'Esa nota no se importa: ' : 'Esas notas no se importan: ').$valor
+            .' no cabe en la escala de este año'
+            .($maximo === null ? '.' : ', que va de '.($minimo ?? 0).' a '.$maximo.'.')
+            .($topado === null ? '' : ' Si decide topar, se guardaría'.($una ? '' : 'n').' como '.$topado.'.');
     }
 
     /** Dónde está una celda, en una frase que se pueda leer en pantalla. */
