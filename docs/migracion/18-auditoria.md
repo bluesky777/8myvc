@@ -1170,6 +1170,16 @@ decisión se quedó esperando a alguien que no existía. La regla la disuelve: e
 marca el repaso, que ya tiene su propio criterio —el de la decisión 6, por dominio y en
 orden de reclamo—.
 
+**Y el aviso va con DOS datos, no uno** —lo corrigió `myvc-front-89` el 22 sep, después de
+montar la columna de `matriculas` y encontrarse el modal vacío—: *«pasó el repaso de
+`updated_at`»* y *«está instrumentada en `auditoria`»* **no son la misma cosa**, y esta
+decisión se podía leer como que sí. Lo primero hace que **la fecha de la celda** sea de
+fiar; lo segundo es lo que hace que **el modal tenga algo dentro**. `matriculas` pasó el
+repaso en `11343c4` y a la vez no tiene ni una línea en `auditoria` —su censo:
+`nota 7339 · subunidad 496 · comportamiento 255 · … `, ni `matricula` ni `alumno`—, así que
+la columna enseña fecha y el modal abre vacío. **Cada aviso al front dice las dos en dos
+líneas**, o el front construye contra una expectativa que no se cumple.
+
 El precio, escrito por delante: **no se le puede prometer a un colegio una pantalla
 concreta para una fecha concreta.** A cambio nadie espera a que nadie apruebe nada, y la
 primera tabla salió el mismo día que se decidió: `alumnos` y `matriculas`, repasadas en
