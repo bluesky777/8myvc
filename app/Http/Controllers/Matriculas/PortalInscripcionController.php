@@ -386,6 +386,26 @@ class PortalInscripcionController extends Controller
             [(int) $requisito->id, (int) $aspirante->id, $archivo['nombre'], $archivo['original'],
                 'SUBIDO', $ahora, $ahora]);
 
+        /*
+         * **La rama que sí sube un archivo, que se me quedó fuera al instrumentar la
+         * de papel.** La encontró la columna «audita menos veces de las que escribe»
+         * del detector —2 escrituras, 1 auditoría— y es justo el caso que esa columna
+         * existe para enseñar: un método instrumentado a medias se ve exactamente
+         * igual que uno instrumentado entero.
+         *
+         * Aquí el nombre original importa más que el del servidor: es el que la
+         * familia reconoce cuando llama a decir «yo mandé el registro civil».
+         */
+        Auditoria::registrar()
+            ->crear('documento_admision', (int) DB::getPdo()->lastInsertId())
+            ->a([
+                'estado' => 'SUBIDO',
+                'requisito_id' => (int) $requisito->id,
+                'nombre_original' => $archivo['original'],
+            ])
+            ->resumen('La familia subió el documento '.$archivo['original'])
+            ->guardar();
+
         return ['estado' => 'SUBIDO', 'mensaje' => 'Recibido. Queda en revisión.'];
     }
 

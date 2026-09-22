@@ -1141,6 +1141,40 @@ antes de **publicar** lo que esa columna dice—. El repaso es **por tabla y aco
 no un barrido global: entra en el mismo lote que la columna, con `tools/`
 enseñando los caminos, y sale con su test.
 
+> ### Cuando le toque el repaso a `notas`: hay un escritor nuevo, y `updated_by` miente ahí
+>
+> Lo trajo `myvc-front-89` el 22 sep. **`planilla-offline/importar` escribe en `notas` y
+> `notas_finales`**, y no es `notas/lote` ni `notas/detailed`: es una ruta nueva que hay
+> que contar como escritor al repasar esas dos tablas.
+>
+> Lo que importa más que el conteo: **el `updated_by` que deja es el usuario que sube el
+> Excel, que puede no ser el docente dueño de la nota** — la decisión D4 permite que
+> coordinación suba la planilla de otro. Así que en esas filas `updated_by` contesta «lo
+> editó coordinación» y es verdad a medias: lo subió coordinación, la nota es del docente.
+>
+> **La columna no sufre** —enseña la fecha, y la fecha es cierta— pero el modal sí tiene
+> que decirlo, y para eso está `Auditoria::porCuentaDe()`, que es exactamente «la segunda
+> persona: por cuenta de quién se hizo esto». Es un caso donde `updated_by` no da para
+> más y la línea de auditoría sí: dos columnas de una tabla no pueden expresar «X hizo
+> esto por cuenta de Y», y una fila de auditoría sí.
+
+**[DECISIÓN 8, 22 sep 2026] No hay orden de pantallas: hay una regla.** Una pantalla
+estrena la columna `Historial` **el día que su tabla pasa el repaso de `updated_at`**, y
+el front recibe el aviso tabla por tabla. No se ordena una lista de rejillas ni se
+aprueba una prioridad.
+
+Se preguntó dos veces por «el orden de importancia» y las dos se quedó sin contestar,
+que es el síntoma: **la pregunta no tenía dueño**. El front no puede ordenar una
+prioridad de producto y Joseth no puede ordenar una lista que no ha visto, así que la
+decisión se quedó esperando a alguien que no existía. La regla la disuelve: el orden lo
+marca el repaso, que ya tiene su propio criterio —el de la decisión 6, por dominio y en
+orden de reclamo—.
+
+El precio, escrito por delante: **no se le puede prometer a un colegio una pantalla
+concreta para una fecha concreta.** A cambio nadie espera a que nadie apruebe nada, y la
+primera tabla salió el mismo día que se decidió: `alumnos` y `matriculas`, repasadas en
+`11343c4`.
+
 **[DECISIÓN 6] El alcance va por dominio, en orden de reclamo, no de una vez.** La
 fase 4 sigue como está: cada lote instrumenta un dominio entero, se despliega solo, y
 `tools/escrituras-sin-auditoria.php` dice cuánto queda. Hoy dice **42 de 221 métodos
