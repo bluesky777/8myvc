@@ -1,6 +1,7 @@
 <?php namespace App\Http\Controllers;
 
 
+use App\Support\Reloj;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
@@ -535,7 +536,10 @@ class LoginController extends Controller {
 			//$usuario->attachRole($role[0]);
 			$usuario->roles()->attach($role[0]['id']);
 
-			DB::update('UPDATE alumnos SET user_id=? WHERE id=?', [ $usuario->id, $alumno->id ]);
+			// Sin `updated_by`: esto corre en el alta que hace la propia persona, no hay
+			// sesión de nadie que lo autorice. `updated_at` sí, porque la fila cambió y
+			// es lo que lee la columna `Historial`.
+			DB::update('UPDATE alumnos SET user_id=?, updated_at=? WHERE id=?', [ $usuario->id, Reloj::ahora(), $alumno->id ]);
 
 
 			return [ 'estado' => 'Alumno y Prematricula creados. Usuario: ' . $usuario->username

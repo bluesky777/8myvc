@@ -1,6 +1,7 @@
 <?php namespace App\Http\Controllers;
 
 
+use App\Support\Reloj;
 use App\Services\Auditoria;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
@@ -1038,7 +1039,19 @@ class ChangeAskedController extends Controller {
 		 */
 		$antes = DB::selectOne("SELECT {$columna} AS valor FROM alumnos WHERE id = ?", [$alumno->id]);
 
-		DB::update("UPDATE alumnos SET {$columna}=? WHERE id=?", [$valor, $alumno->id]);
+
+		/*
+		 * `updated_at` no es decorado aquí: es **lo que va a pintar la columna
+		 * `Historial`** de la rejilla de alumnos (decisión 5 del 18). Una fila que
+		 * alguien cambió hoy y sigue diciendo la fecha de hace dos años no deja
+		 * distinguir «no se editó nunca» de «se editó y no lo anotamos», y las dos se
+		 * ven igual en la celda.
+		 */
+		// Sin `updated_by`: quien aprueba no está en el alcance de este método privado
+		// y el del pedido es **quien lo pidió**, que es otra persona. Ponerlo sería
+		// atribuirle a la familia un cambio que autorizó la secretaría. Quién aprobó lo
+		// dice la línea de auditoría de aquí debajo, que sí tiene el actor de verdad.
+		DB::update("UPDATE alumnos SET {$columna}=?, updated_at=? WHERE id=?", [$valor, Reloj::ahora(), $alumno->id]);
 
 		Auditoria::registrar()
 			->editar('alumno', (int) $alumno->id)

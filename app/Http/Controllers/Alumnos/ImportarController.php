@@ -1680,12 +1680,16 @@ class ImportarController extends Controller
                     }
 
                     if ($results[$i]->documento) {
-                        $consulta = 'UPDATE alumnos SET deuda=?, pazysalvo=? WHERE documento=?;';
-                        $actua = DB::update($consulta, [$results[$i]->deuda, $pazysalvo, $results[$i]->documento]);
+                        // Las dos sellan `updated_at`: la cartera la sube una persona con un
+                        // Excel, así que estas filas SÍ las editó alguien hoy, y es lo que
+                        // tiene que enseñar la columna `Historial` de la rejilla de alumnos
+                        // y la de matrículas. `$now` ya es hora de Bogotá, de arriba.
+                        $consulta = 'UPDATE alumnos SET deuda=?, pazysalvo=?, updated_at=? WHERE documento=?;';
+                        $actua = DB::update($consulta, [$results[$i]->deuda, $pazysalvo, $now, $results[$i]->documento]);
 
                         DB::update('UPDATE matriculas m INNER JOIN alumnos a ON a.id=m.alumno_id and m.deleted_at is null 
-							SET m.fecha_pension=? WHERE a.documento=? and a.deleted_at is null',
-                            [$fecha_pension, $alumno->documento]);
+							SET m.fecha_pension=?, m.updated_at=? WHERE a.documento=? and a.deleted_at is null',
+                            [$fecha_pension, $now, $alumno->documento]);
 
                         // No eliminar para continuar si se cae el servidor!!
                         Debugging::pin('Alum_documento: '.$alumno->documento);

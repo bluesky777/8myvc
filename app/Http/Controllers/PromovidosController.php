@@ -2,6 +2,7 @@
 
 
 
+use App\Support\Reloj;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -124,8 +125,20 @@ class PromovidosController extends Controller {
 
 			$alumno->promovido = $diagnostico;
 
+			/*
+			 * **Sella `updated_at` aunque el cálculo sea automático, y es una decisión.**
+			 * La tentación es no sellarlo —«no lo editó una persona»— pero la fila SÍ
+			 * cambió: el estado de promoción de ese alumno es distinto después de esta
+			 * línea. La columna `Historial` dice *cuándo cambió por última vez lo que hay
+			 * en esta fila*, no *cuándo la tecleó alguien*; quién lo hizo y si fue el
+			 * sistema lo distingue `actor_tipo` en la línea de auditoría, que es donde
+			 * esa diferencia se puede leer sin perder la otra.
+			 *
+			 * Sin `updated_by`: en este controlador no hay actor resuelto, y poner el
+			 * primero que pase por la petición sería peor que dejarlo nulo.
+			 */
 			$consulta = "UPDATE matriculas 
-				SET promovido=:promovido, promedio=:promedio, cant_asign_perdidas=:cant_asign_perdidas, cant_areas_perdidas=:cant_areas_perdidas
+				SET promovido=:promovido, promedio=:promedio, cant_asign_perdidas=:cant_asign_perdidas, cant_areas_perdidas=:cant_areas_perdidas, updated_at=:actualizado
 				WHERE id=:matricula_id AND promovido NOT LIKE '%(manual)%'";
 
 			$res = DB::update($consulta, [
@@ -134,6 +147,7 @@ class PromovidosController extends Controller {
 				':cant_asign_perdidas' => $alumno->cant_lost_asig,
 				':cant_areas_perdidas' => $alumno->cant_lost_areas,
 				':matricula_id' => $alumno->matricula_id,
+				':actualizado' => Reloj::ahora(),
 			]);
 			
 			
