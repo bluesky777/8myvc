@@ -24,13 +24,28 @@ use Illuminate\Support\Facades\DB;
  * es la única forma de comprobar que la llamada está **dentro** del método y
  * detrás de la guarda, y no en un sitio donde el permiso ya no la protege.
  *
- * Lo que estos casos NO cubren, dicho aquí para que nadie lo lea como cubierto:
- * `matriculas` la escriben también `ChangeAskedController::putAceptarAlumno`,
- * `DetallesController::putEliminarMatriculaDestroy`,
- * `LoginController::putCrearPrematricula`, `FormulariosInscripcionController`,
- * `FusionDeAlumnos::fusionar` y el importador de alumnos. **Esos caminos siguen
- * sin rastro**, y el modal de una matrícula tocada por ellos saldrá vacío o
- * incompleto. Van en su propio lote.
+ * **La lista de lo que falta, recontada el 22 sep 2026 — y la primera estaba mal.**
+ * Al escribir este fichero nombré como escritores de `matriculas` a
+ * `ChangeAskedController::putAceptarAlumno`, `FormulariosInscripcionController` y
+ * `FusionDeAlumnos::fusionar`, copiando la salida de
+ * `tools/escrituras-sin-auditoria.php` sin mirar **qué tabla** escribía cada uno:
+ * los tres tocan `matriculas` sólo con un `JOIN` para leer. Y me dejé cuatro que sí
+ * escriben. El censo bueno sale de buscar la escritura y no el nombre:
+ *
+ *     grep -rnE "(INSERT INTO|UPDATE|DELETE FROM) +matriculas" app/
+ *     grep -rn "new Matricula|Matricula::findOrFail|Matricula::onlyTrashed" app/
+ *
+ * Ya con rastro: los diez de `MatriculasController`, las dos rutas de
+ * `Matricula::matricularUno()`, el borrado físico de
+ * `DetallesController::putEliminarMatriculaDestroy` y las dos escrituras públicas de
+ * `LoginController::putCrearPrematricula`.
+ *
+ * **Sin rastro todavía:** `Alumnos/GuardarAlumno`, `Alumnos/ImportarController`,
+ * `PromovidosController` (recálculo masivo: si va una línea por alumno o una por
+ * grupo **es una decisión y no está tomada**), `AlumnosController:385` y
+ * `ProfesoresController:203` —los dos crean matrícula con `new Matricula`— y una
+ * escritura de `PrematriculasController`. El modal de una matrícula tocada sólo por
+ * esos caminos sale vacío, y eso es indistinguible de «no se tocó».
  */
 class AuditoriaDeLasMatriculasTest extends CasoDeContrato
 {
@@ -384,6 +399,62 @@ class AuditoriaDeLasMatriculasTest extends CasoDeContrato
             'Con 301 líneas no dice que el tope recortó, y el cliente no tiene forma de saberlo.');
         $this->assertCount(300, $larga->json('acciones'),
             'Se devolvieron más de 300: la fila de sondeo se coló en la respuesta.');
+    }
+
+    /**
+     * El borrado **físico** de `detalles/eliminar-matricula-destroy` deja rastro.
+     *
+     * Es el hermano del `deleteDestroy` de las notas y el que más falta hacía: aquí
+     * no hay papelera ni `deleted_at`, así que en cuanto corre el `DELETE` no queda
+     * de dónde sacar de quién era la matrícula. Sin línea, «¿quién borró la
+     * matrícula de este alumno?» **no tiene respuesta** en los dieciséis colegios.
+     *
+     * La fila se lee antes de borrarla, que es la única ocasión que hay.
+     */
+    public function test_el_borrado_fisico_deja_rastro(): void
+    {
+        $token = $this->tokenDeSuperusuario();
+        $matricula = $this->unaMatricula();
+
+        $this->withToken($token)->putJson('/api/detalles/eliminar-matricula-destroy',
+            ['matricula_id' => $matricula->id])->assertStatus(200);
+
+        $this->assertNull(
+            DB::selectOne('SELECT id FROM matriculas WHERE id = ?', [$matricula->id]),
+            'La fila sigue ahí: este caso tiene que correr contra un borrado de verdad.');
+
+        $lineas = $this->lineasDe((int) $matricula->id);
+
+        $this->assertCount(1, $lineas, 'El borrado físico no dejó línea, y la fila ya no existe.');
+        $this->assertSame(Auditoria::BORRAR, $lineas[0]->accion);
+
+        $anterior = json_decode((string) $lineas[0]->valor_anterior, true);
+
+        $this->assertSame($matricula->estado, $anterior['estado'],
+            'La línea no guarda el estado que se llevó el borrado.');
+        $this->assertEquals($matricula->alumno_id, $lineas[0]->alumno_id,
+            'Sin el alumno, la línea no contesta «¿a quién le borraron la matrícula?».');
+    }
+
+    /**
+     * Un `matricula_id` que no existe **no** deja línea.
+     *
+     * El `DELETE` contesta `0` y no ha pasado nada que anotar. Sin esta guarda, el
+     * historial se llenaría de borrados que nunca ocurrieron —y peor: con el id que
+     * alguien tecleó mal, que es exactamente la clase de línea que luego se lee como
+     * si hubiera pasado algo.
+     */
+    public function test_borrar_una_matricula_que_no_existe_no_deja_linea(): void
+    {
+        $token = $this->tokenDeSuperusuario();
+
+        $fantasma = (int) DB::selectOne('SELECT MAX(id) + 1000 AS n FROM matriculas')->n;
+
+        $this->withToken($token)->putJson('/api/detalles/eliminar-matricula-destroy',
+            ['matricula_id' => $fantasma])->assertStatus(200);
+
+        $this->assertSame([], $this->lineasDe($fantasma),
+            'Se anotó el borrado de una matrícula que no existía.');
     }
 
     /**

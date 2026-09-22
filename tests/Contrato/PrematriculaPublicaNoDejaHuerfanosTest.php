@@ -160,6 +160,43 @@ class PrematriculaPublicaNoDejaHuerfanosTest extends CasoDeContrato
     }
 
     /**
+     * La prematrícula del portal deja rastro **sin actor**, que es lo que la hace
+     * distinta de todas las demás escrituras de `matriculas`.
+     *
+     * Es la única que puede hacer alguien **de fuera del colegio**: el endpoint es
+     * público y no hay sesión, así que no hay a quién atribuirle el alta. Poner el
+     * primer id que pasara por la petición sería peor que decir que no se sabe, y por
+     * eso la línea va con `sinActor()`.
+     *
+     * Y la línea se escribe **dentro** de la transacción: si las cuatro escrituras se
+     * deshacen, el rastro de una matrícula que no llegó a existir se deshace con
+     * ellas. Eso lo comprueba el control de abajo, que ya estaba.
+     */
+    public function test_la_prematricula_publica_deja_linea_sin_actor(): void
+    {
+        $cuerpo = $this->cuerpo();
+
+        $this->putJson('/api/login/crear-prematricula', $cuerpo)->assertStatus(200);
+
+        $alumno = $this->fichasDe($cuerpo)[0];
+
+        $matricula = DB::selectOne('SELECT id FROM matriculas WHERE alumno_id = ?', [$alumno->id]);
+        $this->assertNotNull($matricula);
+
+        $linea = DB::selectOne('SELECT * FROM auditoria
+             WHERE entidad = ? AND entidad_id = ? ORDER BY id DESC LIMIT 1',
+            ['matricula', $matricula->id]);
+
+        $this->assertNotNull($linea, 'La prematrícula pública no dejó línea de auditoría.');
+        $this->assertSame('crear', $linea->accion);
+        $this->assertNull($linea->actor_user_id,
+            'Se le atribuyó a un usuario un alta que hizo alguien sin sesión.');
+        $this->assertEquals($alumno->id, $linea->alumno_id,
+            'Sin el alumno, la línea no dice a quién prematricularon.');
+        $this->assertNotNull($linea->resumen);
+    }
+
+    /**
      * **El control, y sin él este fichero no prueba la transacción.**
      *
      * Los dos primeros tests pasarían sólo con la comprobación del grupo, que

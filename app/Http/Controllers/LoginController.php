@@ -1,6 +1,7 @@
 <?php namespace App\Http\Controllers;
 
 
+use App\Services\Auditoria;
 use App\Support\Reloj;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Auth;
@@ -460,7 +461,30 @@ class LoginController extends Controller {
 			if (count($matri) > 0) {
 				if ($matri[0]->estado == 'PREA') {
 					// SI el padre fue quien lo matriculó, podemos cambiar el grupo.
+					$grupoAnterior = DB::selectOne('SELECT grupo_id FROM matriculas WHERE id = ?', [$matri[0]->id]);
+
 					DB::update('UPDATE matriculas SET alumno_id=?, grupo_id=?, estado=?, updated_at=? WHERE id=?', [$alumno->id, $grupo_id, $estado, $now, $matri[0]->id]);
+
+					/*
+					 * **`sinActor()` y no el usuario de turno: este endpoint es público.**
+					 * Lo llama la familia desde el portal, sin sesión, así que no hay
+					 * nadie a quien atribuirle el cambio — y poner el primer id que pase
+					 * por la petición sería peor que decir que no se sabe.
+					 *
+					 * La línea importa justamente por eso: es la única escritura de
+					 * `matriculas` que puede hacer alguien de fuera del colegio, y sin
+					 * rastro el cambio de grupo de un menor no tiene de dónde salir.
+					 */
+					Auditoria::registrar()
+						->editar('matricula', (int) $matri[0]->id)
+						->deAlumno((int) $alumno->id)
+						->en(grupo: (int) $grupo_id)
+						->de(['grupo_id' => $grupoAnterior->grupo_id ?? null, 'estado' => $matri[0]->estado])
+						->a(['grupo_id' => $grupo_id, 'estado' => $estado])
+						->sinActor('portal de prematrícula')
+						->resumen('La familia cambió el grupo de la prematrícula desde el portal')
+						->guardar();
+
 					return [ 'estado' => 'Prematriculado previamente. Cambiado el grupo' ];
 				}else{
 					// Si NO fue el padre quien lo matriculó, no puede cambiar el grupo.
@@ -503,6 +527,21 @@ class LoginController extends Controller {
 
 			$consulta 	= 'INSERT INTO matriculas(alumno_id, grupo_id, estado, nuevo, created_at, updated_at) VALUES(?,?,?,1,?,?)';
 			DB::insert($consulta, [$alumno->id, $grupo_id, $estado, $now, $now]);
+
+			// El id se coge AQUÍ y no al final: debajo se insertan el usuario y su rol,
+			// y para entonces `lastInsertId()` señala a otra tabla. La línea va dentro
+			// de la transacción a propósito — si las cuatro escrituras se deshacen, el
+			// rastro de una matrícula que no existe se deshace con ellas.
+			$matriculaNueva = (int) DB::getPdo()->lastInsertId();
+
+			Auditoria::registrar()
+				->crear('matricula', $matriculaNueva)
+				->deAlumno((int) $alumno->id)
+				->en(grupo: (int) $grupo_id)
+				->a(['estado' => $estado, 'grupo_id' => $grupo_id, 'nuevo' => 1])
+				->sinActor('portal de prematrícula')
+				->resumen('La familia prematriculó a un alumno nuevo desde el portal')
+				->guardar();
 
 			// Para crear el usuario, necesitamos periodo actual y roles
 			$yearactual = Year::actual();

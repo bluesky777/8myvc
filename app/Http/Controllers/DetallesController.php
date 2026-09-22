@@ -1,5 +1,6 @@
 <?php namespace App\Http\Controllers;
 
+use App\Services\Auditoria;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -225,8 +226,36 @@ class DetallesController extends Controller {
 
 		$matricula_id 	= Request::input('matricula_id');
 
+		/*
+		 * **La fila se lee ANTES de borrarla, y ésa es la única ocasión.** Este borrado
+		 * es FÍSICO —no hay papelera, no hay `deleted_at`—, así que en cuanto el
+		 * `DELETE` corre no queda de dónde sacar de quién era la matrícula ni en qué
+		 * grupo estaba. Es el mismo caso que el `deleteDestroy` de las notas: sin esto,
+		 * «¿quién borró la matrícula de este alumno?» no tiene respuesta en los
+		 * dieciséis colegios.
+		 */
+		$fila = DB::selectOne('SELECT id, alumno_id, grupo_id, estado, fecha_matricula
+			   FROM matriculas WHERE id = ?', [$matricula_id]);
+
 		$consulta 	= 'DELETE FROM matriculas WHERE id=:matricula_id';
 		$eliminados = DB::delete($consulta, [':matricula_id' => $matricula_id]);
+
+		// Sólo si el `DELETE` se llevó algo: un `matricula_id` que no existe contesta 0
+		// y no ha pasado nada que anotar. Anotarlo igual llenaría el historial de
+		// borrados que nunca ocurrieron.
+		if ($eliminados > 0 && $fila !== null) {
+			Auditoria::registrar()
+				->borrar('matricula', (int) $fila->id)
+				->deAlumno((int) $fila->alumno_id)
+				->en(grupo: (int) $fila->grupo_id)
+				->de([
+					'estado' => $fila->estado,
+					'grupo_id' => $fila->grupo_id,
+					'fecha_matricula' => $fila->fecha_matricula,
+				])
+				->resumen('Borró la matrícula — borrado físico, no hay papelera')
+				->guardar();
+		}
 
 		return $eliminados;
 	}
