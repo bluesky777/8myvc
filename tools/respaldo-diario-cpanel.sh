@@ -88,9 +88,20 @@ apuntar "── empieza la tanda ($HOY)"
 BIEN=0
 MAL=0
 FALLADOS=""
+VISTAS=""
 
 for carpeta in $RAIZ; do
     [ -f "${carpeta}/.env" ] || continue
+
+    # `~/www` es el enlace que cPanel crea a `public_html`, así que el comodín devuelve
+    # **la misma instalación dos veces** —visto en la cuenta de `lalvirtual` el 22 sep
+    # 2026—. Sin esto, esa base se vuelca dos veces cada noche: el segundo volcado pisa
+    # al primero y el recuento de «bien» dice uno de más, que es la parte que engaña.
+    real=$(cd "$carpeta" 2>/dev/null && pwd -P) || continue
+    case " ${VISTAS} " in
+        *" ${real} "*) continue ;;
+    esac
+    VISTAS="${VISTAS} ${real}"
 
     base=$(grep -m1 '^DB_DATABASE=' "${carpeta}/.env" | cut -d= -f2- | tr -d '\r' | tr -d '"'"'"'')
     usuario=$(grep -m1 '^DB_USERNAME=' "${carpeta}/.env" | cut -d= -f2- | tr -d '\r' | tr -d '"'"'"'')
