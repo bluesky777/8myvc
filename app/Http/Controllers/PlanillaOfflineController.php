@@ -75,19 +75,57 @@ class PlanillaOfflineController extends Controller
      * `?profesor_id=` para que coordinación mire lo de otro (D4). Ver
      * {@see profesorPedido}.
      *
+     * ## ESTA ES LA ÚNICA DE LAS TRES QUE **NO** EXIGE DOCENTE
+     *
+     * Un no-docente sin `?profesor_id=` recibe **200 con `profesor: null` y
+     * `periodos: []`**, no el 422 de {@see profesorPedido}. Es lo que pide el
+     * contrato de los periodos, y el porqué es que esta ruta es **la primera que
+     * llama la pantalla**: tiene que poder preguntar «¿soy docente? ¿puedo bajar la
+     * de otro?» **antes** de saber a quién pedirle nada. Con el 422 delante, la
+     * pantalla no podía preguntar sin llevarse el error, y acababa deduciendo los
+     * dos permisos por su cuenta en el front — dos reglas escritas dos veces.
+     *
+     * Las otras dos rutas **siguen dando 422**, y eso no es una inconsistencia:
+     * ahí sí hace falta un docente porque hay que **generar un fichero** suyo.
+     * Aquí no se genera nada; se contesta quién eres.
+     *
+     * Los dos booleanos van en la raíz de **toda** respuesta 200, también cuando
+     * se pidió con `?profesor_id=`:
+     *
+     *   - `puede_bajar_la_de_otro` — {@see Autoriza::puedeDescargarLaPlanillaDeOtro}.
+     *     **No se llama `puede_por_otro` a propósito**: ése ya existe en el
+     *     diagnóstico de la subida y es la regla de **subir**, que es más estrecha
+     *     ({@see Autoriza::puedeSubirLaPlanillaDeOtro} — `Secretario` baja y no
+     *     sube). Dos reglas distintas con el mismo nombre en el mismo front es una
+     *     trampa.
+     *   - `soy_docente` — el MISMO predicado que resuelve «el suyo»
+     *     ({@see soyDocente}), no uno parecido: si aquí dijera que sí y
+     *     `profesorPedido()` dijera que no, la pantalla pediría su libro y se
+     *     llevaría un 422.
+     *
      * @return array<string, mixed>
      */
     public function getPeriodos()
     {
-        $profesor = $this->profesorPedido();
+        $profesor = $this->profesorPedidoSiLoHay();
         $anio = LaPlanillaQueSeDescarga::cabeceraDelAnio((int) $this->user->year_id);
 
-        $asignaturas = LaPlanillaQueSeDescarga::asignaturasDelProfesor($profesor->id, $anio->year_id);
+        // Sin docente no hay nada que listar, y **la lista vacía se sirve sin
+        // preguntarle nada a la base**: `periodosDelAnio` sí traería los cuatro
+        // periodos del año, y cada uno saldría con `asignaturas: []`. Eso no es
+        // «los periodos de nadie», es una respuesta que invita a pintar una
+        // pantalla de descargas que no se puede usar.
+        $asignaturas = $profesor === null
+            ? []
+            : LaPlanillaQueSeDescarga::asignaturasDelProfesor($profesor->id, $anio->year_id);
+
         $ids = array_map(static fn ($a) => (int) $a->asignatura_id, $asignaturas);
 
         $periodos = [];
 
-        foreach (LaPlanillaQueSeDescarga::periodosDelAnio($anio->year_id) as $periodo) {
+        $delAnio = $profesor === null ? [] : LaPlanillaQueSeDescarga::periodosDelAnio($anio->year_id);
+
+        foreach ($delAnio as $periodo) {
             $recuentos = LaPlanillaQueSeDescarga::recuentosDelPeriodo($ids, $periodo->id);
 
             $deEstePeriodo = [];
@@ -158,8 +196,19 @@ class PlanillaOfflineController extends Controller
             'subunidad_displayname' => $anio->subunidad_displayname,
             'subunidades_displayname' => $anio->subunidades_displayname,
             'reparto' => $anio->reparto,
-            'profesor' => ['id' => $profesor->id, 'nombre' => $profesor->nombre],
+            'profesor' => $profesor === null
+                ? null
+                : ['id' => $profesor->id, 'nombre' => $profesor->nombre],
             'periodos' => $periodos,
+
+            // **Booleanos de JSON, no `0`/`1`.** Los dos métodos declaran `bool` y
+            // el predicado del docente es una comparación, así que lo que sale por
+            // el cable es `true`/`false`. Es lo que ata
+            // `PlanillaOfflineTest::los_dos_permisos_salen_como_booleanos_de_json`,
+            // que compara con `assertSame(true, ...)`: un `1` pasaría un
+            // `assertTrue` y rompería un `=== true` en TypeScript.
+            'puede_bajar_la_de_otro' => Autoriza::puedeDescargarLaPlanillaDeOtro($this->user),
+            'soy_docente' => $this->soyDocente(),
         ];
     }
 
@@ -946,6 +995,28 @@ class PlanillaOfflineController extends Controller
     }
 
     /**
+     * **¿Quien pregunta enseña?** — el predicado, escrito una sola vez.
+     *
+     * Es `users.tipo` y **no `persona_id`**, y no es lo mismo: `persona_id` es el
+     * id de la **ficha**, que para un `Profesor` es `profesores.id` y para un
+     * administrativo es `users.id`. O sea que un administrativo tiene
+     * `persona_id` y no es docente, y confundirlos le daría **las asignaturas del
+     * profesor con ese número** — la misma trampa que ya lleva escrita
+     * {@see Autoriza::puedeEscribirDesempenos}. Por eso tampoco vale el
+     * `idDeProfesorDe()` del front (`app2/src/app/core/sesion/permisos.ts`):
+     * aquello contesta «qué ficha», esto contesta «qué eres».
+     *
+     * Lo llaman {@see profesorPedidoSiLoHay}, {@see profesorDeLaAsignatura} y el
+     * `soy_docente` de {@see getPeriodos}. Que sean **el mismo** predicado y no
+     * tres copias es lo que impide que la pantalla lea «eres docente» y la ruta de
+     * al lado le conteste 422.
+     */
+    private function soyDocente(): bool
+    {
+        return ($this->user->tipo ?? '') === 'Profesor';
+    }
+
+    /**
      * De qué docente es el libro que se está pidiendo.
      *
      * ## La regla, y por qué no puede ser `User::pueden_editar_notas`
@@ -976,12 +1047,37 @@ class PlanillaOfflineController extends Controller
      */
     private function profesorPedido(): object
     {
-        $propio = ($this->user->tipo ?? '') === 'Profesor' ? (int) $this->user->persona_id : null;
+        $profesor = $this->profesorPedidoSiLoHay();
+
+        if ($profesor === null) {
+            abort(422, 'Diga de qué docente quiere la planilla: falta `profesor_id`.');
+        }
+
+        return $profesor;
+    }
+
+    /**
+     * Lo mismo, pero **«no hay de quién» no es un error**: devuelve `null`.
+     *
+     * Es el único sitio donde se resuelve el docente, y por eso el 422 de
+     * {@see profesorPedido} se quedó arriba y no aquí: partirlo al revés —una
+     * copia tolerante al lado de la estricta— habría dejado **dos** versiones de
+     * la regla de la D4, y la que se olvidara de actualizar sería la que regala la
+     * planilla de un compañero. Aquí se cae una sola rama, la de «ni pediste
+     * `profesor_id` ni eres docente»; las demás —`profesor_id` que no es número,
+     * el de otro sin permiso, el que no existe— siguen abortando igual para las
+     * tres rutas.
+     *
+     * Sólo la usa {@see getPeriodos}. El porqué está en su docblock.
+     */
+    private function profesorPedidoSiLoHay(): ?object
+    {
+        $propio = $this->soyDocente() ? (int) $this->user->persona_id : null;
         $pedido = Request::input('profesor_id');
 
         if ($pedido === null || $pedido === '') {
             if ($propio === null) {
-                abort(422, 'Diga de qué docente quiere la planilla: falta `profesor_id`.');
+                return null;
             }
 
             return $this->fichaDelProfesor($propio);
@@ -1017,7 +1113,7 @@ class PlanillaOfflineController extends Controller
      */
     private function profesorDeLaAsignatura(object $dueno): object
     {
-        $propio = ($this->user->tipo ?? '') === 'Profesor' ? (int) $this->user->persona_id : null;
+        $propio = $this->soyDocente() ? (int) $this->user->persona_id : null;
 
         if ($dueno->profesor_id !== null && $dueno->profesor_id === $propio) {
             return $this->fichaDelProfesor($propio);

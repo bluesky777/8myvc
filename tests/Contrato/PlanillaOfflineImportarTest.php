@@ -812,6 +812,70 @@ class PlanillaOfflineImportarTest extends CasoDeContrato
     }
 
     /**
+     * **Secretaría baja el libro y NO lo sube**, que es toda la diferencia entre
+     * los dos permisos de la D4.
+     *
+     * `puedeDescargarLaPlanillaDeOtro` se permite ser ancha —incluye
+     * `esAdministrativo`, o sea el rol `Secretario`— con un argumento escrito en
+     * `Autoriza`: lo que sale por las rutas de lectura es la planilla que esa
+     * persona **ya puede ver por la web**, sólo que en un `.xlsx`.
+     * `puedeSubirLaPlanillaDeOtro` no tiene esa rama, y por eso el mismo token se
+     * lleva un 200 y un 403 en el mismo test: subir es **escribir las notas de un
+     * grupo entero a nombre de otra persona**, y eso es de coordinación académica.
+     *
+     * **Las dos llamadas van juntas a propósito.** El día que alguien unifique los
+     * dos métodos «porque hacen lo mismo», dos tests separados seguirían verdes
+     * cada uno por su lado. Lo que no puede pasar es que a la misma persona le
+     * contesten lo mismo las dos rutas, y eso sólo se ve mirándolas a la vez.
+     *
+     * La rama de al lado —`can_edit_plantilla_notas`, que SÍ sube— ya la fijan
+     * {@see d4_con_el_permiso_el_ensayo_ofrece_subir_por_otro} y
+     * {@see d4_con_la_confirmacion_escribe_y_queda_auditado_con_las_dos_personas},
+     * los dos con `unCoordinador()`: personal llano con ese permiso y nada más.
+     */
+    #[Test]
+    public function d4_un_secretario_baja_el_libro_y_no_puede_subirlo(): void
+    {
+        $caso = $this->unaPlanilla();
+
+        $secretaria = $this->usuarioLlanoDelPersonal();
+
+        // El rol se crea aquí, igual que en `FichaDelPersonalTest`: el seed hace
+        // `TRUNCATE TABLE roles` y esa fila no existe en la base de tests. **Y sin
+        // colgarle ningún permiso**: con `can_edit_plantilla_notas` dentro, el 403
+        // de abajo no saldría y esto estaría midiendo la rama de coordinación.
+        $rol = DB::table('roles')->where('name', 'Secretario')->value('id')
+            ?? DB::table('roles')->insertGetId([
+                'name' => 'Secretario',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        DB::table('role_user')->insert(['user_id' => $secretaria->id, 'role_id' => $rol]);
+
+        $this->assertNull(DB::selectOne(
+            'SELECT 1 AS si FROM role_user ru
+               INNER JOIN permission_role pr ON pr.role_id = ru.role_id
+               INNER JOIN permissions pm ON pm.id = pr.permission_id
+              WHERE ru.user_id = ? AND pm.name = ?',
+            [$secretaria->id, Autoriza::PERMISO_PLANTILLA_NOTAS]
+        ), 'La secretaria tiene `can_edit_plantilla_notas`: este test mide la otra rama.');
+
+        $token = $this->tokenDe($secretaria->username);
+
+        // Baja: 200, y con la planilla de OTRO docente delante.
+        $r = $this->withToken($token)
+            ->getJson('/api/planilla-offline/periodos?profesor_id='.$caso['profesor_id'])
+            ->assertStatus(200);
+
+        $this->assertSame($caso['profesor_id'], $r->json('profesor.id'));
+        $this->assertSame(true, $r->json('puede_bajar_la_de_otro'));
+
+        // Y sube: 403 con el mismo token y el libro que acaba de poder ver.
+        $this->importar($token, $caso['ruta'])->assertStatus(403);
+    }
+
+    /**
      * **Un periodo cerrado no se abre con el permiso de la D4 ni con la
      * confirmación.**
      *

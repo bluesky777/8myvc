@@ -4,6 +4,8 @@ namespace Tests\Contrato;
 
 use App\Exports\HojaDeAsignatura;
 use App\Exports\LibroDeNotas;
+use App\Models\Role;
+use App\Support\Autoriza;
 use App\Support\EscalaDeNotas;
 use App\Support\FirmaDelLibro;
 use Illuminate\Support\Facades\DB;
@@ -325,6 +327,343 @@ class PlanillaOfflineTest extends CasoDeContrato
 
         $r->assertStatus(200);
         $this->assertSame((int) $docente->profesor_id, $r->json('profesor.id'));
+    }
+
+    // ── Lo que `periodos` le contesta a quien NO es docente ────────────────────
+    //
+    // El contrato entero cabe en una frase: **`periodos` es la primera llamada de
+    // la pantalla**, así que tiene que poder contestar «¿soy docente? ¿puedo bajar
+    // la de otro?» **antes** de saber a quién pedirle nada. Hasta el 21 sep 2026 le
+    // contestaba 422 a un no-docente sin `profesor_id`, y la pantalla acababa
+    // deduciendo los dos permisos por su cuenta en el front — la regla de la D4
+    // escrita dos veces, en dos lenguajes, y una de ellas sin tests.
+    //
+    // Las otras dos rutas siguen dando 422 y eso lo ata el último test del bloque:
+    // ahí sí hace falta un docente, porque hay que **generar un fichero suyo**.
+    //
+    // ## EL CASO POSITIVO VA TRES VECES, Y ÉSA ES LA PARTE QUE IMPORTA
+    //
+    // `puedeDescargarLaPlanillaDeOtro` es `esAdministrativo || puedeEditarPlantillaNotas`,
+    // o sea **tres** ramas: superusuario, `Secretario` y `can_edit_plantilla_notas`.
+    // Y el superusuario **las enciende todas a la vez**: está dentro de
+    // `esAdministrativo` y dentro de `puedeEditarPlantillaNotas`. Así que un único
+    // test positivo hecho con él da verde aunque alguien borre entera la rama de
+    // `can_edit_plantilla_notas` — que es justo la de la D4, la que los colegios
+    // reparten: «coordinación puede con el libro de cualquier docente». El
+    // superusuario no es el caso real; la coordinadora del colegio no lo es.
+    //
+    // Por eso hay un test por rama y cada sujeto lleva **esa y sólo esa**. Los dos
+    // que el seed no trae se montan aquí —el seed hace `TRUNCATE` de `roles`,
+    // `permissions`, `permission_role` y `role_user`, así que ni el rol `Secretario`
+    // ni el permiso sobreviven a construir la base— y se montan **por la vía real**,
+    // permiso → rol → usuario, que es como llegan a `perms` del contexto.
+
+    /**
+     * Alguien del personal que **no** puede bajar la planilla de otro: ni
+     * superusuario, ni `Secretario`, ni `can_edit_plantilla_notas`.
+     *
+     * No vale `usuarioLlanoDelPersonal()`: aquél sólo exige `is_superuser = 0`, y
+     * la regla de la D4 tiene **tres** ramas. Con un `Secretario` dentro este test
+     * diría «sin permiso» y estaría midiendo a alguien que sí lo tiene — y saldría
+     * verde el día que el 200 empezara a contestar `true` a todo el mundo.
+     */
+    private function personalSinNingunPermisoDeLaD4(): object
+    {
+        $fila = DB::selectOne(
+            'SELECT u.id, u.username, u.is_superuser FROM users u
+               INNER JOIN periodos p ON p.id = u.periodo_id AND p.deleted_at IS NULL
+               INNER JOIN years y ON y.id = p.year_id AND y.actual = 1 AND y.deleted_at IS NULL
+              WHERE u.tipo = "Usuario" AND u.is_active = 1 AND u.deleted_at IS NULL
+                AND u.is_superuser = 0
+                AND NOT EXISTS (SELECT 1 FROM role_user ru
+                                  INNER JOIN roles r ON r.id = ru.role_id AND r.deleted_at IS NULL
+                                 WHERE ru.user_id = u.id AND r.name = "Secretario")
+                AND NOT EXISTS (SELECT 1 FROM role_user ru
+                                  INNER JOIN permission_role pr ON pr.role_id = ru.role_id
+                                  INNER JOIN permissions pm ON pm.id = pr.permission_id
+                                 WHERE ru.user_id = u.id AND pm.name = "can_edit_plantilla_notas")
+              ORDER BY u.id LIMIT 1'
+        );
+
+        $this->assertNotNull($fila,
+            'El seed no tiene ningún Usuario del año actual sin las tres ramas de la D4. '
+            .'Sin él, «no puede bajar la de otro» no se puede comprobar con nadie.');
+
+        return $fila;
+    }
+
+    /**
+     * `can_edit_plantilla_notas` por la vía real: permiso → rol → usuario.
+     *
+     * Calcado de `PlanillaOfflineImportarTest::darPermisoDeLaPlantilla` —mismo
+     * nombre de rol a propósito, para que la base no acabe con dos roles de prueba
+     * que dicen lo mismo— y por el mismo motivo: `database/dumps/test-seed.sql`
+     * hace `TRUNCATE` de `permissions`, y las migraciones corren **antes** del
+     * seed, así que lo que siembra la migración del permiso **no sobrevive a
+     * construir la base**. Un test que lo diera por sembrado comprobaría el seed.
+     *
+     * Y va por rol y no inventando una columna porque así es como el permiso llega
+     * a `perms` del contexto, que es lo único que `Autoriza` mira.
+     */
+    private function darPermisoDeLaPlantilla(int $userId): void
+    {
+        $permiso = DB::table('permissions')->where('name', Autoriza::PERMISO_PLANTILLA_NOTAS)->value('id')
+            ?? DB::table('permissions')->insertGetId([
+                'name' => Autoriza::PERMISO_PLANTILLA_NOTAS,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        $rol = DB::table('roles')->where('name', 'CoordinacionDePrueba')->value('id')
+            ?? DB::table('roles')->insertGetId([
+                'name' => 'CoordinacionDePrueba',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        if (! DB::table('permission_role')->where('permission_id', $permiso)->where('role_id', $rol)->exists()) {
+            DB::table('permission_role')->insert(['permission_id' => $permiso, 'role_id' => $rol]);
+        }
+
+        if (! DB::table('role_user')->where('user_id', $userId)->where('role_id', $rol)->exists()) {
+            DB::table('role_user')->insert(['user_id' => $userId, 'role_id' => $rol]);
+        }
+    }
+
+    /**
+     * El rol `Secretario`, **y sin ningún permiso colgando**.
+     *
+     * Se crea aquí igual que en `FichaDelPersonalTest`: el seed hace `TRUNCATE` de
+     * `roles` y esa fila no existe en la base de tests —`LoQueDecideUnRolTest`
+     * tiene su propio caso fijándolo—. Que no lleve `permission_role` no es
+     * descuido: es lo que hace que este sujeto aísle la rama de `esAdministrativo`.
+     * Con el permiso colgando, el test diría «`Secretario` puede» midiendo la otra.
+     *
+     * **La tilde no entra en juego aquí, pero conviene saber por qué**: `hasRole()`
+     * compara el nombre en PHP, así que un rol escrito de otra forma existiría y el
+     * método devolvería `false` sin fallar nada (doc 33). Se escribe literal.
+     */
+    private function darRolDeSecretario(int $userId): void
+    {
+        $rol = DB::table('roles')->where('name', 'Secretario')->value('id')
+            ?? DB::table('roles')->insertGetId([
+                'name' => 'Secretario',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        if (! DB::table('role_user')->where('user_id', $userId)->where('role_id', $rol)->exists()) {
+            DB::table('role_user')->insert(['user_id' => $userId, 'role_id' => $rol]);
+        }
+    }
+
+    /** Si ese usuario tiene `can_edit_plantilla_notas` por alguno de sus roles. */
+    private function tieneElPermisoDeLaPlantilla(int $userId): bool
+    {
+        return DB::selectOne(
+            'SELECT 1 AS si FROM role_user ru
+               INNER JOIN permission_role pr ON pr.role_id = ru.role_id
+               INNER JOIN permissions pm ON pm.id = pr.permission_id
+              WHERE ru.user_id = ? AND pm.name = ?',
+            [$userId, Autoriza::PERMISO_PLANTILLA_NOTAS]
+        ) !== null;
+    }
+
+    #[Test]
+    public function un_no_docente_superusuario_pide_periodos_sin_profesor_id_y_recibe_200(): void
+    {
+        $r = $this->withToken($this->tokenDe($this->superusuario()->username))
+            ->getJson('/api/planilla-offline/periodos');
+
+        $r->assertStatus(200);
+
+        $cuerpo = $r->json();
+
+        $this->assertNull($cuerpo['profesor'], 'No hay «el suyo», así que `profesor` tiene que ser null.');
+        $this->assertSame([], $cuerpo['periodos'], 'Sin docente no hay nada que listar.');
+        $this->assertSame(true, $cuerpo['puede_bajar_la_de_otro']);
+        $this->assertSame(false, $cuerpo['soy_docente']);
+
+        // **Y el año sale entero.** Es la mitad del contrato que no se ve en el
+        // 200: la pantalla pinta la escala y los nombres de las columnas con esto,
+        // así que un 200 con el año en nulo sería el mismo error con otra cara.
+        foreach ([
+            'year_id', 'periodo_actual_id', 'nota_minima', 'escala_maxima', 'escala_minima',
+            'unidad_displayname', 'unidades_displayname',
+            'subunidad_displayname', 'subunidades_displayname', 'reparto',
+        ] as $campo) {
+            $this->assertNotNull($cuerpo[$campo], "`{$campo}` salió nulo: el año no viaja completo.");
+        }
+    }
+
+    /**
+     * **La rama de la D4, sola: `can_edit_plantilla_notas` y nada más.**
+     *
+     * Es el caso que el superusuario tapa —él enciende las tres ramas a la vez— y
+     * el único que se parece al colegio: la coordinadora académica no es
+     * superusuaria ni está en secretaría. Sin este test, borrar entera la rama de
+     * `puedeEditarPlantillaNotas` deja la suite en verde.
+     *
+     * El sujeto es el mismo de `un_no_docente_sin_permiso...`, que sale `false`, así
+     * que entre los dos tests **lo único que cambia es la fila de `role_user`**.
+     */
+    #[Test]
+    public function la_rama_de_can_edit_plantilla_notas_sola_ya_deja_bajar_la_de_otro(): void
+    {
+        $usuario = $this->personalSinNingunPermisoDeLaD4();
+
+        $this->darPermisoDeLaPlantilla((int) $usuario->id);
+
+        // **Las otras dos ramas apagadas, dicho aquí y no sólo en el `WHERE`.** Con
+        // la columna puesta —o con el rol— el `true` de abajo saldría igual y este
+        // test no demostraría nada de lo que dice su nombre.
+        $this->assertSame(0, (int) $usuario->is_superuser);
+        $this->assertFalse(Role::isSecretario((int) $usuario->id));
+        $this->assertTrue($this->tieneElPermisoDeLaPlantilla((int) $usuario->id),
+            'El permiso no quedó puesto: este test estaría midiendo al de al lado.');
+
+        $cuerpo = $this->withToken($this->tokenDe($usuario->username))
+            ->getJson('/api/planilla-offline/periodos')
+            ->assertStatus(200)
+            ->json();
+
+        $this->assertSame(true, $cuerpo['puede_bajar_la_de_otro']);
+        $this->assertSame(false, $cuerpo['soy_docente']);
+        $this->assertNull($cuerpo['profesor']);
+        $this->assertSame([], $cuerpo['periodos']);
+    }
+
+    /**
+     * **La otra rama, sola: `Secretario` sin el permiso.**
+     *
+     * Es la rama ancha de `esAdministrativo`, y el plan la justifica: lo que sale
+     * por estas rutas es la planilla que esa persona **ya ve por la web**, sólo que
+     * en un `.xlsx`. Secretaría **baja y no sube** — la asimetría la ata
+     * `PlanillaOfflineImportarTest::d4_un_secretario_baja_el_libro_y_no_puede_subirlo`.
+     *
+     * El rol se crea **sin permisos colgando**, que es lo que lo convierte en la
+     * prueba de esta rama y no de la otra.
+     */
+    #[Test]
+    public function la_rama_de_secretario_sola_tambien_deja_bajar_la_de_otro(): void
+    {
+        $usuario = $this->personalSinNingunPermisoDeLaD4();
+
+        $this->darRolDeSecretario((int) $usuario->id);
+
+        $this->assertSame(0, (int) $usuario->is_superuser);
+        $this->assertTrue(Role::isSecretario((int) $usuario->id), 'El rol no quedó puesto.');
+        $this->assertFalse($this->tieneElPermisoDeLaPlantilla((int) $usuario->id),
+            'El rol `Secretario` traía `can_edit_plantilla_notas` colgando: así este test mide '
+            .'la rama de coordinación y no la suya, y las dos saldrían verdes con una sola viva.');
+
+        $cuerpo = $this->withToken($this->tokenDe($usuario->username))
+            ->getJson('/api/planilla-offline/periodos')
+            ->assertStatus(200)
+            ->json();
+
+        $this->assertSame(true, $cuerpo['puede_bajar_la_de_otro']);
+        $this->assertSame(false, $cuerpo['soy_docente']);
+    }
+
+    #[Test]
+    public function un_no_docente_sin_permiso_tambien_recibe_200_pero_con_el_permiso_en_falso(): void
+    {
+        $r = $this->withToken($this->tokenDe($this->personalSinNingunPermisoDeLaD4()->username))
+            ->getJson('/api/planilla-offline/periodos');
+
+        $r->assertStatus(200);
+
+        $cuerpo = $r->json();
+
+        // **200 y no 403.** No pedir nada de nadie no es un intento: es la pantalla
+        // preguntando qué puede hacer. Lo que cambia es la respuesta, no el estado.
+        $this->assertSame(false, $cuerpo['puede_bajar_la_de_otro']);
+        $this->assertSame(false, $cuerpo['soy_docente']);
+        $this->assertNull($cuerpo['profesor']);
+        $this->assertSame([], $cuerpo['periodos']);
+    }
+
+    #[Test]
+    public function un_docente_recibe_los_dos_campos_y_su_planilla_de_siempre(): void
+    {
+        $docente = $this->docenteConPlanilla();
+
+        $r = $this->withToken($this->tokenDe($docente->username))
+            ->getJson('/api/planilla-offline/periodos');
+
+        $r->assertStatus(200);
+
+        $cuerpo = $r->json();
+
+        $this->assertSame(true, $cuerpo['soy_docente']);
+        $this->assertSame((int) $docente->profesor_id, $cuerpo['profesor']['id']);
+        $this->assertNotEmpty($cuerpo['periodos'], 'Al docente con planilla no le puede salir la lista vacía.');
+        $this->assertNotEmpty(
+            array_filter($cuerpo['periodos'], fn ($p) => $p['asignaturas'] !== []),
+            'Ningún periodo trajo asignaturas: la respuesta describe la nada.'
+        );
+
+        // **«Lo que le toque» es `false`, y aquí se dice por qué.** Ningún docente
+        // del seed es superusuario ni tiene `can_edit_plantilla_notas` ni el rol
+        // `Secretario` —medido el 21 sep 2026, cero de 53—, que es lo coherente con
+        // la D4: el permiso es de coordinación. Si el seed cambiara, esta línea
+        // falla con nombre en vez de que el `false` de abajo se vuelva mentira.
+        $conPermiso = DB::selectOne(
+            'SELECT u.id FROM users u
+              WHERE u.id = ? AND (u.is_superuser = 1
+                OR EXISTS (SELECT 1 FROM role_user ru
+                             INNER JOIN roles r ON r.id = ru.role_id AND r.deleted_at IS NULL
+                            WHERE ru.user_id = u.id AND r.name = "Secretario")
+                OR EXISTS (SELECT 1 FROM role_user ru
+                             INNER JOIN permission_role pr ON pr.role_id = ru.role_id
+                             INNER JOIN permissions pm ON pm.id = pr.permission_id
+                            WHERE ru.user_id = u.id AND pm.name = "can_edit_plantilla_notas"))',
+            [$docente->user_id]
+        );
+
+        $this->assertNull($conPermiso,
+            'El docente elegido SÍ tiene el permiso de la D4: este test estaba midiendo otra cosa.');
+
+        $this->assertSame(false, $cuerpo['puede_bajar_la_de_otro']);
+    }
+
+    #[Test]
+    public function los_dos_permisos_salen_como_booleanos_de_json_y_no_como_uno_y_cero(): void
+    {
+        // **`assertTrue` no vale aquí y ése es todo el test.** `assertTrue(1)`
+        // pasa, y un `1` en el JSON rompe el `=== true` de TypeScript sin que nada
+        // en PHP se queje: la pantalla dejaría de pintar el desplegable de «la
+        // planilla de otro» y el back seguiría verde. Se compara con `assertSame`
+        // sobre el JSON **decodificado**, que es donde un `0`/`1` se distingue de
+        // un `false`/`true`.
+        $superusuario = $this->withToken($this->tokenDe($this->superusuario()->username))
+            ->getJson('/api/planilla-offline/periodos')->json();
+
+        $this->assertSame(true, $superusuario['puede_bajar_la_de_otro']);
+        $this->assertSame(false, $superusuario['soy_docente']);
+
+        // El mismo par de campos con los valores al revés, para que ninguno de los
+        // dos pueda estar clavado a una constante.
+        $docente = $this->withToken($this->tokenDe($this->docenteConPlanilla()->username))
+            ->getJson('/api/planilla-offline/periodos')->json();
+
+        $this->assertSame(true, $docente['soy_docente']);
+        $this->assertSame(false, $docente['puede_bajar_la_de_otro']);
+    }
+
+    #[Test]
+    public function el_libro_sin_profesor_id_y_sin_ser_docente_sigue_dando_422(): void
+    {
+        $docente = $this->docenteConPlanilla();
+
+        // **Lo que NO cambia del contrato.** `periodos` se volvió tolerante porque
+        // contesta quién eres; aquí hay que **generar el libro de alguien**, y sin
+        // `profesor_id` no hay alguien. Es 422 —«falta un dato»— y no 403: al
+        // superusuario no le falta permiso, le falta decir de quién.
+        $this->withToken($this->tokenDe($this->superusuario()->username))
+            ->get('/api/planilla-offline/libro/'.$docente->periodo_id)
+            ->assertStatus(422);
     }
 
     #[Test]

@@ -27,7 +27,9 @@
         "id": "int",
         "nombre": "string"
     },
+    "puede_bajar_la_de_otro": "bool",
     "reparto": "string",
+    "soy_docente": "bool",
     "subunidad_displayname": "string",
     "subunidades_displayname": "string",
     "unidad_displayname": "string",
