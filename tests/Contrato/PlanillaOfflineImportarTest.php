@@ -756,7 +756,7 @@ class PlanillaOfflineImportarTest extends CasoDeContrato
         $this->assertSame(
             'Este archivo no parece una planilla de MyVc: no trae la hoja interna «'
             .LibroDeNotas::METADATOS.'», ninguna pestaña tiene el enlace a la portada y ninguna '
-            .'tiene la columna ID. Descargue el libro otra vez desde Notas → Trabajar sin internet '
+            .'tiene la columna ID. Descargue el libro otra vez desde Académico → Trabajar sin internet '
             .'y escriba las notas sobre ése.',
             $r->json('bloqueos.0.motivo')
         );
@@ -1343,6 +1343,94 @@ class PlanillaOfflineImportarTest extends CasoDeContrato
             ),
             'La definitiva tenía que quedar recalculada.'
         );
+    }
+
+    /**
+     * **«Definitivas a recalcular» tiene que ser el número que el acta cuenta
+     * después**, y no el de hojas que el ensayo alcanzó a leer.
+     *
+     * Es el número que el asistente enseña al lado de «notas que entran», y hasta el
+     * 22 sep 2026 contaba **hojas reconocidas**: un libro de 26 asignaturas con una
+     * sola hoja tocada prometía **26** delante de una importación que dejaba
+     * `definitivas_recalculadas: 1` en la base. Se veía sin abrir la base — volver a
+     * subir **el mismo archivo sin cambiar nada** decía «0 de 0 que cambió» y, al
+     * lado, «26 definitivas a recalcular».
+     *
+     * Las cuatro mitades del contrato, y las cuatro hacen falta:
+     *
+     * 1. Un libro **sin tocar** promete **0**.
+     * 2. Un libro con **una hoja tocada** promete **1**.
+     * 3. Ese número es el mismo que `hechos.definitivas_recalculadas` de la respuesta
+     *    **y que el `hechos.totales.definitivas_recalculadas` que queda en
+     *    `importaciones`** — el que se lee el día que alguien reclama, meses después.
+     * 4. Y el mismo archivo subido otra vez, ya aplicado, vuelve a prometer **0**.
+     *
+     * Las dos mitades del predicado están en {@see EnsayoDeLaPlanilla::estudiarHoja}
+     * y en {@see EscrituraDeNotasImportadas::aplicarHoja}, y este test es lo único
+     * que las obliga a seguir diciendo lo mismo: **son dos recorridos distintos del
+     * mismo plan**, y nada más los sujeta el uno al otro.
+     */
+    #[Test]
+    public function el_ensayo_promete_las_definitivas_que_la_importacion_recalcula(): void
+    {
+        $caso = $this->unaPlanilla();
+
+        // 1 · El libro recién bajado, sin una sola casilla escrita encima.
+        $sinTocar = $this->ensayo($caso['token'], $caso['ruta'])->assertStatus(200);
+
+        $this->assertSame(0, $sinTocar->json('totales.cambiaron'),
+            'Un libro recién bajado no cambia nada. Si esto no es 0, el caso no es el que se cree '
+            .'y lo de abajo no mide lo que dice.');
+
+        $this->assertSame(0, $sinTocar->json('totales.definitivas_a_recalcular'),
+            'Sin una sola escritura no hay ninguna definitiva que recalcular. Contar hojas leídas '
+            .'es lo que hacía que un libro sin tocar prometiera una definitiva por asignatura.');
+
+        // 2 · Una hoja tocada, una casilla.
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'], [
+            [$caso['fila'], $caso['columna'], $this->otroValorPara($caso, $caso['fila'], $caso['columna'])],
+        ]);
+
+        $ensayo = $this->ensayo($caso['token'], $ruta)->assertStatus(200);
+
+        $this->assertSame(1, $ensayo->json('totales.entran'));
+        $this->assertSame(1, $ensayo->json('totales.definitivas_a_recalcular'),
+            'Una hoja tocada, una definitiva — aunque el libro traiga las otras veinticinco '
+            .'asignaturas del docente dentro.');
+
+        // 3 · Prometido contra hecho, y contra lo que queda escrito.
+        $r = $this->importar($caso['token'], $ruta)->assertStatus(200);
+
+        $this->assertTrue($r->json('terminado'));
+
+        $this->assertSame(
+            $ensayo->json('totales.definitivas_a_recalcular'),
+            $r->json('hechos.definitivas_recalculadas'),
+            'El ensayo y la subida tienen que decir el mismo número: era el único de la pantalla '
+            .'que no cuadraba con lo que pasaba después.'
+        );
+
+        $fila = DB::selectOne('SELECT hechos FROM importaciones WHERE id = ?',
+            [(int) $r->json('importacion_id')]);
+
+        $hechos = json_decode((string) ($fila->hechos ?? ''), true);
+
+        $this->assertSame(
+            $ensayo->json('totales.definitivas_a_recalcular'),
+            (int) ($hechos['totales']['definitivas_recalculadas'] ?? -1),
+            'El acta guardada es la que se lee meses después, y tiene que traer el mismo número '
+            .'que el asistente prometió antes de que nadie pulsara.'
+        );
+
+        // 4 · El mismo archivo otra vez, ya aplicado. Es la prueba que se hizo a mano.
+        $otraVez = $this->ensayo($caso['token'], $ruta)->assertStatus(200);
+
+        $this->assertSame(0, $otraVez->json('totales.cambiaron'),
+            'Lo que ya está escrito no vuelve a entrar.');
+
+        $this->assertSame(0, $otraVez->json('totales.definitivas_a_recalcular'),
+            '«0 notas que entran de 0 que cambiaron» no puede llevar 26 definitivas al lado: es '
+            .'exactamente lo que la pantalla enseñaba.');
     }
 
     #[Test]

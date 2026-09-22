@@ -707,6 +707,56 @@ class PlanillaOfflineTest extends CasoDeContrato
         );
     }
 
+    /**
+     * **El paso 5 de la portada manda al docente a un sitio que existe.**
+     *
+     * Decía *«súbalo en Notas → Subir planilla»* y en el menú **no hay ninguna de las
+     * dos cosas**: no hay sección «Notas» —se fusionó en «Académico»— ni entrada
+     * «Subir planilla». Hay `Académico → Trabajar sin internet`, y dentro un botón
+     * «Subir una planilla», que es a donde esto tiene que apuntar.
+     *
+     * **Los rótulos se comprueban contra el menú del front y no contra la memoria de
+     * nadie**: viven en `app2/src/app/cascara/menu/menu.ts` —la sección en `:574` y
+     * la entrada en `:613`— y el botón en
+     * `app2/src/app/paginas/notas-sin-internet/notas-sin-internet.html:29`. Este test
+     * no puede leer ese repo, así que lo que sujeta es la otra mitad: que la frase no
+     * vuelva a la que se sabe falsa, y que quien la cambie pase por aquí y vuelva a
+     * mirarlos.
+     */
+    #[Test]
+    public function el_paso_5_de_la_portada_nombra_la_ruta_que_el_menu_tiene_hoy(): void
+    {
+        $docente = $this->docenteConPlanilla();
+
+        $r = $this->withToken($this->tokenDe($docente->username))
+            ->get('/api/planilla-offline/libro/'.$docente->periodo_id);
+
+        $r->assertStatus(200);
+
+        $libro = IOFactory::load($this->archivoDescargado($r));
+        $portada = $libro->getSheetByName(LibroDeNotas::PORTADA);
+
+        $texto = '';
+
+        foreach ($portada->getRowIterator() as $fila) {
+            foreach (['A', 'B'] as $columna) {
+                $texto .= (string) $portada->getCell($columna.$fila->getRowIndex())->getValue()."\n";
+            }
+        }
+
+        $libro->disconnectWorksheets();
+
+        $this->assertStringContainsString(
+            'Académico → Trabajar sin internet → Subir una planilla',
+            $texto,
+            'La portada es lo único que el docente tiene delante cuando termina de pasar las notas. '
+            .'Si nombra un menú que no existe, el libro se queda en su carpeta.'
+        );
+
+        $this->assertStringNotContainsString('Notas → Subir planilla', $texto,
+            'Ni la sección «Notas» ni la entrada «Subir planilla» existen en el menú de app2.');
+    }
+
     #[Test]
     public function el_nombre_del_archivo_de_un_periodo_abierto_no_lleva_consulta(): void
     {

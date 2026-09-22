@@ -278,7 +278,7 @@ final class LibroDeNotas
             'Una casilla vacía se queda como está: no borra la nota que ya hubiera.',
             'Para BORRAR una nota, escriba un guion: -',
             'Lo gris no se puede tocar: es lo que le dice al sistema quién es quién. '
-                .'Guarde el archivo y súbalo en Notas → Subir planilla.',
+                .'Guarde el archivo y súbalo en Académico → Trabajar sin internet → Subir una planilla.',
         ];
 
         foreach ($pasos as $i => $paso) {

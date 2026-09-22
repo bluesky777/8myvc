@@ -316,7 +316,7 @@ class LaPlanillaQueSeSube
             $this->peldano = 5;
             $this->motivo = 'Este libro es de la versión de formato '.$this->versionFormato
                 .' y este servidor lee hasta la '.FirmaDelLibro::FORMATO.'. Descargue el libro otra vez '
-                .'desde Notas → Trabajar sin internet y pase las notas a ése.';
+                .'desde Académico → Trabajar sin internet y pase las notas a ése.';
 
             return;
         }
@@ -444,7 +444,7 @@ class LaPlanillaQueSeSube
         $this->peldano = 5;
         $this->motivo = 'Este archivo no parece una planilla de MyVc: no trae la hoja interna «'
             .LibroDeNotas::METADATOS.'», ninguna pestaña tiene el enlace a la portada y ninguna '
-            .'tiene la columna ID. Descargue el libro otra vez desde Notas → Trabajar sin internet '
+            .'tiene la columna ID. Descargue el libro otra vez desde Académico → Trabajar sin internet '
             .'y escriba las notas sobre ése.';
     }
 }

@@ -203,7 +203,14 @@ class EnsayoDeLaPlanilla
     /** @var list<array<string, mixed>> */
     private array $porHoja = [];
 
-    /** Los pares (asignatura, periodo) que tocará recalcular. @var array<string, bool> */
+    /**
+     * Los pares (asignatura, periodo) que tocará recalcular — **los que el
+     * importador va a recalcular de verdad**, no las hojas que se leyeron. El
+     * predicado está en {@see estudiarHoja} y es el de
+     * {@see EscrituraDeNotasImportadas::aplicarHoja}, palabra por palabra.
+     *
+     * @var array<string, bool>
+     */
     private array $pares = [];
 
     /** Caché de `user_id` => nombre, para «lo cambió Fulano». @var array<int, ?string> */
@@ -346,7 +353,7 @@ class EnsayoDeLaPlanilla
                 'hoja' => null,
                 'motivo' => $this->lector->motivo
                     ?? 'Este archivo no se reconoce como una planilla de MyVc. Descargue el libro otra vez '
-                       .'desde Notas → Trabajar sin internet y escriba las notas sobre ése.',
+                       .'desde Académico → Trabajar sin internet y escriba las notas sobre ése.',
             ];
 
             return;
@@ -789,7 +796,26 @@ class EnsayoDeLaPlanilla
         }
 
         $ficha['fuera'] = false;
-        $this->pares[$asignaturaId.':'.$periodoId] = true;
+
+        /*
+         * **El mismo predicado que {@see EscrituraDeNotasImportadas::aplicarHoja}**,
+         * escrito con las mismas dos mitades a propósito: el importador recalcula la
+         * definitiva de este par si la hoja aporta **al menos una fila al plan** o si
+         * crea algún indicador (F9). Contarlo al cerrar toda hoja reconocida —que es
+         * lo que esto hacía— convertía el número en «hojas leídas»: el asistente
+         * prometía 26 definitivas delante de una importación que recalculaba una, y
+         * **volver a subir el mismo archivo sin tocar nada seguía prometiendo 26**
+         * al lado de un «0 de 0 que cambió».
+         *
+         * Y no vale mirar sólo las que entran: **borrar** una nota (el guion de la
+         * D9) también mueve la definitiva, y una fila que sólo trae faltas entra en
+         * el plan igual —su transacción lleva el punto de control—, así que el
+         * importador recalcula por ella. `filas` ya lleva las tres cosas dentro, y
+         * por eso el predicado es el de la fila y no el de `entran`.
+         */
+        if ($delPlan['filas'] !== [] || $nuevas !== []) {
+            $this->pares[$asignaturaId.':'.$periodoId] = true;
+        }
 
         $this->cerrarHoja($ficha, $cuentas, $delPlan);
     }
