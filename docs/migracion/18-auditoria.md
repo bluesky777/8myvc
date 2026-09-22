@@ -1136,6 +1136,28 @@ dentro de una petición —con actor, sesión, IP y ruta—; una migración es S
 base. Si no lo escribe la migración, no lo escribe nadie.
 
 Y es **una sentencia, no un bucle**: el mismo `WHERE` del `UPDATE`, corrido antes.
+**Construido el 21 sep en `App\Support\RastroDeLaMigracion`**, probado contra la base de
+desarrollo. Se usa así, y lo que devuelve se imprime:
+
+```php
+$anotadas = RastroDeLaMigracion::anotar(
+    'nota',
+    'SELECT n.id AS entidad_id, n.nota AS valor, n.alumno_id FROM notas n
+       INNER JOIN ... WHERE <el mismo WHERE del UPDATE>',
+    [],
+    'migración: la casilla vacía',
+    '2026_09_19_500000',
+);
+```
+
+Tres cosas que hace distinto del servicio, y las tres a propósito: `actor_tipo = 'sistema'`
+sin `actor_user_id` —quien lanza el despliegue no es quien decidió el cambio—; **`atribucion`
+gana un tercer valor, `'migracion'`**, porque los dos de la §4.2 describen *de qué ingreso
+salió esto* y aquí no hay ingreso (`sesion_id` e `historial_id` van nulos), así que `'sesion'`
+sería falso y `'aproximada'` diría que se adivinó algo que nadie intentó; y **sólo columnas
+numéricas**, porque `valor_anterior` es `json` y en MariaDB eso es `LONGTEXT`: un número suelto
+es JSON válido en los dos motores y una cadena sin comillas no lo es en MySQL 8. Una migración
+que pise texto escribe su propio `INSERT` **y lo dice**.
 
 ```sql
 INSERT INTO auditoria (accion, entidad, entidad_id, actor_tipo, valor_anterior_num,
@@ -1149,10 +1171,10 @@ SELECT 'editar', 'nota', n.id, 'sistema', n.nota,
 
 | | |
 |---|---|
-| migraciones en total | **48** |
+| migraciones en total | **49** |
 | tocan datos | **7** |
-| de ésas, sólo siembran —un rol, dos permisos—: nada que perder, `down()` las deshace | 3 |
-| **sobrescriben datos que ya existían** | **4** |
+| de ésas, **aditivas**: nada que perder | **5** |
+| **sobrescriben un valor que ya existía** | **2** |
 
 ```bash
 ls database/migrations/*.php | wc -l
@@ -1160,11 +1182,27 @@ grep -lE "DB::update\(|DB::delete\(|DB::insert\(|DB::table\([^)]*\)->(update|del
     database/migrations/*.php | wc -l
 ```
 
-Las cuatro son `la_casilla_vacia` (notas), `reparar_la_hora_escrita_dos_veces`,
-`interruptores_de_certificados` (`years`) y **`el_correo_del_acudiente_en_su_cuenta`, que
-hace `UPDATE users SET email` fila a fila y se lleva por delante el correo anterior sin
-dejar rastro** — el mismo fallo de la casilla vacía, en otra tabla, y nadie lo había
-mirado. Cuatro de cuarenta y ocho, y una sentencia cada una.
+**Y aquí el detector contó bien un síntoma y no la causa, que es el fallo de esta casa.**
+La primera versión de este bloque decía **cuatro**, porque el `grep` buscaba llamadas que
+escriben —`DB::update`, `DB::insert`, `DB::delete`— y eso mide *«toca datos»*, no *«pisa un
+valor que ya había»*. Abiertas una a una, **dos de las cuatro son aditivas**:
+`interruptores_de_certificados` rellena columnas que **crea en la misma migración**, y
+`el_correo_del_acudiente_en_su_cuenta` sólo escribe donde `users.email` estaba vacío
+(`u.email IS NULL OR TRIM(u.email) = ''`) — **no pisó ni un correo**. Se corrige aquí con su
+motivo en vez de cambiar el número en silencio, porque el número equivocado ya salió de este
+documento dos veces.
+
+Las **dos** que sí sobrescriben:
+
+| Migración | Qué pisa | ¿Se recupera? |
+|---|---|---|
+| `la_casilla_vacia` | `notas.nota` → `NULL` en 20.655 filas | **Sí**: sólo tocó filas que nadie había editado, así que valían el `nota_default` de su subunidad |
+| `reparar_la_hora_escrita_dos_veces` | reescribe columnas de fecha con `MAKETIME(HOUR, SECOND, 0)` | **No**: el minuto original se pierde en la transformación y no hay de dónde deducirlo |
+
+**Dos de cuarenta y nueve, y una sentencia cada una.** La segunda es justo la que enseña por
+qué la regla no sobra: es una reparación correcta, con su cuenta antes y después y su `quedan
+0`, escrita por alguien que sabía lo que hacía — y aun así el valor viejo no existe en ninguna
+parte.
 
 > **Y la parte que no es técnica.** Joseth dijo que no leyó el `UPDATE` de esa migración
 > «entre tanto texto», y tiene razón: una migración que destruye datos no puede ser

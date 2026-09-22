@@ -298,6 +298,13 @@ después.
 migraciones viejas están archivadas en `legacy/`.
 
 - **Ningún cambio de esquema a mano en phpMyAdmin: migración o no existe.**
+- **Una migración que pise un valor que ya existía anota antes lo que había**, con
+  `App\Support\RastroDeLaMigracion::anotar()`: una sentencia con el mismo `WHERE` del
+  `UPDATE`, corrida delante, y lo que devuelve se imprime. De 49 migraciones sólo **2**
+  sobrescriben algo —las otras 5 que tocan datos son aditivas—, así que no es trabajo de
+  cada despliegue: es el trabajo del día que se destruye algo. La que se saltó esta regla
+  se llama `la_casilla_vacia` y costó una noche averiguar si 20.655 notas eran
+  recuperables.
 - Las columnas de los modelos se generan desde ese volcado, no se escriben a mano.
 - `migrate:fresh` no sirve aquí: un colegio nuevo se crea **copiando la base de otro**.
 

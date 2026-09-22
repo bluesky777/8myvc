@@ -62,13 +62,15 @@
 > árbol. Y al leer el resultado, **la línea `Tests:` o no hubo suite** — un exit 0 sin esa
 > línea es una suite muerta, no una verde.
 >
-> **2 · Las migraciones que sobrescriben datos son cuatro, y son el riesgo real de la
-> tanda**: `la_casilla_vacia` (notas), `reparar_la_hora_escrita_dos_veces`,
-> `interruptores_de_certificados` (`years`) y `el_correo_del_acudiente_en_su_cuenta`, que
-> pisa `users.email` fila a fila sin dejar rastro. De 48 migraciones, 7 tocan datos y sólo
-> esas 4 destruyen. **Ninguna de las cuatro escribe todavía sus filas de auditoría antes
-> del `UPDATE`** (decisión 7, escrita y sin construir): quien despliegue lo sabe, y ése es
-> el punto donde se decide si se construye antes o se acepta el riesgo.
+> **2 · Las migraciones que sobrescriben datos son DOS, no cuatro.** El número salió mal de
+> aquí dos veces: el `grep` medía «toca datos» y no «pisa un valor que ya había».
+> `interruptores_de_certificados` rellena columnas que crea en la misma migración y
+> `el_correo_del_acudiente_en_su_cuenta` sólo escribe donde `users.email` estaba vacío —
+> **no pisó ni un correo**. Las dos de verdad son `la_casilla_vacia` (recuperable: las filas
+> valían su `nota_default`) y `reparar_la_hora_escrita_dos_veces` (**no** recuperable: el
+> minuto original se pierde en la transformación). De 49 migraciones, 7 tocan datos y 5 son
+> aditivas. Ninguna de las dos escribe sus filas de auditoría antes del `UPDATE` — decisión
+> 7, y es lo que se construye ahora para que la siguiente no pueda repetirlo.
 >
 > **3 · Y sigue pendiente de antes**: redesplegar los dieciséis por el arreglo del reloj
 > —los tres relojes en la misma comparación—, que se cerró el 21 sep y no ha llegado a
