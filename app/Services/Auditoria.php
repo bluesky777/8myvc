@@ -208,6 +208,8 @@ final class Auditoria
         'alumno' => 'alumnos',
         'acudiente' => 'acudientes',
         'usuario' => 'users',
+        'matricula' => 'matriculas',
+        'parentesco' => 'parentescos',
 
         // Sin tabla, y declarado: no son filas, son sucesos o recursos.
         'intento_login' => null,      // `Services\Login`: un login fallido. Sin actor.

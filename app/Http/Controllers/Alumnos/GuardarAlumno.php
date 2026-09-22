@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Alumnos;
 
 use App\Models\Matricula;
+use App\Services\Auditoria;
 use App\Support\ColumnaSegura;
 use App\Support\CorreoDeLaCuenta;
 use App\Support\FilaQueSeVaAEscribir;
@@ -47,7 +48,8 @@ class GuardarAlumno
                     $valor = CorreoDeLaCuenta::oNada($valor);
                 }
 
-                $consulta = 'UPDATE users SET '.$propiedad.'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:user_id';
+                [$tabla, $columna, $filaId, $entidad] = ['users', ColumnaSegura::exigir('users', $propiedad), $user_id, 'usuario'];
+                $consulta = 'UPDATE users SET '.$columna.'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:user_id';
                 $datos = [':valor' => $valor, ':modificador' => $user->user_id, ':fecha' => $now, ':user_id' => $user_id];
 
                 break;
@@ -99,7 +101,8 @@ class GuardarAlumno
                     abort(404, 'Ese alumno no tiene matrícula en este año.');
                 }
 
-                $consulta = 'UPDATE matriculas SET '.$propiedad.'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:matricula_id';
+                [$tabla, $columna, $filaId, $entidad] = ['matriculas', ColumnaSegura::exigir('matriculas', $propiedad), $matricula->id, 'matricula'];
+                $consulta = 'UPDATE matriculas SET '.$columna.'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:matricula_id';
                 $datos = [
                     ':valor' => $valor,
                     ':modificador' => $user->user_id,
@@ -112,7 +115,8 @@ class GuardarAlumno
 
                 FilaQueSeVaAEscribir::exigir('alumnos', 'id', $alumno_id, 'Ese alumno');
 
-                $consulta = 'UPDATE alumnos SET '.ColumnaSegura::exigir('alumnos', $propiedad).'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:alumno_id';
+                [$tabla, $columna, $filaId, $entidad] = ['alumnos', ColumnaSegura::exigir('alumnos', $propiedad), $alumno_id, 'alumno'];
+                $consulta = 'UPDATE alumnos SET '.$columna.'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:alumno_id';
                 $datos = [
                     ':valor' => $valor,
                     ':modificador' => $user->user_id,
@@ -137,7 +141,41 @@ class GuardarAlumno
          * `'No guardado'` desaparece de los dos métodos de este fichero. 09 §13, opción A,
          * decidida por Joseth el 1 sep 2026.
          */
+
+        /*
+         * **El valor de ANTES, leído aquí y no deducido después.** Es la decisión de
+         * Joseth del 21 sep: un rastro que sólo dice *a qué quedó* no sirve para lo que
+         * se pidió. Deducirlo de la línea anterior tampoco vale mientras 178 de los 221
+         * métodos que escriben no dejen rastro: la cadena tiene huecos y la deducción
+         * afirmaría una continuidad falsa en vez de enseñar el hueco.
+         *
+         * Cuesta **una consulta por clave primaria** en un guardado de un campo de
+         * formulario, de uno en uno. No hay lote por aquí: los tres llamadores de
+         * `AlumnosController` mandan un campo por petición.
+         *
+         * `$columna` no viene del cuerpo: en las ramas dinámicas ya pasó por
+         * `ColumnaSegura::exigir()` unas líneas más arriba, y en las fijas es un
+         * literal. Y `$tabla` sale de esta misma función, nunca de la petición.
+         */
+        $antes = DB::selectOne("SELECT `{$columna}` AS valor FROM `{$tabla}` WHERE id = ?", [$filaId]);
+
         DB::update($consulta, $datos);
+
+        /*
+         * El sujeto es la fila escrita —`$filaId`, que sale de la rama— y no el id que
+         * vino en el cuerpo: es la regla del sujeto del 18. `deAlumno()` va aparte
+         * porque las tres ramas escriben en tablas distintas y **todas hablan del mismo
+         * alumno**: sin eso, `auditoria/alumno/{id}` no encontraría el cambio de su
+         * propio correo.
+         */
+        Auditoria::registrar()
+            ->editar($entidad, (int) $filaId)
+            ->deAlumno($alumno_id ? (int) $alumno_id : null)
+            ->en(year: $year_id ? (int) $year_id : null)
+            ->de($antes->valor ?? null)
+            ->a($valor)
+            ->resumen('Cambió '.$columna.' en '.$tabla)
+            ->guardar();
 
         return 'Guardado';
 
@@ -157,6 +195,7 @@ class GuardarAlumno
         switch ($propiedad) {
             case 'username':
                 FilaQueSeVaAEscribir::exigir('users', 'id', $user_acud_id, 'Esa cuenta de usuario');
+                [$tabla, $columna, $filaId, $entidad] = ['users', 'username', $user_acud_id, 'usuario'];
                 $consulta = 'UPDATE users SET username=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:user_id';
                 $datos = [':valor' => $valor, ':modificador' => $user_id, ':fecha' => $now, ':user_id' => $user_acud_id];
                 break;
@@ -173,19 +212,22 @@ class GuardarAlumno
                 // `email` a secas sigue cayendo en el `default` y escribe la ficha, que
                 // es lo correcto: son dos correos distintos y los dos se editan.
                 FilaQueSeVaAEscribir::exigir('users', 'id', $user_acud_id, 'Esa cuenta de usuario');
+                [$tabla, $columna, $filaId, $entidad] = ['users', 'email', $user_acud_id, 'usuario'];
                 $consulta = 'UPDATE users SET email=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:user_id';
                 $datos = [':valor' => CorreoDeLaCuenta::oNada($valor), ':modificador' => $user_id, ':fecha' => $now, ':user_id' => $user_acud_id];
                 break;
 
             case 'parentesco':
                 FilaQueSeVaAEscribir::exigir('parentescos', 'id', $parentesco_id, 'Ese parentesco');
+                [$tabla, $columna, $filaId, $entidad] = ['parentescos', 'parentesco', $parentesco_id, 'parentesco'];
                 $consulta = 'UPDATE parentescos SET parentesco=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:parentesco_id';
                 $datos = [':valor' => $valor, ':modificador' => $user_id, ':fecha' => $now, ':parentesco_id' => $parentesco_id];
                 break;
 
             default:
                 FilaQueSeVaAEscribir::exigir('acudientes', 'id', $acudiente_id, 'Ese acudiente');
-                $consulta = 'UPDATE acudientes SET '.ColumnaSegura::exigir('acudientes', $propiedad).'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:acudiente_id';
+                [$tabla, $columna, $filaId, $entidad] = ['acudientes', ColumnaSegura::exigir('acudientes', $propiedad), $acudiente_id, 'acudiente'];
+                $consulta = 'UPDATE acudientes SET '.$columna.'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:acudiente_id';
                 $datos = [
                     ':valor' => $valor,
                     ':modificador' => $user_id,
@@ -210,7 +252,37 @@ class GuardarAlumno
          * `'No guardado'` desaparece de los dos métodos de este fichero. 09 §13, opción A,
          * decidida por Joseth el 1 sep 2026.
          */
+
+        /*
+         * **El valor de ANTES, leído aquí y no deducido después.** Es la decisión de
+         * Joseth del 21 sep: un rastro que sólo dice *a qué quedó* no sirve para lo que
+         * se pidió. Deducirlo de la línea anterior tampoco vale mientras 178 de los 221
+         * métodos que escriben no dejen rastro: la cadena tiene huecos y la deducción
+         * afirmaría una continuidad falsa en vez de enseñar el hueco.
+         *
+         * Cuesta **una consulta por clave primaria** en un guardado de un campo de
+         * formulario, de uno en uno. No hay lote por aquí: los tres llamadores de
+         * `AlumnosController` mandan un campo por petición.
+         *
+         * `$columna` no viene del cuerpo: en las ramas dinámicas ya pasó por
+         * `ColumnaSegura::exigir()` unas líneas más arriba, y en las fijas es un
+         * literal. Y `$tabla` sale de esta misma función, nunca de la petición.
+         */
+        $antes = DB::selectOne("SELECT `{$columna}` AS valor FROM `{$tabla}` WHERE id = ?", [$filaId]);
+
         DB::update($consulta, $datos);
+
+        /*
+         * Sin `deAlumno()`: aquí el sujeto es el acudiente o su cuenta, y colgar esto de
+         * un alumno cualquiera de los suyos diría que se le cambió algo a él. Se
+         * encuentra por `auditoria/entidad/acudiente/{id}`.
+         */
+        Auditoria::registrar()
+            ->editar($entidad, (int) $filaId)
+            ->de($antes->valor ?? null)
+            ->a($valor)
+            ->resumen('Cambió '.$columna.' en '.$tabla)
+            ->guardar();
 
         return 'Guardado';
 
