@@ -1,6 +1,7 @@
 <?php namespace App\Http\Controllers\CambiarUsuarios;
 
 
+use App\Services\Auditoria;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -110,10 +111,29 @@ class CambiarUsuariosController extends Controller {
 		$password   = Hash::make(ClaveNueva::exigir('clave'));
 		$consulta   = 'UPDATE users SET password=:texto WHERE tipo="Alumno";';
 		
-		DB::update($consulta, [
+		$cambiadas = DB::update($consulta, [
 			':texto'		=> $password
 		]);
-		
+
+		/*
+		 * **Esto le cambia la contraseña a TODO el colegio de una vez, y hasta hoy no
+		 * dejaba rastro en ninguna de las dos tablas.** Es la escritura de mayor
+		 * alcance de toda la API: un `UPDATE users` sin `WHERE id`, que en la base de
+		 * desarrollo toca 2.358 cuentas. Que algo así no se pueda reconstruir después
+		 * —quién lo hizo, cuándo y a cuántos alcanzó— es lo que este rastro existe para
+		 * impedir.
+		 *
+		 * **Sin `de()` ni `a()`**: lo que se escribe es una contraseña. Se guarda el
+		 * acto y su alcance; la clave no se reconstruye, se vuelve a cambiar.
+		 *
+		 * Una línea por el acto, no 2.358 por cuenta: es la regla del punto 3 del 18, y
+		 * aquí además 2.358 líneas iguales harían ilegible la pantalla para siempre.
+		 */
+		Auditoria::registrar()
+			->editar('usuario')
+			->resumen('Cambió la contraseña de los '.$cambiadas.' alumnos del colegio')
+			->guardar();
+
 		return 'Contraseñas alumnos cambiadas';
 	}
 
@@ -143,10 +163,16 @@ class CambiarUsuariosController extends Controller {
 		$password   = Hash::make(ClaveNueva::exigir('clave'));
 		$consulta   = 'UPDATE users SET password=:texto WHERE tipo="Acudiente";';
 		
-		DB::update($consulta, [
+		$cambiadas = DB::update($consulta, [
 			':texto'		=> $password
 		]);
-		
+
+		// Mismo caso que en los alumnos, y el porqué está escrito allí.
+		Auditoria::registrar()
+			->editar('usuario')
+			->resumen('Cambió la contraseña de los '.$cambiadas.' acudientes del colegio')
+			->guardar();
+
 		return 'Contraseñas acudientes cambiadas';
 	}
 

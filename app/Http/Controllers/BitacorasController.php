@@ -1,5 +1,6 @@
 <?php namespace App\Http\Controllers;
 
+use App\Services\Auditoria;
 use App\Support\Autoriza;
 use App\User;
 use Illuminate\Support\Facades\DB;
@@ -50,7 +51,36 @@ class BitacorasController extends Controller {
 		// `deleted_by` se quedaba en null teniendo el `$user` ya resuelto dos líneas
 		// arriba. En un registro de auditoría eso es lo peor que puede faltar:
 		// borrar el rastro no dejaba rastro. Ver 05 §88.
+		// La fila se lee ANTES de marcarla: es la única forma de que quede escrito QUÉ
+		// se borró y no sólo que se borró algo.
+		$fila = DB::selectOne('SELECT created_by, affected_element_type, affected_element_id, descripcion
+			FROM bitacoras WHERE id = ?', [$id]);
+
 		DB::update('UPDATE bitacoras SET deleted_at=?, deleted_by=? WHERE id=?', [$now, $user->user_id, $id]);
+
+		/*
+		 * **Esta línea es la que cierra, a medias y mientras dure, el agujero que la
+		 * decisión 4 no puede cerrar todavía.** Esta ruta sigue viva con sólo
+		 * `auth.personal` hasta la fase 7, así que **hoy cualquiera del personal puede
+		 * borrar el registro que lo vigila, incluido el suyo**. No se puede retirar
+		 * —`myvc_front` la llama desde dos botones— pero sí se puede hacer que borrar
+		 * el rastro **deje rastro**, y en la tabla nueva, que no tiene botón de borrar
+		 * en ninguna parte (§4.4).
+		 *
+		 * O sea: el agujero deja de ser silencioso aunque siga abierto. Cuando llegue
+		 * la fase 7 y esta ruta se retire, estas líneas son las que dirán si alguien lo
+		 * usó mientras tanto.
+		 */
+		Auditoria::registrar()
+			->borrar('bitacora', (int) $id)
+			->de($fila === null ? null : [
+				'created_by' => $fila->created_by,
+				'tipo' => $fila->affected_element_type,
+				'elemento_id' => $fila->affected_element_id,
+				'descripcion' => $fila->descripcion,
+			])
+			->resumen('Borró una línea de la bitácora vieja')
+			->guardar();
 
 		return 'Bitácora eliminada';
 	}
