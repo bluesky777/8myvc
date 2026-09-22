@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Services\PuntoDeControlDeImportacion;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Testing\PendingCommand;
 use Tests\TestCase;
 
 /**
@@ -83,7 +84,13 @@ class ImportacionesAbandonadasTest extends TestCase
         $this->crear(PuntoDeControlDeImportacion::EN_PROCESO, now()->subMinutes(20)->toDateTimeString());
         $this->crear(PuntoDeControlDeImportacion::EN_PROCESO, now()->subMinutes(20)->toDateTimeString());
 
-        $this->artisan('importaciones:marcar-abandonadas')
+        // El `@var` no es adorno: `artisan()` declara `PendingCommand|int`, y con
+        // el `int` de la unión phpstan no deja encadenar las expectativas. El
+        // `int` sólo aparece cuando no hay nada que encadenar, que no es el caso.
+        /** @var PendingCommand $comando */
+        $comando = $this->artisan('importaciones:marcar-abandonadas');
+
+        $comando
             ->expectsOutputToContain('Marcadas 2 importaciones abandonadas')
             ->assertExitCode(0);
     }
