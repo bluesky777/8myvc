@@ -244,6 +244,17 @@ docker exec -e BARRIDO_TIPO=Alumno 8myvc-app-1 php artisan test --group=barrido
 Y una regla hermana: **una cifra se publica con la orden que la produjo**
 —`Tests: 1948 (--testsuite=Contrato)`—, porque el número no lleva dentro de qué habla.
 
+5. **Y la frase que va al lado de una cifra buena NO la valida la cifra.** Aprendido tres
+   veces la misma noche (21 sep 2026), con tres sesiones a la vez y ningún error de
+   medición: un `2.830 verdes` retransmitido sin decir que lo corrió un subagente **antes**
+   de los commits que decía cubrir; un «la celda y el modal discrepan cinco horas» deducido
+   de un tipo de columna cierto y **falso como conclusión**, que llegó al front como
+   instrucción; y un «coinciden, luego no entró ninguna prueba» sacado de dos recuentos
+   iguales, cuando un recuento igual admite varias explicaciones y se eligió una.
+   **En los tres el número era correcto y la frase no.** Una medición se publica con su
+   orden *y* con lo que NO demuestra; si la explicación no se midió, se dice que no se
+   midió.
+
 > Antes de pasarle Pint a un fichero de `tools/`, correr `stan` detrás: esa carpeta no está
 > en el script `pint` y ninguna suite la ejecuta, así que ahí Pint puede romper en ejecución
 > sin poner nada en rojo.
