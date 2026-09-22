@@ -157,7 +157,7 @@ class GuardarAlumno
          * `ColumnaSegura::exigir()` unas líneas más arriba, y en las fijas es un
          * literal. Y `$tabla` sale de esta misma función, nunca de la petición.
          */
-        $antes = DB::selectOne("SELECT `{$columna}` AS valor FROM `{$tabla}` WHERE id = ?", [$filaId]);
+        $antes = DB::selectOne("SELECT {$columna} AS valor FROM `{$tabla}` WHERE id = ?", [$filaId]);
 
         DB::update($consulta, $datos);
 
@@ -174,7 +174,7 @@ class GuardarAlumno
             ->en(year: $year_id ? (int) $year_id : null)
             ->de($antes->valor ?? null)
             ->a($valor)
-            ->resumen('Cambió '.$columna.' en '.$tabla)
+            ->resumen('Cambió '.trim($columna, '`').' en '.$tabla)
             ->guardar();
 
         return 'Guardado';
@@ -268,7 +268,7 @@ class GuardarAlumno
          * `ColumnaSegura::exigir()` unas líneas más arriba, y en las fijas es un
          * literal. Y `$tabla` sale de esta misma función, nunca de la petición.
          */
-        $antes = DB::selectOne("SELECT `{$columna}` AS valor FROM `{$tabla}` WHERE id = ?", [$filaId]);
+        $antes = DB::selectOne("SELECT {$columna} AS valor FROM `{$tabla}` WHERE id = ?", [$filaId]);
 
         DB::update($consulta, $datos);
 
@@ -281,7 +281,7 @@ class GuardarAlumno
             ->editar($entidad, (int) $filaId)
             ->de($antes->valor ?? null)
             ->a($valor)
-            ->resumen('Cambió '.$columna.' en '.$tabla)
+            ->resumen('Cambió '.trim($columna, '`').' en '.$tabla)
             ->guardar();
 
         return 'Guardado';

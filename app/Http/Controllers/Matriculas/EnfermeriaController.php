@@ -1,5 +1,6 @@
 <?php namespace App\Http\Controllers\Matriculas;
 
+use App\Services\Auditoria;
 use App\Http\Controllers\Controller;
 
 use Illuminate\Support\Facades\Request;
@@ -47,6 +48,14 @@ class EnfermeriaController extends Controller {
 			$consulta          = 'INSERT INTO antecedentes(alumno_id, updated_by, created_at, updated_at) VALUES(?,?,?,?)';
 			// La asignación era muerta: la línea de abajo la pisa con el SELECT.
 			DB::insert($consulta, [Request::input('alumno_id'), $this->user->user_id, $now, $now ]);
+
+			// La ficha nace vacía al abrir la pantalla: lo que se anota es que existe
+			// desde este día y por quién, no un cambio de datos que todavía no hay.
+			Auditoria::registrar()
+				->crear('antecedente', (int) DB::getPdo()->lastInsertId())
+				->deAlumno((int) Request::input('alumno_id'))
+				->resumen('Abrió la ficha de antecedentes del alumno')
+				->guardar();
 			
 			$consulta          = 'SELECT * FROM antecedentes WHERE alumno_id=?';
 			$antecedentes      = DB::select($consulta, [Request::input('alumno_id')]);
@@ -85,8 +94,25 @@ class EnfermeriaController extends Controller {
 			$now 				= Carbon::now('America/Bogota');
 			$propiedad 			= Request::input('propiedad');
 			
-			$consulta          = 'UPDATE antecedentes SET '.ColumnaSegura::exigir('antecedentes', $propiedad).'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:antec_id';
-			$antecedentes      = DB::update($consulta, [':valor'=>Request::input('valor'), ':modificador'=>$this->user->user_id, ':fecha'=>$now, ':antec_id'=>Request::input('antec_id')]);
+			$columna           = ColumnaSegura::exigir('antecedentes', $propiedad);
+			$antecId           = (int) Request::input('antec_id');
+
+			// El valor de antes, leído por clave primaria antes de pisarlo. Son datos
+			// de salud de un menor: que la ficha diga hoy «ninguna alergia» y no se
+			// sepa qué decía ayer ni quién lo cambió es el caso que este rastro existe
+			// para contestar.
+			$antes             = DB::selectOne("SELECT {$columna} AS valor, alumno_id FROM antecedentes WHERE id = ?", [$antecId]);
+
+			$consulta          = 'UPDATE antecedentes SET '.$columna.'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:antec_id';
+			$antecedentes      = DB::update($consulta, [':valor'=>Request::input('valor'), ':modificador'=>$this->user->user_id, ':fecha'=>$now, ':antec_id'=>$antecId]);
+
+			Auditoria::registrar()
+				->editar('antecedente', $antecId)
+				->deAlumno($antes === null ? null : (int) $antes->alumno_id)
+				->de($antes->valor ?? null)
+				->a(Request::input('valor'))
+				->resumen('Cambió '.trim($columna, '`').' en los antecedentes')
+				->guardar();
 				
 
 			return 'Cambios guardados';
@@ -116,6 +142,13 @@ class EnfermeriaController extends Controller {
 				
 			$last_id 	    = DB::getPdo()->lastInsertId();
 
+			Auditoria::registrar()
+				->crear('registro_enfermeria', (int) $last_id)
+				->deAlumno((int) Request::input('alumno_id'))
+				->a(['fecha_suceso' => Request::input('fecha_suceso'), 'motivo' => Request::input('motivo_consulta')])
+				->resumen('Registró un suceso de enfermería')
+				->guardar();
+
 			
 			$consulta          = 'SELECT * FROM registros_enfermeria WHERE id=?';
 			$registro_enfermeria      = DB::select($consulta, [ $last_id]);
@@ -135,8 +168,20 @@ class EnfermeriaController extends Controller {
 			$now 				= Carbon::now('America/Bogota');
 			$propiedad 			= Request::input('propiedad');
 			
-			$consulta          = 'UPDATE registros_enfermeria SET '.ColumnaSegura::exigir('registros_enfermeria', $propiedad).'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:suceso_id';
-			$antecedentes      = DB::update($consulta, [':valor'=>Request::input('valor'), ':modificador'=>$this->user->user_id, ':fecha'=>$now, ':suceso_id'=>Request::input('suceso_id')]);
+			$columna           = ColumnaSegura::exigir('registros_enfermeria', $propiedad);
+			$sucesoId          = (int) Request::input('suceso_id');
+			$antes             = DB::selectOne("SELECT {$columna} AS valor, alumno_id FROM registros_enfermeria WHERE id = ?", [$sucesoId]);
+
+			$consulta          = 'UPDATE registros_enfermeria SET '.$columna.'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:suceso_id';
+			$antecedentes      = DB::update($consulta, [':valor'=>Request::input('valor'), ':modificador'=>$this->user->user_id, ':fecha'=>$now, ':suceso_id'=>$sucesoId]);
+
+			Auditoria::registrar()
+				->editar('registro_enfermeria', $sucesoId)
+				->deAlumno($antes === null ? null : (int) $antes->alumno_id)
+				->de($antes->valor ?? null)
+				->a(Request::input('valor'))
+				->resumen('Cambió '.trim($columna, '`').' en un suceso de enfermería')
+				->guardar();
 				
 
 			return 'Cambios guardados';
@@ -154,7 +199,26 @@ class EnfermeriaController extends Controller {
 			$now 				= Carbon::now('America/Bogota');
 			
 			$consulta          = 'DELETE FROM registros_enfermeria WHERE id=?';
+
+			/*
+			 * **Se lee antes porque el borrado es físico.** `registros_enfermeria` no
+			 * tiene `deleted_at`: en cuanto corre el `DELETE`, del suceso —cuándo fue,
+			 * por qué y a quién— no queda nada. Y quien lo borra no necesita ser
+			 * enfermero: el `if` de arriba deja pasar a cualquier `Usuario`, que son
+			 * 22 cuentas. Lo uno con lo otro es la definición de un rastro necesario.
+			 */
+			$fila              = DB::selectOne('SELECT * FROM registros_enfermeria WHERE id = ?', [$id]);
+
 			DB::delete($consulta, [ $id ]);
+
+			if ($fila !== null) {
+				Auditoria::registrar()
+					->borrar('registro_enfermeria', (int) $id)
+					->deAlumno((int) $fila->alumno_id)
+					->de((array) $fila)
+					->resumen('Borró un suceso de enfermería — borrado físico, no hay papelera')
+					->guardar();
+			}
 				
 			return 'Eliminado';
 		}else{
