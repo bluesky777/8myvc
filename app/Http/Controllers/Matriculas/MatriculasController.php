@@ -16,11 +16,8 @@ use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Support\Autoriza;
 use App\Support\NotasAlCambiarDeGrupo;
 
-
 class MatriculasController extends Controller {
 	use ResuelveElUsuario;
-
-
 
 	public function postMatricularuno()
 	{
@@ -29,13 +26,13 @@ class MatriculasController extends Controller {
 			$grupo_id 		= Request::input('grupo_id');
 			$year_id 		= Request::input('year_id');
 
-			return Matricula::matricularUno($alumno_id, $grupo_id, $year_id, $this->user->user_id);
+			$matricula = Matricula::matricularUno($alumno_id, $grupo_id, $year_id, $this->user->user_id);
+
+			return $this->anotarLaMatricula($matricula, 'Matriculó al alumno');
 		} else {
 			return abort(400, 'No tiene permisos para editar');
 		}
 	}
-
-
 
 	public function postMatricularEn()
 	{
@@ -56,12 +53,13 @@ class MatriculasController extends Controller {
 				return 'Ya matriculado';
 			}
 
-			return Matricula::matricularUno($alumno_id, $grupo_id, $year_id, $this->user->user_id, $crear_matri);
+			$matricula = Matricula::matricularUno($alumno_id, $grupo_id, $year_id, $this->user->user_id, $crear_matri);
+
+			return $this->anotarLaMatricula($matricula, 'Matriculó al alumno en un grupo concreto');
 		} else {
 			return abort(400, 'No tiene permisos para editar');
 		}
 	}
-
 
 	public function putReMatricularuno()
 	{
@@ -69,19 +67,33 @@ class MatriculasController extends Controller {
 			$matricula_id 		= Request::input('matricula_id');
 			
 			$matri 				= Matricula::findOrFail($matricula_id);
+			$antes = $matri->getOriginal('estado');
 			$matri->estado 		= 'MATR';
 			// Idem: el folio no se fabrica (21 §2.2).
 			$matri->updated_by 	= $this->user->user_id;
 			
 			$matri->save();
 
+			/*
+			 * `getOriginal()` y no el cuerpo de la petición: el estado anterior sale de la
+			 * fila que se acaba de pisar, que es la única fuente que no puede mentir. Se lee
+			 * ANTES del `save()` — después Eloquent sincroniza el original y devolvería el
+			 * valor nuevo, o sea que la línea diría «de MATR a MATR» sin fallar.
+			 */
+			Auditoria::registrar()
+				->editar('matricula', (int) $matri->id)
+				->deAlumno((int) $matri->alumno_id)
+				->en(grupo: (int) $matri->grupo_id)
+				->de(['estado' => $antes])
+				->a(['estado' => 'MATR'])
+				->resumen('Rematriculó al alumno')
+				->guardar();
+
 			return $matri;
 		} else {
 			return abort(400, 'No tiene permisos para editar');
 		}
 	}
-
-
 
 	public function putSetPromovido()
 	{
@@ -90,19 +102,27 @@ class MatriculasController extends Controller {
 			$matricula_id 		= Request::input('matricula_id');
 			
 			$matri 				= Matricula::findOrFail($matricula_id);
+			$antes = $matri->getOriginal('promovido');
 			$matri->promovido 	= Request::input('valor', 'Automático');
 			$matri->updated_by 	= $this->user->user_id;
 			$matri->updated_at 	= $now;
 			
 			$matri->save();
 
+			Auditoria::registrar()
+				->editar('matricula', (int) $matri->id)
+				->deAlumno((int) $matri->alumno_id)
+				->en(grupo: (int) $matri->grupo_id)
+				->de(['promovido' => $antes])
+				->a(['promovido' => $matri->promovido])
+				->resumen('Cambió la promoción del alumno')
+				->guardar();
+
 			return $matri;
 		} else {
 			return abort(400, 'No tiene permisos para editar');
 		}
 	}
-
-
 
 	public function putSetAsistente()
 	{
@@ -111,16 +131,25 @@ class MatriculasController extends Controller {
 			$matricula_id 	= Request::input('matricula_id');
 			
 			$matricula 				= Matricula::findOrFail($matricula_id);
+			$antes = $matricula->getOriginal('estado');
 			$matricula->estado 		= 'ASIS';
 			$matricula->updated_by 	= $this->user->user_id;
 			$matricula->save();
+
+			Auditoria::registrar()
+				->editar('matricula', (int) $matricula->id)
+				->deAlumno((int) $matricula->alumno_id)
+				->en(grupo: (int) $matricula->grupo_id)
+				->de(['estado' => $antes])
+				->a(['estado' => 'ASIS'])
+				->resumen('Pasó al alumno a asistente')
+				->guardar();
 
 			return $matricula;
 		} else {
 			return abort(400, 'No tiene permisos para editar');
 		}
 	}
-
 
 	public function putSetNewAsistente()
 	{
@@ -134,15 +163,21 @@ class MatriculasController extends Controller {
 			$matricula->estado 		= 'ASIS';
 			$matricula->updated_by 	= $this->user->user_id;
 			$matricula->save();
-
+			// Fila nueva: no hay `de()`. El id sale del modelo recién guardado y no de un
+			// `lastInsertId()`, que en una petición con más escrituras señalaría a otra fila.
+			Auditoria::registrar()
+				->crear('matricula', (int) $matricula->id)
+				->deAlumno((int) $matricula->alumno_id)
+				->en(grupo: (int) $matricula->grupo_id)
+				->a(['estado' => 'ASIS', 'grupo_id' => $matricula->grupo_id])
+				->resumen('Dio de alta al alumno como asistente')
+				->guardar();
 
 			return $matricula;
 		} else {
 			return abort(400, 'No tiene permisos para editar');
 		}
 	}
-
-
 
 	public function putCambiarFechaRetiro()
 	{
@@ -151,16 +186,25 @@ class MatriculasController extends Controller {
 			$fecha_retiro = Request::input('fecha_retiro');
 			
 			$matricula 					= Matricula::findOrFail($matricula_id);
+			$antes = $matricula->getOriginal('fecha_retiro');
 			$matricula->fecha_retiro 	= $fecha_retiro;
 			$matricula->updated_by 		= $this->user->user_id;
 			$matricula->save();
+
+			Auditoria::registrar()
+				->editar('matricula', (int) $matricula->id)
+				->deAlumno((int) $matricula->alumno_id)
+				->en(grupo: (int) $matricula->grupo_id)
+				->de(['fecha_retiro' => $antes])
+				->a(['fecha_retiro' => $matricula->fecha_retiro])
+				->resumen('Cambió la fecha de retiro')
+				->guardar();
 
 			return $matricula;
 		} else {
 			return abort(400, 'No tiene permisos para editar');
 		}
 	}
-
 
 	public function putCambiarFechaMatricula()
 	{
@@ -169,16 +213,25 @@ class MatriculasController extends Controller {
 			$fecha_matricula 	= Carbon::parse(Request::input('fecha_matricula'));
 			
 			$matricula 					= Matricula::findOrFail($matricula_id);
+			$antes = $matricula->getOriginal('fecha_matricula');
 			$matricula->fecha_matricula = $fecha_matricula;
 			$matricula->updated_by 		= $this->user->user_id;
 			$matricula->save();
+
+			Auditoria::registrar()
+				->editar('matricula', (int) $matricula->id)
+				->deAlumno((int) $matricula->alumno_id)
+				->en(grupo: (int) $matricula->grupo_id)
+				->de(['fecha_matricula' => $antes])
+				->a(['fecha_matricula' => $matricula->fecha_matricula])
+				->resumen('Cambió la fecha de matrícula')
+				->guardar();
 
 			return $matricula;
 		} else {
 			return abort(400, 'No tiene permisos para editar');
 		}
 	}
-
 
 	public function putAlumnosGradoAnterior()
 	{
@@ -197,7 +250,6 @@ class MatriculasController extends Controller {
 		if (count($year_cons) > 0) {
 			$year_ant_id = $year_cons[0]->id;
 		}
-
 
 		// Alumnos asistentes o matriculados del grupo
 		$sql1 = 'SELECT m.id as matricula_id, m.alumno_id, a.no_matricula, a.nombres, a.apellidos, a.sexo, a.user_id, 
@@ -251,7 +303,6 @@ class MatriculasController extends Controller {
 
 		$consulta = '('.$sql1.') UNION ('.$sql2.') UNION ('.$sql3.')';
 
-
 		$res = DB::select($consulta, [ ':grupo_id'	=> $grupo_actual['id'], 
 									':grupo_id2'	=> $grupo_actual['id'], 
 									':year_id'		=> $year_ant_id, 
@@ -261,8 +312,6 @@ class MatriculasController extends Controller {
 		return $res;
 
 	}
-
-
 
 	/* ── Las notas que se quedan atrás al cambiar de grupo ───────────────────────────────── */
 
@@ -284,7 +333,6 @@ class MatriculasController extends Controller {
 			(int) Request::input('grupo_destino'),
 		);
 	}
-
 
 	/*
 	 * Y las trae. Sólo las definitivas, pareadas por `materia_id`.
@@ -308,7 +356,6 @@ class MatriculasController extends Controller {
 		);
 	}
 
-
 	public function putAlumnosConGradoAnterior()
 	{
 		$grupo_actual 	= Request::input('grupo_actual');
@@ -331,7 +378,6 @@ class MatriculasController extends Controller {
 		if (count($year_cons) > 0) {
 			$year_ant_id = $year_cons[0]->id;
 		}
-
 
 		// Alumnos asistentes o matriculados o prematriculados del grupo
 		$consulta = Matricula::$consulta_asistentes_o_matriculados;
@@ -410,7 +456,6 @@ class MatriculasController extends Controller {
 
 		$result['AlumnosDesertRetir'] = DB::select($consulta, [ ':grupo_id' => $grupo_actual['id'] ]);
 
-
 		// Alumnos del grado anterior que no se han matriculado en este grupo
 		$consulta = 'SELECT m.id as matricula_id, m.alumno_id, a.no_matricula, a.nombres, a.apellidos, a.sexo, a.user_id, 
 							a.fecha_nac, a.ciudad_nac, a.celular, a.direccion, a.religion, gru.nombre as nombre_grupo, gru.abrev as abrev_grupo,
@@ -433,13 +478,9 @@ class MatriculasController extends Controller {
 		
 		$result['AlumnosSinMatricula'] = DB::select($consulta, [ ':year_id' => $year_ant_id, ':grado_id' => $grado_ant_id, ':grupo_id'	=> $grupo_actual['id'] ]);
 
-
 		return $result;
 
 	}
-
-
-
 
 	public function putToggleNuevo()
 	{
@@ -448,16 +489,25 @@ class MatriculasController extends Controller {
 			$is_nuevo 	= Request::input('is_nuevo');
 
 			$matri 	= Matricula::findOrFail($id);
+			$antes = $matri->getOriginal('nuevo');
 			$matri->nuevo 			= $is_nuevo;
 			$matri->updated_by 		= $this->user->user_id;
 			$matri->save();
+
+			Auditoria::registrar()
+				->editar('matricula', (int) $matri->id)
+				->deAlumno((int) $matri->alumno_id)
+				->en(grupo: (int) $matri->grupo_id)
+				->de(['nuevo' => $antes])
+				->a(['nuevo' => $matri->nuevo])
+				->resumen('Marcó o desmarcó al alumno como nuevo')
+				->guardar();
 
 			return $matri;
 		} else {
 			return abort(400, 'No tiene permisos para editar');
 		}
 	}
-
 
 	public function putRetirar()
 	{
@@ -466,10 +516,20 @@ class MatriculasController extends Controller {
 			$fecha 	= Carbon::parse(Request::input('fecha_retiro'));
 
 			$matri 	= Matricula::findOrFail($id);
+			$antes = $matri->getOriginal();
 			$matri->estado 			= 'RETI';
 			$matri->fecha_retiro 	= $fecha;
 			$matri->updated_by 		= $this->user->user_id;
 			$matri->save();
+
+			Auditoria::registrar()
+				->editar('matricula', (int) $matri->id)
+				->deAlumno((int) $matri->alumno_id)
+				->en(grupo: (int) $matri->grupo_id)
+				->de(['estado' => $antes['estado'] ?? null, 'fecha_retiro' => $antes['fecha_retiro'] ?? null])
+				->a(['estado' => 'RETI', 'fecha_retiro' => $matri->fecha_retiro])
+				->resumen('Retiró al alumno')
+				->guardar();
 
 			return $matri;
 		} else {
@@ -662,10 +722,20 @@ class MatriculasController extends Controller {
 			$fecha 	= Carbon::parse(Request::input('fecha_retiro'));
 
 			$matri 	= Matricula::findOrFail($id);
+			$antes = $matri->getOriginal();
 			$matri->estado 			= 'DESE';
 			$matri->fecha_retiro 	= $fecha;
 			$matri->updated_by 		= $this->user->user_id;
 			$matri->save();
+
+			Auditoria::registrar()
+				->editar('matricula', (int) $matri->id)
+				->deAlumno((int) $matri->alumno_id)
+				->en(grupo: (int) $matri->grupo_id)
+				->de(['estado' => $antes['estado'] ?? null, 'fecha_retiro' => $antes['fecha_retiro'] ?? null])
+				->a(['estado' => 'DESE', 'fecha_retiro' => $matri->fecha_retiro])
+				->resumen('Marcó al alumno como desertor')
+				->guardar();
 
 			return $matri;
 		} else {
@@ -673,19 +743,65 @@ class MatriculasController extends Controller {
 		}
 	}
 
-
 	public function deleteDestroy($id)
 	{
 		if (($this->user->tipo == 'Profesor' && $this->user->profes_can_edit_alumnos) || $this->user->is_superuser) {
 			$matri = Matricula::findOrFail($id);
+			$antes = $matri->getOriginal();
 			$matri->estado 		= 'RETI';
 			$matri->deleted_by 	= $this->user->user_id;
 			$matri->save();
 			$matri->delete();
+
+			/*
+			 * **`borrar` y no `editar`, aunque el método haga las dos cosas.** Pone `RETI` y
+			 * acto seguido manda la fila a la papelera; lo que ocurrió visto desde fuera es un
+			 * borrado, y el `RETI` es cómo está implementado. Se audita el acto, no la fila.
+			 */
+			Auditoria::registrar()
+				->borrar('matricula', (int) $matri->id)
+				->deAlumno((int) $matri->alumno_id)
+				->en(grupo: (int) $matri->grupo_id)
+				->de(['estado' => $antes['estado'] ?? null, 'grupo_id' => $antes['grupo_id'] ?? null])
+				->resumen('Mandó la matrícula a la papelera')
+				->guardar();
+
 			return $matri;
 		} else {
 			return abort(400, 'No tiene permisos para editar');
 		}
+	}
+
+	/**
+	 * La línea de auditoría de `Matricula::matricularUno()`, que es una para las dos rutas.
+	 *
+	 * **Se audita aquí y no dentro del modelo**, y no es una preferencia de estilo: ese
+	 * método tiene cuatro ramas —restaurar de la papelera, mover de grupo, crear nueva y
+	 * el `catch` de rescate— y **el acto es uno solo**: matricular a este alumno en este
+	 * grupo. Auditar rama por rama serían cuatro líneas que dicen lo mismo, que es justo
+	 * lo que la regla «se audita el acto y no la fila» prohíbe.
+	 *
+	 * `wasRecentlyCreated` distingue crear de editar sin tener que rastrear por cuál de
+	 * las cuatro pasó: lo pone Eloquent en el `save()` que de verdad insertó.
+	 *
+	 * **Aviso para quien mida:** `tools/escrituras-sin-auditoria.php` cuenta por método y
+	 * no ve a través de una llamada, así que seguirá dando `postMatricularuno` y
+	 * `postMatricularEn` como métodos sin rastro. No lo son.
+	 */
+	private function anotarLaMatricula(Matricula $matricula, string $resumen): Matricula
+	{
+		$linea = Auditoria::registrar();
+		$linea = $matricula->wasRecentlyCreated
+			? $linea->crear('matricula', (int) $matricula->id)
+			: $linea->editar('matricula', (int) $matricula->id);
+
+		$linea->deAlumno((int) $matricula->alumno_id)
+			->en(grupo: (int) $matricula->grupo_id)
+			->a(['estado' => $matricula->estado, 'grupo_id' => $matricula->grupo_id])
+			->resumen($resumen)
+			->guardar();
+
+		return $matricula;
 	}
 
 }
