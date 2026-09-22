@@ -15,6 +15,25 @@ cambiada**, decisión de Joseth) · base `micolev1_lal_db` importada y **verific
 tablas**, con la migración bloqueante en `Ran` · las cuatro cachés y `--version` 13.26.1 ·
 `storage/logs/laravel.log` de 225 MB vaciado en el viejo (la rotación `daily` ya estaba).
 
+> ### Y el ensayo lleva semanas parado, con la copia dentro del bucle — 22 sep 2026
+>
+> **`micolev1_lal_db` está desactualizada y `lalvirtual.edu.co` sigue siendo la viva** (Joseth,
+> 22 sep). Eso es exactamente lo que el paso 2G manda —*«esa base se tira y se reimporta en el
+> paso 5»*—, así que no es un fallo del plan. Lo que el plan no dijo es lo que pasa **mientras**
+> tanto: la carpeta `lal.micolevirtual.com` cumple el patrón que buscan los bucles de despliegue,
+> así que **cada tanda le hace `git pull` y `migrate --force` a una base que no usa nadie**.
+>
+> No es dañino y conviene que siga así —una copia migrada es una copia que se puede reimportar sin
+> sorpresas—, pero **cuenta como colegio en todo lo que se mida por carpeta**, y ahí sí engaña:
+> el censo del incidente del 20 sep atribuye **24.392** casillas vaciadas a `lal`, que por el
+> nombre de la base es esta copia y no el colegio. Si es así, de las 407.909 del
+> [doc 43](migracion/43-lo-que-todavia-no-se-ha-calificado.md) hay 24.392 que no le pasaron a
+> ningún alumno. **Sin comprobar**: hay que mirar qué base midió aquella noche.
+>
+> Y al revés, lo que sí importa: **el LAL de verdad vive en la otra cuenta de cPanel**, así que
+> sigue necesitando la pasada a mano del Paso 1 de [DESPLIEGUE.md](DESPLIEGUE.md). Desplegar
+> `lal.micolevirtual.com` no es desplegar LAL.
+
 **FALTA para cerrar el ensayo:** el `rsync` del paso 2C —`plus/`, `storage/`, `index.php`,
 `favicon.ico`, `robots.txt`, `ms87615257.txt`— y la comprobación 2F.
 
