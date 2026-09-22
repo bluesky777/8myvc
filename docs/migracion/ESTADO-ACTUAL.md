@@ -127,6 +127,30 @@
 > árbol. Y al leer el resultado, **la línea `Tests:` o no hubo suite** — un exit 0 sin esa
 > línea es una suite muerta, no una verde.
 >
+> **1 bis · EL ORDEN DE LOS CUATRO PASOS — aprobado por Joseth el 22 sep 2026.**
+>
+> ```
+> censo de importaciones  ->  mudanza de zona  ->  migraciones  ->  código
+> ```
+>
+> Lo propuso `myvc-front-89` y el argumento es el que faltaba: **la premisa de
+> `560af5f` caduca el día del despliegue.** Esa mudanza de `importaciones` a hora de
+> Bogotá se autorizó sobre «ningún colegio ha usado la tabla», que es cierto **hoy**
+> porque las rutas `planilla-offline/*` están en `main` y **sin desplegar**. El día que
+> el código llegue a los dieciséis, la tabla empieza a llenarse y la medición ya no
+> contesta la pregunta que se le hizo.
+>
+> Por eso el censo va **antes** y la mudanza **antes que el código**, no después. Las
+> migraciones van delante del código por otra razón, que ya estaba escrita: sin
+> `importaciones.hechos` la importación revienta **después** de escribir las notas —un
+> 500 con las notas dentro.
+>
+> **Y cómo se lee el censo, que es lo que lo hace útil:** si sale `0` en los diecisiete,
+> **eso es lo esperable y no una casualidad afortunada** —la feature no está
+> desplegada—, así que se publica como «0 filas hoy, con la feature sin desplegar», no
+> como «confirmado que nadie la usa». Si sale `> 0` en alguno, la noticia no es «hay
+> filas» sino que **algo que no es esta feature está escribiendo esa tabla**.
+>
 > **2 · Las migraciones que sobrescriben datos son DOS, no cuatro.** El número salió mal de
 > aquí dos veces: el `grep` medía «toca datos» y no «pisa un valor que ya había».
 > `interruptores_de_certificados` rellena columnas que crea en la misma migración y
