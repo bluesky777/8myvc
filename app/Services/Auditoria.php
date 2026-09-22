@@ -201,6 +201,14 @@ final class Auditoria
         // 7 — lo que ya se graba hoy y no es ninguno de los anteriores.
         'year_config' => 'years',
 
+        // 8 — las personas y sus cuentas. `usuario` no lleva nunca una contraseña
+        // dentro: de un cambio de clave se guarda QUE ocurrió y a cuántos alcanzó,
+        // nunca el valor. La fila de auditoría se escribe en disco y se lee en una
+        // pantalla; una credencial ahí es una credencial filtrada.
+        'alumno' => 'alumnos',
+        'acudiente' => 'acudientes',
+        'usuario' => 'users',
+
         // Sin tabla, y declarado: no son filas, son sucesos o recursos.
         'intento_login' => null,      // `Services\Login`: un login fallido. Sin actor.
         'refresco_reutilizado' => null, // `Services\Sesion`: un token de refresco usado dos veces.
@@ -262,6 +270,9 @@ final class Auditoria
 
     /** True cuando el llamante ha dicho explícitamente que no hay actor, o que es el sistema. */
     private bool $actorDecidido = false;
+
+    /** La segunda persona: por cuenta de quién se hizo esto. Null = sólo hay una. @see porCuentaDe */
+    private ?string $porCuentaDe = null;
 
     private function __construct() {}
 
@@ -366,6 +377,43 @@ final class Auditoria
     }
 
     /**
+     * **La segunda persona**: quien actúa lo hace *por cuenta de* otra.
+     *
+     * Lo estrena la fase 5 de «notas sin internet»: coordinación sube la planilla
+     * **de un docente**, y el rastro tiene que decir **quién subió y por quién**.
+     * Sin esto, la línea de cada nota dice «Coordinación editó nota 88.412» y el
+     * docente cuyo libro entró **no aparece en ninguna parte** — que es justo el
+     * dato que se reclama el día que se reclama algo.
+     *
+     * ## Por qué va al `resumen` y no a una columna propia
+     *
+     * Porque **la pregunta es de lectura humana, no de consulta**. Las columnas de
+     * esta tabla existen para filtrar —«qué le han hecho a este alumno», «quién
+     * cambió esta nota»— y cada una tiene su índice detrás. «Por cuenta de quién»
+     * no se filtra: se lee, en la fila que ya estás mirando porque llegaste a ella
+     * por la nota o por el alumno.
+     *
+     * Y la otra mitad del argumento es el coste: una columna aquí es un `ALTER` en
+     * **dieciséis** bases de datos que han derivado entre sí, con el precedente
+     * fresco de una migración que se paró a mitad de despliegue y dejó un colegio
+     * con siete sin correr. El acta de la importación —`importaciones.hechos`—
+     * guarda además las dos personas **en campos**, así que la consulta, el día que
+     * alguien la quiera, tiene dónde hacerse.
+     *
+     * **No pisa el resumen**: se le añade detrás, venga del dominio o de
+     * {@see frase}. Un resumen que perdiera «editó nota 88.412 de Fulanito» para
+     * ganar «por cuenta de Mengano» cambiaría un dato por otro en vez de sumarlos.
+     */
+    public function porCuentaDe(?string $nombre): self
+    {
+        $nombre = $nombre === null ? null : trim($nombre);
+
+        $this->porCuentaDe = $nombre === '' ? null : $this->recortar($nombre, 120);
+
+        return $this;
+    }
+
+    /**
      * El actor, cuando no hay petición de por medio.
      *
      * Para el comando de consola y para los tests. En una petición normal **no se
@@ -431,6 +479,16 @@ final class Auditoria
 
             $this->fila['ocurrido_en'] = Reloj::ahoraTexto();
             $this->fila['resumen'] ??= $this->frase();
+
+            // **Detrás del resumen, sea de quien sea.** Va aquí y no en `frase()`
+            // porque tiene que alcanzar también a las líneas que traen su propia
+            // frase del dominio: si sólo estuviera en `frase()`, un `->resumen(…)`
+            // se llevaría por delante a la segunda persona sin decirlo.
+            if ($this->porCuentaDe !== null) {
+                $this->fila['resumen'] = $this->recortar(
+                    $this->fila['resumen'].' · por cuenta de '.$this->porCuentaDe, 255
+                );
+            }
 
             return (int) DB::table('auditoria')->insertGetId($this->fila);
         } catch (Throwable $e) {

@@ -792,6 +792,31 @@ que se ha encontrado en este repo.
 El resto de los 56 controladores (matrículas, perfiles, roles, importaciones) va
 después, con el detector de la fase 3 como lista.
 
+> **Empezado el 21 sep 2026 por las cuentas y las fichas de acudientes.** Tres sitios,
+> y los tres contestan una pregunta que hoy no tiene respuesta en los dieciséis:
+>
+> | Dónde | Qué deja escrito |
+> |---|---|
+> | `AlumnosController::putCambiarClaves` | **una línea por el acto, no 31 por alumno** — cambia la clave de un grupo entero de un solo `UPDATE`. Y **sin `de()` ni `a()`**: lo que se escribe ahí es una contraseña, y esta tabla acaba en disco y en una pantalla |
+> | `AcudientesController::postCrearUsuario` | a este acudiente se le abrió una cuenta, y cuál. El sujeto sale de la ficha escrita, no del cuerpo |
+> | `AcudientesController::deleteDestroy` | quién borró al acudiente, **con su nombre copiado antes del `delete()`** y cuántos parentescos se cerraron con él — el número que nadie podría recalcular después |
+>
+> Vocabulario nuevo: `alumno`, `acudiente`, `usuario`.
+>
+> **`Alumnos/GuardarAlumno` queda fuera a propósito y va en el siguiente lote.** Sus dos
+> métodos escriben *el campo que les digan* sobre tres tablas distintas según la rama, así
+> que anotar el valor **anterior** —que es la mitad del valor de esto— pide una lectura por
+> rama con el nombre de columna ya validado por `ColumnaSegura`. Instrumentarlo sin eso
+> dejaría un rastro que dice *a qué quedó* y no *de qué venía*, que es justo lo que no
+> sirvió la noche de la casilla vacía.
+
+> **Y una trampa que costó once tests en rojo el 21 sep:** las dos columnas nuevas de la
+> decisión 7 se migraron en la base de desarrollo y **no en la de tests**. `Auditoria::guardar()`
+> se traga toda excepción y devuelve `null`, así que once pruebas dijeron *«No se escribió la
+> línea de auditoría»* —que suena a fallo del escritor— cuando lo que faltaba era
+> `tools/construir-bd-test.sh`. **Cualquier columna nueva en `auditoria` va con esa orden
+> detrás**, o el siguiente que mire buscará el fallo en el sitio equivocado.
+
 > **Uno se adelantó a la cola el 26 ago 2026, y con motivo escrito: el consecutivo de
 > los certificados.** No es ninguno de los siete dominios, pero es el único sitio del
 > sistema donde **la ausencia de rastro no es una pérdida de información: es la pérdida

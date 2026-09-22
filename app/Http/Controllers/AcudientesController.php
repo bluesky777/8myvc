@@ -13,6 +13,7 @@ use App\Models\NotaComportamiento;
 use App\Models\Parentesco;
 use App\Models\Role;
 use App\Models\Year;
+use App\Services\Auditoria;
 use App\Support\Autoriza;
 use App\Support\CorreoDeLaCuenta;
 use App\User;
@@ -464,6 +465,20 @@ where id in (
             $acu['id'],
         ]);
 
+        /*
+         * El sujeto es el ACUDIENTE, no la cuenta: `entidad_id` sale de la ficha que
+         * acaba de escribirse y no del cuerpo de la petición (la regla del sujeto del
+         * 18). La cuenta recién creada va en el resumen, que es donde se lee.
+         *
+         * Sin `a()`: lo que se crea aquí lleva una contraseña dentro, y una credencial
+         * no entra en esta tabla ni siquiera de rebote. Lo que se guarda es que a este
+         * acudiente se le abrió una cuenta y cuál.
+         */
+        Auditoria::registrar()
+            ->crear('acudiente', (int) $acu['id'])
+            ->resumen('Le creó la cuenta de usuario '.$usu->id.' al acudiente')
+            ->guardar();
+
         return $usu;
     }
 
@@ -548,10 +563,30 @@ where id in (
             'No tienes permiso.');
 
         $acudiente = Acudiente::findOrFail($id);
+
+        // El nombre se coge ANTES del borrado y viaja dentro de la línea. Es la
+        // denormalización del §4.2 y aquí se ve para qué sirve: el `delete()` de abajo
+        // es un softdelete hoy, pero la pregunta que este rastro contesta —«¿quién
+        // borró a este acudiente?»— tiene que seguir teniendo respuesta legible el día
+        // que alguien limpie la papelera.
+        $nombre = trim(($acudiente->nombres ?? '').' '.($acudiente->apellidos ?? ''));
+
         $acudiente->delete();
 
         $consulta = 'UPDATE parentescos SET deleted_by=?, deleted_at=? WHERE acudiente_id = ?;';
-        DB::update($consulta, [$this->user->user_id, Carbon::now('America/Bogota'), $id]);
+        $parentescos = DB::update($consulta, [$this->user->user_id, Carbon::now('America/Bogota'), $id]);
+
+        /*
+         * **Una línea, no dos.** Borrar el acudiente y cerrar sus parentescos es un solo
+         * acto desde fuera: el segundo `UPDATE` no es una decisión de nadie, es la
+         * consecuencia del primero. Cuántos parentescos se llevó por delante va en el
+         * resumen, porque es el número que hace falta si hay que deshacerlo a mano y el
+         * que nadie podría recalcular después.
+         */
+        Auditoria::registrar()
+            ->borrar('acudiente', (int) $id)
+            ->resumen(($nombre !== '' ? $nombre : 'Acudiente '.$id).' — y '.$parentescos.' parentescos con él')
+            ->guardar();
 
         return $acudiente;
     }

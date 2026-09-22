@@ -13,6 +13,7 @@ use App\Models\Periodo;
 use App\Models\Role;
 use App\Models\Unidad;
 use App\Models\Year;
+use App\Services\Auditoria;
 use App\Support\AlumnosParecidos;
 use App\Support\Autoriza;
 use App\Support\CamposQueVinieron;
@@ -138,6 +139,26 @@ class AlumnosController extends Controller
             ':clave' => $clave,
             ':grupo_id' => $grupo_id,
         ]);
+
+        /*
+         * **Una línea por el acto, no una por alumno.** Esto cambia la clave de los 31
+         * alumnos de un grupo con un solo `UPDATE`: auditarlo por fila serían 31 líneas
+         * que dicen lo mismo y esconderían la única pregunta que se le hace a este
+         * rastro —«¿quién reseteó las claves de este grupo y cuándo?»—. Es la regla del
+         * punto 3 del 18: se audita el acto, no la fila.
+         *
+         * **Y NO va ni el valor nuevo ni el viejo.** `de()`/`a()` se quedan fuera a
+         * propósito: lo que se escribe aquí es una contraseña. La fila de auditoría
+         * termina en disco y se pinta en una pantalla, así que meterla sería filtrarla
+         * en dos sitios nuevos. Se guarda **qué se hizo y a cuántos alcanzó**, que es lo
+         * que hace falta para reconstruir el incidente; la clave no se reconstruye, se
+         * vuelve a cambiar.
+         */
+        Auditoria::registrar()
+            ->editar('usuario')
+            ->en(grupo: (int) $grupo_id)
+            ->resumen('Cambió la clave de '.$cambiadas.' alumnos del grupo')
+            ->guardar();
 
         // **Cambiar la forma aquí no rompe a nadie, comprobado en los dos clientes
         // que la llaman**: `myvc_front` hace `.then(() => toastr.success('Claves
