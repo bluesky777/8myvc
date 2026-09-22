@@ -220,6 +220,8 @@ final class Auditoria
         'aspirante' => 'aspirantes',
         'cita_admision' => 'citas_admision',
         'documento_admision' => 'documentos_admision',
+        'envio_estacion' => 'envios_estacion',
+        'nota_estacion' => 'notas_estacion',
 
         // Sin tabla, y declarado: no son filas, son sucesos o recursos.
         'intento_login' => null,      // `Services\Login`: un login fallido. Sin actor.

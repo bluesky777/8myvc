@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Matriculas;
 
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Http\Controllers\Controller;
+use App\Services\Auditoria;
 use App\Support\Autoriza;
 use App\Support\Reloj;
 use Carbon\Carbon;
@@ -711,6 +712,23 @@ class EstacionesController extends Controller
             VALUES (?,?,?,?,?,?,?)',
             [$yearId, $alumnoId, $nro, $destino, (int) $user->user_id, $ahora, $ahora]);
 
+        /*
+         * **Estas tres tablas ya guardaban quién y cuándo** —`enviado_por`,
+         * `escrita_por`, `resuelta_por`—, así que la línea de auditoría no viene a
+         * tapar un agujero: viene a que **la pantalla unificada las vea**. Sin ella,
+         * `auditoria/alumno/{id}` contesta «a este alumno no le ha pasado nada» de una
+         * matrícula en la que lo movieron de estación tres veces, porque ese rastro
+         * vive en un sitio que esa pantalla no mira.
+         */
+        Auditoria::registrar()
+            ->crear('envio_estacion', (int) DB::getPdo()->lastInsertId())
+            ->deAlumno((int) $alumnoId)
+            ->en(year: (int) $yearId)
+            ->de(['estacion' => $nro])
+            ->a(['estacion' => $destino])
+            ->resumen('Envió al alumno de la estación '.$nro.' a la '.$destino)
+            ->guardar();
+
         return [
             'registrado' => true,
             'desde' => $nro,
@@ -866,6 +884,16 @@ class EstacionesController extends Controller
         DB::update('UPDATE notas_estacion
             SET resuelta_por=COALESCE(resuelta_por,?), resuelta_at=COALESCE(resuelta_at,?), updated_at=?
             WHERE id=?', [(int) $user->user_id, $ahora, $ahora, (int) $nota->id]);
+
+        Auditoria::registrar()
+            ->editar('nota_estacion', (int) $nota->id)
+            // El alumno sale de la fila de la nota, que es de donde cuelga: aquí no llega
+            // ningún `alumnoId` por parámetro y creerse uno del cuerpo sería la regla del
+            // sujeto al revés.
+            ->deAlumno(isset($nota->alumno_id) ? (int) $nota->alumno_id : null)
+            ->a(['resuelta' => true])
+            ->resumen('Marcó resuelta una nota de estación')
+            ->guardar();
 
         $ya = DB::selectOne('SELECT resuelta_por, resuelta_at FROM notas_estacion WHERE id=?',
             [(int) $nota->id]);
@@ -1647,6 +1675,16 @@ class EstacionesController extends Controller
         $valores[] = (int) $fila->id;
 
         DB::update('UPDATE requisitos_alumno SET '.implode(', ', $sets).' WHERE id=?', $valores);
+
+        // El resumen dice QUÉ columnas se movieron, que es lo que distingue «marcó el
+        // requisito como cumplido» de «le cambió la observación». `$sets` se arma
+        // arriba según lo que traiga la petición, así que es la única forma de saberlo
+        // sin releer la fila.
+        Auditoria::registrar()
+            ->editar('requisito_alumno', (int) $fila->id)
+            ->deAlumno((int) $alumnoId)
+            ->resumen('Movió '.implode(', ', array_map(static fn ($x) => explode('=', $x)[0], $sets)).' del requisito en la estación')
+            ->guardar();
     }
 
     /** El nombre de una cuenta del personal, por `profesores.user_id`. */
