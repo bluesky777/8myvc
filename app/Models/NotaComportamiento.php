@@ -1,5 +1,6 @@
 <?php namespace App\Models;
 
+use App\Support\SellaConElReloj;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -43,6 +44,7 @@ class NotaComportamiento extends Model {
 	protected $table = "nota_comportamiento";
 
 	use SoftDeletes;
+	use SellaConElReloj;
 	protected $softDelete = true;
 
 

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\SellaConElReloj;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -37,6 +38,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Rubrica extends Model
 {
     use SoftDeletes;
+    use SellaConElReloj;
 
     protected $table = 'rubricas';
 

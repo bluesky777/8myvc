@@ -8,6 +8,44 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+> ## ✅ LOS CUATRO RELOJES: CENSADOS, Y LA PUERTA DE `NOW()` CERRADA (21 sep 2026)
+>
+> Joseth pidió el censo de los usos de reloj para poder **transformar la hora al
+> mostrarla**. Está entero en [`53-los-cuatro-relojes.md`](53-los-cuatro-relojes.md), y
+> el titular es que **eran cuatro, no dos**: `Reloj` (198 llamadas), `now()` de PHP (34),
+> los `timestamps` de Eloquent —que **no se ven en el código**: 39 modelos más
+> `app/User.php`, que no está en `app/Models/` y por eso ningún censo del repo lo
+> miraba— y `NOW()` de MySQL, que es **la hora del cPanel de cada colegio**.
+>
+> **Hecho en esta pasada:** los **20 `NOW()`** de seis ficheros pasaron a
+> `Reloj::ahoraTexto()` (`grep 'NOW()' app/` → 0 fuera de comentarios); la espera del
+> tablero de matrículas dejó de sumar **+300 minutos** a cada fila
+> (`EstacionesController`, y **estrena `Reloj::desdeTexto()`**, que llevaba 0 llamantes);
+> y el acta en Excel dejó de enseñar UTC donde la pantalla de la misma fila enseña
+> Bogotá (`PlanillaOfflineController::getActa`). Herramienta nueva:
+> `tools/zona-de-los-colegios.sh`.
+>
+> **Lo que NO se ha hecho, y es lo que queda:**
+>
+> | | Qué | Por qué importa |
+> |---|---|---|
+> | ~~**R1**~~ | ~~El rasgo `SellaConElReloj`~~ **HECHO: 20 en Bogotá, 32 en UTC** | El criterio es **escrituras del SELLO**, no de la tabla: `UPDATE profesores SET tono` no toca `updated_at`. Por contarlo mal se les puso y quitó el rasgo a `Profesor` y `Periodo` el mismo día, y el detector se rehizo tres veces dando tres números plausibles. Ver 53 §6 |
+> | ~~**R2**~~ | ~~Centinela del reloj de Eloquent~~ **HECHO** | `RelojUnicoTest::ningun_modelo_sella_en_utc_sin_estar_declarado`, comprobado **rompiéndolo**. Mira `app/Models/` **y `app/User.php`**, que no está ahí y se le escapaba a todos los censos |
+> | **R3** | `importaciones`: **la mitad hecha** | Los tres lectores pasan ya por `PuntoDeControlDeImportacion::enLaHoraDelColegio()`. Si la tabla se mueve a Bogotá o no, **es decisión de Joseth**: [54](54-lo-que-espera-a-joseth-de-los-relojes.md) §4 |
+> | **R4** | La transformación al leer, que es lo que Joseth pidió | Ya es segura: queda **un** reloj escribiendo en cada columna. Lo que falta es el histórico (R6) |
+> | ~~**R5**~~ | ~~Correr `tools/zona-de-los-colegios.sh`~~ **HECHO: EDT en los 17** | El servidor **no va en UTC**: va en hora del este de EEUU, **con horario de verano**. Una hora por delante de Bogotá de marzo a noviembre, igual el resto. Los `NOW()` que se quitaron hoy escribían eso. Ver 53 §3 |
+>
+> **Lo que espera a Joseth** —tres consultas de servidor y una decisión— está suelto en
+> [54](54-lo-que-espera-a-joseth-de-los-relojes.md), con qué contesta cada una y qué cambia
+> según el resultado.
+>
+> **Y una cifra del repo que NO se reproduce:** el docblock de `App\Support\SellaConElReloj`
+> dice **34.903 pares** a cinco horas «de 2018 a 2026» sobre `caz_zaragoza`; hoy el máximo
+> de cualquier emparejamiento es **8.058**, y **todos son de 2026**. Los «2.262 pares» de
+> `DefinitivasPeriodosController` **sí** se reproducen (2.261). Quien vaya a reparar el
+> histórico resuelve eso antes de escribir un `UPDATE`: decide si toca 495 filas o treinta
+> y cuatro mil. Ver el 53 §5.
+
 > ## 🔜 EL HISTORIAL DE TODO: ES LA FASE 5 DEL 18, NO UN DISEÑO NUEVO (21 sep 2026)
 >
 > **Joseth pidió «historial de prácticamente todo cambio», con una columna `Historial`

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Matriculas;
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Http\Controllers\Controller;
 use App\Support\Autoriza;
+use App\Support\Reloj;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Request;
@@ -423,7 +424,25 @@ class EstacionesController extends Controller
                     continue;
                 }
 
-                $esperas[] = max(0, $ahora->diffInMinutes(Carbon::parse($porque['llego_at']), true));
+                // **`Reloj::desdeTexto()` y no `Carbon::parse()`, y esto sumaba 300
+                // minutos a cada espera hasta el 21 sep 2026.** `llego_at` sale de
+                // `cerrado_at` / `updated_at`, que este mismo fichero escribe en
+                // Bogotá (`$ahora`, arriba). Una cadena `DATETIME` no lleva la zona
+                // dentro y `config/app.php` está en UTC, así que `Carbon::parse()` la
+                // leía cinco horas antes de lo que era y la resta contra `$ahora`
+                // —que sí está en Bogotá— daba **+300 minutos exactos**, medidos.
+                //
+                // De aquí salen `espera_media_min`, `espera_maxima_min` y el `tapon`:
+                // el número que esta pantalla existe para enseñar. Ver el 53 §4.1.
+                $llego = Reloj::desdeTexto((string) $porque['llego_at']);
+
+                if ($llego === null) {
+                    // La columna existe pero no es una fecha. No cuenta como espera
+                    // cero, por el mismo motivo que el `null` de arriba.
+                    continue;
+                }
+
+                $esperas[] = max(0, $ahora->diffInMinutes($llego, true));
             }
 
             $media = count($esperas) > 0 ? (int) round(array_sum($esperas) / count($esperas)) : null;

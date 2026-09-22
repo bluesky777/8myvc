@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Http\Controllers\Controller;
 use App\Services\CodigoDeInscripcion;
 use App\Support\Autoriza;
+use App\Support\Reloj;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Request;
@@ -222,13 +223,20 @@ class FormulariosInscripcionController extends Controller
         // Es sintaxis de MySQL Y de MariaDB 10.5 —no un `upsert()` de Eloquent, que
         // aquí casi no se usa—, así que se comporta igual en el docker y en los
         // dieciséis.
+        //
+        // La hora sale de `Reloj` y no de `NOW()`: `config/database.php` no fija la
+        // zona de la sesión, así que `NOW()` es el reloj del servidor —dieciséis
+        // cuentas de cPanel— y esta columna acabaría con una hora distinta en cada
+        // colegio sin nada en la fila que lo dijera. Ver el 53 §1.
+        $ahora = Reloj::ahoraTexto();
+
         DB::insert('INSERT INTO config_formulario_inscripcion
                 (year_id, campos, valor, created_by, updated_by, created_at, updated_at)
-            VALUES (?,?,?,?,?,NOW(),NOW())
+            VALUES (?,?,?,?,?,?,?)
             ON DUPLICATE KEY UPDATE campos=VALUES(campos), valor=VALUES(valor),
-                updated_by=VALUES(updated_by), updated_at=NOW()',
+                updated_by=VALUES(updated_by), updated_at=VALUES(updated_at)',
             [$year_id, json_encode($campos, JSON_UNESCAPED_UNICODE), $valor,
-                $user->user_id, $user->user_id]);
+                $user->user_id, $user->user_id, $ahora, $ahora]);
 
         return 'Guardado';
     }
@@ -374,12 +382,13 @@ class FormulariosInscripcionController extends Controller
             // Condicional: `alumno_id IS NULL`. Si otra ventanilla lo ató entre la
             // lectura y esto, afecta **cero filas** y no se pisa nada.
             $tocadas = DB::update('UPDATE ordenes_inscripcion
-                SET alumno_id=?, matricula_id=?, estado=?, updated_by=?, updated_at=NOW()
+                SET alumno_id=?, matricula_id=?, estado=?, updated_by=?, updated_at=?
                 WHERE id=? AND alumno_id IS NULL AND deleted_at IS NULL', [
                 (int) $alumno->id,
                 $matricula?->id,
                 $matricula ? 'MATRICULADA' : $orden->estado,
                 $user->user_id,
+                Reloj::ahoraTexto(),
                 (int) $orden->id,
             ]);
         } catch (QueryException $e) {
@@ -483,9 +492,10 @@ class FormulariosInscripcionController extends Controller
 
             try {
                 $tocadas = DB::update('UPDATE ordenes_inscripcion
-                    SET codigo=?, codigo_anterior=?, updated_by=?, updated_at=NOW()
+                    SET codigo=?, codigo_anterior=?, updated_by=?, updated_at=?
                     WHERE id=? AND codigo=? AND deleted_at IS NULL',
-                    [$nuevo, $orden->codigo, $user->user_id, (int) $orden->id, $orden->codigo]);
+                    [$nuevo, $orden->codigo, $user->user_id, Reloj::ahoraTexto(),
+                        (int) $orden->id, $orden->codigo]);
             } catch (QueryException $e) {
                 // **`ordenes_inscripcion_codigo` es PREFIJO de
                 // `ordenes_inscripcion_codigo_anterior`**, así que este `str_contains`
@@ -730,6 +740,10 @@ class FormulariosInscripcionController extends Controller
     private function insertarConCodigo(object $user, object $anio, int $campana,
         string $lote_id, ?string $cierra, array $extra): int
     {
+        // Fuera del bucle: si el primer código choca y hay que reintentar, la orden
+        // se vendió cuando se vendió, no cuando el aleatorio acertó.
+        $ahora = Reloj::ahoraTexto();
+
         for ($intento = 0; $intento < self::INTENTOS_DE_CODIGO; $intento++) {
             try {
                 // **El precio se ESTAMPA, no se referencia.** Lo que vale este
@@ -740,12 +754,12 @@ class FormulariosInscripcionController extends Controller
                 DB::insert('INSERT INTO ordenes_inscripcion
                     (codigo, year_id, year_campana, lote_id, modo, alumno_id, grupo_id, grado_id,
                      cierra, valor, vendida_por, vendida_at, created_by, created_at, updated_at)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,NOW(),?,NOW(),NOW())', [
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', [
                     CodigoDeInscripcion::generar($campana),
                     $anio->id, $campana, $lote_id, $extra['modo'],
                     $extra['alumno_id'], $extra['grupo_id'], $extra['grado_id'],
                     $cierra, $this->precioDelFormulario((int) $anio->id),
-                    $user->user_id, $user->user_id,
+                    $user->user_id, $ahora, $user->user_id, $ahora, $ahora,
                 ]);
 
                 return (int) DB::getPdo()->lastInsertId();
@@ -1344,9 +1358,9 @@ class FormulariosInscripcionController extends Controller
         }
 
         DB::update('UPDATE ordenes_inscripcion
-            SET matricula_id=?, estado="MATRICULADA", updated_by=?, updated_at=NOW()
+            SET matricula_id=?, estado="MATRICULADA", updated_by=?, updated_at=?
             WHERE id=? AND estado<>"MATRICULADA"',
-            [(int) $matricula->id, $user->user_id, (int) $orden->id]);
+            [(int) $matricula->id, $user->user_id, Reloj::ahoraTexto(), (int) $orden->id]);
     }
 
     /** Si por este formulario ya pasó dinero, por cualquiera de los dos caminos. */

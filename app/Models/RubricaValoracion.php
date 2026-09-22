@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\SellaConElReloj;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -32,6 +33,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class RubricaValoracion extends Model
 {
+    use SellaConElReloj;
+
     protected $table = 'rubrica_valoraciones';
 
     protected $fillable = [];

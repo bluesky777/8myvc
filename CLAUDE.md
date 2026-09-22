@@ -218,6 +218,7 @@ código. Cada una lleva su uso en la cabecera.
 | `tests-que-tocan.py` | qué tests hay que correr para lo que cambió, y cuándo NO basta un subconjunto |
 | `ensayo-del-alter-en-maria.sh` | si el `ALTER` bloquea el guardado de notas en **MariaDB** — la señal es la LATENCIA |
 | `correo-de-los-colegios.sh` | qué instalaciones no pueden mandar correo — `lal` queda fuera: sale `2`, nunca verde |
+| `zona-de-los-colegios.sh` | qué hora cree que es el MySQL de cada colegio — `SYSTEM` no es respuesta: la cifra es el DESFASE |
 
 Y una que **no** está en `tools/` y contesta la pregunta contraria:
 `tests/Barrido/SuperficieDeUnTokenTest.php` golpea la API entera con un token y mira **el

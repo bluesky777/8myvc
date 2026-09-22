@@ -1,5 +1,6 @@
 <?php namespace App\Models;
 
+use App\Support\SellaConElReloj;
 use Illuminate\Database\Eloquent\Model;
 use App\Services\BoletinIndependiente;
 use App\Services\DefinitivasDeAsignatura;
@@ -57,6 +58,7 @@ use App\Support\RepartoDeLaNota;
 
 
 class NotaFinal extends Model {
+    use SellaConElReloj;
 
 	/**
 	 * La tabla es `notas_finales`, y hay que decirlo.

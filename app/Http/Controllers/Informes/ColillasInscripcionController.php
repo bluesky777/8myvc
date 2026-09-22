@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Http\Controllers\Controller;
 use App\Services\OrdenDeInscripcion;
 use App\Support\Autoriza;
+use App\Support\Reloj;
 use App\Support\SafeUpload;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -141,12 +142,18 @@ class ColillasInscripcionController extends Controller
             abort(422, 'Mande la foto del recibo o el número de referencia.');
         }
 
+        // Y no `NOW()`: ver el 53 §1. `config/database.php` no fija la zona de la
+        // sesión, así que `NOW()` es el reloj del cPanel de cada colegio, y esta
+        // columna es la que le dice a la familia cuándo mandó su comprobante.
+        $ahora = Reloj::ahoraTexto();
+
         DB::insert('INSERT INTO colillas_inscripcion
             (orden_id, referencia, archivo, tipo, bytes, subida_ip, estado, created_at, updated_at)
-            VALUES (?,?,?,?,?,?,"PENDIENTE",NOW(),NOW())', [
+            VALUES (?,?,?,?,?,?,"PENDIENTE",?,?)', [
             $orden->id, $referencia,
             $archivo['nombre'] ?? null, $archivo['tipo'] ?? null, $archivo['bytes'] ?? null,
             substr((string) Request::ip(), 0, 45),
+            $ahora, $ahora,
         ]);
 
         // Lo que se le contesta a la familia **no lleva nada suyo dentro** y no dice
@@ -337,16 +344,22 @@ class ColillasInscripcionController extends Controller
             abort(422, 'Diga por qué lo rechaza: la familia tiene que saber qué corregir.');
         }
 
+        // Una sola lectura del reloj para la colilla y para la orden: la resolución
+        // y el avance son el mismo acto, y con dos lecturas la orden podría quedar
+        // sellada un segundo antes que la decisión que la movió.
+        $ahora = Reloj::ahoraTexto();
+
         DB::update('UPDATE colillas_inscripcion
-            SET estado=?, resuelta_por=?, resuelta_at=NOW(), motivo=?, updated_at=NOW()
+            SET estado=?, resuelta_por=?, resuelta_at=?, motivo=?, updated_at=?
             WHERE id=? AND estado="PENDIENTE"',
-            [$estado, $user->user_id, $motivo !== '' ? mb_substr($motivo, 0, 255) : null, $id]);
+            [$estado, $user->user_id, $ahora,
+                $motivo !== '' ? mb_substr($motivo, 0, 255) : null, $ahora, $id]);
 
         // La orden avanza sólo al aprobar. Un rechazo **no la mueve hacia atrás**:
         // el formulario sigue impreso y vendido, que es lo que dice `estado`.
         if ($estado === 'APROBADA') {
-            DB::update('UPDATE ordenes_inscripcion SET estado="PAGADA", updated_by=?, updated_at=NOW()
-                WHERE id=? AND estado="IMPRESA"', [$user->user_id, $colilla->orden_id]);
+            DB::update('UPDATE ordenes_inscripcion SET estado="PAGADA", updated_by=?, updated_at=?
+                WHERE id=? AND estado="IMPRESA"', [$user->user_id, $ahora, $colilla->orden_id]);
         }
 
         return $estado === 'APROBADA' ? 'Comprobante aprobado.' : 'Comprobante rechazado.';

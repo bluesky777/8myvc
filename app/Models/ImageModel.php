@@ -1,5 +1,6 @@
 <?php namespace App\Models;
 
+use App\Support\SellaConElReloj;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -35,6 +36,7 @@ class ImageModel extends Model {
 	protected $table = 'images';
 
 	use SoftDeletes;
+	use SellaConElReloj;
 	protected $softDelete = true;
 
 

@@ -3,7 +3,6 @@
 namespace App\Support;
 
 use Carbon\Carbon;
-use Tests\Contrato\RelojUnicoTest;
 
 /**
  * La hora que se escribe en la base. Un solo sitio, a propósito.
@@ -45,7 +44,11 @@ use Tests\Contrato\RelojUnicoTest;
  * `DATETIME` no convierte: lo que escribe esta clase es lo que se lee. Por eso
  * `auditoria.ocurrido_en` es `DATETIME(3)` y no `TIMESTAMP`.
  *
- * @see RelojUnicoTest  el centinela que impide que vuelvan los dos relojes
+ * El centinela que impide que vuelvan los dos relojes es
+ * `Tests\Contrato\RelojUnicoTest`, y va escrito en el texto y no como `@see`:
+ * un `@see` con el nombre completo hace que Pint añada `use Tests\…` aquí, y
+ * esto es `app/` — con `composer install --no-dev` ese import apunta a nada.
+ * Lo avisó `myvc-front-74` el 21 sep 2026 sobre una copia de este mismo error.
  */
 final class Reloj
 {

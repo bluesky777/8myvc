@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Informes;
 
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Http\Controllers\Controller;
+use App\Support\Reloj;
 use App\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Request;
@@ -174,15 +175,20 @@ class InformesRecientesController extends Controller
 
         $huella = $this->huellaDe($eleccion);
 
+        // Y no `NOW()`, que es el reloj del SERVIDOR: `config/database.php` no fija
+        // la zona de la sesión, así que son dieciséis cPanel y dieciséis horas
+        // distintas para la misma línea. Ver el 53 §1.
+        $ahora = Reloj::ahoraTexto();
+
         DB::insert(
             'INSERT INTO informes_recientes
 				 (user_id, year_id, clave, etiqueta, ruta, parametros, huella_parametros, created_at, updated_at)
-			  VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+			  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 			  ON DUPLICATE KEY UPDATE
 				 etiqueta   = VALUES(etiqueta),
 				 ruta       = VALUES(ruta),
 				 parametros = VALUES(parametros),
-				 updated_at = NOW();',
+				 updated_at = VALUES(updated_at);',
             [
                 $user->user_id,
                 $user->year_id,
@@ -191,6 +197,8 @@ class InformesRecientesController extends Controller
                 $ruta,
                 json_encode(array_values($params), JSON_UNESCAPED_UNICODE),
                 $huella,
+                $ahora,
+                $ahora,
             ]
         );
 

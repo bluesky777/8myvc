@@ -1,5 +1,6 @@
 <?php namespace App\Models;
 
+use App\Support\SellaConElReloj;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -72,6 +73,7 @@ use Illuminate\Support\Facades\DB;
 
 class Alumno extends Model {
 	use SoftDeletes;
+	use SellaConElReloj;
 	
 	protected $table = 'alumnos';
 	protected $dates = ['deleted_at', 'fecha_nac'];

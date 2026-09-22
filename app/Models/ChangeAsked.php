@@ -1,5 +1,6 @@
 <?php namespace App\Models;
 
+use App\Support\SellaConElReloj;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -43,6 +44,7 @@ class ChangeAsked extends Model {
 	protected $table = 'change_asked';
 
 	use SoftDeletes;
+	use SellaConElReloj;
 	protected $softDelete = true;
 
 	static $consulta_all = 'SELECT *, c.id as asked_id FROM change_asked c

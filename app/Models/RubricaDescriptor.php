@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\SellaConElReloj;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -22,6 +23,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class RubricaDescriptor extends Model
 {
+    use SellaConElReloj;
+
     protected $table = 'rubrica_descriptores';
 
     protected $fillable = [];

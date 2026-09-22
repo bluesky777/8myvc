@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Informes;
 use App\Http\Controllers\Controller;
 use App\Services\OrdenDeInscripcion;
 use App\Services\Pasarela\Wompi;
+use App\Support\Reloj;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Request;
@@ -146,11 +147,18 @@ class PagosInscripcionController extends Controller
         // la pasarela no deja reusar la de una transacción que ya existe.
         $referencia = $orden->codigo.'-'.Str::upper(Str::random(6));
 
+        // Y no `NOW()`: ver el 53 §1. `config/database.php` no fija la zona de la
+        // sesión, así que `NOW()` es el reloj del cPanel de cada colegio — y esta
+        // fecha es la que se cuadra contra el extracto de la pasarela, que viene en
+        // su propia zona. Con dos relojes indeterminados no se cuadra nada.
+        $ahora = Reloj::ahoraTexto();
+
         DB::insert('INSERT INTO pagos_inscripcion
             (orden_id, proveedor, referencia, monto_centavos, moneda, estado, creada_ip, created_at, updated_at)
-            VALUES (?,?,?,?,?,"CREADO",?,NOW(),NOW())', [
+            VALUES (?,?,?,?,?,"CREADO",?,?,?)', [
             $orden->id, Wompi::PROVEEDOR, $referencia, $centavos, $moneda,
             substr((string) Request::ip(), 0, 45),
+            $ahora, $ahora,
         ]);
 
         return [
@@ -323,8 +331,8 @@ class PagosInscripcionController extends Controller
             //
             // `updated_by` **no se toca**: aquí no hay ninguna persona a la que
             // atribuirle esto, y poner el id de nadie sería inventarse un firmante.
-            DB::update('UPDATE ordenes_inscripcion SET estado="PAGADA", updated_at=NOW()
-                WHERE id=? AND estado="IMPRESA"', [$pago->orden_id]);
+            DB::update('UPDATE ordenes_inscripcion SET estado="PAGADA", updated_at=?
+                WHERE id=? AND estado="IMPRESA"', [Reloj::ahoraTexto(), $pago->orden_id]);
 
             return ['aprobado' => true];
         }
@@ -348,15 +356,19 @@ class PagosInscripcionController extends Controller
      */
     private function guardar(object $pago, string $nuestro, string $suyo, string $como, array $t): void
     {
+        $ahora = Reloj::ahoraTexto();
+
         DB::update('UPDATE pagos_inscripcion
             SET estado=?, estado_pasarela=?, transaccion_id=?, verificado_por=?,
-                verificado_at=NOW(), respuesta=?, updated_at=NOW()
+                verificado_at=?, respuesta=?, updated_at=?
             WHERE id=?', [
             $nuestro,
             mb_substr($suyo, 0, 30),
             mb_substr((string) ($t['id'] ?? ''), 0, 64) ?: null,
             $como,
+            $ahora,
             json_encode($t, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            $ahora,
             $pago->id,
         ]);
     }

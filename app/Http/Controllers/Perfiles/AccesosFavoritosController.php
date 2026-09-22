@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Perfiles;
 
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Http\Controllers\Controller;
+use App\Support\Reloj;
 use App\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Request;
@@ -214,18 +215,27 @@ class AccesosFavoritosController extends Controller
             ];
         }
 
-        DB::transaction(function () use ($user, $limpios) {
+        // Y no `NOW()`, que es el reloj del SERVIDOR: `config/database.php` no fija
+        // la zona de la sesión, así que son dieciséis cPanel y dieciséis horas
+        // distintas para el mismo favorito. Ver el 53 §1.
+        //
+        // Una sola lectura del reloj para toda la tanda, y a propósito: los
+        // favoritos de una misma llamada se guardan juntos, así que comparten
+        // `created_at` y el orden de llegada no se cuela en la fecha.
+        $ahora = Reloj::ahoraTexto();
+
+        DB::transaction(function () use ($user, $limpios, $ahora) {
             foreach ($limpios as $f) {
                 DB::insert(
                     'INSERT INTO accesos_favoritos
 						 (user_id, ruta, etiqueta, icono, orden, created_at, updated_at)
-					  VALUES (?, ?, ?, ?, ?, NOW(), NOW())
+					  VALUES (?, ?, ?, ?, ?, ?, ?)
 					  ON DUPLICATE KEY UPDATE
 						 etiqueta   = VALUES(etiqueta),
 						 icono      = VALUES(icono),
 						 orden      = VALUES(orden),
-						 updated_at = NOW();',
-                    [$user->user_id, $f['ruta'], $f['etiqueta'], $f['icono'], $f['orden']]
+						 updated_at = VALUES(updated_at);',
+                    [$user->user_id, $f['ruta'], $f['etiqueta'], $f['icono'], $f['orden'], $ahora, $ahora]
                 );
             }
 
