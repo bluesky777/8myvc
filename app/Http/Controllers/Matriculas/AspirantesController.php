@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Matriculas;
 
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Http\Controllers\Controller;
+use App\Services\Auditoria;
 use App\Support\Autoriza;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -281,6 +282,15 @@ class AspirantesController extends Controller
                 (int) $documento->id,
             ]);
 
+        // Devolver un documento también exige motivo arriba, y por el mismo motivo se
+        // guarda: es lo que la familia lee y lo que después se discute.
+        Auditoria::registrar()
+            ->editar('documento_admision', (int) $documento->id)
+            ->de($documento->estado ?? null)
+            ->a($estado)
+            ->resumen('Documento '.$estado.($motivo === '' ? '' : ' — '.$motivo))
+            ->guardar();
+
         return ['estado' => $estado, 'mensaje' => 'Documento '.mb_strtolower($estado).'.'];
     }
 
@@ -354,6 +364,13 @@ class AspirantesController extends Controller
                     $ahora,
                     (int) $cita->id,
                 ]);
+
+            Auditoria::registrar()
+                ->editar('cita_admision', (int) $cita->id)
+                ->de($cita->resultado ?? null)
+                ->a($resultado)
+                ->resumen('Movió la cita de '.$tipo.' — '.($cuando === '' ? 'sin fecha' : $cuando))
+                ->guardar();
 
             return ['cita_id' => (int) $cita->id, 'tipo' => $tipo, 'resultado' => $resultado];
         }
@@ -436,6 +453,23 @@ class AspirantesController extends Controller
             WHERE id=?',
             [$decision, $motivo === '' ? null : $motivo, $this->user->user_id, $ahora,
                 $this->user->user_id, $ahora, (int) $aspirante->id]);
+
+        /*
+         * **La decisión de admisión es la línea más cara de este módulo.** Es la que
+         * una familia reclama —«nos dijeron que sí»— y la que un colegio tiene que
+         * poder sostener meses después. El motivo viaja dentro porque el 422 de arriba
+         * lo hace obligatorio para no admitir: si es obligatorio escribirlo, es
+         * obligatorio conservarlo.
+         *
+         * El estado de antes sale de la fila que se cargó con `SELECT *`, no del
+         * cuerpo: quien pide la decisión no dice de dónde venía.
+         */
+        Auditoria::registrar()
+            ->editar('aspirante', (int) $aspirante->id)
+            ->de($aspirante->estado_embudo ?? null)
+            ->a($decision)
+            ->resumen('Decidió '.$decision.($motivo === '' ? '' : ' — '.$motivo))
+            ->guardar();
 
         return ['estado_embudo' => $decision, 'decidido_at' => $ahora->toDateTimeString()];
     }
