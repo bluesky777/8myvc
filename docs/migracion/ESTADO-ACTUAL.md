@@ -41,12 +41,48 @@
 > | **L2** | El contrato con `myvc_front`: la columna y el modal | tras L1 |
 > | **L3…** | Ensanchar la fase 4 por dominio. Hoy **42 de 221 métodos con rastro; 178 sin ninguno** (`tools/escrituras-sin-auditoria.php`, que **no ve Eloquent**: 178 es suelo) | en curso |
 >
+> ### 🔜 DESPLIEGUE PREPARADO, NO LANZADO — decisión de Joseth del 21 sep
+>
+> **Él decidió: se prepara ahora y la suite entera se corre DESPUÉS, justo antes del
+> despliegue de verdad.** No se corre hoy. Lo que queda escrito aquí es el orden, para que
+> quien lo lance no lo reconstruya de memoria a las tres de la mañana.
+>
+> **1 · La suite entera, con su interruptor.** Es la regla del repo y no es negociable
+> antes de desplegar: lo fundido es barato de deshacer, lo desplegado viaja a dieciséis
+> colegios copia a copia.
+>
+> ```bash
+> docker exec -d -e COBERTURA_RUTAS=/tmp/rutas-tocadas.txt 8myvc-app-1 \
+>     sh -c 'php artisan test > /tmp/suite-despliegue.txt 2>&1'
+> ```
+>
+> Se lanza con `-d` y se consulta el fichero **dentro** del contenedor: matar el
+> `docker exec` no mata el `php`. Antes de lanzarla, comprobar **contra qué base** corre
+> cada `phpunit` vivo (la orden está en el `CLAUDE.md`): la contención es por base, no por
+> árbol. Y al leer el resultado, **la línea `Tests:` o no hubo suite** — un exit 0 sin esa
+> línea es una suite muerta, no una verde.
+>
+> **2 · Las migraciones que sobrescriben datos son cuatro, y son el riesgo real de la
+> tanda**: `la_casilla_vacia` (notas), `reparar_la_hora_escrita_dos_veces`,
+> `interruptores_de_certificados` (`years`) y `el_correo_del_acudiente_en_su_cuenta`, que
+> pisa `users.email` fila a fila sin dejar rastro. De 48 migraciones, 7 tocan datos y sólo
+> esas 4 destruyen. **Ninguna de las cuatro escribe todavía sus filas de auditoría antes
+> del `UPDATE`** (decisión 7, escrita y sin construir): quien despliegue lo sabe, y ése es
+> el punto donde se decide si se construye antes o se acepta el riesgo.
+>
+> **3 · Y sigue pendiente de antes**: redesplegar los dieciséis por el arreglo del reloj
+> —los tres relojes en la misma comparación—, que se cerró el 21 sep y no ha llegado a
+> ningún colegio.
+>
 > ### Hecho el 21 sep — **la fase 5 ya tiene lector**
 >
 > `auditoria/ingresos`, `/ingresos/{id}`, `/entidad/{tipo}/{id}` y `/alumno/{id}` en
 > `Auditoria/AuditoriaController`. Se acabó el «se escribe rastro desde agosto y nadie lo
 > ve». Router **660 → 664**, las tres instantáneas regeneradas, familia con 4 de 4 guards.
-> Permiso partido: lo propio siempre, lo ajeno con `can_view_auditoria`. **El acudiente
+> Permiso partido: lo propio siempre, lo ajeno con `can_view_auditoria`. Las tres
+> preguntas que el front tenía abiertas (2, 3 y 7 de su A.4) estaban **ya resueltas en
+> código desde AUD-5** y sólo faltaba trasladarlas: contestadas en `myvc_front` `8486821d`.
+> El centinela de escritores de bitácora lo dejó verde otra sesión en `3ebdc07`. **El acudiente
 > todavía no ve la auditoría de sus acudidos** — restricción consciente, pide la consulta
 > de parentesco. Sin tests, a petición de Joseth. Falta el front (L2).
 >
