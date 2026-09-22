@@ -19,6 +19,7 @@
         "nombres": "string",
         "religion": "null|string",
         "sexo": "string",
+        "updated_at": "string",
         "user_id": "int"
     }
 ]
