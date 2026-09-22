@@ -82,7 +82,8 @@ class PrematriculasController extends Controller {
 							m.grupo_id, 
 							u.imagen_id, IFNULL(i.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as imagen_nombre, 
 							a.foto_id, IFNULL(i2.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as foto_nombre,
-							m.fecha_retiro as fecha_retiro, m.estado, m.fecha_matricula, m.updated_at 
+							m.fecha_retiro as fecha_retiro, m.estado, m.fecha_matricula, m.updated_at,
+							a.updated_at as alumno_updated_at 
 						FROM alumnos a 
 						inner join matriculas m on a.id=m.alumno_id and m.grupo_id=:grupo_id and (m.estado="ASIS" or m.estado="MATR")
 						left join users u on a.user_id=u.id and u.deleted_at is null
@@ -97,7 +98,8 @@ class PrematriculasController extends Controller {
 							m.grupo_id, 
 							u.imagen_id, IFNULL(i.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as imagen_nombre, 
 							a.foto_id, IFNULL(i2.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as foto_nombre,
-							m.fecha_retiro as fecha_retiro, m.estado, m.fecha_matricula, m.updated_at 
+							m.fecha_retiro as fecha_retiro, m.estado, m.fecha_matricula, m.updated_at,
+							a.updated_at as alumno_updated_at 
 						FROM alumnos a 
 						inner join matriculas m on a.id=m.alumno_id and m.grupo_id=:grupo_id2 and (m.estado="RETI" or m.estado="DESE")
 						left join users u on a.user_id=u.id and u.deleted_at is null
@@ -112,7 +114,8 @@ class PrematriculasController extends Controller {
 							m.grupo_id, 
 							u.imagen_id, IFNULL(i.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as imagen_nombre, 
 							a.foto_id, IFNULL(i2.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as foto_nombre,
-							m.fecha_retiro as fecha_retiro, m.estado, m.fecha_matricula, m.updated_at 
+							m.fecha_retiro as fecha_retiro, m.estado, m.fecha_matricula, m.updated_at,
+							a.updated_at as alumno_updated_at 
 						FROM alumnos a 
 						inner join matriculas m on a.id=m.alumno_id 
 						inner join grupos gru on gru.id=m.grupo_id and gru.year_id=:year_id
@@ -231,7 +234,8 @@ class PrematriculasController extends Controller {
 							m.grupo_id, 
 							u.imagen_id, IFNULL(i.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as imagen_nombre, 
 							a.foto_id, IFNULL(i2.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as foto_nombre,
-							m.fecha_retiro as fecha_retiro, m.estado, m.fecha_matricula, m.updated_at 
+							m.fecha_retiro as fecha_retiro, m.estado, m.fecha_matricula, m.updated_at,
+							a.updated_at as alumno_updated_at 
 						FROM alumnos a 
 						inner join matriculas m on a.id=m.alumno_id 
 						inner join grupos gru on gru.id=m.grupo_id and gru.year_id=:year_id

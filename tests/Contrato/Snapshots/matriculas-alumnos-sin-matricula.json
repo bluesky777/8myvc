@@ -2,6 +2,7 @@
     {
         "abrev_grupo": "string",
         "alumno_id": "int",
+        "alumno_updated_at": "string",
         "apellidos": "string",
         "celular": "string",
         "ciudad_nac": "null",
