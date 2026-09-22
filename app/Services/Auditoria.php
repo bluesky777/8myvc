@@ -216,6 +216,7 @@ final class Auditoria
         'asignatura' => 'asignaturas',
         'requisito_matricula' => 'requisitos_matricula',
         'requisito_alumno' => 'requisitos_alumno',
+        'pedido_de_cambio' => 'change_asked',
 
         // Sin tabla, y declarado: no son filas, son sucesos o recursos.
         'intento_login' => null,      // `Services\Login`: un login fallido. Sin actor.

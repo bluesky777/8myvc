@@ -1,6 +1,7 @@
 <?php namespace App\Http\Controllers;
 
 
+use App\Services\Auditoria;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -972,10 +973,14 @@ class ChangeAskedController extends Controller {
 			DB::update($consulta, [ ':updated_at' => $now, ':assignment_id' => $assignment_id ]);
 			$consulta = 'UPDATE change_asked SET answered_by=:user_id, deleted_by=:user_id2, deleted_at=:dt WHERE id=:asked_id';
 			DB::update($consulta, [ ':user_id' => $user->user_id, ':user_id2' => $user->user_id, ':dt' => $now, ':asked_id' => $asked_id ]);
+			$this->anotarElRechazo($asked_id);
+
 			return [ 'finalizado'=> true, 'msg'=>'Cambio rechazado con éxito'];
 		}
 
 		$finalizado = $this->finalizar_si_no_hay_cambios($pedido, $user->user_id);
+
+		$this->anotarElRechazo($asked_id);
 
 		return [ 'finalizado'=> $finalizado, 'msg'=>'Cambio rechazado con éxito'];
 	}
@@ -991,6 +996,27 @@ class ChangeAskedController extends Controller {
 	 * La columna es una de cuatro cadenas literales escritas más arriba, nunca
 	 * algo que venga de la petición.
 	 */
+	/**
+	 * Un rechazo deja línea igual que una aceptación, y por el mismo motivo.
+	 *
+	 * **Rechazar no escribe en la tabla del alumno, y por eso costaba verlo**: el dato
+	 * se queda como estaba, así que desde fuera un pedido rechazado y un pedido que
+	 * nadie miró se parecen mucho. La diferencia —que alguien lo vio y dijo que no— es
+	 * justo lo que hay que poder demostrar cuando la familia vuelve a preguntar.
+	 *
+	 * La acción es `editar` y no `borrar`: el pedido sigue ahí, lo que cambió es su
+	 * estado. `denegado` tampoco vale: ésa es la del middleware para un intento que no
+	 * llegó a pasar, y esto pasó y lo decidió una persona con permiso.
+	 */
+	private function anotarElRechazo($asked_id): void
+	{
+		Auditoria::registrar()
+			->editar('pedido_de_cambio', (int) $asked_id)
+			->a(['estado' => 'rechazado'])
+			->resumen('Rechazó el pedido de cambio '.$asked_id)
+			->guardar();
+	}
+
 	private function aplicarAlAlumno($pedido, string $columna, $valor)
 	{
 		$alumno = Alumno::where('user_id', $pedido->asked_by_user_id)->first();
@@ -999,7 +1025,28 @@ class ChangeAskedController extends Controller {
 			abort(404, 'El pedido no es de ningún alumno.');
 		}
 
+		/*
+		 * **El punto por el que pasa TODO cambio de datos de un alumno aceptado.** Las
+		 * cuatro columnas que puede tocar un pedido entran por aquí, así que una sola
+		 * línea cubre las cuatro y no hay forma de que una rama nueva se escape sin
+		 * rastro: quien añada una quinta columna arriba pasa por esta función igual.
+		 *
+		 * El valor de antes se lee por clave primaria antes de pisarlo. Un pedido de
+		 * cambio es, por definición, alguien diciendo que un dato está mal: si se
+		 * acepta y no queda escrito qué decía, aceptar mal y aceptar bien se ven igual
+		 * al día siguiente.
+		 */
+		$antes = DB::selectOne("SELECT {$columna} AS valor FROM alumnos WHERE id = ?", [$alumno->id]);
+
 		DB::update("UPDATE alumnos SET {$columna}=? WHERE id=?", [$valor, $alumno->id]);
+
+		Auditoria::registrar()
+			->editar('alumno', (int) $alumno->id)
+			->deAlumno((int) $alumno->id)
+			->de($antes->valor ?? null)
+			->a($valor)
+			->resumen('Aceptó el pedido de cambio de '.$columna)
+			->guardar();
 	}
 
 
