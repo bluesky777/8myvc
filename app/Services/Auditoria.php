@@ -738,9 +738,56 @@ final class Auditoria
             return null;
         }
 
-        $json = json_encode($valor, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $json = json_encode($this->fechasEnUnaSolaForma($valor), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
         return $json === false ? null : $json;
+    }
+
+    /**
+     * Una fecha auditada se escribe SIEMPRE igual, venga de donde venga.
+     *
+     * Lo trajo `myvc-front-89` el 22 sep 2026 con el ejemplo dentro de una sola fila:
+     *
+     *     8307  editar  valor_anterior {"fecha_matricula":"2026-01-26"}
+     *                   valor_nuevo    {"fecha_matricula":"2026-01-26T00:00:00.000000Z"}
+     *
+     * **Es el mismo día escrito de dos maneras.** El lado «anterior» sale del valor
+     * crudo de la columna —una cadena de MySQL— y el «nuevo» del atributo ya casteado
+     * por Eloquent, que es un `Carbon` y se serializa en ISO 8601. El que escribe la
+     * línea no elige: le llega lo que el modelo le da.
+     *
+     * **Por qué importa más de lo que parece:** el `valor_nuevo` de una línea nunca
+     * coincide, como cadena, con el `valor_anterior` de la siguiente, aunque sean el
+     * mismo dato. Encadenar las líneas de una entidad —para ver si un cambio se
+     * revirtió, para detectar un hueco, para pintar «de X a Y»— deja de funcionar, y
+     * falla enseñando dos valores que parecen distintos y son iguales: el modo de error
+     * que nadie va a perseguir porque no se ve como un error.
+     *
+     * **Y la `Z` de más, que es el segundo problema en el mismo sitio.** Ese sufijo dice
+     * «esto es UTC» de un dato que el colegio escribió en hora de Bogotá; el `Carbon`
+     * sale con la zona de `config/app.php` sólo porque nadie le dijo otra cosa. Aquí se
+     * formatea **sin convertir de zona**: convertir movería la hora cinco horas y sería
+     * cambiar el dato para arreglar su etiqueta.
+     *
+     * Sólo toca `DateTimeInterface` y las cadenas que son exactamente una fecha o una
+     * fecha con hora. Una cadena cualquiera pasa intacta: esto normaliza un formato, no
+     * adivina tipos.
+     */
+    private function fechasEnUnaSolaForma(mixed $valor): mixed
+    {
+        if ($valor instanceof \DateTimeInterface) {
+            return $valor->format('Y-m-d H:i:s');
+        }
+
+        if (is_string($valor) && preg_match('/^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}:\d{2}(?::\d{2})?))?$/', $valor, $partes) === 1) {
+            return $partes[1].' '.str_pad($partes[2] ?? '00:00:00', 8, ':00');
+        }
+
+        if (is_array($valor)) {
+            return array_map(fn (mixed $v): mixed => $this->fechasEnUnaSolaForma($v), $valor);
+        }
+
+        return $valor;
     }
 
     /**

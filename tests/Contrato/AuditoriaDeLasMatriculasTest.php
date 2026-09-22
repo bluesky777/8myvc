@@ -229,6 +229,52 @@ class AuditoriaDeLasMatriculasTest extends CasoDeContrato
     }
 
     /**
+     * Las dos fechas de una línea se escriben **con la misma forma**.
+     *
+     * Lo trajo `myvc-front-89` con el ejemplo dentro de una sola fila: el mismo
+     * día como `"2026-01-26"` en `valor_anterior` y como
+     * `"2026-01-26T00:00:00.000000Z"` en `valor_nuevo`, porque uno sale del valor
+     * crudo de la columna y el otro del atributo casteado por Eloquent.
+     *
+     * **Lo que rompe no es la estética**: encadenar las líneas de una entidad —ver
+     * si un cambio se revirtió, detectar un hueco, pintar «de X a Y»— compara el
+     * `valor_nuevo` de una con el `valor_anterior` de la siguiente, y con dos
+     * formas nunca coinciden aunque el dato sea idéntico. Falla enseñando dos
+     * valores que parecen distintos, que es el error que nadie persigue.
+     *
+     * Este caso pide lo fuerte a propósito: **escribir la fecha que ya estaba**
+     * tiene que dejar las dos puntas **iguales como cadena**. Una comprobación de
+     * formato las daría por buenas escribiéndolas en dos husos distintos.
+     */
+    public function test_las_dos_fechas_de_una_linea_van_en_la_misma_forma(): void
+    {
+        $token = $this->tokenDeSuperusuario();
+        $matricula = $this->unaMatricula();
+
+        $mismoDia = substr((string) $matricula->fecha_matricula, 0, 10);
+
+        $this->assertNotSame('', $mismoDia, 'El seed necesita una matrícula con fecha.');
+
+        $this->withToken($token)->putJson('/api/matriculas/cambiar-fecha-matricula', [
+            'matricula_id' => $matricula->id,
+            'fecha_matricula' => $mismoDia,
+        ])->assertStatus(200);
+
+        $linea = $this->lineasDe((int) $matricula->id)[0];
+
+        $anterior = json_decode((string) $linea->valor_anterior, true)['fecha_matricula'];
+        $nuevo = json_decode((string) $linea->valor_nuevo, true)['fecha_matricula'];
+
+        $this->assertSame($anterior, $nuevo,
+            'Reguardar la MISMA fecha dejó dos cadenas distintas: el valor crudo de la '
+            .'columna y el `Carbon` del modelo se serializan de dos formas, y encadenar '
+            .'las líneas deja de funcionar.');
+
+        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', (string) $nuevo,
+            'La forma canónica es «Y-m-d H:i:s», sin la «Z» que diría UTC de un dato de Bogotá.');
+    }
+
+    /**
      * **Y el control que dice que estos casos miden algo**: sin tocar nada, la
      * matrícula no tiene líneas.
      *
