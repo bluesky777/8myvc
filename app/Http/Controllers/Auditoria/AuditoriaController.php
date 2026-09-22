@@ -62,6 +62,29 @@ class AuditoriaController extends Controller
     private const TOPE = 300;
 
     /**
+     * **El orden de un historial lo decide el servidor, y es uno solo.**
+     *
+     * Hasta el 22 sep 2026 no lo decidía nadie: `getEntidad` ordenaba `a.id ASC` y
+     * `getAlumno` `a.id DESC`, así que **las mismas tres líneas salían al revés según
+     * por qué ruta se pidieran** —lo encontró `myvc-front-89` pintando el modal de
+     * matrículas: `8305, 8306, 8307` por una y `8307, 8306, 8305` por la otra—.
+     *
+     * Lo que lo hace algo más que una inconsistencia bonita es el `LIMIT`: con tope,
+     * **el orden decide qué líneas se pierden**. Con `ASC` el recorte se llevaba las
+     * más recientes, que son justo las que se consultan cuando alguien reclama.
+     *
+     * Y el modo de fallo del cliente es el que no se ve: un historial del revés **se
+     * lee perfectamente bien** y es mentira. No da error, no rompe nada, y quien lo
+     * mire concluye que un cambio ocurrió antes que otro.
+     *
+     * `DESC` y no `ASC` porque lo primero que se quiere ver es lo último que pasó, y
+     * porque así el tope conserva lo reciente. Por `id` y no por `ocurrido_en`: es
+     * monótono y desempata solo — tres líneas del mismo segundo son normales, y con
+     * `ocurrido_en` a secas su orden entre sí quedaría al azar del motor.
+     */
+    private const ORDEN = 'a.id DESC';
+
+    /**
      * Los ingresos de un usuario, con **cuántas acciones hizo en cada uno**.
      *
      * El contador es lo que hace la lista útil: se ve de un vistazo cuál merece
@@ -171,7 +194,7 @@ class AuditoriaController extends Controller
         return response()->json([
             'entidad' => $tipo,
             'entidad_id' => $id,
-            'acciones' => $this->lineas('a.entidad = ? AND a.entidad_id = ?', [$tipo, $id], 'a.id ASC'),
+            'acciones' => $this->lineas('a.entidad = ? AND a.entidad_id = ?', [$tipo, $id], self::ORDEN),
         ]);
     }
 
@@ -196,7 +219,7 @@ class AuditoriaController extends Controller
 
         return response()->json([
             'alumno_id' => $id,
-            'acciones' => $this->lineas('a.alumno_id = ?', [$id], 'a.id DESC'),
+            'acciones' => $this->lineas('a.alumno_id = ?', [$id], self::ORDEN),
         ]);
     }
 

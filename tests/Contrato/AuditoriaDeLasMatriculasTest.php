@@ -275,6 +275,65 @@ class AuditoriaDeLasMatriculasTest extends CasoDeContrato
     }
 
     /**
+     * Las dos rutas que leen el historial lo devuelven **en el mismo orden**.
+     *
+     * Lo encontró `myvc-front-89` pintando el modal: las mismas tres líneas salían
+     * `8305, 8306, 8307` por `auditoria/entidad/matricula/{id}` y `8307, 8306, 8305`
+     * por `auditoria/alumno/{id}`. Una ordenaba `a.id ASC` y la otra `a.id DESC`, y
+     * no lo había decidido nadie.
+     *
+     * **Dos razones por las que esto no es cosmético.** La primera es el `LIMIT 300`:
+     * con tope, el orden decide **qué líneas se pierden**, y con `ASC` el recorte se
+     * llevaba las más recientes — las que se consultan cuando alguien reclama. La
+     * segunda es cómo falla en el cliente: un historial del revés **se lee
+     * perfectamente bien** y es mentira. No da error; sólo dice que un cambio ocurrió
+     * antes que otro.
+     *
+     * El caso compara las dos listas **por la misma matrícula**, y por eso hacen falta
+     * al menos dos líneas: con una sola, cualquier orden coincide consigo mismo y el
+     * caso pasaría sin comprobar nada.
+     */
+    public function test_las_dos_rutas_del_historial_coinciden_en_el_orden(): void
+    {
+        $token = $this->tokenDeSuperusuario();
+        $matricula = $this->unaMatricula();
+
+        $this->withToken($token)->putJson('/api/matriculas/toggle-nuevo',
+            ['matricula_id' => $matricula->id, 'is_nuevo' => ((int) $matricula->nuevo) === 1 ? 0 : 1])
+            ->assertStatus(200);
+
+        $this->withToken($token)->putJson('/api/matriculas/cambiar-fecha-retiro',
+            ['matricula_id' => $matricula->id, 'fecha_retiro' => '2026-04-01'])
+            ->assertStatus(200);
+
+        $porEntidad = $this->withToken($token)
+            ->getJson('/api/auditoria/entidad/matricula/'.$matricula->id)
+            ->assertStatus(200)->json('acciones');
+
+        $porAlumno = array_values(array_filter(
+            $this->withToken($token)->getJson('/api/auditoria/alumno/'.$matricula->alumno_id)
+                ->assertStatus(200)->json('acciones'),
+            fn (array $l): bool => $l['entidad'] === 'matricula'
+                && (int) $l['entidad_id'] === (int) $matricula->id));
+
+        $ids = fn (array $lineas): array => array_map(fn (array $l): int => (int) $l['id'], $lineas);
+
+        $this->assertGreaterThanOrEqual(2, count($porEntidad),
+            'Con una sola línea cualquier orden coincide consigo mismo y este caso no mide nada.');
+
+        $this->assertSame($ids($porEntidad), $ids($porAlumno),
+            'Las mismas líneas salen en orden distinto según la ruta: con LIMIT, eso además '
+            .'cambia cuáles se pierden.');
+
+        $descendente = $ids($porEntidad);
+        rsort($descendente);
+
+        $this->assertSame($descendente, $ids($porEntidad),
+            'El historial no viene de lo más reciente a lo más antiguo, que es lo que el '
+            .'tope de 300 tiene que conservar.');
+    }
+
+    /**
      * **Y el control que dice que estos casos miden algo**: sin tocar nada, la
      * matrícula no tiene líneas.
      *
