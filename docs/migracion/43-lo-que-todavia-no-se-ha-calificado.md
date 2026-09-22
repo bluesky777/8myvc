@@ -1275,17 +1275,79 @@ que D3 necesitaba para no ser un adorno.
   el null no se permitía hasta antes del deploy de ayer»*. **No se midió** cuántas casillas
   vacías viven en periodos cerrados de los dieciséis; en la copia de desarrollo son **5**, contra
   12.632 en los abiertos.
-- **La nota de UNIDAD no normaliza.** `RepartoDeLaNota::notaDeLaUnidad` sigue siendo la suma
-  cruda, así que un criterio con una casilla sin calificar todavía puede imprimir «Debilidad»
-  en el boletín por lo que no se ha evaluado. Se probó a cambiarla y **se revirtió**: hay dos
-  implementaciones —ésa en SQL y el `$nota_unidad` de `calculoAlumnoNotas` en PHP— y la de PHP
-  alimenta el acumulador de la definitiva, así que normalizar sólo una deja las dos pantallas
-  discrepando y normalizar las dos divide dos veces. **Es trabajo aparte y es de Joseth.**
+- ~~**La nota de UNIDAD no normaliza.**~~ **HECHA el mismo día, en la §Fase 7** — Joseth la
+  pidió al ver el precio. Aquí quedó escrito que era trabajo aparte porque normalizar sólo una
+  de las dos implementaciones dejaba las pantallas discrepando y normalizar las dos dividía dos
+  veces; la salida fue una tercera que no se había mirado: **publicar la nota del criterio
+  normalizada y dejar CRUDO lo que alimenta la definitiva**.
 - **`Asignatura::calculoAlumnoNotas2` se quedó sin tocar**: es el gemelo literal, está comentado
   entero y no lo llama nadie. Sigue siendo una copia futura de la fórmula de ayer.
 - **Los 21 promedios de año, periodo y área heredan** sin cambiar una línea: promedian
   definitivas, no notas. Lo que no se midió es **cuánto** se mueve un promedio de año cuando sus
   cuatro periodos cambian a la vez.
+
+---
+
+### Fase 7 — la nota del CRITERIO, que es donde se leía como palabra · **ESCRITA el 22 sep 2026**
+
+La fase 6 arregló la definitiva y dejó vivo el mismo fallo un piso más abajo: la nota de una
+unidad —«1. Saber», «2. Hacer»— seguía siendo la suma cruda, así que una casilla sin calificar
+la hundía igual. **Y ahí pesa más que en la definitiva, porque ese número no se lee como nota
+sino como palabra**: `Boletines2Controller` lo compara con la mínima para imprimir
+**«Debilidad»** y lo cruza con `escalas_de_valoracion` para sacar BAJO / BÁSICO / ALTO /
+SUPERIOR.
+
+**Medido antes de tocar nada**, periodo abierto del colegio del docker: de **136.059** pares
+(unidad, alumno) sólo **1.157** mezclan casillas vacías y calificadas — pero de ésos **899
+cambian de valoración** y **816 dejan de contar como perdidos**.
+
+#### Los cuatro sitios, y por qué eran de dos clases distintas
+
+| Dónde | Qué es allí la nota de unidad |
+|---|---|
+| `RepartoDeLaNota::notaDeLaUnidad` (SQL) → 4 usos en `Models\Unidad` | **pintura pura**: boletines 1/2/3, semáforo y notas-actuales. `nota_asignatura` sale de `notas_finales` y la parcial se fabrica la suya, así que aquí no arrastra nada |
+| `Models\Asignatura::calculoAlumnoNotas` (PHP) | **el sumando intermedio de la definitiva** |
+| `EditnotaController` (PHP) | ídem, con la fórmula escrita a mano |
+| `app2/.../notas-alumno/analisis.ts` (front) | la calcula el cliente, porque `notas/alumno` no manda `nota_unidad` |
+
+#### La salida, que era una tercera y no una de las dos
+
+En los dos calculadores PHP se **separó lo que se publica de lo que se acumula**:
+`valor_unidad` sale de la suma **cruda** —es lo que la unidad aporta de verdad, y la definitiva
+se normaliza una sola vez y sobre la asignatura entera— y `nota_unidad` se publica
+**normalizada**. La consecuencia se escribe para que nadie la descubra midiendo:
+
+> **Dentro de la misma respuesta, `Σ nota_unidad × porcentaje_unidad` ya no da
+> `nota_asignatura`.** 47,60 × 0,70 son 33,32 y el aporte real son 16,66. Son dos cuentas
+> distintas a propósito: normalizar por criterio reparte el peso de otra forma que normalizar
+> la asignatura entera. **Hoy nadie hace esa multiplicación** —censados este repo, `app2`, la
+> app vieja y `myvc_flutter`—, salvo la columna `Def` del Excel de asignatura, que su propio
+> código declara orientativa y que no se reimporta nunca.
+
+Lo fija `LaParcialEnLaPlanillaTest::test_la_nota_del_criterio_va_sobre_lo_evaluado_y_el_aporte_no`,
+que comprueba los tres números a la vez —47,60 el criterio, 16,66 el aporte, 47,60 la
+definitiva— y **está comprobado rompiéndolo**: sin la normalización sale 23,80 y en rojo.
+
+#### Lo que había que saber antes de escribirlo, y no estaba en ninguna lista
+
+**Ningún test afirmaba un valor numérico de la nota de unidad.** Cuatro instantáneas declaran
+su *tipo* y `BoletinFortalezaDebilidadTest` comprueba que el desempeño sea «Debilidad» o
+«Fortaleza», nunca cuál. O sea que este número pudo estar mal todo el tiempo sin poner nada en
+rojo, y por eso la fase deja un centinela con cifras en vez de una instantánea más.
+
+**Y `boletines3` publica `nota_unidad` en ejecución pero su instantánea trae
+`"asignaturas": []`**, así que esa familia no habría cazado el cambio. Se apunta, no se
+arregla: es otra tarea.
+
+#### La decisión que esto tumbó, y que no era mía
+
+El modo `promedio` tenía escrito lo contrario en el doc 28 §5.5 (**D20**): *«el denominador son
+las subunidades que existen, no las notas puestas»*. **Lo tumbó su propio argumento**: esa
+decisión se apoyaba en que el modo `porcentaje` hacía lo mismo —*«las dos ramas se comportan
+igual a mitad de periodo»*—, y la fase 6 cambió el modo `porcentaje`. El segundo argumento de
+D20 sigue en pie y se paga a sabiendas: **la nota del criterio baila a cada nota que el docente
+escribe**, porque cambia el divisor. Medido ese día: **0 de 9 años** en `promedio`, así que no
+movió la nota de nadie. Queda anotado en el 28, junto al párrafo que invierte.
 
 ---
 

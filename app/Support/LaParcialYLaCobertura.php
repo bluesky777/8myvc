@@ -129,6 +129,32 @@ final class LaParcialYLaCobertura
     }
 
     /**
+     * **Lo mismo, un piso más abajo: la nota de UNA unidad sobre lo evaluado de esa
+     * unidad.** `null` cuando no hay ni una casilla calificada en ella.
+     *
+     * Es la hermana de {@see parcial} y se separa por el factor y no por capricho: allí el
+     * peso acumulado lleva los porcentajes de la unidad **y** de la subunidad —dos `/100`, de
+     * ahí el 10.000— y aquí sólo el de la subunidad, así que repone **un** `/100`. Escribir
+     * `parcial($nota, $peso * 100)` daría el mismo número y sería la clase de aritmética que
+     * nadie puede leer dos meses después.
+     *
+     * **Existe desde el 22 sep 2026**, con la nota de unidad: un criterio a medio calificar
+     * imprimía «Debilidad» y bajaba de banda en `escalas_de_valoracion` por lo que su
+     * profesor todavía no había puesto. Eran **899 de 136.059** pares (unidad, alumno) en el
+     * periodo abierto del colegio del docker, **816** de ellos contando como perdidos.
+     *
+     * **`$pesoEvaluado` va en puntos de porcentaje de subunidad** (0–100), enteros y sumando
+     * sólo las calificadas — el mismo criterio que el divisor de la asignatura: existe la
+     * fila y `nota !== null`, **nunca `> 0`**.
+     */
+    public static function deLaUnidad(float|int $notaUnidad, float|int $pesoEvaluado): ?float
+    {
+        return $pesoEvaluado <= 0
+            ? null
+            : (float) (($notaUnidad * 100) / $pesoEvaluado);
+    }
+
+    /**
      * Qué parte del plan se ha evaluado, como **factor de 0 a 1**. `null` cuando no hay nada
      * que calificar.
      *

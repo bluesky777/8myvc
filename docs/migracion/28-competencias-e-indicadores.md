@@ -1139,6 +1139,22 @@ un motivo que no es la pereza: los porcentajes de las unidades los pone **el col
 una vez al año, en la plantilla**, así que no le cuestan nada al docente. Los de las
 subunidades los teclea él, en cada asignatura. Se quita el que cuesta.
 
+> ### ⚠️ Este párrafo se invirtió el 22 sep 2026, y lo tumbó su propio argumento
+>
+> Lo de abajo se apoyaba en que **el modo porcentaje hacía lo mismo**. Ese día Joseth
+> decidió que lo no calificado deja de contar en la definitiva (D8 del
+> [43](43-lo-que-todavia-no-se-ha-calificado.md)), y con ella en la nota de unidad: el
+> denominador pasa a ser **las notas puestas** en las dos ramas. Mantener aquí el viejo
+> habría roto justo la coherencia que este párrafo buscaba — las dos ramas diciendo
+> cosas distintas del mismo alumno.
+>
+> **El segundo argumento sigue en pie y se paga a sabiendas**: con el denominador nuevo
+> la nota del criterio **baila a cada nota que el docente escribe**, porque cambia el
+> divisor. Medido el día del cambio: **0 de 9 años** estaban en modo `promedio`, así que
+> no movió la nota de nadie. El centinela que lo fija es
+> `LaParcialEnLaPlanillaTest::test_la_nota_del_criterio_va_sobre_lo_evaluado_y_el_aporte_no`,
+> comprobado rompiéndolo.
+
 **El denominador son las subunidades que existen, no las notas puestas**, y esto es
 una decisión con consecuencia visible: un alumno con 1 de 5 notas puestas saca
 `nota/5`, no `nota/1`. Es lo mismo que hace hoy el modo porcentaje —una nota que falta

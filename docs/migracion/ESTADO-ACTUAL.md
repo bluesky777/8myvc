@@ -34,10 +34,20 @@
 > normalizan si algo los recalcula, decisión suya y con motivo escrito (*«el null no se
 > permitía hasta antes del deploy de ayer»*).
 >
-> **Lo que queda y es suyo:** la **nota de unidad** (`RepartoDeLaNota::notaDeLaUnidad`) sigue
-> siendo la suma cruda, así que un criterio a medio calificar todavía puede imprimir
-> «Debilidad». Se probó a cambiarla y **se revirtió**: son dos implementaciones, una en SQL y
-> otra en PHP, y la de PHP alimenta el acumulador de la definitiva. §Fase 6 del 43.
+> **Y la nota del CRITERIO, el mismo día** (§Fase 7 del 43, Joseth la pidió al ver el precio).
+> Ahí pesaba más que en la definitiva porque no se lee como nota sino como palabra —«Debilidad»
+> y la banda de `escalas_de_valoracion`—: **899 de 136.059** pares (unidad, alumno) cambiaban de
+> valoración en el periodo abierto, **816** dejando de contar como perdidos. Cuatro sitios: el
+> SQL de `notaDeLaUnidad` (boletines), los dos bucles PHP y `analisis.ts` en el front.
+>
+> La salida no fue ninguna de las dos que se habían mirado: **se publica el criterio normalizado
+> y se deja CRUDO lo que alimenta la definitiva**. O sea que dentro de la misma respuesta
+> `Σ nota_unidad × porcentaje_unidad` **ya no da** `nota_asignatura`, a propósito y sin que nadie
+> haga esa multiplicación. Centinela nuevo con cifras —no había **ningún** test que afirmara un
+> valor de la nota de unidad—, comprobado rompiéndolo.
+>
+> **Tumba D20** (doc 28 §5.5, *«el denominador son las subunidades que existen»*) con su propio
+> argumento, y queda anotado allí. 0 de 9 años en modo `promedio`, así que no movió a nadie.
 
 > ## ✅ LOS CUATRO RELOJES: CENSADOS, Y LA PUERTA DE `NOW()` CERRADA (21 sep 2026)
 >

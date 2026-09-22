@@ -328,7 +328,26 @@ final class RepartoDeLaNota
      */
     public static function notaDeLaUnidad(string $modo = self::PORCENTAJE, string $s = 's', string $n = 'n'): string
     {
-        return "ROUND(sum(({$n}.nota*".self::pesoDeSubunidad($modo, $s).')))';
+        $peso = self::pesoDeSubunidad($modo, $s);
+
+        // **Dividida entre el peso de lo calificado desde el 22 sep 2026**, igual que la
+        // definitiva de la que es un piso. Aquí se notaba más que en la definitiva, y por
+        // eso se hizo aparte: este número no se lee como nota sino como **palabra** —la
+        // rama `fortaleza_debilidad` lo compara con la mínima y `con_desempenio` lo cruza
+        // con `escalas_de_valoracion`—, así que una casilla sin calificar imprimía
+        // «Debilidad» en la cara de un alumno por lo que su profesor no había puesto
+        // todavía. **899 de 136.059** pares (unidad, alumno) cambiaban de valoración en el
+        // periodo abierto del colegio del docker, **816** dejando de contar como perdidos.
+        //
+        // Con la unidad entera calificada el divisor es la suma de los pesos y esto es la
+        // cuenta de siempre. Sin una sola casilla puesta sigue dando `NULL` —lo daba ya,
+        // por `SUM(peso × NULL)`—, que es lo que deja la columna vacía en vez de escribir
+        // un cero que nadie sacó, y lo que los snapshots declaran como `null|string`.
+        //
+        // **El `ROUND` sigue fuera y a entero**, como estaba: se redondea una vez, al
+        // final, y después de dividir. Dentro del `SUM` bailaría con el número de
+        // subunidades.
+        return "ROUND(sum(({$n}.nota*{$peso}))/NULLIF(sum(CASE WHEN {$n}.nota IS NULL THEN 0 ELSE {$peso} END), 0))";
     }
 
     /**

@@ -75,6 +75,10 @@ class EditnotaController extends Controller {
 				$unidad->subunidades = Subunidad::deUnidad($unidad->unidad_id);
 				$nota_unidad = 0;
 
+				// El divisor de ESTA unidad, en puntos de porcentaje de subunidad y sólo de las
+				// calificadas. Hermano del `$peso_evaluado` de la asignatura, que mide otra cosa.
+				$peso_unidad_evaluado = 0;
+
 				foreach ($unidad->subunidades as $subunidad) {
 
 					// **Las columnas nombradas, y las seis de la nivelación A PROPÓSITO**
@@ -124,16 +128,22 @@ class EditnotaController extends Controller {
 						// que alguien puso. Confundirlos aqui reintroduce el bug entero del 43.
 						if ($nota->nota !== null) {
 							$peso_evaluado += (int) $unidad->porcentaje_unidad * (int) $subunidad->porcentaje_subunidad;
+							$peso_unidad_evaluado += (int) $subunidad->porcentaje_subunidad;
 						}
 					}
 					
 				}
 
-				$unidad->nota_unidad = $nota_unidad;
-				$valor_unidad = ($unidad->nota_unidad * $unidad->porcentaje_unidad) / 100;
+				// `valor_unidad` sale de la suma CRUDA --es lo que esta unidad aporta a la definitiva,
+				// que se normaliza una sola vez y sobre la asignatura entera-- y `nota_unidad` se
+				// publica NORMALIZADA, que es como se lee la nota de un criterio. El porqué entero, en
+				// el gemelo de este bucle: {@see \App\Models\Asignatura::calculoAlumnoNotas}.
+				$valor_unidad = ($nota_unidad * $unidad->porcentaje_unidad) / 100;
 				$unidad->valor_unidad = $valor_unidad;
 
 				$nota_asignatura += $unidad->valor_unidad;
+
+				$unidad->nota_unidad = LaParcialYLaCobertura::deLaUnidad($nota_unidad, $peso_unidad_evaluado);
 
 
 			}

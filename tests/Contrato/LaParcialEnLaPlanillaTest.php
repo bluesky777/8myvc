@@ -414,6 +414,49 @@ class LaParcialEnLaPlanillaTest extends CasoDeContrato
      *
      * @param  array<string, mixed>  $ctx
      */
+    /**
+     * **La nota de cada CRITERIO también va sobre lo evaluado, y `valor_unidad` no.**
+     *
+     * Es el centinela que no existía: hasta el 22 sep 2026 **ningún test afirmaba un valor
+     * numérico** de `nota_unidad` —sólo su tipo en cuatro instantáneas—, así que la casilla
+     * vacía pudo hundir el criterio entero durante todo ese tiempo sin poner nada en rojo.
+     * Y donde más se notaba no era en el número: `Boletines2Controller` lo compara con la
+     * mínima para imprimir **«Debilidad»** y lo cruza con `escalas_de_valoracion`.
+     *
+     * En el lienzo, la unidad 1 lleva 48 al 30 % y 47 al 20 %, y las otras dos casillas sin
+     * calificar:
+     *
+     *     cruda        = 48×0,30 + 47×0,20            = 23,80   ← lo que se veía
+     *     normalizada  = 23,80 ÷ (0,30 + 0,20)        = 47,60   ← lo que se ve ahora
+     *     valor_unidad = 23,80 × 0,70                 = 16,66   ← NO cambia
+     *
+     * **Los dos últimos se comprueban juntos a propósito.** `valor_unidad` es lo que esta
+     * unidad aporta a la definitiva y tiene que seguir saliendo de la suma cruda, porque la
+     * definitiva se normaliza una sola vez y sobre la asignatura entera. O sea que
+     * `nota_unidad × porcentaje_unidad ≠ valor_unidad` **a propósito**: 47,60 × 0,70 son
+     * 33,32 y aquí van 16,66. Si algún día alguien «arregla» esa diferencia, que sea
+     * leyendo esto y no regenerando una instantánea.
+     */
+    public function test_la_nota_del_criterio_va_sobre_lo_evaluado_y_el_aporte_no(): void
+    {
+        $ctx = $this->laPlanillaDelLienzo();
+        $asig = $this->comoLoCargaUnLector($ctx, $ctx['alumno']);
+
+        $unidad = $asig->unidades[0];
+
+        $this->assertEqualsWithDelta(47.6, (float) $unidad->nota_unidad, 0.001,
+            'La nota del criterio salió '.var_export($unidad->nota_unidad, true).': con 23,8 '
+            .'las dos casillas sin calificar siguen pesando como ceros, y esta unidad se '
+            .'imprime como «Debilidad» por lo que el docente no ha puesto todavía.');
+
+        $this->assertEqualsWithDelta(16.66, (float) $unidad->valor_unidad, 0.001,
+            'El aporte de la unidad a la definitiva se movió. Si sale 33,32 es que la '
+            .'normalización se aplicó dos veces: una por criterio y otra por asignatura.');
+
+        $this->assertEqualsWithDelta(47.6, (float) $asig->nota_asignatura, 0.001,
+            'Y la definitiva tiene que seguir siendo la misma que antes de tocar el criterio.');
+    }
+
     private function comoLoCargaUnLector(array $ctx, int $alumnoId): object
     {
         $asignatura = new \stdClass;

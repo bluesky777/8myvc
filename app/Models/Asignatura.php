@@ -329,6 +329,11 @@ class Asignatura extends Model {
 			
 			$nota_unidad = 0;
 
+			// **El divisor de ESTA unidad**, en puntos de porcentaje de subunidad y sólo de las
+			// calificadas. Es hermano del `$peso_evaluado` de la asignatura y se lleva aparte
+			// porque mide otra cosa: aquél reparte entre criterios, éste dentro de uno.
+			$peso_unidad_evaluado = 0;
+
 			foreach ($unidad->subunidades as $subunidad) {
 				
 				// **Las diez columnas nombradas y no `*`**, desde el 2 sep 2026: esta fila
@@ -362,16 +367,30 @@ class Asignatura extends Model {
 					// entero del 43; confundirlos aquí lo reintroduce en el divisor.
 					if ($nota->nota !== null) {
 						$peso_evaluado += $peso;
+						$peso_unidad_evaluado += (int) $subunidad->porcentaje_subunidad;
 					}
 				}
 				
 			}
 
-			$unidad->nota_unidad 	= $nota_unidad;
-			$valor_unidad 			= ($unidad->nota_unidad * $unidad->porcentaje_unidad) / 100;
+			// **El orden importa y por eso cambió el 22 sep 2026.** `valor_unidad` sale de la
+			// suma CRUDA --es lo que esta unidad aporta de verdad a la definitiva, y la definitiva
+			// se normaliza una sola vez, abajo, sobre la asignatura entera--; `nota_unidad` se
+			// publica NORMALIZADA, porque es lo que se lee como la nota de un criterio y no tiene
+			// por qué cargar con lo que nadie ha calificado.
+			//
+			// Consecuencia que se escribe para que nadie la descubra midiendo: dentro de esta
+			// misma respuesta **`Σ nota_unidad × porcentaje_unidad` ya no da `nota_asignatura`**.
+			// Son dos cuentas distintas a propósito --normalizar por criterio reparte el peso de
+			// otra forma que normalizar la asignatura entera-- y hoy **nadie hace esa
+			// multiplicación**: ni este repo, ni `app2`, ni la app vieja, ni `myvc_flutter`,
+			// censados el 22 sep 2026. El día que alguien la haga, esto es lo primero que leer.
+			$valor_unidad			= ($nota_unidad * $unidad->porcentaje_unidad) / 100;
 			$unidad->valor_unidad 	= $valor_unidad;
 
 			$nota_asignatura += $unidad->valor_unidad;
+
+			$unidad->nota_unidad 	= LaParcialYLaCobertura::deLaUnidad($nota_unidad, $peso_unidad_evaluado);
 		}
 
 
