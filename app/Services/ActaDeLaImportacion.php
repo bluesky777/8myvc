@@ -373,7 +373,7 @@ class ActaDeLaImportacion
         // La fecha del acta y no la de la importación, y por eso dice «generada»:
         // dos actas de la misma importación son el mismo documento, y quien las
         // compara tiene que poder ver que lo son.
-        $hoja->setCellValue('A4', 'Acta generada el '.Reloj::ahora()->format('d/m/Y H:i'));
+        $hoja->setCellValue('A4', 'Acta generada el '.Reloj::ahora()->format(Reloj::FORMATO_HUMANO));
         $hoja->getStyle('A4')->getFont()->setSize(9)->getColor()->setARGB('FF888888');
 
         return 6;

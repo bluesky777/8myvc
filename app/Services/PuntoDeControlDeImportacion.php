@@ -76,6 +76,28 @@ class PuntoDeControlDeImportacion
     public const FALLIDA = 'fallida';
 
     /**
+     * **El nombre de quien empezó una importación, nunca su número.**
+     *
+     * Vive en una constante porque lo usan dos consultas —{@see pendienteDe} y
+     * {@see laDeLaHuella}— y las dos se lo enseñan a la misma persona: si una
+     * cayera al `username` y la otra no, la misma importación tendría dos nombres
+     * en dos pantallas.
+     *
+     * **El `username` no es una red por si acaso: es el caso NORMAL.** Medido el
+     * 20 sep 2026 en la copia de desarrollo: de las 22 cuentas de tipo `Usuario`
+     * —los administrativos— ninguna tiene ficha en `profesores`. Unir sólo contra
+     * `profesores` habría dejado el nombre vacío justo para todos ellos.
+     */
+    private const QUIEN_LA_EMPEZO = 'COALESCE(
+                        NULLIF(TRIM(CONCAT(COALESCE(p.nombres, ""), " ", COALESCE(p.apellidos, ""))), ""),
+                        u.username
+                    )';
+
+    /** Las uniones que {@see QUIEN_LA_EMPEZO} necesita. Van juntas o no van. */
+    private const UNIONES_DEL_NOMBRE = 'LEFT JOIN users u ON u.id = i.created_by
+             LEFT JOIN profesores p ON p.user_id = u.id AND p.deleted_at IS NULL';
+
+    /**
      * Las claves de una hoja del acta que se **suman** entre pasadas.
      *
      * Van declaradas y no deducidas de `is_numeric` por una razón que se ve de
@@ -615,16 +637,47 @@ class PuntoDeControlDeImportacion
         return DB::selectOne(
             'SELECT i.id, i.archivo, i.huella, i.year, i.avance, i.filas, i.filas_totales, i.estado, i.error,
                     i.avisos, i.respuestas, i.inicio, i.fin, i.created_by,
-                    COALESCE(
-                        NULLIF(TRIM(CONCAT(COALESCE(p.nombres, ""), " ", COALESCE(p.apellidos, ""))), ""),
-                        u.username
-                    ) AS empezada_por
+                    '.self::QUIEN_LA_EMPEZO.' AS empezada_por
              FROM importaciones i
-             LEFT JOIN users u ON u.id = i.created_by
-             LEFT JOIN profesores p ON p.user_id = u.id AND p.deleted_at IS NULL
+             '.self::UNIONES_DEL_NOMBRE.'
              WHERE i.tipo = ? AND i.year = ? AND i.estado <> ?
              ORDER BY i.id DESC LIMIT 1',
             [$tipo, $year, self::COMPLETADA]
+        );
+    }
+
+    /**
+     * La última importación de **este archivo**, la haya terminado o no.
+     *
+     * Es lo que contesta «esto ya se subió» en el ensayo de la planilla: la huella
+     * es el contenido, así que una coincidencia aquí **es el mismo fichero**, no uno
+     * que se llame igual.
+     *
+     * **No filtra por estado, y es la decisión que la hace útil.** Una importación
+     * que reventó a medias es más importante de contar que una que fue bien, porque
+     * es justo la que deja al docente sin saber qué entró. Filtrar por `completada`
+     * escondería el único caso en que este aviso hace falta de verdad.
+     *
+     * **`id DESC` y no `inicio DESC`**: dos filas del mismo archivo pueden empezar
+     * dentro del mismo segundo —la tabla guarda segundos— y entonces el orden por
+     * fecha es el que devuelva el motor. El `id` no empata nunca.
+     *
+     * `quien` sale de {@see QUIEN_LA_EMPEZO}, el mismo criterio que `pendienteDe`:
+     * el nombre de la ficha de profesor y, si no la hay —el caso normal en las
+     * cuentas administrativas—, el `username`. **Nunca el número de `created_by`**,
+     * que es lo que el front pintaría si esto devolviera la columna a secas.
+     */
+    public static function laDeLaHuella(string $tipo, string $huella): ?object
+    {
+        return DB::selectOne(
+            'SELECT i.id, i.huella, i.year, i.estado, i.error, i.hechos,
+                    i.inicio, i.fin, i.created_at, i.created_by,
+                    '.self::QUIEN_LA_EMPEZO.' AS quien
+             FROM importaciones i
+             '.self::UNIONES_DEL_NOMBRE.'
+             WHERE i.tipo = ? AND i.huella = ?
+             ORDER BY i.id DESC LIMIT 1',
+            [$tipo, $huella]
         );
     }
 

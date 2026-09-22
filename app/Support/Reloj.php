@@ -60,6 +60,21 @@ final class Reloj
     public const ZONA = 'America/Bogota';
 
     /**
+     * **Cómo se le enseña una fecha a una persona en este proyecto.**
+     *
+     * `d/m/Y H:i`. Era un literal repetido —la portada del libro de notas y la
+     * cabecera del acta— y pasó a constante el día que una tercera fecha tuvo que
+     * salir *en la misma pantalla* que las otras: el aviso «este archivo ya se
+     * subió» va dos líneas por encima de «Descargado el …», y con dos formatos
+     * distintos el docente ve `2026-09-22 04:48:13` al lado de `21/09/2026 16:12`
+     * y no los lee como lo que son, dos momentos del mismo trabajo.
+     *
+     * La alternativa era que el front reformateara, y eso es peor: pone la decisión
+     * de cómo se ve una fecha en dos repositorios a la vez.
+     */
+    public const FORMATO_HUMANO = 'd/m/Y H:i';
+
+    /**
      * La hora de ahora, para escribirla en la base.
      *
      * **Todo lo que se guarde sale de aquí.** Si hace falta la hora para otra
@@ -140,5 +155,21 @@ final class Reloj
         }
 
         return null;
+    }
+
+    /**
+     * Una columna de fecha, ya en {@see FORMATO_HUMANO} y **sin moverla de sitio**.
+     *
+     * Humanizar no es desplazar: la lectura la hace {@see desdeTexto}, que le dice
+     * la zona a Carbon precisamente para que no la invente. Escrito con
+     * `Carbon::parse()` —que es lo que dice media internet— esta línea devolvería la
+     * misma hora cinco horas movida, y encima con pinta de fecha correcta.
+     *
+     * `null` si no hay fecha o si el texto no tiene la forma esperada, por lo mismo
+     * que `desdeTexto`: una columna vacía no se convierte en una hora plausible.
+     */
+    public static function humana(?string $texto): ?string
+    {
+        return self::desdeTexto($texto)?->format(self::FORMATO_HUMANO);
     }
 }

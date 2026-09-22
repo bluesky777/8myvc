@@ -1317,6 +1317,367 @@ class PlanillaOfflineImportarTest extends CasoDeContrato
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // `ya_se_subio` — el ensayo avisa de que ESE archivo ya entró
+    //
+    // El fallo que cierra: subir dos veces el mismo `.xlsx` enseñaba «NOTAS QUE
+    // ENTRARÍAN 0» con sus filas de ceros, y eso un docente lo lee como «no cambié
+    // nada» o, peor, «se perdió lo que hice». El dato existía —la huella ya se
+    // calculaba en `postEnsayo` y `importaciones.huella` guarda la de cada
+    // importación— y nadie lo consultaba.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * **Un fichero recién bajado no se ha subido nunca**, y el aviso tiene que
+     * callarse.
+     *
+     * Es la mitad que hace legible a la otra: un `ya_se_subio` que trajera algo en
+     * el caso normal sería un «esto ya entró» encima de cada ensayo, y entonces no
+     * significaría nada el día que sea verdad.
+     */
+    #[Test]
+    public function un_fichero_que_nunca_se_subio_no_trae_aviso(): void
+    {
+        $caso = $this->unaPlanilla();
+
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'], [
+            [$caso['fila'], $caso['columna'], $this->otroValorPara($caso, $caso['fila'], $caso['columna'])],
+        ]);
+
+        $r = $this->ensayo($caso['token'], $ruta)->assertStatus(200);
+
+        $this->assertNull($r->json('ya_se_subio'),
+            'Este fichero no ha entrado nunca: el aviso tiene que ser `null`, no un objeto vacío.');
+    }
+
+    /**
+     * **El mismo fichero, por segunda vez: el aviso cuenta lo que entró.**
+     *
+     * Los recuentos se comparan con los de la respuesta de la subida y no con
+     * números escritos a mano: los dos salen de `hechos.totales`, así que si un día
+     * se desalinean —el aviso leyendo una clave y el acta otra— esto sale rojo. Con
+     * literales, los dos tests dirían «3» y ninguno miraría lo mismo.
+     *
+     * Y se comprueba que **el 0 sigue ahí**: el aviso explica el cero, no lo tapa.
+     * Esconderlo sería cambiar «no sé qué pasó» por «no sé qué pasó y además falta
+     * un número».
+     */
+    #[Test]
+    public function el_mismo_fichero_ya_importado_sale_con_los_siete_campos_y_los_recuentos_de_la_importacion(): void
+    {
+        $caso = $this->unaPlanilla();
+        $nuevo = $this->otroValorPara($caso, $caso['fila'], $caso['columna']);
+
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'], [[$caso['fila'], $caso['columna'], $nuevo]]);
+
+        $subida = $this->importar($caso['token'], $ruta)->assertStatus(200);
+        $id = (int) $subida->json('importacion_id');
+
+        $this->assertGreaterThan(0, (int) $subida->json('hechos.notas_escritas'),
+            'Sin una escritura de verdad, este test no distingue «cuenta lo que entró» de «cuenta ceros».');
+
+        $r = $this->ensayo($caso['token'], $ruta)->assertStatus(200);
+
+        $aviso = $r->json('ya_se_subio');
+
+        $this->assertIsArray($aviso, 'El fichero ya entró: el aviso no puede ser `null`.');
+
+        $this->assertSame(
+            ['importacion_id', 'cuando', 'quien', 'termino', 'estado', 'notas_escritas', 'notas_borradas',
+                'ausencias_creadas', 'ausencias_borradas', 'puede_ver_el_acta'],
+            array_keys($aviso),
+            'La forma del objeto es el contrato con el front, que lo está pintando campo a campo.'
+        );
+
+        $this->assertSame($id, $aviso['importacion_id'],
+            'Es el número que va en `planilla-offline/acta/{id}`: si apunta a otra fila, el enlace '
+            .'enseña el acta de otra importación.');
+
+        $this->assertTrue($aviso['termino'],
+            'Ésta llegó al final, y es lo que el front mira: `estado` se queda en el objeto para el '
+            .'registro, pero la pantalla no lo compara con ninguna cadena.');
+
+        $this->assertSame('completada', $aviso['estado']);
+
+        foreach (['notas_escritas', 'notas_borradas', 'ausencias_creadas', 'ausencias_borradas'] as $clave) {
+            $this->assertSame((int) $subida->json('hechos.'.$clave), $aviso[$clave],
+                'El recuento «'.$clave.'» tiene que ser el que dejó la importación: los dos salen de '
+                .'`hechos.totales`, y son el mismo número que imprime el acta.');
+        }
+
+        // **El mismo formato que `libro.descargado_at`**, que la pantalla enseña dos
+        // líneas más arriba. Se comparan los dos de verdad y no contra una expresión
+        // escrita a mano: un literal aquí dejaría pasar el día en que uno de los dos
+        // cambie, que es justo el día en que la pantalla enseña dos formatos.
+        $this->assertSame(
+            $this->formaDeLaFecha((string) $r->json('libro.descargado_at')),
+            $this->formaDeLaFecha((string) $aviso['cuando']),
+            '`cuando` y «Descargado el …» van en el mismo párrafo de la misma pantalla: con dos '
+            .'formatos, el docente no los lee como dos momentos del mismo trabajo.'
+        );
+
+        $this->assertMatchesRegularExpression('/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/', (string) $aviso['cuando'],
+            'Y es «d/m/Y H:i». Sin esto, las dos podrían coincidir en un formato que no es ninguno '
+            .'de los dos porque `descargado_at` vino vacío.');
+
+        // «Sin compensar zona» sigue en pie: humanizar no es desplazar.
+        $fila = DB::selectOne('SELECT fin FROM importaciones WHERE id = ?', [$id]);
+
+        $this->assertSame(
+            Reloj::desdeTexto((string) $fila->fin)?->format(Reloj::FORMATO_HUMANO),
+            (string) $aviso['cuando'],
+            'Es la hora de la fila con otra ropa. Un `Carbon::parse()` la habría movido cinco horas '
+            .'y habría seguido pareciendo una fecha correcta.'
+        );
+
+        $this->assertTrue($aviso['puede_ver_el_acta'],
+            'Quien la subió puede ver su acta, y ésta es la comprobación que evita que el front lo deduzca.');
+
+        $this->assertSame(0, (int) $r->json('totales.entran'),
+            'El aviso EXPLICA el cero. Si el cero desapareciera, el aviso estaría tapando el síntoma '
+            .'en vez de contarlo.');
+    }
+
+    /**
+     * **Una importación a medias también se informa.** Es la decisión del contrato
+     * y la que hace útil al aviso entero.
+     *
+     * Una que reventó a medias es **más** importante de contar que una que fue bien:
+     * es justo la que deja al docente sin saber qué entró. Filtrar por `completada`
+     * escondería el único caso en que esto hace falta de verdad — y el docente que
+     * volviera a subir ese archivo vería otra vez un diagnóstico mudo.
+     */
+    #[Test]
+    public function una_importacion_a_medias_tambien_se_informa_con_su_estado(): void
+    {
+        $caso = $this->unaPlanilla(4);
+
+        $celdas = [];
+
+        foreach ($caso['filas'] as $fila) {
+            $celdas[] = [$fila, $caso['columna'], $this->otroValorPara($caso, $fila, $caso['columna'])];
+        }
+
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'], $celdas);
+
+        // El presupuesto a cero corta la importación después de la primera fila: la
+        // fila de `importaciones` se queda en `en_proceso` con lo escrito anotado.
+        config(['importacion.segundos_por_peticion' => 0.0]);
+        $subida = $this->importar($caso['token'], $ruta)->assertStatus(200);
+        config(['importacion.segundos_por_peticion' => 20.0]);
+
+        $this->assertFalse($subida->json('terminado'), 'El corte es lo que fabrica el caso.');
+
+        $aviso = $this->ensayo($caso['token'], $ruta)->assertStatus(200)->json('ya_se_subio');
+
+        $this->assertIsArray($aviso,
+            'Una importación sin terminar tiene que salir. Si no sale, el docente vuelve a subir el '
+            .'archivo y el diagnóstico no le dice que lo suyo se quedó a mitad.');
+
+        $this->assertFalse($aviso['termino'],
+            'Ésta es la otra rama de `termino`, y es la que le importa al docente: lo que le pasó no '
+            .'es «ya está hecho», y el front tiene que poder saberlo con un booleano.');
+
+        $this->assertNotSame('completada', $aviso['estado'],
+            'Y `estado` sigue trayendo el valor de la columna para el registro, sin ser la puerta.');
+
+        $this->assertSame((int) $subida->json('hechos.notas_escritas'), $aviso['notas_escritas'],
+            'Y con lo que SÍ entró antes del corte, que es la pregunta que se está haciendo.');
+
+        $this->assertNotSame('', (string) $aviso['cuando'],
+            '`fin` es nulo en una importación a medias, así que `cuando` cae a `inicio`.');
+    }
+
+    /**
+     * **Varias filas con la misma huella: sale la más reciente.**
+     *
+     * Pasa de verdad —una importación que se cayó y otra que se subió después del
+     * mismo archivo— y sin orden explícito el aviso enseñaría la que el motor
+     * devolviera primero, o sea la vieja: «entraron 0 notas» de una importación que
+     * se abandonó, con la buena al lado sin mirar.
+     *
+     * La segunda fila se fabrica con un `INSERT` a mano y no subiendo dos veces
+     * porque subir dos veces el mismo archivo **reanuda la fila que ya existe** —es
+     * lo que hace `abrir()`— y entonces no habría dos filas que ordenar.
+     */
+    #[Test]
+    public function con_varias_importaciones_del_mismo_archivo_sale_la_mas_reciente(): void
+    {
+        $caso = $this->unaPlanilla();
+        $nuevo = $this->otroValorPara($caso, $caso['fila'], $caso['columna']);
+
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'], [[$caso['fila'], $caso['columna'], $nuevo]]);
+
+        $subida = $this->importar($caso['token'], $ruta)->assertStatus(200);
+        $vieja = (int) $subida->json('importacion_id');
+
+        $fila = DB::selectOne('SELECT huella, year, created_by FROM importaciones WHERE id = ?', [$vieja]);
+
+        $nueva = DB::table('importaciones')->insertGetId([
+            'tipo' => 'planilla',
+            'huella' => $fila->huella,
+            'archivo' => 'la-de-despues.xlsx',
+            'year' => $fila->year,
+            'estado' => 'completada',
+            'created_by' => $fila->created_by,
+            'inicio' => '2026-09-22 04:48:13',
+            'fin' => '2026-09-22 04:48:19',
+            'hechos' => json_encode(['totales' => ['notas_escritas' => 7]]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->assertGreaterThan($vieja, $nueva, 'La fabricada tiene que ser la posterior.');
+
+        $aviso = $this->ensayo($caso['token'], $ruta)->assertStatus(200)->json('ya_se_subio');
+
+        $this->assertSame($nueva, $aviso['importacion_id'],
+            'Con dos filas del mismo archivo, la que se cuenta es la última: es la que explica el '
+            .'estado de las notas de hoy.');
+
+        $this->assertSame(7, $aviso['notas_escritas'],
+            'Y los recuentos salen de esa misma fila, no de la anterior.');
+    }
+
+    /**
+     * **`puede_ver_el_acta` lo contesta el servidor, con las puertas de `getActa`.**
+     *
+     * Es el campo que evita pintar un enlace que revienta, así que lo que se
+     * comprueba es justo eso: que el `false` y el 403 caen en la misma persona, y el
+     * `true` y el 200 en la otra. Medir sólo el `bool` dejaría pasar el día en que
+     * las puertas del acta cambien y esto se quede con la regla de ayer — que es la
+     * razón por la que el campo sale del mismo predicado y no de una copia.
+     */
+    #[Test]
+    public function puede_ver_el_acta_dice_que_no_a_quien_el_acta_le_daria_403(): void
+    {
+        $caso = $this->unaPlanilla();
+        $coordinacion = $this->unCoordinador();
+        $token = $this->tokenDe($coordinacion->username);
+
+        $nuevo = $this->otroValorPara($caso, $caso['fila'], $caso['columna']);
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'], [[$caso['fila'], $caso['columna'], $nuevo]]);
+
+        $id = (int) $this->importar($token, $ruta, self::POR_OTRO)->assertStatus(200)->json('importacion_id');
+
+        // 1 · El docente dueño del libro: el acta le abre, y el aviso se lo dice.
+        $suyo = $this->ensayo($caso['token'], $ruta)->assertStatus(200)->json('ya_se_subio');
+
+        $this->acta($caso['token'], $id)->assertStatus(200);
+        $this->assertTrue($suyo['puede_ver_el_acta'],
+            'Si esto dijera `false` para el dueño del libro, el front escondería el enlace justo a '
+            .'quien más derecho tiene a comprobar lo que se escribió en sus notas.');
+
+        // 2 · Un docente ajeno: el acta le da 403, y el aviso NO puede ofrecérsela.
+        $otro = $this->otroDocenteConCuenta($caso['profesor_id']);
+
+        if ($otro === null) {
+            $this->markTestSkipped('El seed no tiene un segundo docente con cuenta.');
+        }
+
+        $ajeno = $this->tokenDe($otro->username);
+
+        $this->acta($ajeno, $id)->assertStatus(403);
+
+        $suAviso = $this->ensayo($ajeno, $ruta)->assertStatus(200)->json('ya_se_subio');
+
+        $this->assertIsArray($suAviso,
+            'El aviso sale igual: saber que el archivo ya entró no enseña ninguna nota.');
+
+        $this->assertFalse($suAviso['puede_ver_el_acta'],
+            'Éste es el campo entero: un `true` aquí es un enlace que da 403 en la cara de quien lo '
+            .'pulse, y el front no puede deducirlo por su cuenta.');
+    }
+
+    /**
+     * **`quien` es un nombre, nunca un número.**
+     *
+     * Un test aparte y no una línea suelta porque el fallo es silencioso: devolver
+     * `created_by` a secas compila, viaja y se pinta — y la pantalla dice «subida
+     * por 37». El aviso existe para que el docente reconozca de quién fue, así que
+     * un id lo deja exactamente igual de perdido que no poner nada.
+     */
+    #[Test]
+    public function quien_lo_subio_es_un_nombre_y_nunca_un_numero(): void
+    {
+        $caso = $this->unaPlanilla();
+        $nuevo = $this->otroValorPara($caso, $caso['fila'], $caso['columna']);
+
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'], [[$caso['fila'], $caso['columna'], $nuevo]]);
+
+        $this->importar($caso['token'], $ruta)->assertStatus(200);
+
+        $quien = $this->ensayo($caso['token'], $ruta)->assertStatus(200)->json('ya_se_subio.quien');
+
+        $this->assertIsString($quien,
+            'Cuando se puede resolver, es un nombre. El `null` es sólo para cuando no se puede, y '
+            .'lo ata `quien_es_nulo_cuando_ya_no_se_puede_saber_de_quien_fue`.');
+        $this->assertNotSame('', trim($quien), 'Sin nombre, la frase del aviso acaba en «subida por» y nada.');
+
+        $this->assertFalse(is_numeric($quien),
+            '`created_by` es un número y sale de la misma fila: es el error que hay que hacer '
+            .'imposible, no el que hay que recordar no cometer.');
+
+        $this->assertSame($this->nombreDelProfesor($caso['profesor_id']), $quien,
+            'Y es el nombre de quien la subió de verdad, no uno cualquiera que no fuera numérico.');
+    }
+
+    /**
+     * **Y `null` cuando ya no se puede saber de quién fue** — nunca `''`.
+     *
+     * Una cadena vacía obliga al front a distinguir «vacío» de «no vino», y las dos
+     * se escriben igual en un `@if`: lo que sale pintado es «subida por » con la
+     * frase colgando. Con `null` la pregunta es explícita.
+     *
+     * El caso se fabrica porque **va a aparecer solo dentro de dos años** y para
+     * entonces esta rama tiene que estar probada: una importación de hace tiempo
+     * cuya cuenta ya se borró de `users`, y sin nombre guardado en `hechos` porque
+     * es anterior a que el acta lo escribiera.
+     *
+     * **Y el resto del objeto sale entero igual.** Que no se pueda decir quién la
+     * subió no hace menos cierto lo que entró, que es la mitad que de verdad
+     * explica el «entrarían 0».
+     */
+    #[Test]
+    public function quien_es_nulo_cuando_ya_no_se_puede_saber_de_quien_fue(): void
+    {
+        $caso = $this->unaPlanilla();
+        $nuevo = $this->otroValorPara($caso, $caso['fila'], $caso['columna']);
+
+        $ruta = $this->escribiendo($caso['ruta'], $caso['hoja'], [[$caso['fila'], $caso['columna'], $nuevo]]);
+
+        $id = (int) $this->importar($caso['token'], $ruta)->assertStatus(200)->json('importacion_id');
+
+        $huerfano = (int) DB::table('users')->max('id') + 1000;
+
+        $this->assertNull(DB::table('users')->find($huerfano),
+            'El id tiene que no existir: si existiera, esto mediría el camino de siempre.');
+
+        // La cuenta borrada y el `hechos` de antes del acta: los recuentos siguen,
+        // el nombre de quien la subió no está en ninguno de los dos sitios.
+        DB::table('importaciones')->where('id', $id)->update([
+            'created_by' => $huerfano,
+            'hechos' => json_encode(['totales' => ['notas_escritas' => 5, 'ausencias_creadas' => 2]]),
+        ]);
+
+        $aviso = $this->ensayo($caso['token'], $ruta)->assertStatus(200)->json('ya_se_subio');
+
+        $this->assertArrayHasKey('quien', $aviso, 'La clave viaja siempre; lo que cambia es su valor.');
+
+        $this->assertNull($aviso['quien'],
+            'Ni el id, ni una cadena vacía: `null`. Un `""` se pinta igual que «no vino» y la frase '
+            .'del aviso acaba en «subida por» y nada.');
+
+        $this->assertSame($id, $aviso['importacion_id']);
+        $this->assertTrue($aviso['termino']);
+        $this->assertSame('completada', $aviso['estado']);
+        $this->assertSame(5, $aviso['notas_escritas']);
+        $this->assertSame(2, $aviso['ausencias_creadas']);
+        $this->assertSame(0, $aviso['notas_borradas'], 'La clave que falta es 0, no `null`.');
+        $this->assertNotSame('', (string) $aviso['cuando'],
+            'Sin saber quién, se sigue sabiendo cuándo y qué entró: es la mitad que explica el 0.');
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // La reanudación
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -3014,6 +3375,19 @@ class PlanillaOfflineImportarTest extends CasoDeContrato
         return trim(($fila->nombres ?? '').' '.($fila->apellidos ?? ''));
     }
 
+    /**
+     * La **forma** de una fecha, no su valor: cada dígito pasa a `9`.
+     *
+     * Es lo que deja comparar `cuando` con `descargado_at` sin que el test dependa
+     * de que los dos momentos coincidan —no coinciden, uno es de antes de subir—.
+     * Lo que tiene que ser igual es la ropa, que es lo único que el docente compara
+     * cuando los lee seguidos.
+     */
+    private function formaDeLaFecha(string $fecha): string
+    {
+        return preg_replace('/\d/', '9', $fecha) ?? $fecha;
+    }
+
     private function acta(string $token, int $importacionId): TestResponse
     {
         // **Con `Accept: application/json`, y no es decoración.** Sin la cabecera, el
@@ -3092,6 +3466,14 @@ class PlanillaOfflineImportarTest extends CasoDeContrato
     /** @param array<string, mixed> $respuestas */
     private function subir(string $uri, string $token, string $ruta, array $respuestas): TestResponse
     {
+        // **Suelta el controlador que dejó la petición anterior**, que es lo que
+        // `withToken()` hace por su cuenta y esto no usa: sube por `post()` con la
+        // cabecera a mano porque el cuerpo es multipart. Sin esto, un test que
+        // ensaya el mismo fichero con dos identidades —el dueño del libro y un
+        // docente ajeno— mide dos veces al primero y **pasa por la razón
+        // equivocada**. El porqué entero está en `CasoDeContrato::withToken`.
+        $this->olvidarControladores();
+
         $cuerpo = ['file' => new UploadedFile($ruta, 'planilla.xlsx', null, null, true)];
 
         if ($respuestas !== []) {

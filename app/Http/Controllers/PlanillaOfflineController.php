@@ -353,6 +353,13 @@ class PlanillaOfflineController extends Controller
             // `PuntoDeControlDeImportacion` reconoce «el mismo archivo».
             'huella' => $huella,
 
+            // **«Esto ya se subió»**, o `null`. Va aquí y no en una ruta aparte
+            // porque la huella ya está calculada en esta misma petición y porque la
+            // pantalla lo necesita *junto* al diagnóstico: es la explicación del
+            // «entrarían 0», y una explicación que llega en otra petición llega
+            // tarde. {@see loQueYaSeSubio}.
+            'ya_se_subio' => $this->loQueYaSeSubio($huella),
+
             // Va en la respuesta y no sólo en la documentación porque es lo que la
             // pantalla le promete a quien pulsa. Si algún día dejara de ser cierto,
             // esta línea es una mentira que se lee.
@@ -812,22 +819,155 @@ class PlanillaOfflineController extends Controller
      */
     private function exigirPoderVerElActa(object $fila, array $hechos): void
     {
+        Autoriza::exigir(
+            $this->puedeVerElActa($fila, $hechos),
+            'El acta de una importación la pueden ver quien la subió, el docente dueño del libro '
+            .'y coordinación académica. Ésta no es suya.'
+        );
+    }
+
+    /**
+     * **Las mismas tres puertas, contestadas con un `bool` en vez de con un 403.**
+     *
+     * Existe porque el ensayo tiene que decirle a la pantalla si puede pintar el
+     * enlace al acta ({@see loQueYaSeSubio}), y la única forma de que esa respuesta
+     * no se quede vieja es que salga **de aquí mismo**: una copia de la regla en
+     * `postEnsayo` seguiría diciendo que sí el día que esta cambie, y lo que se
+     * pintaría es un enlace que da 403.
+     *
+     * Por eso es esto lo que se reusa y no al revés: {@see exigirPoderVerElActa} es
+     * ahora este predicado más el mensaje del 403, que es la única parte que sólo
+     * sirve para `getActa`.
+     *
+     * @param  array<string, mixed>  $hechos
+     */
+    private function puedeVerElActa(object $fila, array $hechos): bool
+    {
         if ($fila->created_by !== null && (int) $fila->created_by === (int) $this->user->user_id) {
-            return;
+            return true;
         }
 
         $delLibro = $hechos['contexto']['libro']['profesor_id'] ?? null;
         $propio = ($this->user->tipo ?? '') === 'Profesor' ? (int) $this->user->persona_id : null;
 
         if ($delLibro !== null && $propio !== null && (int) $delLibro === $propio) {
-            return;
+            return true;
         }
 
-        Autoriza::exigir(
-            Autoriza::puedeSubirLaPlanillaDeOtro($this->user),
-            'El acta de una importación la pueden ver quien la subió, el docente dueño del libro '
-            .'y coordinación académica. Ésta no es suya.'
-        );
+        return Autoriza::puedeSubirLaPlanillaDeOtro($this->user);
+    }
+
+    /**
+     * **«Este archivo ya se subió»**, o `null` si su huella no está en
+     * `importaciones`.
+     *
+     * ## El fallo que cierra
+     *
+     * Subir dos veces el mismo `.xlsx` enseñaba «NOTAS QUE ENTRARÍAN: 0» con sus
+     * filas de ceros, y un docente eso lo lee como *«no cambié nada»* o, peor,
+     * *«se perdió lo que hice»* — no como *«esto ya entró, y por eso no hay nada
+     * nuevo»*. El dato existía y no se consultaba: `postEnsayo` ya calculaba la
+     * huella y `importaciones.huella` guarda la de cada importación; sólo
+     * `postImportar` miraba esa tabla.
+     *
+     * ## Se informa de CUALQUIER estado, y es la decisión
+     *
+     * No sólo de las `completada`. Una importación que reventó a medias es **más**
+     * importante de contar que una que fue bien, porque es justo la que deja al
+     * docente sin saber qué entró. Filtrar por `completada` escondería el único
+     * caso en que esto hace falta de verdad. La elección de la fila —la más
+     * reciente por `id`— está en {@see PuntoDeControlDeImportacion::laDeLaHuella}.
+     *
+     * ## Los tres detalles que no se adivinan
+     *
+     * - **`cuando` sale de `fin`, y de `inicio` cuando `fin` es nulo** (quedó a
+     *   medias), y va en {@see Reloj::FORMATO_HUMANO} — el **mismo** con el que se
+     *   escribe `libro.descargado_at`, que la pantalla enseña dos líneas más arriba.
+     *   Con `Y-m-d H:i:s` el docente vería dos formatos en el mismo párrafo, o el
+     *   front tendría que reformatear una fecha que el contrato le prohíbe tocar.
+     *   **Humanizar no es desplazar**: la zona no se compensa, {@see Reloj::humana}.
+     * - **`termino` es la puerta, y `estado` se queda para el registro.** Sin él, la
+     *   pantalla tendría que comparar `estado` contra `'completada'` — o sea conocer
+     *   el vocabulario de esta tabla, enterarse de que crece cuando se rompe, y
+     *   acabar enseñándole a un docente el valor crudo de una columna. Los tres
+     *   valores posibles los escribe {@see PuntoDeControlDeImportacion} y sólo ella:
+     *   `en_proceso` (empezada o reanudada), `completada` y `fallida` (o reventó, o
+     *   el cron `importaciones:marcar-abandonadas` la dio por muerta).
+     * - **Los cuatro recuentos son `0` y no `null`** cuando la clave no está. Un
+     *   `null` en un recuento se pinta como «—» y se lee como «no se sabe»; lo que
+     *   pasó es que no entró ninguna.
+     * - **`quien` es al revés: un nombre o `null`, nunca `''`**, y por el motivo
+     *   simétrico. Ahí sí se puede no saber. Ver {@see quienLaSubio}.
+     * - **`puede_ver_el_acta` lo contesta el servidor** con {@see puedeVerElActa}, y
+     *   además exige que haya acta: una importación anterior a la fase 5 pasa las
+     *   tres puertas y `getActa` le contesta **404**, porque su `hechos` está vacío.
+     *   Un `true` ahí pintaría igualmente un enlace que revienta, que es justo lo
+     *   que este campo viene a evitar.
+     *
+     * @return ?array<string, mixed>
+     */
+    private function loQueYaSeSubio(string $huella): ?array
+    {
+        $fila = PuntoDeControlDeImportacion::laDeLaHuella('planilla', $huella);
+
+        if ($fila === null) {
+            return null;
+        }
+
+        $hechos = json_decode((string) ($fila->hechos ?? ''), true);
+        $hechos = is_array($hechos) ? $hechos : [];
+        $totales = is_array($hechos['totales'] ?? null) ? $hechos['totales'] : [];
+
+        return [
+            'importacion_id' => (int) $fila->id,
+            'cuando' => Reloj::humana($fila->fin ?? $fila->inicio ?? $fila->created_at),
+            'quien' => $this->quienLaSubio($fila, $hechos),
+            'termino' => (string) $fila->estado === PuntoDeControlDeImportacion::COMPLETADA,
+            'estado' => (string) $fila->estado,
+            'notas_escritas' => (int) ($totales['notas_escritas'] ?? 0),
+            'notas_borradas' => (int) ($totales['notas_borradas'] ?? 0),
+            'ausencias_creadas' => (int) ($totales['ausencias_creadas'] ?? 0),
+            'ausencias_borradas' => (int) ($totales['ausencias_borradas'] ?? 0),
+            'puede_ver_el_acta' => $hechos !== [] && $this->puedeVerElActa($fila, $hechos),
+        ];
+    }
+
+    /**
+     * El nombre de quien subió aquello, **nunca un número y nunca una cadena
+     * vacía**: o hay nombre, o es `null`.
+     *
+     * ## El orden, que no es indiferente
+     *
+     * Primero la ficha de hoy —la trae `laDeLaHuella`, con el mismo criterio que la
+     * cabecera de la importación pendiente— y luego el nombre que el acta guardó
+     * aquel día. El de hoy es más útil: si la persona se casó y cambió de apellido,
+     * el aviso tiene que decir cómo se llama ahora, que es como la reconoce quien lo
+     * lee. El congelado en `hechos` es la red para cuando la cuenta ya no está.
+     *
+     * ## Por qué `null` y no `''`
+     *
+     * Una cadena vacía obliga al front a distinguir «vacío» de «no vino», y las dos
+     * se escriben igual en un `@if`: lo que acaba pintando es «subida por » con la
+     * frase colgando. Con `null` la pregunta es explícita y la respuesta del front
+     * tiene que ser deliberada. Decisión de Joseth al revisar el contrato.
+     *
+     * La rama existe de verdad: una fila cuyo `created_by` ya no esté en `users`
+     * —una cuenta borrada de las de hace dos años— y sin `hechos` que la recuerden.
+     * La ata `quien_es_nulo_cuando_ya_no_se_puede_saber_de_quien_fue`.
+     *
+     * @param  array<string, mixed>  $hechos
+     */
+    private function quienLaSubio(object $fila, array $hechos): ?string
+    {
+        foreach ([$fila->quien ?? null, $hechos['contexto']['subio']['nombre'] ?? null] as $candidato) {
+            $nombre = trim((string) $candidato);
+
+            if ($nombre !== '') {
+                return $nombre;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -875,7 +1015,7 @@ class PlanillaOfflineController extends Controller
             $planillas,
             $escalas,
             $recuentos,
-            Reloj::ahora()->format('d/m/Y H:i')
+            Reloj::ahora()->format(Reloj::FORMATO_HUMANO)
         );
 
         $ruta = $this->escribir($libro);
