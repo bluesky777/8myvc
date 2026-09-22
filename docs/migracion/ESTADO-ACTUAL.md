@@ -76,6 +76,29 @@
 > —los tres relojes en la misma comparación—, que se cerró el 21 sep y no ha llegado a
 > ningún colegio.
 >
+> ### La fase 4, avanzando por «el resto de los controladores» (21 sep)
+>
+> Los siete dominios del plan estaban cerrados; esto es lo que el plan llama *el resto*,
+> con `tools/escrituras-sin-auditoria.php` como lista. **42 → 60 métodos con rastro; quedan
+> 163** (y el detector no ve Eloquent, así que 163 es suelo).
+>
+> | Lote | Lo que contesta que antes no tenía respuesta |
+> |---|---|
+> | acudientes | quién cambió las claves de un grupo entero (**una línea por el acto, y sin la clave dentro**), quién abrió una cuenta, quién borró al acudiente y cuántos parentescos cayeron con él |
+> | `GuardarAlumno` | **de qué venía** cada campo de alumno, matrícula, cuenta, parentesco y acudiente — con lectura por rama antes del `UPDATE`, que es lo que Joseth decidió |
+> | matrículas | quién prematriculó, y **quién borró la matrícula**: ese `DELETE` es físico y no había papelera |
+> | PIAR | quién sube, edita o **quita** un documento de discapacidad de un menor — el fichero se borra del disco doce líneas después |
+> | enfermería | los cinco métodos. `registros_enfermeria` **no tiene `deleted_at`** y lo borra cualquier `Usuario`, que son 22 cuentas |
+> | `years` | el interruptor que escribe **cualquier** columna del año: las políticas del colegio entero, con su valor anterior |
+>
+> Vocabulario nuevo: `alumno`, `acudiente`, `usuario`, `matricula`, `parentesco`, `piar`,
+> `antecedente`, `registro_enfermeria`.
+>
+> **Dos huecos declarados, no olvidados**: `putField` del PIAR no guarda el texto anterior
+> (es HTML del editor y costaría una lectura más), y los caminos de `GuardarAlumno` **no
+> tienen test** — un fallo mío de acentos graves duplicados vivió ahí un commit entero y lo
+> cazó `EnfermeriaTest`, no ellos.
+>
 > ### Hecho el 21 sep — **la fase 5 ya tiene lector**
 >
 > `auditoria/ingresos`, `/ingresos/{id}`, `/entidad/{tipo}/{id}` y `/alumno/{id}` en

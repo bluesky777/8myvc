@@ -2018,7 +2018,23 @@ class YearsController extends Controller {
 		 */
 		FilaQueSeVaAEscribir::exigir('years', 'id', $year_id, 'Ese año lectivo');
 
-		$consulta 	= 'UPDATE years SET '.ColumnaSegura::exigir('years', $campo).'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:year_id';
+		$columna 	= ColumnaSegura::exigir('years', $campo);
+
+		/*
+		 * **El valor de antes, leído antes de pisarlo.** Esta ruta es «guardar un campo
+		 * suelto» de la rejilla y escribe CUALQUIER columna de `years` menos dos: o sea
+		 * que por aquí pasan las políticas que gobiernan al colegio entero —si el
+		 * boletín muestra puestos, si las notas perdidas se ignoran, qué pasa al cerrar
+		 * con lo no calificado—. Que una de ésas cambie y nadie sepa quién ni desde qué
+		 * valor es el caso que el CLAUDE.md nombra por su nombre: «qué política aplica
+		 * al colegio entero» no puede depender de la memoria de nadie.
+		 *
+		 * Una consulta por clave primaria en un interruptor que se toca a mano y de uno
+		 * en uno. No hay lote por aquí.
+		 */
+		$antes 		= DB::selectOne("SELECT {$columna} AS valor FROM years WHERE id = ?", [$year_id]);
+
+		$consulta 	= 'UPDATE years SET '.$columna.'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:year_id';
 		$datos 		= [ ':valor' => $valor, ':modificador' => $user->user_id, ':fecha' => $now, ':year_id' => $year_id ];
 
 		// El año existe —se acaba de comprobar—, así que llegar aquí es haber guardado,
@@ -2026,6 +2042,14 @@ class YearsController extends Controller {
 		// valor ya era ése: apagar un interruptor que ya estaba apagado contestaba
 		// «No guardado» con 200 y el estado correcto.
 		DB::update($consulta, $datos);
+
+		Auditoria::registrar()
+			->editar('year_config', (int) $year_id)
+			->en(year: (int) $year_id)
+			->de($antes->valor ?? null)
+			->a($valor)
+			->resumen('Cambió '.trim($columna, '`').' del año lectivo')
+			->guardar();
 
 		return 'Guardado';
 	}
