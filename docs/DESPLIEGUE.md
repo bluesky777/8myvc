@@ -277,9 +277,48 @@ ignora. **No corras el `down`.**
 
 Y si el comportamiento sigue siendo el viejo con el código en su sitio: **OPcache**, no el `.env`.
 
-## El front
+## El front — **esta vuelta SÍ lo publica, y por las DOS carpetas**
 
-Otro bucle. **La vuelta del 31 ago sí lo publicó** —ahí salieron los avisos A, B y C, y de camino
-los dos arreglos independientes de la prematrícula del login (`8321f9a5`)—. El bucle de `up/` y la
-corrección del de `app2` están en la
-[referencia](DESPLIEGUE-REFERENCIA.md#front-up--solo-las-tandas-que-publican-front).
+No es opcional esta vez: el arreglo de «lo no calificado» está partido entre el backend y el
+navegador, y la mitad del navegador **toca las dos aplicaciones** — `app/scripts/notas/NotasCtrl.ts`
+(la vieja) y `app2/src/app/paginas/notas/promedio-ponderado.ts` (la nueva). Publicar sólo una deja
+al docente viendo un Total que cuenta los blancos como cero junto a una definitiva que no.
+
+**1. Construir y publicar los dos artefactos**, en *Actions* del repositorio del front, a mano
+(`workflow_dispatch`):
+
+| | escribe en | y de ahí a | |
+|---|---|---|---|
+| `desplegar-up` | `myvc_dist` | `up/` | **la aplicación vieja, que es lo que los dieciséis están viendo ahora mismo.** Corre el circuito entero antes de publicar, a propósito: una publicación mala aquí es una caída para todos a la vez |
+| `desplegar-up2` | `myvc_dist2` | `up2/` | `app2` |
+
+> **`up/` y `up2/` son dos artefactos distintos y ya mordió una vez.** El arreglo del «Por:
+> undefined» del 6 sep viajaba por `myvc_dist` a `up/`, y subir sólo `up2/` lo habría dejado
+> puesto. Lo que está en `app/` no llega por `up2/` ni al revés.
+
+**2. Las dos carpetas en cada colegio**, con el mismo bucle del backend:
+
+```bash
+for d in ~/*/up ~/*/up2; do
+  [ -d "$d/.git" ] || continue
+  printf '%-52s ' "$d"
+  git -C "$d" fetch -q origin
+  git -C "$d" checkout -f -B main origin/main -q
+  git -C "$d" clean -fd -q           # NO uses -x: se llevaría el logo del colegio
+  grep -o 'assets/index-[^"]*\.js' "$d/index.html" | head -1
+done            # y otra vez en la cuenta de `lalvirtual.edu.co`
+```
+
+**3. La huella tiene que ser la misma en todos.** Es la línea que imprime el bucle: si un colegio
+sale con otro `index-*.js`, ése se quedó en el build viejo. El `git clean` sin `-x` es a propósito
+—el logo de cada colegio no está versionado— y si `git` se queja de un `assets/index-*.js`
+modificado, **cópialo antes de forzar**: minificado es una sola línea, así que el `diff` no dice
+qué se pierde.
+
+**El orden con el backend:** los dos en la misma noche, backend primero. Cualquiera de los dos
+solo abre la ventana de números que no cuadran; lo que no se puede es dejarla abierta hasta mañana.
+
+> **`demo` entra en los bucles por la carpeta pero no está en las listas de colegios de este
+> documento**, y el 29 ago 2026 se descubrió atrasada a mano. El `~/*/up` de arriba la coge; las
+> listas escritas, no.
+
