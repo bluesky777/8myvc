@@ -175,7 +175,7 @@ $sinCenso = 0;
 $rojas = 0;
 
 foreach ($pendientes as $nombre => $fichero) {
-    $hechos = analizar($fichero);
+    $hechos = analizarLaMigracion($fichero);
     $veredicto = veredictoDe($hechos);
 
     if ($callado && $veredicto === VERDE) {
@@ -250,7 +250,7 @@ exit(2);
  * Lee la migración y devuelve **hechos**: qué le hace a qué tabla, de qué color, y
  * con qué consulta se cuenta antes de que pase.
  */
-function analizar(string $fichero): array
+function analizarLaMigracion(string $fichero): array
 {
     $fuente = file_get_contents($fichero);
     $tokens = token_get_all($fuente);
@@ -557,8 +557,10 @@ function literales(string $codigo): array
 function bloquesDeTabla(string $cuerpo): array
 {
     $bloques = [];
+    // El `?: []` no es defensa de adorno: `preg_split` devuelve `false` si el patrón
+    // falla, y sin eso el bucle de abajo indexa un booleano.
     $trozos = preg_split('/Schema::table\(\s*[\'"](\w+)[\'"]/', $cuerpo, -1,
-        PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+        PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) ?: [];
 
     for ($i = 0; $i < count($trozos) - 1; $i++) {
         if (preg_match('/^\w+$/', $trozos[$i]) && isset($trozos[$i + 1])) {
