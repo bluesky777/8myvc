@@ -1,5 +1,6 @@
 <?php namespace App\Http\Controllers\Matriculas;
 
+use App\Services\Auditoria;
 use App\Http\Controllers\Controller;
 
 use Illuminate\Support\Facades\Request;
@@ -289,6 +290,13 @@ class RequisitosController extends Controller {
         
         $consulta = 'SELECT * FROM requisitos_matricula WHERE id=?';
         $requisito = DB::select($consulta, [ DB::getPdo()->lastInsertId() ] )[0];
+
+        Auditoria::registrar()
+            ->crear('requisito_matricula', (int) $requisito->id)
+            ->en(year: (int) $year_id)
+            ->a(['requisito' => $requ, 'bloquea' => $bloquea, 'orden' => $orden])
+            ->resumen('Creó el requisito de matrícula «'.$requ.'»'.($bloquea ? ' — bloquea' : ''))
+            ->guardar();
         
         return ['requisito' => $requisito];
 	}
@@ -335,7 +343,20 @@ class RequisitosController extends Controller {
 		$valores[] = $id;
 
 		DB::update('UPDATE requisitos_matricula SET '.implode(', ', $sets).' WHERE id=?', $valores);
-		
+
+		/*
+		 * `$sets` se arma campo a campo más arriba según lo que vino, así que el
+		 * resumen dice **qué columnas se movieron** y no «se actualizó». Sin eso, dos
+		 * líneas seguidas de este método son indistinguibles y la pantalla no puede
+		 * decir si alguien cambió el texto del requisito o si lo volvió bloqueante,
+		 * que es la diferencia entre una corrección de redacción y un cambio de
+		 * política de matrícula.
+		 */
+		Auditoria::registrar()
+			->editar('requisito_matricula', (int) $id)
+			->resumen('Cambió '.implode(', ', array_map(static fn ($s) => explode('=', $s)[0], $sets)).' del requisito')
+			->guardar();
+
 		return 'Actualizado';
 	}
 		
@@ -477,6 +498,11 @@ class RequisitosController extends Controller {
 
 		DB::update('UPDATE requisitos_alumno SET '.implode(', ', $sets).' WHERE id=?', $valores);
 
+		Auditoria::registrar()
+			->editar('requisito_alumno', (int) $id)
+			->resumen('Cambió '.implode(', ', array_map(static fn ($s) => explode('=', $s)[0], $sets)).' del requisito del alumno')
+			->guardar();
+
 		return 'Actualizado';
 	}
 		
@@ -524,7 +550,18 @@ class RequisitosController extends Controller {
 		{
 		$now 		= Carbon::now('America/Bogota');
 		$consulta   = 'UPDATE requisitos_matricula SET deleted_at=? WHERE id=?';
+
+		// El texto se lee antes: borrado lógico o no, la pregunta «¿qué requisito
+		// quitaron?» se contesta con el nombre, y el id suelto no se lo dice a nadie.
+		$fila       = DB::selectOne('SELECT requisito, bloquea FROM requisitos_matricula WHERE id = ?', [$id]);
+
 				DB::update($consulta, [$now, $id]);
+
+		Auditoria::registrar()
+			->borrar('requisito_matricula', (int) $id)
+			->de($fila === null ? null : ['requisito' => $fila->requisito, 'bloquea' => $fila->bloquea])
+			->resumen('Quitó el requisito de matrícula'.($fila === null ? '' : ' «'.$fila->requisito.'»'))
+			->guardar();
 
 		return 'Eliminado';
 	}

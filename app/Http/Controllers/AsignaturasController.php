@@ -1,6 +1,7 @@
 <?php namespace App\Http\Controllers;
 
 
+use App\Services\Auditoria;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Request;
 
@@ -140,8 +141,23 @@ class AsignaturasController extends Controller {
 			DB::insert($consulta, [ $asignaturas[$i]->materia_id, Request::input('grupo_id_destino'), $asignaturas[$i]->profesor_id, $asignaturas[$i]->nuevo_responsable_id, $asignaturas[$i]->creditos, $asignaturas[$i]->orden ]);
 			
 		}
-		
-		
+
+		/*
+		 * **Una línea por la copia, no una por asignatura.** Copiar el plan de un grupo
+		 * a otro son N `INSERT` pero un solo acto: quien lo hizo apretó un botón una
+		 * vez. N líneas iguales esconderían la única pregunta —«¿quién le metió estas
+		 * asignaturas a este grupo?»— debajo de su propio ruido.
+		 *
+		 * El grupo de destino va en `en(grupo:)` y no sólo en el resumen, porque es por
+		 * donde la pantalla lo va a buscar.
+		 */
+		Auditoria::registrar()
+			->crear('asignatura')
+			->en(grupo: (int) Request::input('grupo_id_destino'))
+			->a(['desde_grupo' => Request::input('grupo_id_origen'), 'cuantas' => count($asignaturas)])
+			->resumen('Copió '.count($asignaturas).' asignaturas del grupo '.Request::input('grupo_id_origen'))
+			->guardar();
+
 		return 'Asignaturas copiadas';
 	}
 
@@ -531,6 +547,15 @@ class AsignaturasController extends Controller {
 		if ($filas === 0) {
 			return abort(404, 'Esa asignatura no está en la papelera de este año.');
 		}
+
+		// Se anota DESPUÉS del `if`: llegar aquí es haber restaurado de verdad. Antes
+		// del `if`, un id que no estaba en la papelera dejaría una línea diciendo que
+		// se restauró algo que nadie tocó — un rastro que miente es peor que ninguno.
+		Auditoria::registrar()
+			->restaurar('asignatura', (int) $asignatura_id)
+			->en(year: (int) $user->year_id)
+			->resumen('Sacó la asignatura de la papelera')
+			->guardar();
 
 		return 'Retaurada';
 	}
