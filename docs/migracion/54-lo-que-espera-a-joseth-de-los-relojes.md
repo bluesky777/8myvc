@@ -62,7 +62,7 @@ solo año** con `RastroDeLaMigracion::anotar()` delante. No hay que tocar nueve 
 
 ---
 
-## 3 · Si el desfase de una hora se ve en los datos
+## 3 · ~~Si el desfase de una hora se ve en los datos~~ — **NO MEDIDO** el 22 sep
 
 ```sql
 SELECT COUNT(*) AS total FROM ordenes_inscripcion;
@@ -71,11 +71,33 @@ FROM ordenes_inscripcion o JOIN matriculas m ON m.id = o.matricula_id
 WHERE ABS(TIMESTAMPDIFF(SECOND, o.updated_at, m.updated_at)) = 3600;
 ```
 
-**El total primero**, y por lo mismo: estas tablas son nuevas y pueden estar vacías, y un
-cero sin denominador no distingue «no pasa» de «no hay nada que mirar».
+**Resultado: `ordenes_inscripcion` tiene CERO filas**, así que el cero de la segunda consulta
+es **NO MEDIDO** y no «no pasa». El portal de inscripción no está en uso en ese colegio.
 
-**Qué contesta:** si el reloj EDT dejó rastro visible, o si las tablas nuevas todavía no
-tienen uso suficiente.
+Por eso el total iba primero, y es la regla entera de esta casa en una línea: **un cero sin
+denominador no distingue «lo revisé y no ocurre» de «no revisé nada»**.
+
+**Y esta pregunta no bloquea nada**, que conviene decirlo para que nadie la persiga: el
+desfase de EDT **ya está probado sin tocar los datos**. La medición del §3 del
+[53](53-los-cuatro-relojes.md) compara `NOW()` con `UTC_TIMESTAMP()` en la misma consulta y
+da **−4,0 h** en los diecisiete, contra los −5 de Bogotá. Buscarlo además en las filas sería
+una confirmación agradable, no una incógnita.
+
+Si alguna vez apetece confirmarlo sobre datos reales, el sitio es una tabla escrita con
+`NOW()` **que sí tenga uso**, contra `bitacoras`, que va en Bogotá:
+
+```sql
+SELECT 'informes_recientes' t, COUNT(*) filas FROM informes_recientes
+UNION ALL SELECT 'accesos_favoritos',     COUNT(*) FROM accesos_favoritos
+UNION ALL SELECT 'descargas_de_planilla', COUNT(*) FROM descargas_de_planilla
+UNION ALL SELECT 'colillas_inscripcion',  COUNT(*) FROM colillas_inscripcion
+UNION ALL SELECT 'pagos_inscripcion',     COUNT(*) FROM pagos_inscripcion
+UNION ALL SELECT 'bitacoras (referencia)', COUNT(*) FROM bitacoras;
+```
+
+Y si `informes_recientes` o `accesos_favoritos` tienen filas, emparejando cada una con la
+línea de bitácora más cercana del mismo usuario: **el pico debería estar en 0 y estará en
++3.600** mientras el `NOW()` siga desplegado.
 
 ---
 
