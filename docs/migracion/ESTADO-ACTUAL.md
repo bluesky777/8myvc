@@ -91,6 +91,31 @@
 > antes de desplegar: lo fundido es barato de deshacer, lo desplegado viaja a dieciséis
 > colegios copia a copia.
 >
+> > #### ✅ PAGADA el 22 sep 2026 sobre `935fece`
+> >
+> > ```
+> > Tests: 1 skipped, 2847 passed (56794 assertions)
+> > Duration: 1362.67s
+> > HEAD=935fece, árbol limpio, base simonbolivar_testing_b7
+> > docker exec -e DB_TEST_DATABASE=simonbolivar_testing_b7 8myvc-app-1 php artisan test
+> > ```
+> >
+> > La lanzó `8myvc-b7` a las 05:40 congelando `main` sobre ese hash, y la leyó `8myvc-81`
+> > al recoger su relevo. **Hay línea `Tests:`**, que es lo que distingue una verde de una
+> > muerta, y los 1.362 s caen dentro del rango sano (~1.359 s).
+> >
+> > **Son 2.848, no las 2.520 del `CLAUDE.md`**: esa tabla se contó el 20–21 sep y desde
+> > entonces entraron pruebas. La cifra de la tabla no se hereda — se cuenta el día que se
+> > toca.
+> >
+> > **Lo que esta cifra NO dice:** describe `935fece` y nada más. Cualquier commit fundido
+> > después queda fuera, y el despliegue que se pague con ella tiene que salir **de ese
+> > hash** o volver a pagarla. `main` se descongeló por orden de Joseth en cuanto acabó.
+> >
+> > De paso dejó el mapa de cobertura entero: `/tmp/rutas-tocadas.txt`, **8.147 líneas**
+> > (antes 5.746), dentro del contenedor **y** en el host, que es donde corre
+> > `tools/tests-que-tocan.py`.
+>
 > ```bash
 > docker exec -d -e COBERTURA_RUTAS=/tmp/rutas-tocadas.txt 8myvc-app-1 \
 >     sh -c 'php artisan test > /tmp/suite-despliegue.txt 2>&1'
