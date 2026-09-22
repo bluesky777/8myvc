@@ -102,15 +102,21 @@ tools/respaldo-antes-de-migrar.sh       # sólo si el de arriba salió con 2
 > no es un fallo: una comprobación que viaja con el código no puede correr antes de sí misma.
 >
 > **El sustituto para esta vuelta**, que contesta la única pregunta que hoy importa —*¿está este
-> colegio donde creo que está?*—:
+> colegio donde creo que está?*— es **el hash**:
 >
 > ```bash
-> for d in ~/*/8myvc; do printf '%-52s ' "$d"; (cd "$d" && php artisan migrate:status | grep -c Pending); done
+> for d in ~/*/8myvc; do printf '%-52s ' "$d"; git -C "$d" rev-parse --short HEAD; done
 > ```
 >
-> **Tiene que dar 3 en todos.** Ese 3 son las tres migraciones aditivas de esta tanda. El colegio
-> que dé más se quedó fuera del `git pull` del 20 sep y tiene `la_casilla_vacia` por delante: a ése
-> no lo migres hasta mirarlo aparte.
+> **Tiene que dar `e7ed5e7` en todos.** El que salga con otro se quedó fuera del `git pull` del 20
+> sep y tiene `la_casilla_vacia` por delante: a ése no lo migres hasta mirarlo aparte.
+>
+> > **Y NO sirve `migrate:status | grep -c Pending`, que es lo que este documento decía hasta el
+> > 22 sep por la tarde.** Corrido en los diecisiete dio **0** en todos, y el 0 es correcto:
+> > `migrate:status` lista **las migraciones que hay en el disco**, y las tres de esta tanda llegan
+> > con el `git pull` que todavía no se ha hecho. Un colegio atrasado daría 0 también, con lo que
+> > el instrumento era ciego justo para lo que se le preguntaba. *El 0 sí dice algo: ningún colegio
+> > tiene migraciones sin correr de su propio código.*
 >
 > Y el respaldo de esta vuelta **ya está hecho** —18 bases, 22 sep— con el bucle suelto de
 > [RESPALDOS.md](RESPALDOS.md), que es el mismo `mysqldump` sin necesitar el repositorio.
