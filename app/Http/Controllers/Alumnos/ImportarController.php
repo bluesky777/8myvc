@@ -12,7 +12,6 @@ use App\Services\EnsayoDeLaImportacion;
 use App\Services\PuntoDeControlDeImportacion;
 use App\Services\RespuestasDeLaImportacion;
 use App\Support\EstadosDeMatricula;
-use App\Support\Reloj;
 use App\Support\SafeUpload;
 use App\User;
 use Carbon\Carbon;
@@ -1615,14 +1614,11 @@ class ImportarController extends Controller
         // anotada como de quien lleve las importaciones—: es convertir **al
         // leer**. La tabla conserva una sola zona y la pantalla enseña la hora
         // del colegio.
-        foreach (['inicio', 'fin', 'created_at', 'updated_at'] as $campo) {
-            if (! empty($pendiente->{$campo})) {
-                $pendiente->{$campo} = Carbon::parse($pendiente->{$campo}, 'UTC')
-                    ->setTimezone(Reloj::ZONA)
-                    ->format('Y-m-d H:i:s');
-            }
-        }
-
+        //
+        // **Y desde el 21 sep 2026 la conversión ya viene hecha**: la hace
+        // `PuntoDeControlDeImportacion::enLaHoraDelColegio()`, que es quien tiene
+        // la tabla. Aquí había un bucle propio, y el acta en Excel —tercer lector
+        // de la misma fila— no lo tenía, así que enseñaba cinco horas de más.
         $pendiente->avance = json_decode((string) $pendiente->avance, true) ?: [];
         $pendiente->avisos = json_decode((string) $pendiente->avisos, true) ?: [];
         $pendiente->respuestas = json_decode((string) $pendiente->respuestas, true) ?: null;

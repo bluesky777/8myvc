@@ -334,6 +334,30 @@ WHERE ABS(TIMESTAMPDIFF(SECOND, s.updated_at, n.updated_at)) = 18000;
 
 ---
 
+## La quinta forma en que una suite miente: el árbol se movió debajo
+
+CLAUDE.md lista cuatro —muerta, contaminada, cortada por timeout, base desfasada—. La noche
+del 21 sep 2026 apareció una quinta, y costó una corrida entera de veinte minutos:
+
+**Se lanzó la suite y se siguieron editando ficheros mientras corría.** PHP carga cada
+fichero en el momento en que el test lo necesita, así que los tests que pasaron por
+`PuntoDeControlDeImportacion` e `ImportarController` **a mitad de la edición** vieron un
+estado que no existió nunca: un llamante ya movido y el método al que llama todavía sin
+escribir. Salieron dos rojos —`la hora que sale es la del colegio` y `reimportar lo exportado
+no cambia a los alumnos`— y **los dos pasan en aislamiento**.
+
+El delator es que **los dos rojos eran de ficheros tocados durante la corrida**, no de
+ficheros al azar. Si los rojos caen justo en lo que estabas editando, la sospecha no es el
+código: es el reloj de pared.
+
+Y hay una variante peor en este repo, porque el árbol principal lo comparten varias sesiones:
+**otra sesión puede mover el suelo aunque tú no toques nada.** Al ir a relanzarla había medio
+commit ajeno preparado en el índice. La regla que sale de aquí es corta: **una suite entera
+se lanza sobre un árbol quieto, y si no se puede garantizar que lo esté, se lanza un
+subconjunto y se dice cuál.**
+
+---
+
 ## Lo que este documento NO mira
 
 - ~~Qué zona tiene el MySQL de cada colegio.~~ **Medido el 21 sep 2026: EDT en los

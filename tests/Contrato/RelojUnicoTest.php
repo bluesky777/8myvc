@@ -2,13 +2,62 @@
 
 namespace Tests\Contrato;
 
+use App\Models\Acudiente;
+use App\Models\Alumno;
+use App\Models\Area;
+use App\Models\Asignatura;
+use App\Models\Ausencia;
+use App\Models\Bitacora;
+use App\Models\ChangeAsked;
+use App\Models\Ciudad;
+use App\Models\ConfigCertificado;
+use App\Models\Contrato;
+use App\Models\Debugging;
+use App\Models\DefinicionComportamiento;
+use App\Models\EscalaDeValoracion;
+use App\Models\Frase;
+use App\Models\FraseAsignatura;
+use App\Models\Grado;
+use App\Models\Grupo;
+use App\Models\ImageModel;
+use App\Models\Materia;
 use App\Models\Matricula;
+use App\Models\NivelEducativo;
 use App\Models\Nota;
+use App\Models\NotaComportamiento;
+use App\Models\NotaFinal;
+use App\Models\Pais;
+use App\Models\Parentesco;
+use App\Models\Periodo;
+use App\Models\Permission;
+use App\Models\Profesor;
+use App\Models\Role;
+use App\Models\Rubrica;
+use App\Models\RubricaCriterio;
+use App\Models\RubricaDescriptor;
+use App\Models\RubricaNivel;
+use App\Models\RubricaValoracion;
 use App\Models\Subunidad;
+use App\Models\TipoDocumento;
+use App\Models\TokenDeSesion;
 use App\Models\Unidad;
+use App\Models\VtAspiracion;
+use App\Models\VtCandidato;
+use App\Models\VtParticipante;
+use App\Models\VtVotacion;
+use App\Models\VtVoto;
+use App\Models\WsActividad;
+use App\Models\WsActividadCompartida;
+use App\Models\WsActividadResuelta;
+use App\Models\WsOpcion;
+use App\Models\WsPregunta;
+use App\Models\WsRespuesta;
+use App\Models\Year;
 use App\Support\Reloj;
 use App\Support\SellaConElReloj;
+use App\User;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Model;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -159,6 +208,106 @@ class RelojUnicoTest extends TestCase
         // la hora con `Reloj::ahora()` porque **sale por pantalla y no entra en ninguna
         // columna**, que es exactamente la línea que separa los dos casos.
         'app/Services/PuntoDeControlDeImportacion.php' => 14,
+    ];
+
+    /**
+     * Los modelos cuyo sello va en Bogotá, y **por qué justo éstos**.
+     *
+     * El criterio es uno, se mide y no se opina: **su tabla ya recibe
+     * `created_at`/`updated_at` escritos a mano en Bogotá por alguna sentencia de
+     * `app/`**. Donde eso pasa, el rasgo REDUCE la mezcla; donde no, la CREA.
+     *
+     * La medición está en el 53 §1 y se rehace buscando la CADENA SQL, no la
+     * llamada: el patrón de la casa es `$consulta = 'UPDATE users SET …
+     * updated_at=:fecha'` y ejecutar después, así que un detector que sólo mire
+     * dentro de `DB::update(` se deja la mitad. Eso costó tres intentos el 21 sep
+     * 2026, y los tres primeros dieron números distintos y plausibles.
+     *
+     * @var list<class-string<Model>>
+     */
+    private const SELLAN_EN_BOGOTA = [
+        Acudiente::class,
+        Alumno::class,
+        Asignatura::class,
+        Ausencia::class,
+        Bitacora::class,
+        ChangeAsked::class,
+        EscalaDeValoracion::class,
+        ImageModel::class,
+        Matricula::class,
+        Nota::class,
+        NotaComportamiento::class,
+        NotaFinal::class,
+        Parentesco::class,
+        Rubrica::class,
+        RubricaDescriptor::class,
+        RubricaValoracion::class,
+        Subunidad::class,
+        Unidad::class,
+        Year::class,
+        User::class,
+    ];
+
+    /**
+     * Los que se quedan en UTC, **cada uno con su motivo**, que es lo que se revisa.
+     *
+     * Casi todos comparten el mismo: su columna está entera en UTC porque nadie le
+     * escribe el sello a mano, así que el rasgo no arreglaría una mezcla —crearía
+     * una—. Los que tienen un motivo distinto lo llevan escrito encima.
+     *
+     * @var array<class-string<Model>, true>
+     */
+    private const SELLAN_EN_UTC = [
+        // El motivo compartido por los que no llevan uno propio:
+        // Medido el 21 sep 2026: ninguna sentencia de `app/` le escribe `created
+        // _at`/`updated_at` a mano, así que su columna está ENTERA en UTC. El rasgo no reduciría una mezcla: la crearía.
+        Area::class => true,
+        Ciudad::class => true,
+        ConfigCertificado::class => true,
+        Contrato::class => true,
+        Debugging::class => true,
+        DefinicionComportamiento::class => true,
+        Frase::class => true,
+        FraseAsignatura::class => true,
+        Grado::class => true,
+
+        // Medido: CERO escrituras de su sello a mano. Está entero en UTC y ponerle
+        // el rasgo CREARÍA la mezcla en vez de reducirla.
+        Grupo::class => true,
+        Materia::class => true,
+        NivelEducativo::class => true,
+        Pais::class => true,
+
+        // Igual, y se le puso el rasgo por error el 21 sep 2026 contando
+        // escrituras a la tabla en vez de escrituras del SELLO. `UPDATE periodos
+        // SET profes_pueden_editar_notas = 0` no toca `updated_at`.
+        Periodo::class => true,
+        Permission::class => true,
+
+        // Igual que `Periodo`, y por el mismo error: `UPDATE profesores SET tono =
+        // ?` escribe la tabla, no el sello.
+        Profesor::class => true,
+        Role::class => true,
+        RubricaCriterio::class => true,
+        RubricaNivel::class => true,
+        TipoDocumento::class => true,
+
+        // Sus fechas se comparan contra un `now()` de UTC —`expires_at`, la gracia
+        // del refresco, el barrido de caducados— y moverle el reloj cinco horas le
+        // cambia la VIDA ÚTIL a las sesiones. Es el único de esta lista que se
+        // rompería, no sólo que se mezclaría.
+        TokenDeSesion::class => true,
+        VtAspiracion::class => true,
+        VtCandidato::class => true,
+        VtParticipante::class => true,
+        VtVotacion::class => true,
+        VtVoto::class => true,
+        WsActividad::class => true,
+        WsActividadCompartida::class => true,
+        WsActividadResuelta::class => true,
+        WsOpcion::class => true,
+        WsPregunta::class => true,
+        WsRespuesta::class => true,
     ];
 
     #[Test]
@@ -376,5 +525,87 @@ class RelojUnicoTest extends TestCase
                 .'columna con las que escribe SQL a mano en Bogotá, así que ahí eso son cinco horas '
                 .'de diferencia y nada en la fila que diga cuál es cuál.');
         }
+    }
+
+    /**
+     * **Y el reparto ENTERO, que es lo que este fichero no sabía mirar.**
+     *
+     * El censo de `no_hay_relojes_sin_zona_nuevos` lee el código y cuenta `now()`.
+     * Por construcción **no puede ver un `->save()`**: `Model::freshTimestamp()`
+     * devuelve `Carbon::now()` sin que aparezca un solo `now()` en el fichero del
+     * modelo, y aun así rellena `created_at`, `updated_at` y —con `SoftDeletes`—
+     * `deleted_at`. Un modelo nuevo entra en UTC sin que nada se ponga rojo.
+     *
+     * Por eso esto no comprueba una lista de los que deben estar bien: comprueba
+     * **el reparto de los dos grupos contra el esperado**, igual que el censo de
+     * `now()`. Un modelo nuevo no cae en ninguno de los dos y el test lo dice.
+     *
+     * El criterio para entrar en {@see SELLAN_EN_UTC} es uno solo y se comprueba
+     * midiendo, no opinando: **que su tabla no reciba ya fechas en Bogotá por otro
+     * camino**. Si las recibe, el rasgo REDUCE la mezcla y va puesto; si no, el
+     * rasgo la CREA, que es la enfermedad que {@see Reloj} vino a curar.
+     */
+    #[Test]
+    public function ningun_modelo_sella_en_utc_sin_estar_declarado(): void
+    {
+        $encontrados = [];
+
+        foreach ($this->modelosDelProyecto() as $clase) {
+            $modelo = new $clase;
+
+            if (! $modelo->usesTimestamps()) {
+                continue;   // No sella nada: no tiene reloj que equivocar.
+            }
+
+            $encontrados[$clase] = $modelo->freshTimestamp()->timezoneName;
+        }
+
+        $esperados = [];
+
+        foreach (self::SELLAN_EN_BOGOTA as $clase) {
+            $esperados[$clase] = Reloj::ZONA;
+        }
+
+        foreach (array_keys(self::SELLAN_EN_UTC) as $clase) {
+            $esperados[$clase] = 'UTC';
+        }
+
+        ksort($encontrados);
+        ksort($esperados);
+
+        $this->assertSame(
+            $esperados,
+            $encontrados,
+            "Ha cambiado el reparto de relojes de los `timestamps` de Eloquent.\n\n".
+            "Si has AÑADIDO un modelo: mira si su tabla YA recibe fechas en Bogotá por\n".
+            "otro camino (`INSERT INTO <tabla>` o `DB::table('<tabla>')` en `app/`).\n".
+            "  - Si las recibe   -> `use App\\Support\\SellaConElReloj;` y a SELLAN_EN_BOGOTA.\n".
+            "  - Si NO las recibe -> a SELLAN_EN_UTC **CON EL MOTIVO**, que es lo que se revisa.\n\n".
+            "Por qué importa: `Model::freshTimestamp()` sale de `config/app.php` —UTC— y no\n".
+            "aparece ningún `now()` en el fichero, así que el censo de arriba NO LO VE. Un\n".
+            "`->save()` deja la columna cinco horas movida sin romper nada. Ver el 53 §1.\n\n".
+            'Encontrado ahora: '.json_encode($encontrados, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
+        );
+    }
+
+    /**
+     * Los modelos del proyecto: `app/Models/` **y `app/User.php`**.
+     *
+     * El segundo va nombrado a mano y no por el barrido, porque **no está en
+     * `app/Models/`**: escribe `users` con ~19 `->save()` y cualquier censo que
+     * recorra esa carpeta se lo deja fuera. Se descubrió justo así, el 21 sep 2026.
+     *
+     * @return list<class-string<Model>>
+     */
+    private function modelosDelProyecto(): array
+    {
+        $clases = ['App\\User'];
+
+        foreach (glob(base_path('app/Models/*.php')) ?: [] as $fichero) {
+            $clases[] = 'App\\Models\\'.basename($fichero, '.php');
+        }
+
+        return array_values(array_filter($clases, static fn (string $c): bool => class_exists($c)
+            && is_subclass_of($c, Model::class)));
     }
 }
