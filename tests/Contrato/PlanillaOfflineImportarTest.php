@@ -2943,7 +2943,9 @@ class PlanillaOfflineImportarTest extends CasoDeContrato
 
         $this->assertNotNull($hoja, 'El acta tiene que venir en una hoja que se llame «Acta».');
 
-        $rejilla = $hoja->toArray(null, true, false, false);
+        // `array_values` no cambia el contenido: `toArray` ya numera de 0 en adelante con
+        // `$returnCellRef` en falso. Es lo que le dice a Larastan que esto es una `list`.
+        $rejilla = array_values($hoja->toArray(null, true, false, false));
 
         $libro->disconnectWorksheets();
 
@@ -2959,7 +2961,7 @@ class PlanillaOfflineImportarTest extends CasoDeContrato
      *
      * @param  list<array<int, mixed>>  $acta
      */
-    private function delActa(array $acta, string $etiqueta): ?string
+    private function delActa(array $acta, string $etiqueta): string
     {
         foreach ($acta as $fila) {
             if (trim((string) ($fila[0] ?? '')) === $etiqueta) {
