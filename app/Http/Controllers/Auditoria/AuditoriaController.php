@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Http\Controllers\Controller;
 use App\Services\Auditoria;
 use App\Support\Autoriza;
+use App\Support\Reloj;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -75,10 +76,21 @@ class AuditoriaController extends Controller
 
         Autoriza::exigirVerAuditoriaDe($user, $deQuien);
 
-        // El rango por defecto es corto a propósito: sin él, el primer uso de la
-        // pantalla barre la tabla entera del colegio.
-        $desde = $peticion->input('desde') ?: now()->subDays(30)->toDateString();
-        $hasta = $peticion->input('hasta') ?: now()->toDateString();
+        /*
+         * El rango por defecto es corto a propósito: sin él, el primer uso de la
+         * pantalla barre la tabla entera del colegio.
+         *
+         * **`Reloj::ahora()` y no `now()`, y no es una formalidad del centinela.**
+         * Estas dos fechas se comparan contra `historiales.created_at` y acotan lo que
+         * se cruza con `auditoria.ocurrido_en`, que es `DATETIME` fijado a Bogotá
+         * (decisión 1). `now()` sale en la zona de `config/app.php` —UTC—, así que a
+         * partir de las 19:00 de Bogotá el «hoy» por defecto era el de mañana y el
+         * rango entero se desplazaba un día. Es la misma discrepancia de cinco horas
+         * que este documento avisa por el lado de la celda, aquí del lado del filtro.
+         * Lo cazó `RelojUnicoTest` y lo trajo la sesión del front el 21 sep.
+         */
+        $desde = $peticion->input('desde') ?: Reloj::ahora()->subDays(30)->toDateString();
+        $hasta = $peticion->input('hasta') ?: Reloj::ahora()->toDateString();
 
         $ingresos = DB::select(
             'SELECT h.id, h.tipo, h.ip, h.created_at AS entro_en, h.logout_at,
