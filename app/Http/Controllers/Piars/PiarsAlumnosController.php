@@ -1,5 +1,6 @@
 <?php namespace App\Http\Controllers\Piars;
 
+use App\Services\Auditoria;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
@@ -84,6 +85,23 @@ class PiarsAlumnosController extends Controller {
 		$consulta = "UPDATE piars_alumnos SET $field=?, history=? WHERE alumno_id=?";
 		$document = DB::update($consulta, [$fullPath, $arr, $alumno_id]);
 
+		/*
+		 * Un PIAR es información de discapacidad de un menor: quién le sube o le
+		 * quita un documento es exactamente la clase de pregunta para la que existe
+		 * este rastro. El sujeto va como `deAlumno()` porque la fila de
+		 * `piars_alumnos` es del alumno y es así como la encuentra la pantalla.
+		 *
+		 * `$field` no sale del cuerpo sin mirar: viene filtrado por el `in_array`
+		 * contra `$validFields` cincuenta líneas más arriba, que es lo que impide
+		 * que esta cadena acabe dentro del `UPDATE` de ahí encima.
+		 */
+		Auditoria::registrar()
+			->crear('piar')
+			->deAlumno((int) $alumno_id)
+			->a(['campo' => $field, 'documento' => $fullPath])
+			->resumen('Subió el documento '.$field.' del PIAR')
+			->guardar();
+
 		// `documento` es nuevo. El nombre final lo decide el servidor —carpeta
 		// `user_<user_id>/` y `(1)`, `(2)`… al chocar, ver SafeUpload— así que
 		// el cliente no puede deducirlo: sin esto pintaba un enlace roto hasta
@@ -117,6 +135,17 @@ class PiarsAlumnosController extends Controller {
 		$piars = DB::update($consulta, [
 			$text, $updated_at, $updated_by, $id,
 		]);
+
+		/*
+		 * Sin `de()`: el texto de antes exigiría una lectura más y este campo es HTML
+		 * del editor, que puede ser largo. Lo que se guarda es QUÉ campo se tocó y
+		 * cuándo; el contenido anterior es el hueco conocido de esta línea y se cierra
+		 * el día que la pantalla del PIAR pida ver versiones.
+		 */
+		Auditoria::registrar()
+			->editar('piar', (int) $id)
+			->resumen('Editó el campo '.$field.' del PIAR')
+			->guardar();
 
     return ['piars' => $piars];
 	}
@@ -179,6 +208,19 @@ class PiarsAlumnosController extends Controller {
 
 		$consulta = "UPDATE piars_alumnos SET $field=null, history=? WHERE alumno_id=?";
 		$document = DB::update($consulta, [$arr, $alumno_id]);
+
+		/*
+		 * **El valor viejo se anota aunque el fichero se borre del disco doce líneas
+		 * más abajo.** `$fileToDelete` es lo único que queda de él en cuanto corre
+		 * ese `File::delete()`: sin esta línea, «¿quién quitó el diagnóstico de este
+		 * niño?» no tiene respuesta en ninguna parte.
+		 */
+		Auditoria::registrar()
+			->borrar('piar')
+			->deAlumno((int) $alumno_id)
+			->de(['campo' => $field, 'documento' => $fileToDelete])
+			->resumen('Quitó el documento '.$field.' del PIAR — el fichero se borra del disco')
+			->guardar();
 
 		$filename 	= 'uploads/'.$fileToDelete;
 	
