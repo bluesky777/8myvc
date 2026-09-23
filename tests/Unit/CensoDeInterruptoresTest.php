@@ -44,9 +44,27 @@ class CensoDeInterruptoresTest extends TestCase
     private const CENSO = [
         'columnas tinyint(1) distintas' => 157,
         'ni se nombran' => 64,
-        'no deciden nada' => 26,
-        'alguien decide con ellas' => 67,
+        'no deciden nada' => 29,
+        'alguien decide con ellas' => 64,
     ];
+
+    /*
+     * ## 23 sep 2026 — tres cruzaron de «decide» a «no decide nada», y es MENTIRA
+     *
+     * `26 / 67` pasa a `29 / 64`, y la suma sin lector de **90 a 93**. Son
+     * `can_see_results`, `votan_acudientes` y `votan_profes`, de `vt_votaciones`, y
+     * **está comprobado cuáles son** —diff del censo entre `42c0f45^1` y `main`—, no
+     * deducido. Las tres **siguen decidiendo**: el rediseño de votaciones (11 §8)
+     * borró las consultas que las filtraban con `WHERE` y ahora se leen como PHP
+     * —`$conConteo = (bool) $votacion->can_see_results || …` en
+     * `VtResultadosController`, y el mapa `ESTAMENTO` de `VtVotacion` para las dos
+     * `votan_*`—, que la señal de este censo (una palabra de condición delante) no ve.
+     *
+     * **O sea que la población del §105 NO cambió** aunque el número sí: no hay que
+     * volver a medir el 49 y el 53 contra los clientes por estas tres. Lo que no se
+     * midió es si alguna OTRA columna muda de las 93 es, igual que éstas, una que se
+     * lee sin palabra de condición.
+     */
 
     /*
      * ## 21 sep 2026 — `perdido` cruzó de «no decide nada» a «alguien decide con
@@ -209,7 +227,7 @@ class CensoDeInterruptoresTest extends TestCase
      * > hace aquí porque tocar el criterio mueve los tres montones a la vez y eso
      * > es una medición entera, no el arreglo de un CI. Queda dicho y fechado.
      */
-    private const SIN_LECTOR_EN_EL_BACKEND = 90;
+    private const SIN_LECTOR_EN_EL_BACKEND = 93;
 
     /** Las `tinyint(1)` del volcado, con las tablas donde están. Igual que la herramienta. */
     private function columnasBooleanas(): array

@@ -122,7 +122,28 @@
 > existe en ninguna de las dieciséis bases**. `signed` pasa a ser un booleano y conserva el
 > nombre porque es lo que lee el cliente.
 >
-> ### Los 31 rojos son la decisión escrita en [11 §8.7], no una avería
+> ### ✅ LOS ROJOS DE VOTACIONES, CERRADOS (23 sep 2026, noche) — decisión de Joseth antes de desplegar
+>
+> El CI de `main` daba **51 failed, 1 skipped, 2844 passed** (corrida 35932271941, sobre `7f42565`):
+> 50 de votaciones más `Unit\CensoDeInterruptoresTest`. Los tests se pusieron al contrato
+> del rediseño (`6b1d1e5`, `ffb187a` y el commit de este párrafo): los que fijaban fallos ya
+> cerrados se invierten, los de rutas borradas se van. Medido sobre las 18 clases tocadas o
+> vecinas: **322 passed (2105 assertions)**; `CensoDeInterruptoresTest` 1 passed. **No
+> medido: la suite entera después de estos commits**; la corre el CI del push.
+>
+> **Dos fallos del código que salieron al rehacer los tests y NO se arreglaron** (esperan
+> decisión):
+> - **`candidatos/destroy` no tiene guard de dueño** (`VtCandidatosController::deleteDestroy`,
+>   `findOrFail` + `delete()` sin `exigirAdministrable()`): cualquiera de las 75 cuentas de
+>   `auth.personal` borra un candidato de la elección de otro. Sus hermanos `votaciones/` y
+>   `aspiraciones/destroy` sí lo tienen.
+> - **`aspiraciones/destroy` borra de verdad, y ahora arrastra votos**: la FK nueva
+>   `vt_votos.aspiracion_id` en CASCADE se lleva también los votos en blanco (medido en el
+>   test), y por el esquema `vt_acta_votos.aspiracion_id` también cuelga en CASCADE —las
+>   cifras de las actas, firmadas incluidas— (**esto no se probó**). Sin comprobar si la urna
+>   tiene votos.
+>
+> ### Los 31 rojos son la decisión escrita en [11 §8.7], no una avería — HISTORIA, ver arriba
 >
 > `--filter='(RutasTest|AutorizacionTest|FamiliasQueNuncaEntranTest|AutenticacionTest|RutasPreLoginTest|VotacionesTest|VotacionesBorradoTest|VotacionesInterruptoresTest|MuestreoDeLecturasTest)'`
 > → **31 failed, 137 passed (917 assertions), 58,5 s**, medido sobre `main` después de fundir.
