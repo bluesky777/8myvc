@@ -124,17 +124,16 @@ class ColumnasQuePisaElExamenTest extends CasoDeContrato
     }
 
     /**
-     * §120.3 — La candidatura de una votación se queda **sin nombre**, y el
-     * `NOT NULL` no lo impide.
+     * §120.3 — La candidatura de una votación se quedaba **sin nombre**, y el
+     * `NOT NULL` no lo impedía: `aspiraciones/update` con sólo la abreviatura
+     * escribía null en `aspiracion` y MySQL lo guardaba como cadena vacía.
      *
-     * `vt_aspiraciones.aspiracion` y `.abrev` son las dos `NOT NULL`, y aun así el
-     * UPDATE con null pasa: MySQL las convierte en cadena vacía. Es la
-     * demostración más limpia de que **el esquema solo protege el alta**.
-     *
-     * Y su hermana `aspiraciones/store` lo enseña por el otro lado: escribe **solo
-     * `votacion_id`**, así que crea la candidatura con el nombre ya en blanco.
+     * **Cerrado con el rediseño del 22 sep 2026** (11 §8): renombrar exige el nombre
+     * y responde 422 sin tocar la fila. El alta sí lo deja llegar en blanco, **a
+     * propósito** —ver la cabecera de `VtAspiracionesController`—, así que lo que
+     * se fija es la otra mitad: lo que ya tenía nombre no lo pierde.
      */
-    public function test_una_candidatura_se_queda_sin_nombre(): void
+    public function test_una_candidatura_ya_no_se_queda_sin_nombre(): void
     {
         $token = $this->tokenDeSuperusuario();
         $votacion = DB::table('vt_votaciones')->whereNull('deleted_at')->orderBy('id')->value('id');
@@ -146,19 +145,18 @@ class ColumnasQuePisaElExamenTest extends CasoDeContrato
 
         $id = (int) $creada->json('id');
 
-        // El alta ya la deja sin nombre: `postStore` no escribe ni `aspiracion` ni
-        // `abrev`, y las dos son NOT NULL sin defecto.
+        // El alta en blanco es la decisión de la cabecera, no el fallo.
         $this->assertSame('', (string) DB::table('vt_aspiraciones')->where('id', $id)->value('aspiracion'));
 
         DB::table('vt_aspiraciones')->where('id', $id)->update(['aspiracion' => 'Personero', 'abrev' => 'PER']);
 
         $this->withToken($token)->putJson('/api/aspiraciones/update',
-            ['id' => $id, 'abrev' => 'PRS'])->assertStatus(200);
+            ['id' => $id, 'abrev' => 'PRS'])->assertStatus(422);
 
         $fila = DB::table('vt_aspiraciones')->where('id', $id)->first();
-        $this->assertSame('PRS', $fila->abrev);
-        $this->assertSame('', (string) $fila->aspiracion,
-            'Cambiar la abreviatura borró el nombre de la candidatura, y la columna es NOT NULL.');
+        $this->assertSame('PER', $fila->abrev, 'Un 422 no escribe nada.');
+        $this->assertSame('Personero', $fila->aspiracion,
+            'Cambiar la abreviatura sin el nombre ya no borra el nombre.');
     }
 
     /**

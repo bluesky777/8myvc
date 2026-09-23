@@ -7,6 +7,7 @@
     "POST api/tardanzas/login",
     "POST api/tardanzas/login/traer-datos-ausencias",
     "POST api/tardanzas/subir",
+    "POST api/votos/store",
     "PUT api/aplicacion-descargas/detailed",
     "PUT api/calendario/crear-evento",
     "PUT api/calendario/eliminar-evento",
@@ -26,5 +27,6 @@
     "PUT api/publicaciones/store",
     "PUT api/publicaciones/ultimas",
     "PUT api/tardanzas/subir/eliminar-ausencia",
-    "PUT api/tardanzas/subir/poner-ausencia"
+    "PUT api/tardanzas/subir/poner-ausencia",
+    "PUT api/votos/show"
 ]

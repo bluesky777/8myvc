@@ -262,7 +262,24 @@ class FamiliasQueNuncaEntranTest extends CasoDeContrato
         // (Antes eran 22, desde el 2 sep 2026, y aquella vez bajó por la razón buena:
         // Joseth mandó retirar `POST tardanzas/login/traer-datos`. Y 24 el 19 sep, con
         // las dos de `pagos-inscripcion`; 26 esa misma noche con las dos del calendario.)
-        $this->assertCount(28, $escrituras,
+        //
+        // **30 desde el 23 sep 2026**, con la fusión de votaciones (11 §8), y no son
+        // rutas nuevas: `POST votos/store` y `PUT votos/show` ya estaban, con su renglón
+        // en `AutorizacionTest::EXCEPCIONES_DE_FAMILIA`. Lo que cambió es la familia:
+        // se borraron `votos/update` y `votos/destroy` —que tocaban candidatos, 11 §4— y
+        // con ellas las dos hermanas guardadas, así que `votos/*` pasó de 2 de 4 a
+        // **0 de 2** y salió del candado. **Quinto motivo distinto**:
+        //
+        //   - `votos/store` saca al votante del token, o de una sesión de mesa firmada
+        //     cuyo `asistente` tiene que ser el que pide (`VtVotosController::deQuienEsEsteVoto`);
+        //     un `user_id` en el cuerpo no se lee. Y el índice único
+        //     `(votacion_id, aspiracion_id, user_id)` impide el segundo voto.
+        //   - `votos/show` es la convención vieja de leer con `PUT`: cero escrituras,
+        //     acotada por el `user_id` del token.
+        //
+        // **El día que `votos/store` acepte un votante del cuerpo sin la sesión de mesa
+        // seguirá contando 30 y ya será un agujero.**
+        $this->assertCount(30, $escrituras,
             "Cambió cuántas escrituras viven en familias que el candado de familia no mira nunca.\n".
             "Si SUBIÓ, hay una ruta nueva que ningún mecanismo va a preguntar de quién es la fila que toca.\n".
             "Si BAJÓ, alguien puso un guard o la familia llegó a dos hermanas guardadas y entró en el candado: bien, y hay que actualizar el número.\n".

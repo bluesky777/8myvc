@@ -1,5 +1,6 @@
 <?php namespace App\Models;
 
+use App\Support\SellaConElReloj;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -60,6 +61,10 @@ use Illuminate\Database\Eloquent\Model;
  */
 class VtActaVoto extends Model
 {
+    // Su tabla la escriben sentencias crudas con `Reloj::ahoraTexto()`, o sea en Bogotá:
+    // un `->save()` sin el rasgo sellaría cinco horas movido en la misma columna.
+    use SellaConElReloj;
+
     protected $table = 'vt_acta_votos';
 
     protected $fillable = [];

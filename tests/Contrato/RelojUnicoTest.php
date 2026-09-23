@@ -41,8 +41,12 @@ use App\Models\Subunidad;
 use App\Models\TipoDocumento;
 use App\Models\TokenDeSesion;
 use App\Models\Unidad;
+use App\Models\VtActa;
+use App\Models\VtActaVoto;
 use App\Models\VtAspiracion;
 use App\Models\VtCandidato;
+use App\Models\VtGrupoVotacion;
+use App\Models\VtMesa;
 use App\Models\VtVotacion;
 use App\Models\VtVoto;
 use App\Models\WsActividad;
@@ -172,6 +176,12 @@ class RelojUnicoTest extends TestCase
         Unidad::class,
         Year::class,
         User::class,
+
+        // Las tres de votaciones que se escriben con `INSERT` crudo y `Reloj` (23 sep
+        // 2026): el rasgo es para que un `->save()` futuro no meta el segundo reloj.
+        VtActa::class,
+        VtActaVoto::class,
+        VtGrupoVotacion::class,
     ];
 
     /**
@@ -227,6 +237,10 @@ class RelojUnicoTest extends TestCase
         VtCandidato::class => true,
         VtVotacion::class => true,
         VtVoto::class => true,
+
+        // Medido el 23 sep 2026: `vt_mesas` sólo se escribe con `->save()` en
+        // `VtMesasController`, ninguna sentencia cruda le toca el sello. Entera en UTC.
+        VtMesa::class => true,
         WsActividad::class => true,
         WsActividadCompartida::class => true,
         WsActividadResuelta::class => true,

@@ -11,6 +11,10 @@
         "total": 2,
         "con_guard": 2
     },
+    "actas": {
+        "total": 5,
+        "con_guard": 5
+    },
     "actas-evaluacion": {
         "total": 3,
         "con_guard": 3
@@ -60,8 +64,8 @@
         "con_guard": 5
     },
     "auditoria": {
-        "total": 4,
-        "con_guard": 4
+        "total": 5,
+        "con_guard": 5
     },
     "ausencias": {
         "total": 8,
@@ -122,6 +126,10 @@
     "cartera": {
         "total": 3,
         "con_guard": 3
+    },
+    "censo": {
+        "total": 5,
+        "con_guard": 5
     },
     "certificados": {
         "total": 6,
@@ -231,6 +239,10 @@
         "total": 6,
         "con_guard": 6
     },
+    "ia": {
+        "total": 3,
+        "con_guard": 3
+    },
     "images-users": {
         "total": 10,
         "con_guard": 9
@@ -262,6 +274,10 @@
     "matriculas": {
         "total": 18,
         "con_guard": 5
+    },
+    "mesas": {
+        "total": 8,
+        "con_guard": 8
     },
     "mis-actividades": {
         "total": 5,
@@ -322,10 +338,6 @@
     "paises": {
         "total": 2,
         "con_guard": 1
-    },
-    "participantes": {
-        "total": 9,
-        "con_guard": 9
     },
     "perfiles": {
         "total": 22,
@@ -407,6 +419,10 @@
         "total": 1,
         "con_guard": 1
     },
+    "resultados": {
+        "total": 1,
+        "con_guard": 0
+    },
     "roles": {
         "total": 6,
         "con_guard": 6
@@ -448,12 +464,12 @@
         "con_guard": 6
     },
     "votaciones": {
-        "total": 15,
-        "con_guard": 10
+        "total": 20,
+        "con_guard": 15
     },
     "votos": {
-        "total": 5,
-        "con_guard": 3
+        "total": 2,
+        "con_guard": 0
     },
     "years": {
         "total": 24,

@@ -645,6 +645,19 @@ class AutorizacionTest extends CasoDeContrato
         'POST api/votos/store' => 'votar. Si esto lleva guard, no hay elecciones',
         'PUT api/votos/show' => 'los resultados de las votaciones del que pregunta; se acota por su user_id',
 
+        // Las cinco lecturas de `votaciones/*`. Hasta el 23 sep 2026 la familia entera
+        // estaba en FAMILIAS_FUERA_DEL_CANDADO («5 abiertas de 15»); el rediseño de la
+        // 11 §8 le dio cinco hermanas guardadas más (los interruptores nuevos) y con 5 de
+        // 20 entró en el candado. Son las mismas cinco de antes, y siguen abiertas por
+        // lo mismo: el alumno y el acudiente tienen que encontrar su elección para votar.
+        // Lo que no pueden ver —el hash de la doble llave, el conteo— lo quitan
+        // `VtVotacion::sinElHash()` y `puedePublicarResultados()`, no el guard.
+        'GET api/votaciones' => 'lectura del flujo de votar (05 §18); se abrió con la familia y sigue abierta',
+        'GET api/votaciones/actual' => 'la elección actual del que vota; sin el hash de la doble llave (11 §8)',
+        'GET api/votaciones/actual-in-action' => 'redirector del front al votar (11 §2.1)',
+        'GET api/votaciones/en-accion-inscrito' => 'la papeleta del que vota; sin el hash de la doble llave (11 §8)',
+        'GET api/votaciones/show/{id}' => 'lectura del flujo de votar (05 §18); se abrió con la familia y sigue abierta',
+
         // La que espera la decisión que Joseth dejó abierta.
         'GET api/asignaturas/listasignaturas-alone' => 'le da a un alumno las asignaturas del profesor con su id; es la pregunta abierta de 05 §11.2, anotada en 09 §5',
 
@@ -830,7 +843,6 @@ class AutorizacionTest extends CasoDeContrato
         'matriculas' => '13 abiertas de 16. Es el módulo de administración que la §17 dejó sin repasar: 3 de 16 con guard',
         'mis-actividades' => '3 abiertas de 5. Las tres escriben lo del propio alumno; el dueño sale del token',
         'myimages' => '5 abiertas de 10, las cuatro de subir más el listado. Todas sacan el dueño del token y no aceptan identificador',
-        'votaciones' => '5 abiertas de 15, las cinco lecturas. El flujo de votar está abierto a propósito (05 §18)',
     ];
 
     public function test_ninguna_familia_mas_se_sale_del_candado_en_silencio(): void
