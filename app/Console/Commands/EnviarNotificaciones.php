@@ -201,7 +201,21 @@ class EnviarNotificaciones extends Command
     }
 
     /**
-     * Notas nuevas o cambiadas, **agrupadas por alumno y asignatura**.
+     * Notas nuevas o cambiadas: **un aviso por alumno y pasada**, diga cuántas
+     * asignaturas diga.
+     *
+     * La consulta sigue agrupando por alumno y asignatura, porque así cuenta; las
+     * filas se juntan por alumno aquí. Antes era un aviso por asignatura, y si dos
+     * docentes calificaban en la misma pasada de quince minutos la familia recibía
+     * dos seguidos. Lo decidió Joseth el 23 sep 2026, a petición de la app. Entre
+     * pasadas distintas siguen llegando avisos distintos, y eso se aceptó.
+     *
+     * **`datos['asignatura']` va sólo cuando es una**, con el mismo nombre que el
+     * texto: la app abre el desglose de esa asignatura al tocar el aviso. Antes lo
+     * sacaba de la frase, y reescribirla habría dejado de abrirlo sin que nada
+     * fallara. Con varias no va: «Sociales y Matemáticas» no es una asignatura, y
+     * la app abre «Mis notas» entera. Un servidor viejo no la manda y la app sigue
+     * leyendo el texto, así que conviven.
      *
      * Sale de `bitacoras`, que ya registra cada `PUT notas/update/{id}` y cada
      * nota de un lote con `affected_element_type = 'Nota'`. No hace falta tabla
@@ -257,20 +271,40 @@ class EnviarNotificaciones extends Command
             [$desde, $tope]
         );
 
-        $avisos = [];
+        // Lista y no diccionario por nombre: PHP convierte en entero una clave
+        // como «2», y el nombre de una materia llegaría a `datos` cambiado de tipo.
+        $porAlumno = [];
 
         foreach ($filas as $fila) {
-            $cuantas = (int) $fila->cuantas;
-            $alumnoId = (int) $fila->alumno_id;
+            $porAlumno[(int) $fila->alumno_id][] = [(string) $fila->asignatura, (int) $fila->cuantas];
+        }
+
+        $avisos = [];
+
+        foreach ($porAlumno as $alumnoId => $materias) {
             $nombre = $this->primerNombreDe($alumnoId);
+            $cuantas = array_sum(array_column($materias, 1));
+            $nombres = array_column($materias, 0);
+
+            $donde = match (true) {
+                count($nombres) === 1 => $nombres[0],
+                count($nombres) <= 3 => implode(', ', array_slice($nombres, 0, -1)).' y '.end($nombres),
+                default => count($nombres).' materias',
+            };
+
+            $datos = ['pantalla' => 'notas', 'alumno_id' => (string) $alumnoId];
+
+            if (count($nombres) === 1) {
+                $datos['asignatura'] = $nombres[0];
+            }
 
             $avisos[] = [
                 'tema' => TemasDeNotificacion::deAlumnoYTipo($alumnoId, 'notas'),
                 'titulo' => 'Notas nuevas',
                 'cuerpo' => $cuantas === 1
-                    ? $nombre.' tiene 1 nota nueva en '.$fila->asignatura.'.'
-                    : $nombre.' tiene '.$cuantas.' notas nuevas en '.$fila->asignatura.'.',
-                'datos' => ['pantalla' => 'notas', 'alumno_id' => (string) $alumnoId],
+                    ? $nombre.' tiene 1 nota nueva en '.$donde.'.'
+                    : $nombre.' tiene '.$cuantas.' notas nuevas en '.$donde.'.',
+                'datos' => $datos,
             ];
         }
 

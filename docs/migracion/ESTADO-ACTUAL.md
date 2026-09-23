@@ -8,6 +8,21 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+> ## ✅ UN AVISO DE NOTAS POR ALUMNO Y PASADA, CON LA ASIGNATURA EN `datos` (23 sep 2026)
+>
+> **Decidido por Joseth hoy, pedido por la app** (`myvc_flutter/docs/backend-pendiente.md`
+> §9). `avisosDeNotas` mandaba un aviso por alumno **y asignatura**: dos docentes que
+> califican en la misma pasada eran dos avisos seguidos. Ahora las filas se juntan por
+> alumno en PHP —la consulta no cambia— y el texto dice «en Sociales», «en Sociales y
+> Matemáticas» o, con más de tres, «en 4 materias». `datos['asignatura']` va **sólo con una**:
+> con varias la app abre «Mis notas» entera. La app ya lo soporta y convive con el servidor
+> viejo, así que **no hay orden de despliegue**; va en la tanda que Joseth decida.
+>
+> Medido: `EnviarNotificacionesTest` **11 verdes (69 aserciones)** en el worktree, y con el
+> código viejo los dos tests de notas salen **rojos**. Lo que NO demuestra: la base de la
+> sesión se montó con el seed cortado en `vt_participantes` (ver abajo) y los `years`
+> cargados a mano; la suite entera no se corrió.
+
 > ## ✅ LOS AVISOS PUSH YA DICEN DE QUÉ HIJO SON (23 sep 2026)
 >
 > **Pedido por Joseth y transmitido por la sesión `myvc-flutter-75`, que enchufó el lado

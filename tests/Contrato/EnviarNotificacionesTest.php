@@ -132,6 +132,46 @@ class EnviarNotificacionesTest extends CasoDeContrato
 
         $this->assertSame((string) $ctx['alumno'], $deNotas[0]['datos']['alumno_id'],
             'El aviso dice de quién es en el texto pero no en `datos`, así que al tocarlo la app no sabe a qué hijo abrir.');
+
+        $this->assertSame($ctx['asignatura_nombre'], $deNotas[0]['datos']['asignatura'] ?? null,
+            'Con una sola asignatura `datos` no la lleva: la app vuelve a sacarla del texto, y si alguien reescribe la frase el aviso deja de abrir su desglose sin que nada falle.');
+    }
+
+    /**
+     * **Dos asignaturas en la misma pasada son UN aviso**, no uno por asignatura.
+     *
+     * Dos docentes que califican en los mismos quince minutos le mandaban dos
+     * avisos seguidos a la misma familia. Y `datos` **no** lleva asignatura:
+     * «Sociales y Matemáticas» no es ninguna, y si llevara una la app abriría el
+     * desglose de la otra por error.
+     */
+    public function test_dos_asignaturas_en_la_misma_pasada_son_un_solo_aviso_sin_asignatura_en_datos(): void
+    {
+        $ctx = $this->asignaturaConNotas();
+        $otra = $this->notasEnOtraAsignatura($ctx, 2);
+
+        $this->correr();   // marca
+        $this->publicador->mandados = [];
+
+        foreach ([...$ctx['notas'], ...$otra['notas']] as $notaId) {
+            $this->bitacoraDeNota($notaId, $ctx['alumno']);
+        }
+
+        $this->correr();
+
+        $deNotas = $this->mandadosAlTema(TemasDeNotificacion::deAlumnoYTipo($ctx['alumno'], 'notas'));
+
+        $this->assertCount(1, $deNotas,
+            'Dos asignaturas dieron '.count($deNotas).' avisos: el aviso volvió a ser uno por asignatura.');
+
+        $cuerpo = $deNotas[0]['cuerpo'];
+        $this->assertStringContainsString('6 notas nuevas', $cuerpo, 'El total no suma las dos asignaturas.');
+        $this->assertStringContainsString($ctx['asignatura_nombre'], $cuerpo);
+        $this->assertStringContainsString($otra['nombre'], $cuerpo);
+        $this->assertStringContainsString(' y ', $cuerpo, 'Dos asignaturas se nombran unidas por «y»: '.$cuerpo);
+
+        $this->assertArrayNotHasKey('asignatura', $deNotas[0]['datos'],
+            'Con varias asignaturas `datos` lleva una: la app abriría el desglose de sólo una de ellas.');
     }
 
     /**
@@ -478,6 +518,59 @@ class EnviarNotificacionesTest extends CasoDeContrato
         $this->assertNotSame('', $nombre, 'El seed dio un alumno sin nombres: la aserción no mediría nada.');
 
         return $nombre;
+    }
+
+    /**
+     * Notas del mismo alumno en **otra** asignatura de su grupo, con otro nombre
+     * de materia: si se llamaran igual, el texto no distinguiría uno de dos.
+     *
+     * @param  array<string, mixed>  $ctx
+     * @return array{nombre: string, notas: array<int, int>}
+     */
+    private function notasEnOtraAsignatura(array $ctx, int $cuantas): array
+    {
+        $asignatura = DB::selectOne('SELECT a.id, COALESCE(NULLIF(mat.alias, ""), mat.materia) AS nombre
+            FROM asignaturas a
+            INNER JOIN materias mat ON mat.id = a.materia_id
+            WHERE a.deleted_at IS NULL
+              AND a.grupo_id = (SELECT grupo_id FROM asignaturas WHERE id = ?)
+              AND a.id <> ?
+              AND COALESCE(NULLIF(mat.alias, ""), mat.materia) <> ?
+            ORDER BY a.id LIMIT 1',
+            [$ctx['asignatura'], $ctx['asignatura'], $ctx['asignatura_nombre']]);
+
+        $this->assertNotNull($asignatura, 'El grupo del seed no tiene una segunda asignatura con otro nombre.');
+
+        $unidadId = DB::table('unidades')->insertGetId([
+            'asignatura_id' => $asignatura->id,
+            'periodo_id' => $ctx['periodo'],
+            'definicion' => 'OTRA UNIDAD DE PRUEBA',
+            'porcentaje' => 100,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $notas = [];
+
+        for ($n = 1; $n <= $cuantas; $n++) {
+            $subId = DB::table('subunidades')->insertGetId([
+                'unidad_id' => $unidadId,
+                'definicion' => 'OTRA SUB '.$n,
+                'porcentaje' => 50,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $notas[] = DB::table('notas')->insertGetId([
+                'subunidad_id' => $subId,
+                'alumno_id' => $ctx['alumno'],
+                'nota' => 20,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        return ['nombre' => (string) $asignatura->nombre, 'notas' => $notas];
     }
 
     private function asignaturaConNotas(): array
