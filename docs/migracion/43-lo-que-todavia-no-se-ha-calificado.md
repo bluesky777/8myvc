@@ -138,6 +138,88 @@ la copia de desarrollo, no los dieciséis.**
 > **Sigue abierto:** el formulario de **editar** subunidad todavía lleva el campo, y además
 > `required` (`unidades.html:118`). Es el que permite cambiar el defecto **después** de sembrar, que
 > es exactamente lo que en `coljordan` obligó a la segunda pasada.
+>
+> ## ⛔ 22 SEP 2026 — LA RECUPERACIÓN DEL 21 TAMPOCO DEVOLVIÓ EL VALOR: MEDIDO EN `la_hermosa`
+>
+> **La premisa de la recuperación es falsa, y no por el matiz que ya estaba escrito.** Arriba dice
+> que *«la fila nace con `subunidades.nota_default` y el propio proxy garantiza que nadie la cambió
+> desde entonces, así que el defecto de la subunidad ES el valor que tenía — salvo que el defecto se
+> editara después»*. Con un respaldo anterior al despliegue se puede comprobar, y **no se sostiene**.
+>
+> La profe de Segundo de `la_hermosa` reportó el 22 sep que una autoevaluación *«que nadie pierde»*
+> estaba en cero. El modal la daba por **nunca modificada**, y decía la verdad: la migración del
+> domingo y el rescate del lunes son `UPDATE` masivos que no tocan `updated_by` ni `updated_at` ni
+> escriben `bitacoras`. **El historial es ciego a lo que hacemos nosotros por SQL.**
+>
+> ### La prueba, y las cifras
+>
+> Respaldo `micolev1_la_hermosa` del **28 ago 2026 20:12** contra producción del **22 sep 16:17**,
+> cruzando `notas` por `id` y exigiendo el mismo `updated_at` y el mismo `updated_by` —o sea,
+> cambios **sin autor**, que sólo podemos haber hecho nosotros:
+>
+> | | casillas |
+> |---|---:|
+> | cambiadas sin autor | **807** |
+> | de ésas, perdieron valor | **790** |
+> | 2026 per2 | 557 · valían 94.8 → valen 2.0 |
+> | 2023 per1–4 | 159 · ~96 → ~3 |
+> | 2025 per1 / 2024 per2 / 2026 per1 / 2020 per2 | 38 / 23 / 11 / 2 |
+>
+> Los años viejos entraron porque **el filtro de la migración era «periodo abierto», no «año
+> corriente»**, y en `la_hermosa` los periodos de 2023, 2024 y 2025 siguen con
+> `profes_pueden_editar_notas = 1`. Son boletines ya emitidos.
+>
+> ### Por qué el rescate del 21 no las salvó
+>
+> Comparando cada casilla perdida con el `nota_default` de su subunidad:
+>
+> | `nota_default` | casillas | valían | coincidían con el defecto |
+> |---:|---:|---:|---:|
+> | 0 | 768 | 95.0 | **0** |
+> | 65 | 12 | 97.9 | 0 |
+> | 90 | 4 | 100.0 | 0 |
+> | 100 / 50 | 3 / 2 | 100 / 50 | 3 / 2 |
+>
+> **785 de 790 no coincidían con el defecto**, así que reponer `s.nota_default` las dejó en un número
+> que nunca tuvieron —casi siempre 0—. Y no es el «salvo» del defecto editado después: de las **212**
+> subunidades afectadas, **ninguna** cambió su `nota_default` entre agosto y hoy, y 116 no se han
+> editado nunca. El caso testigo, la nota **213473**: `nota_default = 0`, `updated_by IS NULL`,
+> `created_at <=> updated_at`, y **valía 100 el 28 de agosto**.
+>
+> **Pregunta abierta, y es la que importa:** si la casilla no nace con el defecto y nadie la tocó por
+> la aplicación, **¿qué escribió ese 100?** Hay vías que cambian el valor sin tocar `updated_by`
+> —`PeriodosController::putCopiar`, `BoletinIndependienteController::copiarLaNota`— pero las dos
+> insertan, y estas filas existían. Mientras no se conteste, **`updated_by IS NULL` no significa «sin
+> calificar»** en ningún colegio, y ése era el cimiento de la fase 0 entera.
+>
+> ### Lo que se hizo el 22 sep, y lo que no
+>
+> Decisión de Joseth: **no tocar `notas`**, sólo `notas_finales`. Ejecutado en producción la noche del 22 sep,
+> importado por phpMyAdmin tras `CREATE TABLE nf_respaldo_20260922 AS SELECT * FROM
+> notas_finales`:
+>
+> - **778 `UPDATE`s** por clave natural `(alumno_id, asignatura_id, periodo_id)` —el botón *«Calcular
+>   definitivas»* hace `DELETE`+`INSERT`, así que los `id` de hoy no son los de agosto—, con la guarda
+>   `nota < <valor de agosto> AND manual=0 AND recuperada=0`: **sólo puede subir**, y es idempotente.
+> - Fuera a propósito: las que hoy son `manual` o `recuperada`, y las asignaturas con notas
+>   calificadas después del 28 ago, que no se pueden reponer desde agosto sin borrar ese trabajo.
+> - Resultado: **355 definitivas repuestas, 0 bajaron, 0 tocadas fuera de per1 y per2.**
+> - Cada `UPDATE` marca `manual=1`. **No es una preferencia: es obligatorio mientras `notas` siga
+>   mal**, porque el cálculo automático sigue dando el número bajo y el siguiente clic se lo lleva.
+>   Efecto lateral que hay que avisar al colegio: en «Definitivas periodos» la columna `Auto` seguirá
+>   enseñando el número bajo al lado del `Final` bueno.
+>
+> **Sigue pendiente:** las 790 casillas de `notas` de este colegio; el resto de per1/per2 sin marcar;
+> las definitivas de 2023–2025; y **los otros trece colegios**, donde el rescate del 21 usó el mismo
+> `nota_default` y sólo un respaldo anterior al 20 sep dice cuánto falló.
+>
+> ### Y lo que esto le hace al botón «Calcular definitivas»
+>
+> `DefinitivasPeriodosController::putCalcularGrupoPeriodo` (`:218`) **borra físicamente** las
+> definitivas del grupo y el periodo que no sean `manual` ni `recuperada`, y las reinserta con el
+> cálculo de las casillas de hoy. Con la fase 0 revertida, **ese botón convierte una definitiva buena
+> en el cálculo con ceros**, y está desplegado en los dieciséis. Hasta que `notas` esté bien, no se le
+> puede pedir a un colegio que lo pulse.
 
 ---
 
