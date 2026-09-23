@@ -43,7 +43,6 @@ use App\Models\TokenDeSesion;
 use App\Models\Unidad;
 use App\Models\VtAspiracion;
 use App\Models\VtCandidato;
-use App\Models\VtParticipante;
 use App\Models\VtVotacion;
 use App\Models\VtVoto;
 use App\Models\WsActividad;
@@ -226,7 +225,6 @@ class RelojUnicoTest extends TestCase
         TokenDeSesion::class => true,
         VtAspiracion::class => true,
         VtCandidato::class => true,
-        VtParticipante::class => true,
         VtVotacion::class => true,
         VtVoto::class => true,
         WsActividad::class => true,

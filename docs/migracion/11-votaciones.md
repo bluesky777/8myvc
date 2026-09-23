@@ -509,3 +509,393 @@ abiertas están contestadas** (21 ago 2026). Lo que queda es trabajo, no criteri
 
 Una cosa menor y de otro orden: **decidir si la votación de aula se termina o se
 retira** (§5.4). Existe a medias y no la usa nadie; mientras siga así, no estorba.
+
+---
+
+## §8. El rediseño del 22 sep 2026 — se configura, no se inscribe
+
+> **Esto deja sin vigencia la lista de «Lo que queda de este dominio» de arriba**:
+> sus puntos 1 a 5 están hechos, y uno de los «no se toca» se tocó. Se conserva
+> tal cual porque explica por qué cada cosa estaba como estaba.
+
+El encargo no era arreglar las rutas: era que **el colegio no tenga que inscribir
+a nadie**. La pregunta que lo arrancó es del primer periodo — hay muchachos
+asistiendo que no han cerrado matrícula porque deben dinero o una materia del año
+pasado, y la primera versión los metía a mano en una tabla de participantes.
+
+### Lo que cambió de raíz
+
+1. **`vt_participantes` ya no existe.** Nunca guardó personas: guardaba ids de
+   grupo en una columna llamada `grupo_profes_acudientes`. La sustituye
+   `vt_grupos_votacion`, con `participa` y `modo` ('solo' | 'mesa'), y **sin filas
+   participan todos los grupos del año**: las filas son excepciones. Con eso se
+   fueron las nueve rutas `participantes/*`, y con ellas el voto nominal de la §6.
+2. **El censo se resuelve en caliente**: vota quien esté en un grupo vivo del año
+   de la votación —matrícula no borrada cuyo `estado` no sea `RETI` ni `DESE`— y
+   cuyo grupo no esté excluido. El asistente sin matrícula formal (`ASIS`) vota
+   sin que nadie lo apunte, que era el problema de partida.
+3. **Un interruptor de estamento más, y sólo uno.** Medido el 22 sep contra
+   `simonbolivar` y `caz_zaragoza`: `users.tipo` toma cuatro valores
+   —`Alumno`, `Acudiente`, `Profesor`, `Usuario`— y los doce roles de `roles` no
+   incluyen cafetería, aseo ni mantenimiento. **No hay dato para separar al
+   personal de apoyo de secretaría**, así que `votan_administrativos` significa
+   «el personal con cuenta que no es docente» y un `votan_personal_apoyo` habría
+   sido una casilla que no selecciona a nadie.
+4. **El voto es inmutable, y lo garantiza la base**: índice único
+   `(votacion_id, aspiracion_id, user_id)`. `verificarNoVoto()` —que borraba el
+   anterior, §3— ya no existe, y `votos/update` y `votos/destroy` —que tocaban
+   candidatos, §4— están borrados. `blanco_aspiracion_id` se fue: el voto en
+   blanco es `candidato_id` NULL con su `aspiracion_id`.
+5. **Las mesas**, para el niño de preescolar que no teclea su contraseña. Alguien
+   le abre la papeleta (`mesas/{id}/abrir`), hay cuenta atrás para que se aparte,
+   y el voto guarda **dos personas**: el niño en `user_id` y quien condujo en
+   `asistido_por`, más `mesa_id`, `origen` y `segundos`. La doble llave —una clave
+   que tiene un segundo asistente— es opcional y se guarda hasheada.
+6. **Las actas de papel**: cantidades por cargo y candidato, nunca fila por
+   alumno. Se suman al escrutinio y se ven aparte en `resultados/{id}`, porque 63
+   papeletas no son 63 personas.
+7. **La lista nominal sale por una sola puerta**, `auditoria/{id}`, y sólo para
+   `Autoriza::esSuperusuario()`. No se usó `puedeVerAuditoria()` porque su
+   migración siembra el permiso a rectoría y coordinación. Cada consulta queda
+   registrada en `auditoria` con `auditoria_del_voto`, la única lectura del
+   sistema que se audita: la fila no dice qué cambió, dice **quién miró**.
+
+### Averías que se encontraron de paso, y no se buscaban
+
+- **`votaciones/en-accion-inscrito` llevaba en 500** desde la migración del voto:
+  leía la columna tirada. Era la papeleta entera.
+- **El interruptor sin valor en el cuerpo encendía o apagaba según a cuál
+  llegara.** Ahora el valor es obligatorio (422 si falta).
+- **`conaspiraciones` devolvía `votado: []`**, y `[]` en JS es cierto: la pantalla
+  llevaba años creyendo que estaba todo votado. Ahora es un booleano.
+- **El total de un cargo dejaba fuera los votos en blanco**, así que los
+  porcentajes del tarjetón salían de una base que no era la urna.
+- **`GET votos` entregaba la tabla entera con el `user_id` de cada voto** a
+  cualquiera del personal. Borrada.
+- **El hash de la doble llave viajaba al tarjetón de cualquier alumno.** El
+  `$hidden` del modelo sólo actúa sobre Eloquent, y `votaciones/actual` y
+  `en-accion-inscrito` leen con `DB::select … SELECT *`. Es un bcrypt de **cuatro
+  cifras**: romperlo fuera de línea es cuestión de milisegundos, y con eso la doble
+  llave deja de ser una llave. Lo quita `VtVotacion::sinElHash()` en las dos
+  consultas crudas; la que sí necesita el hash —`postAbrir`, para el `Hash::check`—
+  tiene su propio `SELECT` y no se tocó.
+- **Y en el front** (`myvc_front`, `app2/src/app/core/api/mensaje-error.ts`): la
+  lista de códigos cuyo cuerpo se enseña al usuario no incluía **409 ni 423**, así
+  que todos los mensajes que este rediseño escribió con cuidado —«Ya votaste este
+  cargo», «La votación está pausada», «Esa acta ya está firmada»— salían como «No se
+  pudo guardar.». O sea el mismo modo de fallo que se vino a quitar del backend,
+  reaparecido en la pantalla. Arreglado el 23 sep.
+
+### Dos endpoints que salieron al escribir las pantallas
+
+Ninguno estaba en el encargo: los pidió la pantalla cuando se vio que el modelo
+permitía algo que la interfaz no podía ofrecer.
+
+- **`GET censo/{id}/conductores`** — a quién se le puede dar una mesa. `elegibles`
+  une el censo de alumnos con `profesores` que tengan contrato del año, así que **el
+  personal con cuenta que no es docente no aparecía nunca**, y la «mesa de la
+  oficina» —la que lleva una secretaria o una coordinadora, que es un caso real del
+  encargo— no se podía montar aunque `vt_mesa_usuarios` acepte cualquier `users.id`.
+  Devuelve docentes con contrato **y** `users.tipo = 'Usuario'`, con su `estamento`
+  dentro, y exige `is_active` en los dos lados: conducir empieza por entrar, y de las
+  14 fichas de docente con cuenta del docker **10 están inactivas**.
+- **`censo/{id}/elegibles` devuelve ahora el `estado` de matrícula** (nulo en el
+  docente). Sin él, la pantalla de candidatos no podía decir «asiste, sin matrícula»
+  en cada resultado de la búsqueda —sólo en el ya elegido, y pagando una consulta
+  por grupo—, y ése es justo el muchacho por el que empezó todo este rediseño.
+
+### Lo que queda, y es criterio, no trabajo
+
+1. **`in_action` ahora es un candado al votar, y eso contradice el §2.1 de este
+   documento** — *«es un redirector del front, no un candado; el arreglo obvio
+   aquí era el equivocado»*, decidido el 21 ago 2026. El encargo del 22 sep pidió
+   exigirlo y se exige. Las fechas `fecha_inicio`/`fecha_fin` —que antes no se
+   comprobaban y ahora sí— ya dan la ventana de verdad. **Sin decidir**, y
+   preparado para revertirse: la comprobación vive **en un solo `if`** dentro de
+   `VtVotacion::exigirUrnaAbierta()`, bajo su propio rótulo
+   («── `in_action`, y esto es lo que se quita ──»). Es el único sitio del backend
+   que lo exige al votar, así que deshacerlo es borrar ese `if`.
+
+   Nació duplicado —`VtVotosController::laUrnaAbierta()` y
+   `VtMesasController::exigirUrnaAbierta()`, escritas a la vez por dos agentes
+   distintos— y se juntó el 23 sep: las cuatro señales eran idénticas y la única
+   diferencia real era que la de votos traía la existencia y la papelera, y
+   devolvía la fila. Se quedó ésa, y el método unificado acepta el id o la fila ya
+   cargada para que la mesa no repita el `SELECT`. Ningún código de estado cambió.
+2. **`vt_votos.created_at` se sella en UTC** y el resto del sistema guarda Bogotá
+   (`RelojUnicoTest::SELLAN_EN_UTC` lo deja escrito a propósito). La hora que
+   pinta el 409 de «ya votó» y la lista de la mesa va **cinco horas adelantada**
+   salvo que el front convierta. Ponerle `SellaConElReloj` metería dos relojes en
+   la misma columna. **Sin decidir; lo barato es convertir en el front.**
+3. **Cambio de contrato con los dos fronts**: `votos/store` ya no devuelve 200 con
+   un `msg` dentro —201, 409, 423, 403, 422— y el AngularJS de `app/` lee el
+   cuerpo, no el código. Un «ya votaste» va a caer en su rama de error. No hay
+   doble voto posible, pero el mensaje que ve el alumno cambia. **Sin decidir.**
+4. **El índice del blanco del acta usa una columna generada `VIRTUAL`** y sólo se
+   probó en el MySQL 8 del docker; **producción es MariaDB 10.5**. Debería entrar;
+   si no, la salida no es volver a `STORED` sino cambiar el `CASCADE` de
+   `vt_acta_votos.candidato_id`, que es decisión.
+5. **Anular un acta firmada no existe.** Es otra operación, con otro permiso y su
+   propio rastro; pasarla por el `DELETE` le daría a cualquiera del personal la
+   llave de deshacer una firma.
+6. **`porAspiracion()` sigue uniendo sólo con `alumnos`**, así que un profesor no
+   puede salir en la papeleta aunque `votan_profes` exista.
+7. **Tests en rojo por decisión, no por avería**, y sin tocar: `Contrato/`
+   `VotacionesTest` fija como comportamiento los fallos que se acaban de cerrar
+   (votar con el candado echado, votar dos veces cambia el voto, `votos/destroy`
+   borra un candidato…), `VotacionesInterruptoresTest`, `VotacionesBorradoTest`,
+   `SuperficieDeUnAlumnoTest` monta el censo en `vt_participantes`, y los
+   snapshots `rutas.json` y `guards-por-ruta.json` cambian con las rutas nuevas.
+   Van después de que el módulo se pruebe a mano.
+
+### El despliegue
+
+Seis migraciones, y **la 400000 tira `vt_participantes` y la 600000 borra filas de
+`vt_votos`** (las de la papelera, las irrellenables y los duplicados). Autorizado
+el 22 sep 2026: *«las votaciones se pueden ignorar, y si las llegan a necesitar
+las sacamos de un backup; ellos nunca miran las votaciones de años pasados»*. En
+`simonbolivar` no había ningún duplicado ni ninguna fila irrellenable —
+encontrarlos habría sido la noticia.
+
+Hay que correrlas colegio por colegio, y el front todavía no existe: hasta que
+exista, la pantalla vieja de participantes queda sin backend.
+
+---
+
+## §9. La fuga del §1 volvió por la otra puerta — **arreglada el 23 sep 2026**
+
+`GET votaciones/en-accion-inscrito` **es la papeleta**: lo que recibe un alumno
+cuando entra a votar. Y le colgaba `cantidad` y `total` a cada candidato —y al
+voto en blanco— **sin mirar `can_see_results` en ningún sitio**; el interruptor no
+aparecía en el método. O sea que cualquier alumno con la elección abierta recibía
+el marcador en vivo **en la misma respuesta con la que iba a votar**: sabía quién
+iba ganando antes de marcar.
+
+Es la fuga del §1 exacta —«el conteo viajaba con la papeleta»—, cerrada en
+`votos/show` el 21 ago y abierta por este otro camino hasta hoy. La encontró la
+sesión que escribió la pantalla del kiosco, y dijo la cosa correcta: **su pantalla
+no lo pinta, pero taparlo en el front sería lo malo**, porque el dato sigue en el
+cable para quien abra las herramientas del navegador.
+
+### El criterio no se inventó: es el que ya estaba escrito dos veces
+
+El de `VtVotosController::putShow()` (§1) y el de
+`VtResultadosController::getShow()` (§8.6): la **estructura** viaja siempre
+—cargos, candidatos, el blanco—, porque es lo que hace falta para votar; el
+**número** sólo con `can_see_results`, y **al personal del colegio se le da
+siempre**, que es la mitad de la regla y no una excepción: el interruptor existe
+para que los alumnos no vean el marcador mientras se vota, no para que el rector
+no pueda mirar su propia elección. Son dos líneas —`$esPersonal` y `$conConteo`—
+y la misma lista `NO_ES_PERSONAL` de los otros dos controladores.
+
+> **La segunda mitad de este párrafo —«al personal del colegio se le da
+> siempre»— dejó de estar en vigor unas horas después de escribirse.** La estrechó
+> Joseth el mismo 23 sep 2026 y el criterio de ahora está en §9.1. El párrafo se
+> conserva porque su primera mitad sigue intacta —la estructura viaja siempre, el
+> número no— y porque explica de dónde venía el conjunto que se sustituyó; pero
+> `$esPersonal` y `NO_ES_PERSONAL` ya no deciden esto en ningún controlador.
+
+### §9.1. El criterio duró unas horas: **lo estrechó el colegio el 23 sep 2026**
+
+La regla, textual: *«Nadie puede ver los resultados hasta que sea permitido; el
+coordinador o superuser decide cuándo.»* Y al preguntarle quién es quién, dos
+respuestas que son las dos mitades de un solo predicado:
+
+1. **Antes de publicar, el recuento lo ve exactamente quien puede publicarlo.
+   Nadie más, ni el docente ni la secretaria.**
+2. **Puede publicar**: el superusuario, rectoría, coordinación, **y quien creó la
+   elección** (aunque sea un docente).
+
+O sea **ver antes = poder publicar**, y por eso es **un predicado y no dos**:
+`VtVotacion::puedePublicarResultados($votacion, $user)` —dueño o superusuario por
+`laAdministra()`, más los roles por `Autoriza::puedePublicarCualquierVotacion()`—
+preguntado en los **cuatro** sitios: los tres del recuento (`resultados/{id}`,
+`votaciones/en-accion-inscrito`, `votos/show`) y el guard del interruptor. Si
+alguna vez dejan de contestar lo mismo, la fuga vuelve por la puerta que se quede
+corta, que es literalmente lo que pasó entre el §1 y el §9.
+
+**Lo que se retira no es «una excepción menos»: son tres personas reales.** Con
+`$esPersonal` = *todo el que no es Alumno ni Acudiente*, el escrutinio en vivo lo
+recibían el docente de matemáticas, la enfermera y la secretaria sin que nadie lo
+publicara. Y `Autoriza::esAdministrativo()` —`is_superuser || Secretario`— **no
+sirve aquí y no se ensanchó**: mete justo a la persona que la decisión excluye, y
+lo leen quince llamadas de otros dominios.
+
+#### El tercer sitio se mueve en sentido CONTRARIO, y eso es lo que hace que el diff no sea «quitar `$esPersonal`»
+
+`votos/show` venía del §1 con `can_see_results` **a secas, sin excepción para
+nadie**, mientras los otros dos se lo daban a todo el personal. Con el criterio
+nuevo los tres contestan lo mismo, y para esa puerta eso significa **abrirla**:
+sin ello coordinación no podría mirar el tarjetón con números antes de publicar,
+que es justo lo que se le acaba de encargar. **Una sola frase del colegio cierra
+dos puertas y abre una tercera.**
+
+#### El interruptor era el único que el que manda no podía tocar
+
+`votaciones/set-permiso-ver-results` va por `cambiarInterruptor()`, y sus diez
+hermanos exigen `exigirAdministrable()`: *superusuario o quien la creó*. En un
+colegio la elección la monta el docente de democracia escolar, así que **rectoría
+y coordinación no podían publicar la elección que la decisión pone en sus manos**.
+De ahí `VtVotacion::exigirPublicable()`, el mismo guard con el conjunto nuevo, y un
+parámetro en `cambiarInterruptor()` para no duplicar las tres líneas que escriben
+la columna. **Los otros diez interruptores no se tocaron**: borrar la elección,
+cambiarle el censo o echar el `locked` siguen siendo del dueño.
+
+#### La estructura no se tocó y las claves siguen desapareciendo
+
+Lo que se retira es el número —`cantidad`, `total`, `porcentaje` y la
+participación—, nunca la papeleta ni el tarjetón, y la clave **desaparece**: el
+cero se rechazó en el §1 y en el §9 por la misma razón y se mantiene. En
+`resultados/{id}` sigue viajando `conteo_visible` para que la pantalla explique por
+qué no hay números.
+
+Una trampa que salió sola al escribir esto: `VtResultadosController::getShow()`
+tenía el `SELECT` con las columnas **nombradas y sin `user_id`**, así que el dueño
+de la elección no se habría reconocido a sí mismo — y sin fallar nada, que es el
+peor modo de fallo que cabe aquí. Queda anotado en el docblock del predicado.
+
+#### Las dos coordinaciones, que es lo único que queda **por confirmar**
+
+`roles` tiene `Coord académico` (id 9) y `Coord disciplinario` (id 8), y la
+decisión dijo «coordinación» a secas. Se metieron **las dos**, porque una elección
+de personero no es asunto académico y restringirla al académico —que es lo que
+hacen `puedePublicarHorario()` y la nota numérica— habría sido estrechar la frase
+por nuestra cuenta. Es una cadena de `ROLES_QUE_PUBLICAN_RESULTADOS`: quitarla es
+una línea.
+
+Y **la regla nace casi inerte**: en el docker `Rector`, `Coord académico` y
+`Coord disciplinario` tienen **cero usuarios** (contado por `role_id` el 23 sep
+2026), y el docblock de `puedePublicarHorario()` ya dejó escrito que
+`Coord académico` tiene cero en los dieciséis colegios. Hoy publican los
+superusuarios y el dueño de cada elección, y nadie más, hasta que un colegio
+reparta los roles.
+
+#### Probado por HTTP con cuatro tokens, contra el docker y la elección 901
+
+Cuatro cuentas de verdad —alumno del censo, docente que **no** creó la elección,
+docente **dueño** y el superusuario—, contando apariciones de `cantidad`, `total`
+y `porcentaje` en el JSON crudo de los tres endpoints:
+
+| `can_see_results` | alumno | docente ajeno | docente dueño | superusuario |
+|---|---|---|---|---|
+| `0` | 0 cifras | **0 cifras** | todas | todas |
+| `1` | todas | todas | todas | todas |
+
+Y el interruptor: **403** para el alumno (lo pone `auth.personal`) y **403** para el
+docente ajeno (*«Publicar los resultados le toca a rectoría, a coordinación o a
+quien creó la elección.»*), **200** para el dueño y para el superusuario.
+
+**La prueba distingue, y el control no fue deshacer el código: fue el rol.** Al
+mismo docente ajeno, con la misma elección y el interruptor en 0, se le dio
+`Rector` → **vuelven las cifras y el interruptor contesta 200**; con
+`Coord académico`, igual; y con **`Secretario` vuelve a no ver nada y a recibir
+403**, que es la exclusión que Joseth dijo con esas palabras. La estructura llega
+intacta en los cuatro casos: dos cargos con sus candidatos.
+
+#### Las dos pantallas del AngularJS congelado: **no cambia nada en los 16 colegios**
+
+`ResultadosCtrl` y `TarjetonesCtrl` viven los dos en
+`app/scripts/votaciones/ResultadosCtrl.ts` y llaman al mismo `PUT votos/show`,
+sólo con `permitir` distinto (§1).
+
+- **Tarjetones** (`permitir: true`): `tarjetones.html` no pinta `cantidad`, `total`
+  ni `porcentaje` —cero apariciones—, así que lo único que cambia es lo que lleva
+  el JSON, y a favor: con el interruptor apagado el número ya no viaja a nadie
+  salvo a quien puede publicarlo.
+- **Resultados** (`permitir: false`): su plantilla abre **todo** el bloque de cifras
+  con `ng-if="votacion.can_see_results"` (`resultados.html:4`) y en el `else` pone
+  *«Estos resultados están bloqueados en este momento.»* (`:78`). Como `$conConteo`
+  es un **superconjunto** de `can_see_results`, **esa pantalla no puede quedarse con
+  la tabla puesta y las celdas vacías**: cuando el interruptor está apagado no
+  enseña nada —a nadie, ni a rectoría— y cuando está encendido enseña lo de
+  siempre.
+
+O sea que **el permiso nuevo no le sirve a la pantalla vieja**: rectoría seguirá
+sin ver el recuento antes de publicar *ahí*, porque su propia plantilla mira el
+interruptor y no la presencia del conteo. Es una limitación del front congelado, no
+de la API, y la pantalla de `app2` ya lo hace bien —discrimina por
+`conteo_visible`—. No hay nada que desplegar en `app/`.
+
+#### Y los textos del front que decían lo contrario
+
+Seis sitios de `app2` afirmaban «al personal del colegio se le dan los números
+siempre», que era la documentación del criterio viejo: la pista del interruptor en
+`paginas/votaciones/config/config.html`, el aviso de la rama sin conteo en
+`paginas/votaciones/resultados/resultados.html` («Rectoría decide cuándo…», que se
+quedaba corta por los dos lados), y las cabeceras de `datos/votaciones.ts`,
+`datos/votos.ts`, `datos/resultados.ts` y
+`paginas/votaciones/resultados/resultados.ts`. Corregidos el 23 sep. La pantalla
+**no necesitó ningún cambio de lógica**: ya discriminaba por `conteo_visible`, y lo
+único que hacía falta era que el aviso dijera a quién pedirle la publicación, ahora
+que un docente también cae en esa rama. Queda una frase igual de caducada en un
+comentario de `app2/src/app/app.routes.ts` («rectoria todavia no los publico»), que
+esta sesión tenía prohibido tocar.
+
+### Las claves desaparecen; no van en cero
+
+Se miró el front antes de elegir, que es lo que hizo que el arreglo del §1 no
+fuera el de una línea:
+
+- `app2` declara `cantidad?` y `total?` **opcionales** (`datos/votos.ts`,
+  `CandidatoDelTarjeton`) y `paginas/votaciones/votar/` **no los lee**: cero
+  apariciones en el componente y en la plantilla;
+- `myvc_flutter` **tira los dos campos al leer** y ningún modelo tiene sitio
+  donde guardarlos, a propósito (`lib/Http/VotacionesApi.dart`, que además ya
+  tenía anotada esta fuga como «lo que queda del §1 de la 11»).
+
+Así que ninguna pantalla se rompe, y el cero sí habría podido romper una: es una
+**afirmación falsa** —«este candidato no tiene votos»— y una pantalla que lo
+pinte miente con cara de dato bueno, justo donde se está decidiendo el voto. La
+clave ausente sólo dice que el conteo no viajó. No se añadió un `conteo_visible`
+como el de `resultados/{id}`: allí la pantalla tiene que explicar por qué no hay
+números, y en la papeleta no hay números que explicar.
+
+De regalo, un alumno deja de disparar una consulta por candidato más otra por
+cargo cada vez que abre la papeleta.
+
+**Probado por HTTP con dos tokens** contra el docker (elección de ensayo 901, dos
+cargos, con candidatos que sí resuelven en el año 8): con `can_see_results = 0` el
+alumno recibe la papeleta completa y **cero apariciones de `cantidad` y `total`**
+en el JSON crudo, y el personal las dos cifras (`total` 4 y 2, los votos de
+verdad); con `= 1`, los dos las reciben. Comprobado al revés: forzando
+`$conConteo = true` el alumno vuelve a recibirlas, o sea que la prueba distingue.
+
+### Lo que se vio en el mismo método y **no** se tocó
+
+1. **La papeleta lleva el `username` de cada candidato**, más `user_id`,
+   `persona_id`, `foto_id` e `imagen_id` — los pone `VtCandidato::porAspiracion()`
+   y en estos colegios el `username` es el documento. No es del conteo y sale por
+   las dos papeletas —`en-accion-inscrito` y `candidatos/conaspiraciones`—, así que
+   recortarlo es una decisión de producto con dos pantallas que mirar, no un
+   arreglo de esta línea.
+   > **Decidido y hecho el mismo 23 sep, y eran tres puertas y no dos.** Las dos de
+   > arriba se cerraron con `VtCandidato::sinElDocumento()` —sin tocar el SQL, porque
+   > de la misma consulta salen `candidatos/store` y `mesas/{id}/abrir`, que son
+   > respuestas de personal donde el documento sí identifica—. La tercera es
+   > **`PUT votos/show`** (`VtVotosController::putShow()`), el tarjetón del AngularJS:
+   > tampoco lleva `auth.personal` y servía la misma lista a cualquier alumno que
+   > pidiera `permitir: true`. Cerrada por el mismo camino, después de mirar quién la
+   > lee —que es el método del §1—: `ResultadosCtrl` y `TarjetonesCtrl`
+   > (`app/scripts/votaciones/ResultadosCtrl.ts:41` y `:65`) son los **únicos** que
+   > llaman a `VotosApi.resultados()`, y ni `tarjetones.html` ni `resultados.html`
+   > pintan `username` —cero apariciones en las dos—; en `app2`,
+   > `VotosApi.resultados()` no la llama ninguna pantalla, sólo su propio spec; y
+   > `myvc_flutter` no toca `votos/show`. **Ningún front que desplegar**, sólo la API
+   > colegio a colegio. Probado por HTTP con dos tokens contra el docker (elección de
+   > ensayo 901, con matrícula del año 8 sembrada para los dos candidatos porque si no
+   > `porAspiracion()` vaciaba la papeleta en silencio — la trampa del final del §1):
+   > **antes, dos `username` en el JSON crudo del alumno; después, cero**, y la
+   > papeleta sigue llegando completa —candidatos, foto, plancha, número y el blanco—.
+   > Con `can_see_results = 1` el conteo vuelve a viajar para los dos, que es lo que
+   > fija el §1.
+2. **`candidatos/conaspiraciones` no cuelga conteo ninguno**: cero apariciones de
+   `cantidad` en `VtCandidatosController`. Era la otra puerta por donde podía
+   estar, y está limpia.
+3. **`clave_doble_llave` no viaja**: `VtVotacion::sinElHash()` lo quita, y se
+   comprobó en las cuatro respuestas del ensayo (§8 lo dejó cerrado).
+4. **`votado` es un booleano** y la fila que lo decide —que trae el
+   `candidato_id` dentro— no sale del método, que es lo que pide el §6.
+5. **Los candidatos del ensayo 901 no salían en su propia papeleta**: son alumnos
+   de los años 1 a 3 y `porAspiracion()` filtra por `usus.year_id`, así que
+   desaparecían en silencio —la trampa del final del §1—. Es dato sembrado del
+   docker, no una avería del código.

@@ -229,6 +229,11 @@ final class Auditoria
         'refresco_reutilizado' => null, // `Services\Sesion`: un token de refresco usado dos veces.
         'persona' => null,            // `ExigirPersonaPropia`: pidió la ficha de otro.
         'boletin' => null,            // `ExigirBoletinPropio`: pidió el boletín de otro.
+        // `VtAuditoriaController`: alguien miró por quién votó cada persona. Es la
+        // única lectura del sistema que se audita, y se audita porque rompe el
+        // secreto del voto: la fila no dice qué cambió, dice **quién miró**. Va sin
+        // tabla porque no hay ninguna fila detrás, igual que `intento_login`.
+        'auditoria_del_voto' => null,
     ];
 
     /*
