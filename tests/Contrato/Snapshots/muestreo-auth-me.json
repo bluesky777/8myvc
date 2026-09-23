@@ -32,6 +32,7 @@
     "perms": [],
     "persona_id": "int",
     "profes_pueden_editar_notas": "int",
+    "profes_pueden_editar_plantilla": "int",
     "profes_pueden_nivelar": "int",
     "profesor_id": "null",
     "puestos_alfabeticamente": "int",

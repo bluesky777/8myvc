@@ -63,6 +63,7 @@
     "prematr_antiguos": "int",
     "prematr_nuevos": "int",
     "profes_can_edit_alumnos": "int",
+    "profes_pueden_editar_plantilla": "int",
     "psicorientador_id": "null",
     "puestos_alfabeticamente": "int",
     "puestos_con_bol_independiente": "int",
