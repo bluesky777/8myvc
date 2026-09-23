@@ -138,6 +138,19 @@
 > de rutas públicas no se movió con las 26 rutas nuevas (y 13 que se van). `SuperficieDeUnAlumnoTest`, que
 > el 11 §8.7 también nombra, **no se corrió**.
 >
+> ### ✅ EL SEED CARGA OTRA VEZ, SIN REGENERARLO (23 sep 2026, tarde)
+>
+> **El CI de `main` llevaba rojo desde la fusión** por esto mismo: `ERROR 1146 …
+> vt_participantes` al construir la base. No se regeneró —sigue sin anclaje—: se pasaron **los
+> datos de votaciones que el seed ya traía por las seis migraciones**. Base de usar y tirar
+> (`simonbolivar_testing_ci`), `migrate:rollback --step=6`, cargar el seed viejo, `migrate`, y
+> volcar `vt_aspiraciones`, `vt_candidatos`, `vt_votaciones` y `vt_votos` con el formato del
+> generador. Se va el bloque de `vt_participantes`; `vt_votos` pasa de 3 lotes a **218 filas**
+> (las que la 600000 borra por duplicadas o sin aspiración). **El resto del seed no se toca.**
+> Medido: `construir-bd-test.sh` → `Listo: 60/60 migraciones, 127 tablas, 2351 usuarios`.
+> **Lo que NO arregla**: los rojos de la tabla de arriba siguen rojos, y regenerar el seed
+> sigue esperando la decisión de abajo.
+>
 > ### ⛔ EL SEED DE TESTS NO SE PUDO REGENERAR, Y LA BASE DEL DOCKER ES OTRA
 >
 > [11-votaciones.md](11-votaciones.md) dice —con razón— que el día que esto entre a `main`
