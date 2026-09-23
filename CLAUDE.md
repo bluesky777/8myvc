@@ -219,6 +219,7 @@ código. Cada una lleva su uso en la cabecera.
 | `ensayo-del-alter-en-maria.sh` | si el `ALTER` bloquea el guardado de notas en **MariaDB** — la señal es la LATENCIA |
 | `correo-de-los-colegios.sh` | qué instalaciones no pueden mandar correo — `lal` queda fuera: sale `2`, nunca verde |
 | `zona-de-los-colegios.sh` | qué hora cree que es el MySQL de cada colegio — `SYSTEM` no es respuesta: la cifra es el DESFASE |
+| `lo-que-comparte-un-colegio.sh` | qué carpetas comparte cada colegio **y a qué `app/` apunta su autocargador** — dos preguntas distintas en la misma fila |
 
 Y una que **no** está en `tools/` y contesta la pregunta contraria:
 `tests/Barrido/SuperficieDeUnTokenTest.php` golpea la API entera con un token y mira **el

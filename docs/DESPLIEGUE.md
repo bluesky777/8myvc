@@ -243,6 +243,13 @@ done
   ejecutando): `maranathaarauca` **ya no cuelga** y **`demo` sí**, que no figuraba. Siguen
   siendo seis, o sea que **el total no avisó del cambio** — el porqué y cómo rehacer la
   medición, en [DESPLIEGUE-REFERENCIA.md](DESPLIEGUE-REFERENCIA.md).
+- **Y ese mismo día se les puso `vendor/` propio a los seis** (`rm vendor`, `cp -a`,
+  `composer dump-autoload -o` desde cada colegio), porque el compartido apuntaba al `app/`
+  de `maranathaarauca` y **en los seis no existía ningún comando de artisan**. Si no queda
+  ningún symlink, este bullet y el del bloque **ya no hacen falta**. **No se ha medido**, así
+  que siguen en pie: se comprueba en el servidor con
+  `tools/lo-que-comparte-un-colegio.sh` (0 = nadie comparte), que mira también si el
+  autocargador de cada uno apunta a su propia casa — **no es la misma pregunta**.
 - **Entre el `pull` y el `migrate` ese colegio da 500**: segundos, pero existen, así que no en
   horario de clase. **Si falla una de las dos mitades, para y arréglalo antes de seguir.**
 

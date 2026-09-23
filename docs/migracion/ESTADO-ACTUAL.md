@@ -44,14 +44,40 @@
 >
 > ### 🟠 Y DOS COSAS QUE ESPERAN A JOSETH, las dos medidas por `myvc-flutter-75`
 >
-> **1. En SEIS colegios `notificaciones:enviar` NO EXISTE para artisan.** `php artisan
-> list` da 0 en `coal`, `colbosque`, `comad-san-andres`, `demo`, `eal` y `lal`. El fichero
-> **sí está en los diecisiete**, todos en `a3cb1418`, así que no es un despliegue a medias:
-> es el autocargador del `vendor/` compartido, sin la clase en su `autoload_classmap.php`.
-> **El fallo es mudo** — el cron corre, el comando no existe y nadie se queja. Lo arregla un
-> `composer dump-autoload -o` sobre la carpeta compartida, **y antes hay que ver a dónde
-> apunta `App\` en su `autoload_psr4.php`**: desde la carpeta equivocada, los seis
-> ejecutarían el `app/` de otro colegio. Decisión suya.
+> **1. ✅ ARREGLADO el mismo día, y era más gordo de lo que parecía: en esos seis colegios
+> NO EXISTÍA NINGÚN comando propio de artisan**, no sólo el de notificaciones — tampoco
+> `sesion:limpiar`, `importaciones:marcar-abandonadas`, `colegio:parte` ni `correo:probar`.
+> El `autoload_psr4.php` del `vendor/` compartido decía `$baseDir = dirname($vendorDir).
+> '/maranathaarauca.micolevirtual.com/8myvc'`, así que los seis cargaban sus clases `App\`
+> del `app/` de maranathaarauca. **Funcionaba**, porque el código es idéntico en los
+> diecisiete. Lo que no funcionaba es que **Laravel no registra los comandos por nombre:
+> escanea un directorio** y resta `app_path()`; el escaneo caía en el árbol ajeno, la resta
+> no casaba y el comando se descartaba sin un error.
+>
+> **Y `class_exists()` devolvía `true`**: cargar por nombre funcionaba y descubrir por ruta
+> no, o sea que la comprobación obvia daba verde sobre un sistema roto. Antes se probaron el
+> classmap y la caché de `bootstrap/` — **las dos hipótesis razonables y las dos falsas**. Lo
+> resolvió una pregunta **más ancha, no más profunda**: si el fallo es el escaneo, no falta
+> un comando, faltan todos.
+>
+> Arreglado por Joseth en los seis (`rm vendor`, `cp -a`, `dump-autoload -o` desde cada uno,
+> 9.626 inodos por copia). **Diecisiete a 1.** Medido y contado por `myvc-flutter-75`.
+>
+> **🟠 Lo que eso deja sin confirmar:** si ya no queda ningún symlink, desaparece la trampa
+> nº 1 del despliegue y los seis dejan de ir en bloque — **pero nadie ha mirado si
+> `maranathaarauca` sigue colgando del compartido**, así que los dos avisos de bloque siguen
+> en pie. Se mide con `tools/lo-que-comparte-un-colegio.sh`, que salió de esto y contesta a
+> la vez **qué comparte cada uno y a qué `app/` apunta su autocargador** — porque *tener
+> `vendor/` propio no es tener autocargador propio*: copiar la carpeta sin regenerar deja
+> `ls -l` limpio y el fallo dentro. También mira `storage/`, `public/`, `bootstrap/cache/` y
+> `node_modules/`, que **nunca se han mirado**; si `bootstrap/cache/` estuviera compartido,
+> un colegio serviría las rutas de otro.
+>
+> **Y una consecuencia para los avisos:** hasta el 23 sep, en esos seis el comando no
+> existía. Cuando se despliegue `0930355`, **es la primera vez que esos colegios lo corren de
+> verdad**, así que su primera pasada pone las marcas y NO avisa de lo viejo — que es lo
+> correcto y está en el diseño, pero conviene que esté escrito para que nadie lo lea como
+> «el push no funciona».
 >
 > **2. La lista de los que comparten `vendor/` estaba mal por los dos lados, y el total no
 > avisó.** Decía `maranathaarauca` —que ya no cuelga— y no decía `demo` —que sí—. Seis y

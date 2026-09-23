@@ -168,10 +168,70 @@ existe en disco y no es autocargable.
 queja. Sin mirarlo, la conclusión habría sido «el push no funciona» en vez de «en
 seis colegios no está cargado» — y se habría buscado en Firebase, que estaba bien.
 
-Lo arregla un `composer dump-autoload -o` sobre la carpeta compartida, que alcanza
-a los seis de golpe. **Está por hacer y lo decide Joseth**: antes hay que ver a
-dónde apunta `App\` en el `autoload_psr4.php` compartido, porque lanzarlo desde la
-carpeta equivocada haría que los seis ejecutaran el `app/` de otro colegio.
+##### Y LA CAUSA, MEDIDA EL MISMO DÍA: NO FALTABA UN COMANDO, FALTABAN TODOS
+
+Lo de arriba se quedaba corto. En esos seis **`php artisan list` no devolvía un
+solo comando propio** del proyecto: ni `notificaciones:enviar`, ni `sesion:limpiar`,
+ni `importaciones:marcar-abandonadas`, ni `colegio:parte`, ni `correo:probar`.
+Nunca los tuvieron. La causa estaba en el `autoload_psr4.php` del compartido:
+
+```php
+$baseDir = dirname($vendorDir).'/maranathaarauca.micolevirtual.com/8myvc';
+```
+
+Los seis cargaban sus clases `App\` **del `app/` de maranathaarauca**. Y funcionaba,
+porque el código es idéntico en los diecisiete —mismo commit—, y por eso nadie lo
+notó en meses.
+
+**Lo que no funcionaba es el descubrimiento de comandos: Laravel no los registra
+por nombre, escanea un directorio** y deriva la clase restándole `app_path()`. El
+escaneo caía en el árbol de maranathaarauca, la resta se hacía contra el
+`app_path()` propio, no casaba, y el comando se descartaba **sin un solo error**.
+
+**Y el detalle que hace esto difícil de encontrar otra vez:
+`class_exists('App\Console\Commands\EnviarNotificaciones')` devolvía `true`.**
+Cargar por nombre funcionaba; descubrir por ruta, no. O sea que la comprobación
+obvia daba verde sobre un sistema roto. Antes se probaron dos hipótesis razonables
+—classmap desactualizado y caché de `bootstrap/cache/`— y **las dos eran falsas**.
+Lo que lo resolvió fue **una pregunta más ancha, no más profunda**: si el fallo es
+el escaneo, no falta *un* comando, faltan **todos**. `php artisan list | grep -E
+'colegio:|sesion:|importaciones:'` en `demo` devolvió vacío y ahí se acabó.
+
+**El arreglo, aplicado por Joseth ese día en los seis:** `rm vendor` (era symlink),
+`cp -a` del compartido, y `composer dump-autoload -o` **desde cada colegio**, que
+reescribe `$baseDir` apuntando a su propia carpeta. Cuesta **9.626 inodos por
+copia**. Censo de comandos después: los diecisiete a `1`.
+
+##### ⚠️ LO QUE ESO DEJA SIN CONFIRMAR, Y NO SE ESCRIBE COMO HECHO
+
+Si los seis dejaron de colgar, **no queda ningún symlink a `laravel_compartido`** y
+entonces desaparece la trampa nº 1 del despliegue —«un `composer install` dentro de
+un colegio cambia a los otros»— y los seis dejan de tener que desplegarse en
+bloque. **Eso no está medido y no se escribe aquí como cierto**: el arreglo se
+aplicó a seis, y nadie ha mirado si `maranathaarauca` —el dueño del `app/` al que
+apuntaba el compartido— sigue colgando de él. Hasta que se mida, **las dos avisos
+de bloque siguen en pie**.
+
+Se mide con la herramienta que salió de esto, **en el servidor**:
+
+```bash
+tools/lo-que-comparte-un-colegio.sh     # 0 = nadie comparte · 1 = alguien sí · 2 = NO MEDIDO
+```
+
+Contesta las dos preguntas **en la misma fila y a propósito**, porque
+**tener `vendor/` propio NO es tener autocargador propio**: quien repita el arreglo
+copiando la carpeta y olvidando el `dump-autoload` deja `ls -l` sin symlinks, la
+trampa aparentemente resuelta, y `$baseDir` apuntando al `app/` de otro colegio —
+el mismo fallo mudo, ahora invisible al censo que lo encontró.
+
+##### Y SIGUE ABIERTO: ¿HAY ALGO MÁS COMPARTIDO ADEMÁS DE `vendor/`?
+
+La pregunta de §240-244 —`storage/`, `public/`, `bootstrap/cache/`— **sigue sin
+medirse**, y ahora se sabe que importa más de lo que parecía: si
+`bootstrap/cache/` estuviera compartido, **un colegio serviría las rutas de otro**,
+y acabamos de ver que un symlink de infraestructura puede romper cosas en silencio
+durante meses sin que nada se queje. La herramienta de arriba mira esas tres, más
+`node_modules/`, en la misma pasada.
 
 **Cómo se descubrió.** Al pasar el servidor a PHP 8.5, esos 9 colegios empezaron a
 devolver `Return type of Illuminate\Support\Collection::offsetExists($key) should
