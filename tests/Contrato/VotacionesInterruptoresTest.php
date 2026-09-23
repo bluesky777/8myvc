@@ -42,6 +42,17 @@ use Illuminate\Support\Facades\DB;
  * **No se cambia ninguno.** El de `locked` ya se midió y se dejó como está por la
  * misma razón: son dieciséis colegios y nadie ha medido qué manda cada uno de los
  * cuatro clientes. Lo que faltaba no era el arreglo, era la tabla.
+ *
+ * ## Lo de arriba es historia desde el 22 sep 2026
+ *
+ * El rediseño (`11-votaciones.md` §8, «Averías que se encontraron de paso») hizo
+ * **obligatorio el valor** en los once interruptores: sin él, o con él en null,
+ * es un 422 y la columna no se toca. Y todos pasan por
+ * `VtVotacion::exigirAdministrable()`: sin `id` es 422, una votación de la
+ * papelera es 404 y una ajena 403. La tabla se conserva porque explica por qué
+ * el 422 no es un capricho; los tests que fijaban las tres respuestas del
+ * conmutador sin el campo se invirtieron para fijar el arreglo. `votaciones/update`
+ * sigue conservando lo que no viaja, y ése no cambió.
  */
 class VotacionesInterruptoresTest extends CasoDeContrato
 {
@@ -51,10 +62,10 @@ class VotacionesInterruptoresTest extends CasoDeContrato
     }
 
     /**
-     * Una votación **viva**: los conmutadores usan `VtVotacion::where(...)`, y el
-     * modelo lleva `SoftDeletes`, así que sobre una de la papelera no escriben nada
-     * y contestan «Cambiado» igual. Coger «la primera por id» sin este filtro fue
-     * lo que dio dos mediciones contrarias del mismo interruptor.
+     * Una votación **viva**: el modelo lleva `SoftDeletes` y una de la papelera
+     * es un 404 (antes contestaba «Cambiado» sin escribir). Coger «la primera por
+     * id» sin este filtro fue lo que dio dos mediciones contrarias del mismo
+     * interruptor.
      */
     private function unaVotacion(): int
     {
@@ -84,18 +95,15 @@ class VotacionesInterruptoresTest extends CasoDeContrato
     }
 
     /**
-     * §101 — Sin el campo, el voto de los profesores **se enciende solo**.
+     * §101 invertido — Sin el campo, **422 y la columna no se mueve**.
      *
-     * `Request::input('votan_profes', true)`. Es la gemela de
-     * `test_sin_el_campo_el_candado_se_cierra_solo` con el signo cambiado: allí el
-     * defecto cierra, aquí abre. Y la variable local se llama `$locked` —copiada
-     * del método del candado sin renombrar—, que es la huella de por qué los seis
-     * defectos no coinciden.
-     *
-     * Se fija tal cual. Cambiarlo es visible en dieciséis colegios y la decisión ya
-     * se tomó una vez para su hermana.
+     * Antes `Request::input('votan_profes', true)` encendía el voto de los
+     * profesores cuando el campo no viajaba, y su gemelo del candado lo cerraba:
+     * la misma llamada hacía cosas opuestas según a qué interruptor llegara. Desde
+     * el 22 sep 2026 el valor es obligatorio (`11-votaciones.md` §8, «Averías que
+     * se encontraron de paso»), y este test fija eso en vez del defecto.
      */
-    public function test_sin_el_campo_el_voto_de_los_profesores_se_enciende_solo(): void
+    public function test_sin_el_campo_es_422_y_no_toca_la_columna(): void
     {
         $token = $this->tokenDelPersonal();
         $id = $this->unaVotacion();
@@ -103,43 +111,44 @@ class VotacionesInterruptoresTest extends CasoDeContrato
         DB::table('vt_votaciones')->where('id', $id)->update(['votan_profes' => 0]);
 
         $this->withToken($token)->putJson('/api/votaciones/set-votan-profes', ['id' => $id])
-            ->assertStatus(200)->assertSee('Cambiado');
+            ->assertStatus(422);
 
-        $this->assertSame(1, (int) DB::table('vt_votaciones')->where('id', $id)->value('votan_profes'),
-            'Sin el campo, el defecto de `Request::input` es `true` y el voto se abre.');
+        $this->assertSame(0, (int) DB::table('vt_votaciones')->where('id', $id)->value('votan_profes'),
+            'Sin el campo no se enciende nada: el defecto de `Request::input` ya no decide.');
     }
 
     /**
-     * Y con el campo en null explícito hace lo contrario que sin el campo.
+     * Invertido — Con el campo en null explícito, **lo mismo que sin el campo**.
      *
-     * `Request::input('x', $defecto)` solo aplica el defecto cuando **la clave no
-     * está**; con la clave presente y en null devuelve null, y la columna lo recibe
-     * como 0 porque `config/database.php` lleva `'strict' => false`. O sea que un
-     * front que limpia el campo y otro que lo omite obtienen resultados opuestos
-     * de la misma petición.
+     * Antes daban lo contrario: la clave ausente aplicaba el defecto (`true`) y la
+     * clave en null llegaba a la columna como 0 por el `'strict' => false`. Ahora
+     * un null no es un sí ni un no y los dos son 422 (11 §8), así que un front
+     * que limpia el campo y otro que lo omite obtienen la misma respuesta.
      */
-    public function test_el_campo_en_null_y_el_campo_ausente_dan_lo_contrario(): void
+    public function test_el_campo_en_null_es_422_como_el_campo_ausente(): void
     {
         $token = $this->tokenDelPersonal();
         $id = $this->unaVotacion();
 
-        DB::table('vt_votaciones')->where('id', $id)->update(['votan_profes' => 0]);
+        DB::table('vt_votaciones')->where('id', $id)->update(['votan_profes' => 1]);
 
         $this->withToken($token)->putJson('/api/votaciones/set-votan-profes',
-            ['id' => $id, 'votan_profes' => null])->assertStatus(200);
+            ['id' => $id, 'votan_profes' => null])->assertStatus(422);
 
-        $this->assertSame(0, (int) DB::table('vt_votaciones')->where('id', $id)->value('votan_profes'),
-            'Con la clave presente y en null, el defecto no se aplica.');
+        $this->assertSame(1, (int) DB::table('vt_votaciones')->where('id', $id)->value('votan_profes'),
+            'El null no llega a la columna como 0.');
     }
 
     /**
-     * Sin `id`: 200 «Cambiado» y **ninguna fila**. Descartado que sea masivo.
+     * Invertido — Sin `id`: **422**, y ninguna fila. Descartado que sea masivo.
      *
-     * Es lo que había que medir antes de escribir nada, porque un conmutador que
-     * escriba en todas las votaciones del colegio y conteste 200 es otra cosa
-     * completamente. `where('id', null)` no casa con ninguna fila — no con todas.
+     * Antes contestaba 200 «Cambiado» sin tocar nada, porque `where('id', null)`
+     * no casa con ninguna fila. Ahora `VtVotacion::exigirAdministrable()` rechaza
+     * el id que no es un entero positivo antes de buscar (11 §8, y §5 para el
+     * guard de dueño). Se sigue midiendo que no escriba en ninguna: un
+     * conmutador que escribiera en todas las votaciones del colegio sería otra cosa.
      */
-    public function test_sin_id_no_toca_ninguna_votacion(): void
+    public function test_sin_id_es_422_y_no_toca_ninguna_votacion(): void
     {
         $token = $this->tokenDelPersonal();
 
@@ -150,14 +159,21 @@ class VotacionesInterruptoresTest extends CasoDeContrato
         $antes = DB::table('vt_votaciones')->orderBy('id')->pluck('votan_profes', 'id')->all();
 
         $this->withToken($token)->putJson('/api/votaciones/set-votan-profes', ['votan_profes' => 1])
-            ->assertStatus(200)->assertSee('Cambiado');
+            ->assertStatus(422);
 
         $this->assertSame($antes, DB::table('vt_votaciones')->orderBy('id')->pluck('votan_profes', 'id')->all(),
             'Ni una votación cambió. Si algún día esto se reescribe con otro WHERE, aquí se ve.');
     }
 
-    /** Sobre una votación de la papelera tampoco escribe, y lo dice igual. */
-    public function test_sobre_una_votacion_de_la_papelera_no_escribe(): void
+    /**
+     * Invertido — Sobre una votación de la papelera es **404**, y no escribe.
+     *
+     * Antes contestaba «Cambiado» sin escribir: el scope de `SoftDeletes` quitaba
+     * la fila del `UPDATE` y la respuesta no se enteraba. Ahora
+     * `exigirAdministrable()` la busca con `find()`, que lleva el mismo scope, y
+     * lo dice (11 §8; el porqué del scope en §5.1).
+     */
+    public function test_sobre_una_votacion_de_la_papelera_es_404(): void
     {
         $token = $this->tokenDelPersonal();
         $id = $this->unaVotacion();
@@ -165,10 +181,10 @@ class VotacionesInterruptoresTest extends CasoDeContrato
         DB::table('vt_votaciones')->where('id', $id)->update(['votan_profes' => 0, 'deleted_at' => now()]);
 
         $this->withToken($token)->putJson('/api/votaciones/set-votan-profes',
-            ['id' => $id, 'votan_profes' => 1])->assertStatus(200)->assertSee('Cambiado');
+            ['id' => $id, 'votan_profes' => 1])->assertStatus(404);
 
         $this->assertSame(0, (int) DB::table('vt_votaciones')->where('id', $id)->value('votan_profes'),
-            'El modelo lleva SoftDeletes: el scope quita la fila del UPDATE y la respuesta no se entera.');
+            'Una votación de la papelera no se sigue moviendo.');
     }
 
     /**
@@ -221,6 +237,14 @@ class VotacionesInterruptoresTest extends CasoDeContrato
      * votaciones existen en el colegio, de qué año son y si están abiertas, incluso
      * las de años anteriores y las que no son la actual. Se anota, no se cierra:
      * cerrarla apagaría la papeleta del alumno, que es quien tiene que leerla.
+     *
+     * Ajustado el 23 sep 2026: la fila creció con las columnas del rediseño
+     * (11 §8) —`votan_estudiantes`, `votan_administrativos`, `titulares_conducen`,
+     * `cuenta_atras`, `doble_llave`, `solo_en_mesa`—, todas de configuración. La que
+     * **no** debe salir es `clave_doble_llave`: es el bcrypt de una clave de cuatro
+     * cifras y romperlo fuera de línea es cuestión de milisegundos (11 §8, «Averías
+     * que se encontraron de paso»). Aquí la quita el `$hidden` del modelo, porque
+     * `getShow()` va por Eloquent; se comprueba aparte para que no dependa del orden.
      */
     public function test_un_alumno_ve_la_votacion_entera_pero_no_a_nadie(): void
     {
@@ -233,11 +257,14 @@ class VotacionesInterruptoresTest extends CasoDeContrato
             $r->assertStatus(200);
 
             $this->assertSame(
-                ['id', 'user_id', 'year_id', 'nombre', 'votan_profes', 'votan_acudientes', 'locked',
-                    'actual', 'in_action', 'can_see_results', 'fecha_inicio', 'fecha_fin',
-                    'created_by', 'updated_by', 'deleted_by', 'deleted_at', 'created_at', 'updated_at'],
+                ['id', 'user_id', 'year_id', 'nombre', 'votan_estudiantes', 'votan_profes', 'votan_acudientes',
+                    'votan_administrativos', 'locked', 'actual', 'in_action', 'can_see_results', 'fecha_inicio',
+                    'fecha_fin', 'created_by', 'updated_by', 'deleted_by', 'deleted_at', 'created_at', 'updated_at',
+                    'titulares_conducen', 'cuenta_atras', 'doble_llave', 'solo_en_mesa'],
                 array_keys($r->json()),
                 'Si esta lista crece con algo de una persona, deja de ser un catálogo.');
+            $this->assertArrayNotHasKey('clave_doble_llave', $r->json(),
+                'El hash de la doble llave no sale de la base.');
 
             // Y las dos que escriben sí les están cerradas.
             $this->withToken($token)->putJson('/api/votaciones/update/'.$id, ['nombre' => 'X'])

@@ -14,9 +14,12 @@ use Illuminate\Support\Facades\DB;
  * estadística — un `destroy` es lo más caro de probar a mano y lo único que no
  * se puede deshacer en producción.
  *
- * Los cuatro métodos son **el mismo código**, `findOrFail($id)` y `delete()`,
- * sin comprobar año, dueño ni estado de la urna. Pero hacen **tres cosas
- * distintas**, y la diferencia no está en el controlador: está en si el modelo
+ * Los métodos eran **el mismo código**, `findOrFail($id)` y `delete()`, sin
+ * comprobar año, dueño ni estado de la urna. Desde el rediseño (11 §8)
+ * `votaciones/destroy` y `aspiraciones/destroy` pasan por
+ * `VtVotacion::exigirAdministrable()` y `candidatos/destroy` sigue sin guard de
+ * dueño. Pero el borrado en sí hace **cosas distintas** con el mismo `delete()`,
+ * y la diferencia no está en el controlador: está en si el modelo
  * lleva el trait `SoftDeletes` y en si la tabla tiene la columna `deleted_at`.
  * Las dos condiciones se pusieron por separado y no cuadran entre sí:
  *
@@ -25,15 +28,18 @@ use Illuminate\Support\Facades\DB;
  * | `votaciones/destroy` | sí | sí | borrado lógico; los hijos sobreviven |
  * | `candidatos/destroy` | sí | sí | borrado lógico; los votos sobreviven |
  * | `aspiraciones/destroy` | **no** | sí | borrado **físico**, y la cascada del esquema se lleva candidatos y **votos** |
- * | `participantes/destroy` | sí | **no** | **500**: escribe en una columna que no existe |
+ *
+ * **Se fue una fila, `participantes/destroy`** —el 500 que fijaba este fichero—,
+ * con la tabla `vt_participantes` y las nueve rutas `participantes/*` en el
+ * rediseño del 22 sep 2026 (`11-votaciones.md` §8, punto 1). Su test se borró con
+ * ella: el conjunto de rutas lo vigila `RutasTest`.
  *
  * Nada de esto se ve leyendo el controlador, que es idéntico en los cuatro. Sale
  * de mirar el resultado, que es el criterio de `docs/migracion/03-tests.md`.
  *
  * **Estos tests fijan lo que hace hoy, no lo que debería hacer.** Son endpoints
- * vivos en los dieciséis colegios: el 500 de participantes y el borrado físico
- * de aspiraciones están documentados en `05-codigo-muerto-y-roto.md` §58, no
- * arreglados aquí. Arreglarlos cambia lo que ve una pantalla y eso lo decide
+ * vivos en los dieciséis colegios: el borrado físico de aspiraciones está
+ * documentado en `05-codigo-muerto-y-roto.md` §58, no arreglado aquí. Arreglarlos cambia lo que ve una pantalla y eso lo decide
  * Joseth. Ver también `11-votaciones.md`.
  */
 class VotacionesBorradoTest extends CasoDeContrato
@@ -64,12 +70,19 @@ class VotacionesBorradoTest extends CasoDeContrato
     }
 
     /**
-     * Una elección con todo dentro: aspiración, dos candidatos, un participante
-     * y un voto emitido.
+     * Una elección con todo dentro: aspiración, dos candidatos, un voto a un
+     * candidato y un voto en blanco.
      *
      * El voto es la pieza que importa. Sin un voto de verdad en `vt_votos` las
-     * cuatro rutas parecen hacer lo mismo —desaparece una fila— y **la cascada
-     * no se ve**, que es justo lo que hay que medir aquí.
+     * rutas parecen hacer lo mismo —desaparece una fila— y **la cascada no se
+     * ve**, que es justo lo que hay que medir aquí.
+     *
+     * Desde el rediseño (11 §8, punto 4) el voto lleva `votacion_id` y
+     * `aspiracion_id` propios, los dos con `ON DELETE CASCADE` en el esquema
+     * migrado, y el blanco es `candidato_id` NULL: por eso el blanco va aparte,
+     * porque es el que sólo cuelga de la aspiración y no de un candidato. Y los
+     * dos votos son de **personas distintas**, porque el índice único
+     * `(votacion_id, aspiracion_id, user_id)` no deja votar dos veces el mismo cargo.
      */
     private function eleccionConUnVoto(object $quien): object
     {
@@ -112,16 +125,19 @@ class VotacionesBorradoTest extends CasoDeContrato
             ]);
         }
 
-        $participanteId = DB::table('vt_participantes')->insertGetId([
-            'votacion_id' => $votacionId,
-            'grupo_profes_acudientes' => 'PROFESORES',
-            'locked' => 0,
-            'intentos' => 0,
-        ]);
-
         $votoId = DB::table('vt_votos')->insertGetId([
             'user_id' => $quien->user_id,
+            'votacion_id' => $votacionId,
+            'aspiracion_id' => $aspiracionId,
             'candidato_id' => $candidatos[0],
+            'locked' => 0,
+        ]);
+
+        $blancoId = DB::table('vt_votos')->insertGetId([
+            'user_id' => $personas[0]->user_id,
+            'votacion_id' => $votacionId,
+            'aspiracion_id' => $aspiracionId,
+            'candidato_id' => null,
             'locked' => 0,
         ]);
 
@@ -129,8 +145,8 @@ class VotacionesBorradoTest extends CasoDeContrato
             'votacion_id' => $votacionId,
             'aspiracion_id' => $aspiracionId,
             'candidatos' => $candidatos,
-            'participante_id' => $participanteId,
             'voto_id' => $votoId,
+            'blanco_id' => $blancoId,
         ];
     }
 
@@ -147,8 +163,9 @@ class VotacionesBorradoTest extends CasoDeContrato
     /**
      * Borrar la votación entera **no toca a sus hijos**, y esa es la sorpresa.
      *
-     * El esquema declara `ON DELETE CASCADE` de `vt_aspiraciones`,
-     * `vt_participantes` y `vt_candidatos` hacia arriba, así que la intención
+     * El esquema migrado declara `ON DELETE CASCADE` hacia `vt_votaciones` desde
+     * `vt_aspiraciones`, `vt_votos`, `vt_mesas`, `vt_actas` y `vt_grupos_votacion`
+     * (medido en `information_schema` el 23 sep 2026), así que la intención
      * escrita en la base era que borrar una votación se lo llevara todo. Pero
      * `VtVotacion` sí lleva `SoftDeletes`: el `DELETE` nunca llega a MySQL —es un
      * `UPDATE deleted_at`— y **la cascada del esquema no dispara**. La fila padre
@@ -170,12 +187,10 @@ class VotacionesBorradoTest extends CasoDeContrato
 
         $this->assertSame(1, $this->vivas('vt_aspiraciones', 'votacion_id', $eleccion->votacion_id),
             'La aspiración se fue con la votación: la cascada del esquema habría disparado.');
-        $this->assertSame(1, $this->vivas('vt_participantes', 'votacion_id', $eleccion->votacion_id),
-            'El participante se fue con la votación.');
         $this->assertSame(2, $this->vivas('vt_candidatos', 'aspiracion_id', $eleccion->aspiracion_id),
             'Los candidatos se fueron con la votación.');
-        $this->assertSame(1, $this->vivas('vt_votos', 'candidato_id', $eleccion->candidatos[0]),
-            'El voto se fue con la votación.');
+        $this->assertSame(2, $this->vivas('vt_votos', 'votacion_id', $eleccion->votacion_id),
+            'Los votos se fueron con la votación.');
     }
 
     /**
@@ -185,7 +200,9 @@ class VotacionesBorradoTest extends CasoDeContrato
      * —lo importa en la cabecera y no lo usa dentro de la clase—, así que aquí
      * `delete()` sí manda un `DELETE` a MySQL. Y entonces la cascada del esquema
      * hace su trabajo: `vt_candidatos.aspiracion_id` cae, y con ella
-     * `vt_votos.candidato_id`.
+     * `vt_votos.candidato_id`. Desde el rediseño (11 §8, punto 4) el voto cuelga
+     * además de `vt_votos.aspiracion_id`, también en cascada, así que **el voto en
+     * blanco** —que no tiene candidato— **cae igual**.
      *
      * O sea: **el escrutinio de una elección se puede borrar de forma
      * irreversible con una sola llamada**, aunque las tablas de candidatos y
@@ -211,9 +228,10 @@ class VotacionesBorradoTest extends CasoDeContrato
         $this->assertSame(0, (int) $candidatos->n,
             'Los candidatos sobrevivieron: la cascada del esquema no disparó.');
 
-        $voto = DB::selectOne('SELECT COUNT(*) n FROM vt_votos WHERE id = ?', [$eleccion->voto_id]);
-        $this->assertSame(0, (int) $voto->n,
-            'El voto sobrevivió. Si esto falla, alguien arregló la cascada — mira 05 §58 antes de tocar el test.');
+        $votos = DB::selectOne('SELECT COUNT(*) n FROM vt_votos WHERE id IN (?, ?)',
+            [$eleccion->voto_id, $eleccion->blanco_id]);
+        $this->assertSame(0, (int) $votos->n,
+            'Un voto sobrevivió. Si esto falla, alguien arregló la cascada — mira 05 §58 antes de tocar el test.');
     }
 
     /**
@@ -241,40 +259,5 @@ class VotacionesBorradoTest extends CasoDeContrato
         $voto = DB::selectOne('SELECT deleted_at FROM vt_votos WHERE id = ?', [$eleccion->voto_id]);
         $this->assertNotNull($voto, 'El voto se borró en cascada con su candidato.');
         $this->assertNull($voto->deleted_at, 'El voto quedó marcado como borrado, y nadie lo marcó.');
-    }
-
-    /**
-     * Borrar un participante **responde 500**, y no borra nada.
-     *
-     * `VtParticipante` lleva `use SoftDeletes` dentro de la clase, pero
-     * `vt_participantes` es la única de las cinco tablas `vt_*` **sin columna
-     * `deleted_at`** —lo dice `database/schema/mysql-schema.sql`—. El trait
-     * traduce el `delete()` a `UPDATE ... SET deleted_at = ?`, MySQL contesta
-     * que esa columna no existe y la petición muere.
-     *
-     * El modelo lleva además `protected $softDelete = true`, que es la sintaxis
-     * de Laravel 4 y hoy no la lee nadie: dos formas de pedir lo mismo, ninguna
-     * de las dos comprobada contra el esquema. Como la lectura del censo va por
-     * SQL crudo, el resto del módulo funciona y **el fallo solo asoma al
-     * borrar** — por eso ha sobrevivido a la migración entera.
-     *
-     * Se fija el 500 en vez de arreglarlo porque el arreglo es una decisión: o
-     * se le añade la columna a la tabla (migración, y el borrado pasa a ser
-     * lógico) o se le quita el trait al modelo (y pasa a ser físico, con la
-     * cascada del esquema detrás). Ver 05 §58.
-     */
-    public function test_borrar_un_participante_responde_500_y_no_borra_nada(): void
-    {
-        $quien = $this->personal();
-        $eleccion = $this->eleccionConUnVoto($quien);
-
-        $this->withToken($quien->token)
-            ->deleteJson("api/participantes/destroy/{$eleccion->participante_id}")
-            ->assertStatus(500);
-
-        $participante = DB::selectOne('SELECT id FROM vt_participantes WHERE id = ?',
-            [$eleccion->participante_id]);
-        $this->assertNotNull($participante,
-            'El participante se borró: alguien arregló la columna o el trait. Mira 05 §58 antes de tocar el test.');
     }
 }

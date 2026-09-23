@@ -86,8 +86,9 @@ class MuestreoDeLecturasTest extends CasoDeContrato
             // Votaciones estudiantiles.
             'api/candidatos',
             'api/candidatos/conaspiraciones',
-            'api/participantes/allinscritos',
-            'api/votos',
+            // `participantes/allinscritos` y `votos` se fueron con el rediseño
+            // del 22 sep 2026 (11-votaciones.md §8): el censo ya no se inscribe
+            // y la lista nominal de votos sólo sale por `auditoria/{id}`.
             'api/votaciones/en-accion-inscrito',
             'api/eventos',
 
@@ -152,7 +153,7 @@ class MuestreoDeLecturasTest extends CasoDeContrato
      * lo que importa aquí es que **la migración no las cambió**, porque ya
      * estaban rotas antes de empezar.
      *
-     * Ninguna es reciente. Las cuatro llevan rotas desde que se escribieron, y
+     * Ninguna es reciente. Las tres llevan rotas desde que se escribieron, y
      * están en docs/migracion/05-codigo-muerto-y-roto.md §6.5 y §8.
      *
      * @return array<string, array{string, int, string}>
@@ -168,9 +169,6 @@ class MuestreoDeLecturasTest extends CasoDeContrato
             ],
             'profesores/trashed ordena por una tabla que no está en el FROM' => [
                 'api/profesores/trashed', 500, "Unknown column 'p.nombres' in 'order clause'",
-            ],
-            'votaciones/unsignedsusers lee una columna que no existe' => [
-                'api/votaciones/unsignedsusers', 500, "Unknown column 'p.user_id' in 'field list'",
             ],
         ];
     }
@@ -218,7 +216,7 @@ class MuestreoDeLecturasTest extends CasoDeContrato
     /**
      * Las que **dejaron de hacer lo que hacían, a propósito**. No es lo mismo que rotas.
      *
-     * `lecturasRotas()` dice de sí misma que *«ninguna es reciente; las cuatro llevan rotas
+     * `lecturasRotas()` dice de sí misma que *«ninguna es reciente; las tres llevan rotas
      * desde que se escribieron»*, y meter aquí dentro una retirada a mano volvería falsa esa
      * frase. La distinción es la de `CLAUDE.md` —*sin ruta y roto se borra; con ruta se
      * documenta*— y es la que hay que poder leer dentro de seis meses: **una rota es una
@@ -340,28 +338,6 @@ class MuestreoDeLecturasTest extends CasoDeContrato
         $this->compararConInstantanea(
             'muestreo-alumnos-trashed',
             $this->formaUnida(json_decode($r->getContent(), true))
-        );
-    }
-
-    /**
-     * El listado de participantes exige que haya una votación en curso.
-     *
-     * No está roto —es una precondición del módulo, y el mensaje se lo enseña al
-     * usuario `myvc_front`—, pero responde 400 con el seed y por eso no cabe en
-     * ninguno de los tres grupos de arriba. Es la única lectura del controlador,
-     * así que sin esto `VtParticipantesController` se queda sin nada.
-     */
-    public function test_los_participantes_piden_una_votacion_en_curso(): void
-    {
-        [$grupo, $token] = $this->grupoYPersonal();
-
-        $r = $this->withToken($token)->getJson('/api/participantes');
-
-        $r->assertStatus(400);
-
-        $this->assertSame(
-            'Debe haber un evento establecido como actual.',
-            json_decode($r->getContent(), true)['message'] ?? null
         );
     }
 

@@ -389,7 +389,6 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
             // El fichero de acudientes, que se lee con PUT y por eso no salió en §14.
             'buscar en los acudientes' => ['PUT', 'acudientes/buscar', ['texto_a_buscar' => 'a']],
             'los acudientes sin asignar' => ['PUT', 'acudientes/no-asignados', []],
-            'la ficha de los docentes' => ['PUT', 'participantes/profesores', []],
             // El lado del autor de las actividades. El del alumno es
             // `mis-actividades/*`, que sigue abierto y tiene su caso más abajo.
             'crear una pregunta' => ['POST', 'preguntas/crear', []],
@@ -897,24 +896,54 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
      * endpoints — `votaciones/en-accion-inscrito` y `votos/store`—. Los demás
      * cuelgan de pantallas con `can_edit_participantes` o `can_edit_candidatos`,
      * o no los llama ningún cliente. Ver 05 §18.
+     *
+     * **La lista cambió con el rediseño del 22 sep 2026 (11-votaciones.md §8).**
+     * Se fueron las nueve `participantes/*`, `votaciones/unsignedsusers` y
+     * `GET votos` —borradas, contestan 404 y no hay puerta que vigilar—, y
+     * llegaron las de configurar la elección sin inscribir a nadie: `censo/*`,
+     * `mesas/*`, `actas/*`, `auditoria/{id}` y seis interruptores `set-*` más.
+     * Todas con `auth.personal`, así que una familia recibe 403 del middleware
+     * antes de que el controlador mire el id — por eso basta un `1` en la URL.
+     * `auditoria/{id}` es la que más importa: es la única puerta que dice por
+     * quién votó cada persona. `resultados/{id}` no está aquí a propósito: la lee
+     * el alumno y decide dentro con `can_see_results`.
      */
     public static function administracionDeVotaciones(): array
     {
         return [
             'crear una votación' => ['POST', 'votaciones/store'],
-            'el directorio de cuentas sin inscribir' => ['GET', 'votaciones/unsignedsusers'],
+            'editar una votación' => ['PUT', 'votaciones/update/1'],
+            'poner la urna en marcha' => ['PUT', 'votaciones/set-in-action'],
+            'que voten los profesores' => ['PUT', 'votaciones/set-votan-profes'],
+            'que voten los estudiantes' => ['PUT', 'votaciones/set-votan-estudiantes'],
+            'que vote el personal' => ['PUT', 'votaciones/set-votan-administrativos'],
+            'que los titulares conduzcan' => ['PUT', 'votaciones/set-titulares-conducen'],
+            'votar sólo en mesa' => ['PUT', 'votaciones/set-solo-en-mesa'],
+            'la cuenta atrás' => ['PUT', 'votaciones/set-cuenta-atras'],
+            'la doble llave' => ['PUT', 'votaciones/set-doble-llave'],
             'crear un cargo' => ['POST', 'aspiraciones/store'],
             'editar un cargo' => ['PUT', 'aspiraciones/update'],
-            'el censo del evento' => ['GET', 'participantes'],
-            'todos los inscritos' => ['GET', 'participantes/allinscritos'],
-            'los datos del censo' => ['PUT', 'participantes/datos'],
-            'guardar inscripciones' => ['PUT', 'participantes/guardar-inscripciones'],
-            'inscribir profesores' => ['POST', 'participantes/inscribir-profesores'],
-            'bloquear participantes' => ['PUT', 'participantes/set-locked'],
-            'el censo con el voto de cada uno' => ['PUT', 'participantes/votantes'],
+            'el censo del evento' => ['GET', 'censo/1'],
+            'sacar grupos del censo' => ['PUT', 'censo/1/grupos'],
+            'la lista de votantes' => ['GET', 'censo/1/votantes'],
+            'los elegibles como candidato' => ['GET', 'censo/1/elegibles'],
+            'quién puede conducir una mesa' => ['GET', 'censo/1/conductores'],
+            'las mesas' => ['GET', 'mesas'],
+            'mis mesas' => ['GET', 'mesas/mias'],
+            'crear una mesa' => ['POST', 'mesas/store'],
+            'la mesa de un grupo' => ['POST', 'mesas/mia-de-grupo'],
+            'la lista de una mesa' => ['GET', 'mesas/1/lista'],
+            'abrir la papeleta de otro' => ['POST', 'mesas/1/abrir'],
+            'editar una mesa' => ['PUT', 'mesas/update/1'],
+            'borrar una mesa' => ['DELETE', 'mesas/destroy/1'],
+            'las actas de papel' => ['GET', 'actas/1'],
+            'firmar un acta' => ['POST', 'actas/firmar/1'],
+            'borrar un acta' => ['DELETE', 'actas/destroy/1'],
+            'el acta de un grupo' => ['GET', 'actas/1/grupo/1'],
+            'escribir el acta de un grupo' => ['PUT', 'actas/1/grupo/1'],
+            'a quién votó cada uno' => ['GET', 'auditoria/1'],
             'todos los candidatos' => ['GET', 'candidatos'],
             'inscribir un candidato' => ['POST', 'candidatos/store'],
-            'todos los votos del colegio' => ['GET', 'votos'],
         ];
     }
 
@@ -936,12 +965,12 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
     /**
      * Y lo que hace falta para votar sigue abierto, que es la otra mitad.
      *
-     * Cerrar catorce rutas de un módulo sin comprobar esto sería dejar sin
+     * Cerrar las rutas de administración sin comprobar esto sería dejar sin
      * elecciones a dieciséis colegios. Se mira `assertNotSame(403)` y no un 200:
      * en el seed no hay ninguna votación en acción, así que varias contestan
-     * vacío por motivos suyos, y `candidatos/conaspiraciones` contesta 500 por el
-     * suyo, que tiene su propio test aquí abajo. Lo que aquí importa es lo único
-     * que este caso puede afirmar: que el guard no las corte.
+     * vacío por motivos suyos, y `votos/store` con el cuerpo vacío contesta 422
+     * porque no dice qué votación. Lo que aquí importa es lo único que este caso
+     * puede afirmar: que el guard no las corte.
      */
     public function test_una_familia_sigue_pudiendo_votar(): void
     {
@@ -961,54 +990,58 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
     }
 
     /**
-     * La papeleta lleva rota para las familias desde siempre, y aquí queda fijado.
+     * La papeleta de una familia ya no revienta, y sin elección lo dice.
      *
-     * `candidatos/conaspiraciones` llama a `VtVotacion::actualInscrito($user)`
-     * **en la rama de Alumno y Acudiente, y ese método no existe** —los que hay
-     * son `actual`, `actualInAction` y `actualesInscrito`, en plural—. Un alumno
-     * que abra la papeleta recibe un 500, y lo ha recibido siempre.
+     * Este test fijaba lo contrario: `candidatos/conaspiraciones` llamaba a
+     * `VtVotacion::actualInscrito($user)` en la rama de Alumno y Acudiente, un
+     * método que no existía, y la papeleta daba 500 a las familias desde siempre
+     * (11-votaciones.md §7.2). El rediseño del 22 sep 2026 (§8) la cerró: la rama
+     * de las familias pasa por `actualesInscrito()`, que resuelve el censo en
+     * caliente, y cuando no hay elección suya contesta la misma forma que ya
+     * recibía el personal —`[['sin_votaciones_propias' => true]]`—, con la que la
+     * pantalla distingue «no hay elección» de «elección sin cargos».
      *
-     * No lo encontró el muestreo de la P2, que golpeó una lectura por controlador
-     * con un token de verdad ([05 §8]): ésta es una lectura sin parámetros y sí
-     * se golpeó, pero **con un token del personal**, y el `else` del personal usa
-     * un método que sí existe. Es el mismo tipo de punto ciego que el resto de
-     * esta serie — la herramienta preguntaba bien y con un solo tipo de usuario.
-     *
-     * Se deja roto con la regla de siempre —con ruta y roto se documenta— porque
-     * arreglarlo es decidir qué votación es «la suya» cuando hay varias en curso,
-     * y de paso encender para los alumnos una pantalla que hoy no funciona en
-     * dieciséis colegios. Está en la tabla del 09 §5. Este test fija el error
-     * exacto para que el día que se arregle, falle y haya que venir aquí.
+     * Se invierte para fijar el arreglo: el seed no tiene ninguna votación en
+     * acción, así que lo que tiene que llegar es un 200 con esa forma. Si vuelve
+     * el 500, el método ha vuelto a llamar a algo que no existe.
      */
-    public function test_la_papeleta_de_una_familia_sigue_rota(): void
+    public function test_la_papeleta_de_una_familia_ya_no_revienta(): void
     {
         foreach ($this->cabecerasDeUnaFamilia() as $quien => $cab) {
-            $this->assertSame(500,
-                $this->getJson('/api/candidatos/conaspiraciones', $cab)->getStatusCode(),
-                "La papeleta ya no responde 500 a {$quien}: si se ha arreglado, ".
-                'actualiza este test y la entrada de 05 §18.');
+            $r = $this->getJson('/api/candidatos/conaspiraciones', $cab);
+
+            $this->assertSame(200, $r->getStatusCode(),
+                "La papeleta vuelve a fallar para {$quien}: 11-votaciones.md §7.2 y §8.");
+
+            $this->assertSame([['sin_votaciones_propias' => true]], $r->json(),
+                "Sin elección en curso, {$quien} tendría que recibir la marca de «no hay elección».");
         }
     }
 
     /**
      * Una elección de verdad, votada de punta a punta con un token de alumno.
      *
-     * Los otros dos casos del módulo comprueban puertas: que catorce respondan
-     * 403 y que siete no. **Eso no es lo mismo que votar.** Cerrar catorce rutas
-     * de un módulo y comprobarlo leyendo el front es exactamente el error que
-     * este archivo lleva evitando desde la P1: el 403 se mira, el resultado no.
+     * Los otros casos del módulo comprueban puertas: que las de administrar
+     * respondan 403 y que las de votar no. **Eso no es lo mismo que votar.**
+     * Cerrar rutas de un módulo y comprobarlo leyendo el front es exactamente el
+     * error que este archivo lleva evitando desde la P1: el 403 se mira, el
+     * resultado no.
      *
-     * Así que aquí se monta la elección —votación en acción, un cargo, un
-     * candidato, y el grupo del alumno inscrito como participante— y se recorre
-     * el camino real de `VotarCtrl`, que son dos llamadas y solo dos:
+     * Así que aquí se monta la elección y se recorre el camino real de
+     * `VotarCtrl`, que son dos llamadas y solo dos:
      *
      *   1. `GET votaciones/en-accion-inscrito`, que es de donde el panel saca las
-     *      aspiraciones y, dentro de cada una, sus candidatos. **No** de
-     *      `candidatos/conaspiraciones`, que es la pantalla de prueba.
+     *      aspiraciones y, dentro de cada una, sus candidatos.
      *   2. `POST votos/store` con el `candidato_id` que salió de ahí.
      *
-     * Y se comprueba por el efecto: que la fila esté en `vt_votos` con el
-     * `user_id` del alumno. Un 200 no prueba que el voto se haya guardado.
+     * Desde el rediseño del 22 sep 2026 (11-votaciones.md §8) **nadie inscribe al
+     * alumno**: vota porque está en un grupo vivo del año de la elección y su
+     * grupo no está excluido en `vt_grupos_votacion`. Y por el §9, la papeleta no
+     * lleva el marcador mientras `can_see_results` esté apagado.
+     *
+     * Se comprueba por el efecto —la fila en `vt_votos` con el `user_id` del
+     * alumno— y por la inmutabilidad: el segundo voto al mismo cargo es un 409 y
+     * **no** reemplaza al primero, que es lo que hacía `verificarNoVoto()` (§3).
      */
     public function test_un_alumno_vota_de_verdad(): void
     {
@@ -1023,8 +1056,8 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
         $lista = $abiertas->json();
 
         $this->assertNotSame([], $lista,
-            'El alumno no ve la votación en la que está inscrito: `en-accion-inscrito` '
-            .'es la primera de las dos llamadas de VotarCtrl y sin ella no hay pantalla.');
+            'El alumno no se ve en el censo: `en-accion-inscrito` es la primera de '
+            .'las dos llamadas de VotarCtrl y sin ella no hay pantalla.');
 
         $this->assertSame((int) $votacion, (int) $lista[0]['id']);
 
@@ -1039,54 +1072,94 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
 
         $this->assertSame((int) $candidato, (int) $candidatos[0]['candidato_id']);
 
+        $this->assertArrayNotHasKey('cantidad', $candidatos[0],
+            'La papeleta lleva el marcador con `can_see_results` apagado: es la fuga de 11-votaciones.md §9.');
+
         $antes = DB::table('vt_votos')->where('user_id', $yo->id)->count();
 
-        // 201 y no 200: el método devuelve el modelo recién creado y Laravel le
-        // pone el código de creado. Se fija el que da, no el que uno espera.
         $this->postJson('/api/votos/store',
             ['votacion_id' => $votacion, 'candidato_id' => $candidato], $cab)
             ->assertStatus(201);
 
         $this->assertSame($antes + 1,
             DB::table('vt_votos')->where('user_id', $yo->id)->count(),
-            'El 200 llegó sin voto detrás: `votos/store` no guardó nada.');
+            'El 201 llegó sin voto detrás: `votos/store` no guardó nada.');
 
         $this->assertSame((int) $candidato,
             (int) DB::table('vt_votos')->where('user_id', $yo->id)
                 ->orderByDesc('id')->value('candidato_id'));
+
+        // El segundo intento, en blanco y al mismo cargo: 409 y el voto de antes intacto.
+        $aspiracion = (int) $lista[0]['aspiraciones'][0]['id'];
+
+        $this->postJson('/api/votos/store',
+            ['votacion_id' => $votacion, 'aspiracion_id' => $aspiracion], $cab)
+            ->assertStatus(409);
+
+        $this->assertSame($antes + 1,
+            DB::table('vt_votos')->where('user_id', $yo->id)->count());
+
+        $this->assertSame((int) $candidato,
+            (int) DB::table('vt_votos')->where('user_id', $yo->id)
+                ->orderByDesc('id')->value('candidato_id'),
+            'El segundo voto cambió el primero: el voto dejó de ser inmutable (11-votaciones.md §8).');
     }
 
-    /** Y un acudiente, por la misma puerta: `persona.propia` no vive en este módulo. */
+    /**
+     * Y un acudiente, que ahora sí vota cuando su estamento está encendido.
+     *
+     * Este caso fijaba que el acudiente sólo pasaba el guard: `actualesInscrito()`
+     * miraba `vt_participantes` y un acudiente no entraba nunca en la lista,
+     * aunque `votan_acudientes` exista desde 2014. Desde el rediseño del 22 sep
+     * 2026 (11-votaciones.md §8) la pregunta es la misma para todos —¿está
+     * encendido mi estamento?— y el acudiente no tiene censo: le basta el flag.
+     * Así que se monta la elección con `votan_acudientes = 1` y se le hace votar
+     * de verdad; y con el flag apagado, `votos/store` le contesta 403.
+     */
     public function test_un_acudiente_tambien_llega_a_la_papeleta(): void
     {
-        $this->montarUnaEleccionPara('Acudiente');
+        [$votacion, $candidato] = $this->montarUnaEleccionPara('Acudiente');
 
         $acudiente = $this->usuarioDeTipo('Acudiente');
         $cab = ['Authorization' => 'Bearer '.$this->tokenDe($acudiente->username)];
 
-        // `actualesInscrito()` solo mira `matriculas` para el tipo Alumno, así que
-        // un acudiente no entra en la lista aunque su acudido sí. Lo que este caso
-        // fija es lo único que depende de lo que se cerró: que el guard no lo
-        // corte. Que la lista le llegue vacía es de antes y no lo cambia esto.
-        $this->getJson('/api/votaciones/en-accion-inscrito', $cab)->assertStatus(200);
+        $lista = $this->getJson('/api/votaciones/en-accion-inscrito', $cab)
+            ->assertStatus(200)->json();
 
-        // 404 y no 500 desde el barrido de los `::find()` sin `OrFail`
-        // (21 ago 2026): el cuerpo va vacío, así que `postStore()` resuelve un
-        // `candidato_id` nulo. Antes reventaba leyendo una propiedad de `null`;
-        // ahora `VtCandidato::findOrFail()` dice que no existe, que es lo correcto.
-        // Lo que este caso fija sigue siendo lo mismo — **que el guard no le corta
-        // el paso al acudiente**—, y eso no ha cambiado: 404 es la respuesta del
-        // controlador, no del middleware. Ver 14-certificados.md §3.
-        $this->postJson('/api/votos/store', [], $cab)->assertStatus(404);
+        $this->assertContains((int) $votacion, array_map(fn ($v) => (int) $v['id'], $lista),
+            'El acudiente no ve la elección con `votan_acudientes` encendido.');
+
+        $this->postJson('/api/votos/store',
+            ['votacion_id' => $votacion, 'candidato_id' => $candidato], $cab)
+            ->assertStatus(201);
+
+        $this->assertSame(1, DB::table('vt_votos')
+            ->where('user_id', $acudiente->id)->where('votacion_id', $votacion)->count());
+
+        // Con el estamento apagado, la misma petición la rechaza el censo, no el guard.
+        DB::update('UPDATE vt_votaciones SET votan_acudientes = 0 WHERE id = ?', [$votacion]);
+        DB::delete('DELETE FROM vt_votos WHERE user_id = ? AND votacion_id = ?', [$acudiente->id, $votacion]);
+
+        $this->postJson('/api/votos/store',
+            ['votacion_id' => $votacion, 'candidato_id' => $candidato], $cab)
+            ->assertStatus(403);
     }
 
     /**
-     * La elección mínima que hace falta para que un alumno pueda votar.
+     * La elección mínima que hace falta para que alguien de la familia vote.
      *
-     * Son cuatro filas y las cuatro importan: `actualesInscrito()` exige que la
-     * votación sea `actual` **y** `in_action`, y que el grupo del alumno esté en
-     * `vt_participantes.grupo_profes_acudientes` —que es una columna de texto con
-     * un id de grupo dentro, y por eso `unsignedsusers` está rota (05 §8)—.
+     * Con el censo nuevo (11-votaciones.md §8) no se inscribe a nadie: basta que
+     * la votación sea `actual` e `in_action`, que no esté `locked`, que hoy caiga
+     * entre `fecha_inicio` y `fecha_fin` —lo exige `VtVotacion::exigirUrnaAbierta()`—,
+     * que el estamento esté encendido y, si es estudiante, que tenga matrícula
+     * viva en un grupo del año de la votación. **Sin filas en
+     * `vt_grupos_votacion` participan todos los grupos**, así que no se escribe
+     * ninguna. Las fechas van dos días a cada lado porque `Reloj::ahora()` es la
+     * hora de Bogotá y el docker corre en UTC.
+     *
+     * El dueño de la votación es nulo y no la persona que vota: si fuera el
+     * alumno, `puedePublicarResultados()` le daría el marcador por ser dueño y el
+     * caso del §9 no mediría nada.
      *
      * @return array{0: int, 1: int} el id de la votación y el del candidato
      */
@@ -1108,13 +1181,11 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
         }
 
         DB::insert('INSERT INTO vt_votaciones (user_id, year_id, nombre, actual, in_action, locked,
-                        votan_profes, votan_acudientes, created_at, updated_at)
-                    VALUES (?, ?, "Elección de prueba", 1, 1, 0, 1, 1, ?, ?)',
-            [$quien->id, $grupo->year_id, now(), now()]);
+                        votan_estudiantes, votan_profes, votan_acudientes, solo_en_mesa, can_see_results,
+                        fecha_inicio, fecha_fin, created_at, updated_at)
+                    VALUES (NULL, ?, "Elección de prueba", 1, 1, 0, 1, 1, 1, 0, 0, ?, ?, ?, ?)',
+            [$grupo->year_id, now()->subDays(2)->toDateString(), now()->addDays(2)->toDateString(), now(), now()]);
         $votacion = (int) DB::getPdo()->lastInsertId();
-
-        DB::insert('INSERT INTO vt_participantes (grupo_profes_acudientes, votacion_id, locked, created_at, updated_at)
-                    VALUES (?, ?, 0, ?, ?)', [(string) $grupo->grupo_id, $votacion, now(), now()]);
 
         DB::insert('INSERT INTO vt_aspiraciones (votacion_id, aspiracion, abrev, created_at, updated_at)
                     VALUES (?, "Personero", "PER", ?, ?)', [$votacion, now(), now()]);
