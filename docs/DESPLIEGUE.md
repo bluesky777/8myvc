@@ -3,47 +3,71 @@
 **Los comandos, y nada más.** El porqué de cada fila —topología, las siete trampas, qué trajo
 cada tanda, el bucle del front— está en [DESPLIEGUE-REFERENCIA.md](DESPLIEGUE-REFERENCIA.md).
 
-## ⛔ TANDA PENDIENTE — 81 commits desde `e7ed5e75`, y **ninguna toca una fila que ya exista**
+## ⛔ TANDA PENDIENTE — 97 commits desde `e7ed5e75`, y **ninguna migración pisa una fila que ya exista**
 
-**Medido el 22 sep 2026 sobre `e7ed5e75..9028607`**, que es el hash desplegado el domingo contra el
-`main` de hoy. Se remide el día de salir: la tanda anterior se escribió aquí con 321 commits y
-siete migraciones y salió con **785** y **34**.
+**Medido la madrugada del 23 sep 2026 sobre `e7ed5e75..c1914c3`**, que es la cabeza de
+`origin/main` y salió **verde en el CI** (corrida 35828663117: Pint, Larastan, la suite entera y la
+reconstrucción del esquema congelado). Se remide el día de salir: la tanda anterior se escribió aquí con 321 commits y
+salió con **785**.
 
 | | | recalcular con |
 |---|---|---|
-| commits | **81** | `git rev-list --count e7ed5e75..origin/main` |
-| **migraciones** | **TRES**, y las tres **aditivas puras** | `git diff --name-only e7ed5e75 main -- database/migrations/` |
-| `app/` | **85** ficheros | `git diff --name-only e7ed5e75 main -- app/ \| wc -l` |
-| Rutas | **647 → 665** — 18 nuevas, **ninguna retirada** | `tests/Contrato/Snapshots/rutas.json` |
-| `config/` | **dos**: `cors.php` e `importacion.php` | `git diff --name-only e7ed5e75 main -- config/` |
-| `composer.json` · `.lock` · `database/schema/` | sin tocar | `git diff --name-only e7ed5e75 main -- composer.json composer.lock database/schema/` |
+| commits | **97** | `git rev-list --count e7ed5e75..origin/main` |
+| **migraciones** | **SIETE**, y las siete **aditivas** | `git diff --name-only e7ed5e75 main -- database/migrations/` |
+| `app/` | **94** ficheros | `git diff --name-only e7ed5e75 main -- app/ \| wc -l` |
+| Rutas | **647 → 680** — 33 nuevas, **ninguna retirada** (medido comparando las claves de las dos instantáneas) | `tests/Contrato/Snapshots/rutas.json` |
+| instantáneas de contrato | **7 regeneradas**, exactamente una clave nueva en cada una | `git show 07b386a --stat -- tests/Contrato/Snapshots/` |
+| `composer.json` | cambia **sólo el guion `pint`**, ninguna dependencia | `git diff e7ed5e75 main -- composer.json` |
+| `composer.lock` · `database/schema/` | sin tocar | `git diff --name-only e7ed5e75 main -- composer.lock database/schema/` |
 
-### Las tres, y por qué el Paso 0 sale en verde
+### Las siete, y por qué el Paso 0 sale en verde
 
 ```
   VERDE  2026_09_21_100000_descargas_de_planilla
   VERDE  2026_09_21_200000_el_valor_entero_de_la_auditoria
   VERDE  2026_09_21_300000_lo_que_la_importacion_hizo
+  VERDE  2026_09_22_100000_la_plantilla_del_compromiso
+  VERDE  2026_09_22_200000_el_compromiso_academico
+  VERDE  2026_09_22_200000_quien_edita_la_plantilla
+  VERDE  2026_09_22_300000_el_compromiso_congela_sus_columnas
 ```
 
-Una tabla nueva y dos columnas nuevas. **Ninguna escribe sobre filas que ya existan**, así que esta
-vez el `UPDATE` que hay que mirar antes de migrar no existe — al revés que la tanda del 20 sep, que
-salió con uno que vació 407.909 casillas.
+**Las cuatro de compromisos están medidas una por una** y no supuestas
+—`8myvc-53`, 23 sep de madrugada—: cero `UPDATE`, cero `DELETE`, cero `change()`, cero
+`DB::statement` en `up()`, con **control negativo** (el mismo barrido sobre las seis de votaciones
+da 8 `DB::statement`, o sea que el detector distingue). La única columna que cae en tabla poblada
+es `years.profes_pueden_editar_plantilla`, `boolean()->default(false)`; las cinco de
+`compromiso_items` son `nullable()` y van tras su `Schema::hasColumn`.
 
-> **Eso NO es permiso para saltarse el Paso 0.** El verde de arriba es de la copia de desarrollo y
-> dice qué hacen **estas tres**; lo que el Paso 0 contesta es qué está pendiente **en esa base**, y
-> un colegio que se quedara fuera del `git pull` del domingo tiene por delante las 34 de aquella
-> tanda, con `la_casilla_vacia` dentro. La lista de pendientes es de cada colegio, no del
-> repositorio.
+> **Eso NO es permiso para saltarse el Paso 0.** El verde de arriba dice qué hacen **estas siete**;
+> lo que el Paso 0 contesta es qué está pendiente **en esa base**.
 
-### Lo que sí hay que mirar de esta tanda
+### Lo que trae, y en qué orden
 
-| | |
-|---|---|
-| `config/cors.php` e `config/importacion.php` | viajan en el `app/`, pero un `config:cache` con el `.env` viejo sirve la configuración anterior sin ningún síntoma. Los cuatro `artisan` del Paso 1, en orden |
-| **18 rutas nuevas y ninguna retirada** | aditivo puro: ningún cliente pierde una clave. `planilla-offline/*` (6), `auditoria/*` (4), fusión de alumnos (4), `documento-como-username` (2), notas del grupo anterior (2) |
-| `descargas_de_planilla` va **antes** que el `app/` | las dos rutas que bajan fichero dan 500 sin esa tabla — `migracion/49-la-planilla-sin-internet.md:268`. Con el orden del Paso 1 (`git pull` y `migrate` pegados) ya se cumple |
-| el front **no** acompaña a ésta | `myvc_dist` está construido en `myvc_front f75fd5c2` y `main` va muy por delante. Las pantallas que estrenan estas rutas —planilla sin internet, columna «Historial»— **no se ven hasta que se publique el front** |
+1. **Compromisos académicos** — cuatro migraciones, quince rutas, cuatro pantallas y el papel. Las
+   migraciones van **antes** que el `app/`: sin las tablas, la pestaña de configuración da 500.
+2. **Auditoría / historial** — las cuatro rutas `auditoria/*` llevaban en `main` **sin desplegar** y
+   hoy contestan 404 en los diecisiete. El front que las estrena sale en esta misma tanda: **backend
+   primero, y los dos la misma noche.**
+3. **El redondeo de la nota** — el front pasa a juzgar por lo que imprime (un 69,83 se imprimía `70`
+   y salía en rojo con mínima 70). **Toca las DOS aplicaciones**, así que se publican `up/` **y**
+   `up2/`. Va en un commit suelto (`ede6087a`) por si hay que sacarlo con un `revert`; si se saca,
+   hay que repetir la tanda de notas del front, que se midió con él dentro.
+4. **Un IDOR cerrado**: `persona.propia` no protegía las dos rutas de firma del compromiso —recoge
+   identificadores **por su nombre** y ante un `{id}` que no reconoce dejaba pasar la petición
+   entera, la misma forma que `images-users/destroy/{id}`—.
+
+### Lo que NO entra
+
+**Votaciones.** Commiteada en `worktree-votaciones` (front) y `votaciones-back` (8myvc), **fuera de
+`main`**, a la espera de que Joseth la pruebe a mano. Dos de sus seis migraciones borran filas y
+**ninguna anota con `RastroDeLaMigracion::anotar()`**; sus ocho contratos rojos lo están por
+decisión, no por avería. Y el AngularJS de `app/` llama a `participantes/datos`, `votos/update` y
+`votos/destroy`, que ese rediseño retira: **el día que su API salga, esos menús de la aplicación
+vieja quedan rotos en los dieciséis, y esa decisión sigue abierta.** Cuando entre, hay que
+regenerar `database/dumps/test-seed.sql`: con sus migraciones en el árbol, el seed muere a medias
+y la base de tests queda **con cero años** —y `tools/construir-bd-test.sh` imprime `Listo:` igual—.
+
 
 ## La tanda ANTERIOR — desplegada el 20 sep 2026 a las 23:51 en `e7ed5e75`
 
@@ -94,6 +118,39 @@ Ahí, **antes de tocar nada**, dos comandos y en este orden:
 php tools/riesgo-de-la-tanda.php        # ¿qué filas que ya existen pisa la tanda AQUÍ?
 tools/respaldo-antes-de-migrar.sh       # sólo si el de arriba salió con 2
 ```
+
+> ### Y SÍ se puede correr la primera vez: el guion se saca del remoto sin traerse el código
+>
+> *(23 sep 2026. Aquí decía que no tenía arreglo. Lo tiene, y son dos líneas.)*
+>
+> El problema era real —los guiones viajan en el repositorio, así que la noche que los estrena
+> todavía no están en el servidor—, pero **`git show` lee del remoto sin tocar el árbol ni el
+> índice**, así que el respaldo se puede hacer con el código viejo todavía puesto:
+>
+> ```bash
+> cd /home/micolev1/demo.micolevirtual.com/8myvc
+> git fetch -q origin
+> git show origin/main:tools/respaldo-antes-de-migrar.sh > ~/respaldo-antes-de-migrar.sh
+> chmod +x ~/respaldo-antes-de-migrar.sh
+>
+> for d in /home/micolev1/*.micolevirtual.com/8myvc; do
+>     echo "=== $d"; ( cd "$d" && ~/respaldo-antes-de-migrar.sh ) || echo "FALLO EN $d"
+> done            # y otra vez en la cuenta `micolevi`, desde ~/public_html/8myvc
+> ```
+>
+> Funciona porque el guion **sólo depende del `.env` del directorio en el que estás** —de ahí saca
+> `DB_DATABASE`, `DB_USERNAME` y `DB_PASSWORD`, y cada colegio tiene los suyos—, no de estar dentro
+> del repositorio. Comprobado leyendo el guion: lo único que hace con su propia ruta es imprimir su
+> ayuda (`sed -n '3,6p' "$0"`).
+>
+> **Y esto no es cosmética, es el orden correcto.** Metiendo el respaldo dentro del bucle del Paso 1
+> —entre el `git pull` y el `migrate`— se alarga el rato en que ese colegio da 500, y se alarga
+> justo lo que tarde un `mysqldump` de su base. Sacándolo delante, el 500 vuelve a durar lo que
+> tarda el `migrate`.
+>
+> **`riesgo-de-la-tanda.php` es distinto y NO se puede adelantar así**: lee las migraciones que hay
+> **en disco** para decir qué pisarían, y las de la tanda llegan con el `pull`. Ése va **después**
+> del `git pull` y antes del `migrate` —es el orden del Paso 1—.
 
 > ### ⚠️ La PRIMERA vez esto no se puede correr, y es esta vuelta
 >
