@@ -41,8 +41,14 @@
 >
 > [11-votaciones.md](11-votaciones.md) dice —con razón— que el día que esto entre a `main`
 > hay que correr `php tools/generar-seed-test.php` antes de que nadie construya una base de
-> tests, porque con estas migraciones en el árbol `construir-bd-test.sh` muere en
-> `vt_participantes`, deja la base **con cero años** e imprime su `Listo:` igual.
+> tests: el volcado congelado trae `vt_participantes`, la migración 400000 la tira, y el seed
+> del 17 sep todavía la rellena. **Medido montando una base de usar y tirar:** el guion se
+> corta en `ERROR 1146 … vt_participantes doesn't exist`, línea 33016 de 33356, y como
+> `years` es la última tabla del volcado la base queda con **127 tablas, 2.351 usuarios y 0
+> años**. Lo que el 11 decía —«y no lo dice», «imprime su `Listo:` igual»— **es falso desde
+> el 20 ago**, que es cuando `construir-bd-test.sh` dejó de silenciar los errores de `mysql`;
+> queda corregido allí. El riesgo real no es un verde silencioso sino **un rojo que se
+> ignora**: quien corra los tests después del `ERROR` mide sobre una base sin años.
 >
 > **No se pudo: `DB_DATABASE` del docker es hoy `micolev1_la_hermosa`, y el seed está anclado
 > en los grupos 84 y 98, que ahí no existen** (71 grupos, 209 alumnos, otro colegio). El

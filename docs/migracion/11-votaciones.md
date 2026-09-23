@@ -662,13 +662,25 @@ exista, la pantalla vieja de participantes queda sin backend.
 
 **Y hay que regenerar `database/dumps/test-seed.sql`, que no es opcional.** Lo midió
 la sesión de compromisos el 23 sep montando su base de tests: con estas migraciones
-en el árbol, `tools/construir-bd-test.sh` **deja la base inservible y no lo dice**.
-El seed muere en `vt_participantes` —línea 33016 de 33356, porque la 400000 tira esa
-tabla— y otra vez en `vt_votos.blanco_aspiracion_id`, que quita la 600000; y como
-**`years` es la última tabla del volcado**, la base se queda con **cero años**, así
-que cualquier test que corra contra ella mide sobre nada. El guion imprime su
-`Listo:` igualmente, que es el mismo género de fallo que este documento persigue:
-un verde que no verificó nada.
+en el árbol, `tools/construir-bd-test.sh` **deja la base inservible**. El seed muere
+en `vt_participantes` —línea 33016 de 33356, porque la 400000 tira esa tabla— y otra
+vez en `vt_votos.blanco_aspiracion_id`, que quita la 600000; y como **`years` es la
+última tabla del volcado**, la base se queda con **cero años**, así que cualquier
+test que corra contra ella mide sobre nada.
+
+> **Corrección del 23 sep, el día de la fusión: «y no lo dice» era falso, y la
+> diferencia importa.** Se volvió a medir montando una base de usar y tirar
+> —`DB_TEST_DATABASE=simonbolivar_testing_porque tools/construir-bd-test.sh`— y el
+> guion **se corta y grita**: `ERROR 1146 (42S02) at line 33016: Table
+> '….vt_participantes' doesn't exist`, y **no llega a imprimir su `Listo:`**, porque
+> lleva `set -euo pipefail` desde el 20 ago y los errores de `mysql` dejaron de
+> silenciarse ese día (comentario en `construir-bd-test.sh:63`). Lo que sí queda
+> exactamente como se describe es el estado de la base: **127 tablas, 2.351 usuarios,
+> 68 alumnos, 19.511 notas y 0 años**.
+>
+> O sea que el peligro no es un verde silencioso: es **un rojo que se ignora**. Quien
+> vea el `ERROR` y corra los tests igual mide sobre una base sin años, y ahí sí no
+> hay nada que avise.
 
 O sea que el día que esto entre a `main`, antes de que nadie construya una base de
 tests:
