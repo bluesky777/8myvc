@@ -122,6 +122,13 @@ $OMITIDAS = [
     // PIAR: planes de apoyo por discapacidad. El dato más sensible del sistema,
     // y ningún test de contrato lo necesita. Se queda fuera entero.
     'piars_alumnos', 'piars_grupos', 'piars_asignaturas', 'piars_actas_acuerdo',
+    // Rastro de auditoría: ruido de operación, y cada fila lleva el nombre de la
+    // persona tocada y el de quien la tocó (`alumno_nombre`, `actor_nombre`, y el
+    // `resumen`, que es texto libre con nombres dentro). En el seed del 17 sep no
+    // entró **ninguna** fila porque la tabla estaba vacía; las 2.420 de hoy las
+    // escribieron las sesiones de esta semana, así que omitirla deja el seed como
+    // estaba y no como estaría. Los tests que la usan escriben las suyas.
+    'auditoria',
 ];
 
 /*
@@ -153,6 +160,11 @@ $ANONIMAS = [
     'vt_candidatos' => ['plancha'],
     // El nombre del fichero suele llevar el del alumno: 'foto-juan-perez.jpg'.
     'images'      => ['nombre'],
+    // Misma categoría: un nombre de fichero subido a mano. Aquí el detector paró
+    // por 'user_2/Blanco(1).png' —BLANCO es un apellido de la base—, que es un
+    // falso positivo; la columna se anonimiza igual porque la siguiente puede no
+    // serlo, y el detector no sabe distinguirlas.
+    'publicaciones' => ['imagen_nombre'],
     // 'title' lleva cosas como 'Cumpleaños de <alumno>'; created_by_nombres es literal.
     'calendario'  => ['title', 'created_by_nombres'],
     // Datos médicos de menores en texto libre.
@@ -392,6 +404,32 @@ $grupos      = $GRUPOS;
 $asignaturas = ids('SELECT id FROM asignaturas WHERE grupo_id IN (' . lista($GRUPOS) . ')');
 $matriculas  = ids('SELECT id FROM matriculas WHERE grupo_id IN (' . lista($GRUPOS) . ')');
 $alumnos     = ids('SELECT DISTINCT alumno_id id FROM matriculas WHERE grupo_id IN (' . lista($GRUPOS) . ')');
+
+/*
+ * El anclaje tiene que existir EN ESTA BASE, y antes no se comprobaba.
+ *
+ * El 23 sep 2026 la base de desarrollo del docker ya no era la del colegio con
+ * el que se generó el seed: los grupos 84 y 98 no existen en `la_hermosa`, así
+ * que las quince consultas de arriba devolvieron listas vacías, el fichero salió
+ * con 32 tablas y 361 KB —sin `alumnos`, sin `notas`, sin `grupos`— y el guion
+ * imprimió `Escrito en …` tan contento. Es la enfermedad que este repo persigue:
+ * **un cero que no distingue «no hay» de «no miré»**.
+ *
+ * Se para aquí y no al final porque a partir de esta línea todo lo que se
+ * calcula cuelga de $alumnos.
+ */
+$grupos_reales = ids('SELECT id FROM grupos WHERE id IN (' . lista($GRUPOS) . ')');
+if (count($grupos_reales) !== count($GRUPOS) || $alumnos === []) {
+    $base = DB::connection()->getDatabaseName();
+    fwrite(STDERR, "\n╔═ EL ANCLAJE NO EXISTE EN ESTA BASE ═══════════════════════════\n");
+    fwrite(STDERR, '║ Base: ' . $base . "\n");
+    fwrite(STDERR, '║ Grupos pedidos: ' . lista($GRUPOS) . ' — encontrados: ' . (lista($grupos_reales) === 'NULL' ? 'ninguno' : lista($grupos_reales)) . "\n");
+    fwrite(STDERR, '║ Alumnos matriculados en ellos: ' . count($alumnos) . "\n");
+    fwrite(STDERR, "║ El seed saldría sin alumnos y sin notas. NO se escribe.\n");
+    fwrite(STDERR, "║ Pásale el anclaje de esta base:  php tools/generar-seed-test.php <years> <grupos>\n");
+    fwrite(STDERR, "╚═══════════════════════════════════════════════════════════════\n");
+    exit(1);
+}
 $parentescos = ids('SELECT id FROM parentescos WHERE alumno_id IN (' . lista($alumnos) . ')');
 $acudientes  = ids('SELECT DISTINCT acudiente_id id FROM parentescos WHERE alumno_id IN (' . lista($alumnos) . ')');
 $profesores  = ids('SELECT DISTINCT profesor_id id FROM asignaturas WHERE grupo_id IN (' . lista($GRUPOS) . ') AND profesor_id IS NOT NULL');

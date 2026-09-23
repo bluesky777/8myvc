@@ -24,15 +24,15 @@ El framework casi no se toca, que es justo lo que hizo viable la migración.
 no existe, y sumar dos cifras ciertas da una falsa. Ninguna de éstas la comprueba ningún
 test, así que va con la orden que la rehace al lado.
 
-| Qué | Hoy (20–21 sep 2026) | Orden |
+| Qué | Hoy — cada una con el día que se contó | Orden |
 |---|---|---|
-| Rutas | **664** | ver la orden debajo de la tabla |
-| Ficheros de controlador | **130** (129 controladores) | `find app/Http/Controllers -name '*.php' \| wc -l` |
-| Clases de controlador | **132** | `grep -rhoE '^[[:space:]]*(final )?(abstract )?class [A-Za-z_]+' app/Http/Controllers \| wc -l` |
-| Rutas públicas | **16** (`RutasPreLoginTest::TOTAL_PUBLICAS`) | correr el test, no restar |
-| Pint, lista curada | **501** (`PASS`) | `composer run pint:test` |
+| Rutas | **693** (23 sep) | ver la orden debajo de la tabla |
+| Ficheros de controlador | **140** (139 controladores) (23 sep) | `find app/Http/Controllers -name '*.php' \| wc -l` |
+| Clases de controlador | **142** (23 sep) | `grep -rhoE '^[[:space:]]*(final )?(abstract )?class [A-Za-z_]+' app/Http/Controllers \| wc -l` |
+| Rutas públicas | **16** (`RutasPreLoginTest::TOTAL_PUBLICAS`) (21 sep, y el test sigue verde el 23) | correr el test, no restar |
+| Pint, lista curada | **554** (`PASS`) (23 sep) | `composer run pint:test` |
 | Pint, repo entero | **738**, con **177** avisos | `pint --test` |
-| Larastan | `[OK] No errors` (~708 ficheros, medido en worktree) | `composer run stan` |
+| Larastan | `[OK] No errors` (786 ficheros, en el árbol principal sobre `main`) (23 sep) | `composer run stan` |
 | Suite completa | **2.520** pruebas | `php artisan test` |
 | Colegios | **16 + `demo`** | contar `/home/micolev1/*.micolevirtual.com/8myvc` |
 
@@ -42,8 +42,8 @@ docker exec 8myvc-app-1 sh -c \
   "php artisan route:list --json | php -r 'echo count(json_decode(stream_get_contents(STDIN))), PHP_EOL;'"
 ```
 
-`130 − 1 = 129` porque `Concerns/ResuelveElUsuario.php` es un trait y no declara clase;
-`132 − 129 = 3` porque `Alumnos/ImportarController.php` declara cuatro.
+`140 − 1 = 139` porque `Concerns/ResuelveElUsuario.php` es un trait y no declara clase;
+`142 − 139 = 3` porque `Alumnos/ImportarController.php` declara cuatro.
 
 **Poblaciones de `users`** (base de desarrollo, un colegio, 20 sep 2026):
 

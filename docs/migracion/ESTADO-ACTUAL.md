@@ -8,6 +8,64 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+> ## ✅ VOTACIONES: EL REDISEÑO ENTERO YA ESTÁ EN `main` (23 sep 2026)
+>
+> Fundida `votaciones-back` (dos entregas, 30 ficheros, seis migraciones). Se va
+> `vt_participantes` —**nadie se inscribe**: el censo son los grupos del año—, el voto pasa a
+> ser inmutable, y entran las mesas, las actas de papel, los resultados y la auditoría. El
+> relato entero, en [11-votaciones.md](11-votaciones.md).
+>
+> **Y el panel arrastraba dos llamadas muertas**, arregladas encima de la fusión:
+> `EventosController@getIndex` preguntaba por `VtParticipante::isSigned()` —modelo borrado— y
+> por `VtVoto::hasVoted()`, que filtraba por `vt_votos.participante_id`, columna que **no
+> existe en ninguna de las dieciséis bases**. `signed` pasa a ser un booleano y conserva el
+> nombre porque es lo que lee el cliente.
+>
+> ### Los 31 rojos son la decisión escrita en [11 §8.7], no una avería
+>
+> `--filter='(RutasTest|AutorizacionTest|FamiliasQueNuncaEntranTest|AutenticacionTest|RutasPreLoginTest|VotacionesTest|VotacionesBorradoTest|VotacionesInterruptoresTest|MuestreoDeLecturasTest)'`
+> → **31 failed, 137 passed (917 assertions), 58,5 s**, medido sobre `main` después de fundir.
+>
+> | Rojo | Por qué |
+> |---|---|
+> | `AutorizacionTest`, `FamiliasQueNuncaEntranTest`, `RutasTest` | las tres instantáneas de rutas todavía llevan las nueve de `participantes/` y ninguna de `censo/`, `mesas/`, `actas/`, `resultados/`, `auditoria/` |
+> | `VotacionesTest`, `VotacionesInterruptoresTest`, `VotacionesBorradoTest` | fijan como contrato justo los fallos que esta entrega cierra (votar con el candado echado, votar dos veces cambiaba el voto…) |
+> | `MuestreoDeLecturasTest` | monta su muestreo sobre `VtParticipantesController` |
+>
+> **Van después de que Joseth pruebe el módulo a mano**, que es lo acordado. Lo que sí quedó
+> medido y verde: `AutenticacionTest` y `RutasPreLoginTest` **pasan**, o sea que el conjunto
+> de rutas públicas no se movió con las 26 rutas nuevas (y 13 que se van). `SuperficieDeUnAlumnoTest`, que
+> el 11 §8.7 también nombra, **no se corrió**.
+>
+> ### ⛔ EL SEED DE TESTS NO SE PUDO REGENERAR, Y LA BASE DEL DOCKER ES OTRA
+>
+> [11-votaciones.md](11-votaciones.md) dice —con razón— que el día que esto entre a `main`
+> hay que correr `php tools/generar-seed-test.php` antes de que nadie construya una base de
+> tests, porque con estas migraciones en el árbol `construir-bd-test.sh` muere en
+> `vt_participantes`, deja la base **con cero años** e imprime su `Listo:` igual.
+>
+> **No se pudo: `DB_DATABASE` del docker es hoy `micolev1_la_hermosa`, y el seed está anclado
+> en los grupos 84 y 98, que ahí no existen** (71 grupos, 209 alumnos, otro colegio). El
+> generador no lo comprobaba: las quince consultas del anclaje devolvieron listas vacías y
+> escribió un seed de **32 tablas y 361 KB —sin `alumnos`, sin `notas`, sin `grupos`—**
+> diciendo `Escrito en …`. Frente a los 47 tablas y 3,9 MB del commiteado. **Un cero que no
+> distingue «no hay» de «no miré»**, en la herramienta, no en el código.
+>
+> Queda hecho en esta misma fusión:
+>
+> - **El generador ahora para** si algún grupo del anclaje no existe o no sale ni un alumno:
+>   dice la base, los grupos que encontró y que no escribe nada. Comprobado viéndolo parar.
+> - **`auditoria` pasa a `$OMITIDAS`**: 2.420 filas con `alumno_nombre`, `actor_nombre` y un
+>   `resumen` de texto libre con nombres dentro. En el seed commiteado no hay **ninguna**
+>   —la tabla estaba vacía en septiembre—, así que omitirla lo deja como estaba.
+> - **`publicaciones.imagen_nombre` pasa a `$ANONIMAS`**, misma categoría que `images.nombre`.
+>
+> **Lo que espera decisión de Joseth:** con qué base y qué anclaje se regenera el seed. O se
+> devuelve `simonbolivar` al docker, o se eligen dos grupos de `la_hermosa` y se cambian los
+> valores por defecto de `generar-seed-test.php` —lo segundo mueve el seed entero y con él
+> todos los tests que cuentan filas—. **Hasta entonces, quien reconstruya su base de tests se
+> queda sin años y no se entera.**
+
 > ## ✅ LA DEFINITIVA IGNORA LO NO CALIFICADO, EN LOS DIECISÉIS (22 sep 2026)
 >
 > **Decisión de Joseth (D8), y contradice a propósito lo que prometían las fases 0–3 del
