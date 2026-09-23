@@ -126,6 +126,9 @@ class EnviarNotificacionesTest extends CasoDeContrato
         $this->assertStringContainsString('4 notas nuevas', $deNotas[0]['cuerpo']);
         $this->assertStringContainsString($ctx['asignatura_nombre'], $deNotas[0]['cuerpo'],
             'El aviso no dice de qué asignatura, que es lo que lo hace útil sin abrir la app.');
+
+        $this->assertStringContainsString($this->primerNombreDelAlumno($ctx['alumno']), $deNotas[0]['cuerpo'],
+            'El aviso no dice de qué alumno es: un acudiente con dos hijos no sabe si le toca sin abrir la app.');
     }
 
     /**
@@ -220,6 +223,9 @@ class EnviarNotificacionesTest extends CasoDeContrato
 
         $this->assertStringNotContainsString('LO QUE PASO', $deDisciplina[0]['cuerpo'],
             'La descripción de la situación viajó en el aviso.');
+
+        $this->assertStringContainsString($this->primerNombreDelAlumno($ctx['alumno']), $deDisciplina[0]['cuerpo'],
+            'El aviso del observador no dice de qué alumno es.');
 
         $this->assertSame([], $this->mandadosAlTema(
             TemasDeNotificacion::deAlumnoYTipo($ctx['alumno'], 'notas')
@@ -397,6 +403,25 @@ class EnviarNotificacionesTest extends CasoDeContrato
      *
      * @return array<string, mixed>
      */
+    /**
+     * El primer nombre del alumno, **leído de la base y no escrito aquí**.
+     *
+     * Un literal fijaría el seed de hoy; esto comprueba lo que importa —que el
+     * nombre del alumno llega al cuerpo del aviso— y sigue valiendo si el seed
+     * cambia de alumno. Con el texto anterior estas aserciones salían en rojo,
+     * que es la única forma de saber que protegen algo.
+     */
+    private function primerNombreDelAlumno(int $alumnoId): string
+    {
+        $fila = DB::selectOne('SELECT nombres FROM alumnos WHERE id = ?', [$alumnoId]);
+
+        $nombre = explode(' ', trim((string) $fila->nombres))[0];
+
+        $this->assertNotSame('', $nombre, 'El seed dio un alumno sin nombres: la aserción no mediría nada.');
+
+        return $nombre;
+    }
+
     private function asignaturaConNotas(): array
     {
         // El nombre sale de `materias`: `asignaturas` sólo lleva las claves.

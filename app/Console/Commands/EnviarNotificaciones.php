@@ -83,6 +83,16 @@ class EnviarNotificaciones extends Command
      */
     private const TOPE_POR_FUENTE = 300;
 
+    /**
+     * Con qué se le habla a la familia cuando el alumno no tiene `nombres`.
+     *
+     * Va en una constante porque la leen dos sitios —`primerNombreDe` y
+     * `primerNombreEnFrase`— y el segundo **la compara** para decidir si baja la
+     * inicial. Escrita dos veces, cambiar una dejaría al otro comparando contra
+     * un literal que ya no existe y devolviendo «Tu hijo» en mitad de la frase.
+     */
+    private const SIN_NOMBRE = 'Tu hijo';
+
     public function handle(Publicador $publicador): int
     {
         if (! TemasDeNotificacion::hayComoDerivar()) {
@@ -251,13 +261,14 @@ class EnviarNotificaciones extends Command
 
         foreach ($filas as $fila) {
             $cuantas = (int) $fila->cuantas;
+            $nombre = $this->primerNombreDe((int) $fila->alumno_id);
 
             $avisos[] = [
                 'tema' => TemasDeNotificacion::deAlumnoYTipo((int) $fila->alumno_id, 'notas'),
                 'titulo' => 'Notas nuevas',
                 'cuerpo' => $cuantas === 1
-                    ? 'Hay 1 nota nueva en '.$fila->asignatura.'.'
-                    : 'Hay '.$cuantas.' notas nuevas en '.$fila->asignatura.'.',
+                    ? $nombre.' tiene 1 nota nueva en '.$fila->asignatura.'.'
+                    : $nombre.' tiene '.$cuantas.' notas nuevas en '.$fila->asignatura.'.',
                 'datos' => ['pantalla' => 'notas'],
             ];
         }
@@ -293,13 +304,14 @@ class EnviarNotificaciones extends Command
 
         foreach ($filas as $fila) {
             $cuantas = (int) $fila->cuantas;
+            $nombre = $this->primerNombreEnFrase((int) $fila->alumno_id);
 
             $avisos[] = [
                 'tema' => TemasDeNotificacion::deAlumnoYTipo((int) $fila->alumno_id, 'asistencia'),
                 'titulo' => 'Asistencia',
                 'cuerpo' => $cuantas === 1
-                    ? 'Se registró una novedad de asistencia.'
-                    : 'Se registraron '.$cuantas.' novedades de asistencia.',
+                    ? 'Se registró una novedad de asistencia de '.$nombre.'.'
+                    : 'Se registraron '.$cuantas.' novedades de asistencia de '.$nombre.'.',
                 'datos' => ['pantalla' => 'asistencia'],
             ];
         }
@@ -329,6 +341,7 @@ class EnviarNotificaciones extends Command
 
         foreach ($filas as $fila) {
             $cuantas = (int) $fila->cuantas;
+            $nombre = $this->primerNombreEnFrase((int) $fila->alumno_id);
 
             $avisos[] = [
                 'tema' => TemasDeNotificacion::deAlumnoYTipo((int) $fila->alumno_id, 'disciplina'),
@@ -336,8 +349,8 @@ class EnviarNotificaciones extends Command
                 // Sin decir de qué tipo ni qué pasó: eso se lee dentro, y lo que
                 // llega al bolsillo no puede contarlo delante de nadie.
                 'cuerpo' => $cuantas === 1
-                    ? 'Se anotó una situación. Ábrela para verla.'
-                    : 'Se anotaron '.$cuantas.' situaciones. Ábrelas para verlas.',
+                    ? 'Se anotó una situación de '.$nombre.'. Ábrela para verla.'
+                    : 'Se anotaron '.$cuantas.' situaciones de '.$nombre.'. Ábrelas para verlas.',
                 'datos' => ['pantalla' => 'disciplina'],
             ];
         }
@@ -521,10 +534,29 @@ class EnviarNotificaciones extends Command
         $nombres = trim((string) ($fila->nombres ?? ''));
 
         if ($nombres === '') {
-            return 'Tu hijo';
+            return self::SIN_NOMBRE;
         }
 
         return explode(' ', $nombres)[0];
+    }
+
+    /**
+     * El mismo nombre, pero **para el medio de una frase**.
+     *
+     * `primerNombreDe` responde «Tu hijo» cuando el alumno no tiene `nombres`, y
+     * eso se lee bien al principio —«Tu hijo pasó a Tesorería»— pero no en «…de
+     * Tu hijo», con una mayúscula en mitad de la frase que parece un error de la
+     * aplicación justo en el aviso que menos contexto lleva.
+     *
+     * **Se compara contra el mismo respaldo en vez de bajar la inicial**: un
+     * `lcfirst` convertiría «Laura» en «laura» en los diecisiete colegios, y ése
+     * es el caso normal, no el raro.
+     */
+    private function primerNombreEnFrase(int $alumnoId): string
+    {
+        $nombre = $this->primerNombreDe($alumnoId);
+
+        return $nombre === self::SIN_NOMBRE ? 'tu hijo' : $nombre;
     }
 
     /**
