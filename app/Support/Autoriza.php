@@ -201,6 +201,49 @@ class Autoriza
     private const ROLES_QUE_DECIDEN_LA_ADMISION = ['Secretario', 'Coord académico'];
 
     /**
+     * Los roles que pueden **publicar el recuento** de una elección del colegio, y
+     * por lo tanto verlo antes de publicarlo. Superusuario va por encima, como
+     * siempre, y el **dueño** de la elección entra por otro camino
+     * —`VtVotacion::puedePublicarResultados()`—, porque eso no es un rol.
+     *
+     * Es la decisión de Joseth del 23 sep 2026: *«nadie puede ver los resultados
+     * hasta que sea permitido; el coordinador o superuser decide cuándo»*, afinada
+     * al preguntarle quién es quién — **puede publicar el superusuario, rectoría,
+     * coordinación y quien creó la elección, aunque sea un docente**; y *«antes de
+     * publicar, el recuento lo ve exactamente quien puede publicarlo, nadie más, ni
+     * el docente ni la secretaria»*. O sea que ver antes y poder publicar son **el
+     * mismo conjunto**, y por eso hay un solo predicado y no dos.
+     *
+     * **`Secretario` NO está, y es una exclusión dicha, no un olvido.** Es el único
+     * sitio de esta clase donde secretaría queda fuera teniendo rectoría dentro; si
+     * alguien viene a «arreglarlo» por simetría con `esAdministrativo()`, está
+     * deshaciendo la mitad de la decisión.
+     *
+     * **Por qué las DOS coordinaciones.** `roles` tiene `Coord académico` (id 9) y
+     * `Coord disciplinario` (id 8), y la decisión dijo «coordinación» a secas. Una
+     * elección de personero no es asunto académico, así que restringirla a
+     * `Coord académico` —que es lo que hacen `puedePublicarHorario()` y
+     * `ROLES_QUE_CAMBIAN_LA_NOTA_NUMERICA`— habría sido estrechar la frase por
+     * nuestra cuenta. Queda **a falta de un sí o un no**: es una cadena de esta
+     * lista, y quitarla es una línea.
+     *
+     * **Nace correcta e INERTE en el docker y en producción**: los dos roles de
+     * coordinación y `Rector` tienen **cero usuarios** en la base de desarrollo
+     * (contado el 23 sep 2026 por `role_id`), y el docblock de
+     * `puedePublicarHorario()` ya dejó escrito que `Coord académico` tiene cero en
+     * los dieciséis colegios. O sea que hoy publican los superusuarios y el dueño de
+     * cada elección, y nadie más, hasta que un colegio reparta los roles. Leer
+     * «también rectoría» y suponer que ya hay alguien detrás sería el error.
+     *
+     * La tilde de `Coord académico` importa por lo de siempre: la comparación la hace
+     * `Role::getUserRoles()` en PHP, byte a byte, y la collation de MySQL no la salva
+     * ([33-la-tilde-que-sql-no-ve](../../docs/migracion/33-la-tilde-que-sql-no-ve.md)).
+     *
+     * @var list<string>
+     */
+    private const ROLES_QUE_PUBLICAN_RESULTADOS = ['Rector', 'Coord académico', 'Coord disciplinario'];
+
+    /**
      * Marcar y desmarcar un periodo de un alumno como boletín independiente.
      * `PUT boletin-independiente/periodo`, §6.3 del
      * [19](../../docs/migracion/19-boletin-independiente.md).
@@ -371,6 +414,51 @@ class Autoriza
         $userId = $user->user_id ?? null;
 
         return $userId !== null && Role::isCoordAcademico($userId);
+    }
+
+    /**
+     * Quién manda en el recuento de **cualquier** elección del colegio: rectoría y
+     * coordinación, con el superusuario por encima.
+     *
+     * Es la mitad «por rol» del criterio del 23 sep 2026; la otra mitad es el dueño
+     * de la elección, y las dos se juntan en el único sitio donde se pregunta,
+     * `VtVotacion::puedePublicarResultados()`. Ver
+     * `ROLES_QUE_PUBLICAN_RESULTADOS` para la decisión entera y para lo que queda
+     * por confirmar.
+     *
+     * **Por qué es un método nuevo y no uno de los que ya hay.** No es
+     * `esAdministrativo()` —`is_superuser || Secretario`—, que mete justo a la
+     * persona que la decisión excluye y que leen quince llamadas de otros dominios;
+     * no es `puedePublicarHorario()`, que deja fuera a rectoría; y no es
+     * `esSuperusuario()`, que deja fuera a las dos. Ensanchar cualquiera de los tres
+     * habría colado esta decisión en sitios que no la pidieron, que es la regla de
+     * esta clase: **un criterio nuevo se escribe con su nombre**.
+     *
+     * **Una sola consulta**, por lo mismo que sus vecinas: `Role::hasRole()` es una
+     * consulta por nombre preguntado, así que tres seguidos serían tres consultas
+     * idénticas. Y sale de `Role::getUserRoles()` —que filtra `r.deleted_at is
+     * null`— y no de `$user->roles`, que no lo filtra: un rol en la papelera no
+     * publica nada.
+     */
+    public static function puedePublicarCualquierVotacion($user): bool
+    {
+        if (self::esSuperusuario($user)) {
+            return true;
+        }
+
+        $userId = $user->user_id ?? null;
+
+        if ($userId === null) {
+            return false;
+        }
+
+        foreach (Role::getUserRoles($userId) as $rol) {
+            if (in_array($rol->name, self::ROLES_QUE_PUBLICAN_RESULTADOS, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

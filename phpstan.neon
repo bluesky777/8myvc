@@ -226,16 +226,19 @@ parameters:
         # también caduca, y ésta no llevaba fecha de revisión.**
         # Ver docs/migracion/noche-2026-08-24/exp-1.md.
 
-        # GET api/candidatos/conaspiraciones
-        # `VtVotacion::actualInscrito()` no existe. Lo que hay es
-        # `actualesInscrito()`, que devuelve un array, y aquí el resultado se usa
-        # como una sola votación (`$votacion->id`). No es un renombre: hay que
-        # decidir cuál de las votaciones es «la suya». Solo revienta para Alumno
-        # y Acudiente; para el resto entra por el else y funciona.
-        -
-            message: '#^Call to an undefined static method App\\Models\\VtVotacion::actualInscrito\(\)\.$#'
-            path: app/Http/Controllers/VtCandidatosController.php
-            count: 1
+        # (Aquí vivía el `VtVotacion::actualInscrito()` de
+        # `GET api/candidatos/conaspiraciones`, el método que no existe y que hacía
+        # reventar la papeleta para Alumno y Acudiente desde siempre. **Se retiró el
+        # 22 sep 2026 porque el endpoint se arregló**: la rama de las familias llama
+        # ahora a `actualesInscrito()` contra el censo nuevo y toma la primera
+        # elección, y sin elección contesta `sin_votaciones_propias` en vez de un
+        # 500.
+        #
+        # Y se retira **en el mismo diff que el arreglo**, que es lo que esta lista
+        # avisa dos veces más arriba: phpstan falla con `ignore.unmatched` cuando un
+        # patrón ignorado deja de corresponderse con nada, así que arreglar un
+        # código anotado aquí son DOS ficheros. Comprobado: la tanda completa en el
+        # contenedor lo dio antes de tocar este fichero.)
 
         # PUT api/publicaciones/guardar
         # `$para_todos` se define en las dos ramas del if y en ninguna otra; sus
