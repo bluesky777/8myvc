@@ -122,133 +122,134 @@ class LaPlantillaDelCompromiso extends Migration
         if (Schema::hasTable('config_compromiso')) {
             echo "  config_compromiso: ya existe, no se toca.\n";
         } else {
-        Schema::create('config_compromiso', function (Blueprint $tabla) {
-            $tabla->increments('id');
+            Schema::create('config_compromiso', function (Blueprint $tabla) {
+                $tabla->increments('id');
 
-            $tabla->unsignedInteger('year_id');
+                $tabla->unsignedInteger('year_id');
 
-            /* ── Lo que decide a QUIÉN se le propone un compromiso ── */
+                /* ── Lo que decide a QUIÉN se le propone un compromiso ── */
 
-            /*
-             * `area` o `asignatura`. Hereda lo que el colegio ya tiene decidido para
-             * la reprobación del año —`usa_areas = years.cant_areas_pierde_year > 0`,
-             * `Informes/ActasEvaluacionController.php:148`— pero se guarda aparte
-             * **porque son dos preguntas distintas**: un colegio puede reprobar el
-             * año por áreas y querer el seguimiento del periodo por asignaturas, que
-             * es más fino. Nacer heredado y poder separarse es lo que pidió el
-             * encargo.
-             */
-            $tabla->string('regla', 12)->default('area');
+                /*
+                 * `area` o `asignatura`. Hereda lo que el colegio ya tiene decidido para
+                 * la reprobación del año —`usa_areas = years.cant_areas_pierde_year > 0`,
+                 * `Informes/ActasEvaluacionController.php:148`— pero se guarda aparte
+                 * **porque son dos preguntas distintas**: un colegio puede reprobar el
+                 * año por áreas y querer el seguimiento del periodo por asignaturas, que
+                 * es más fino. Nacer heredado y poder separarse es lo que pidió el
+                 * encargo.
+                 */
+                $tabla->string('regla', 12)->default('area');
 
-            /*
-             * Cuántas perdidas hacen falta. **No es el corte del año**, y es el error
-             * que más caro sale: `years.cant_areas_pierde_year` vale 3 en
-             * `simonbolivar`, y un compromiso que llegue a las 3 llega cuando el
-             * alumno ya está en el límite. El defecto es 3 porque es el número que
-             * Joseth confirmó el 20 sep 2026 para la hoja de riesgo del semáforo
-             * (`myvc_front/app2/src/app/informes/semaforo/riesgo-del-grupo.ts:69`),
-             * y que las dos pantallas señalen a los mismos alumnos vale más que
-             * afinar el número antes de que nadie lo use.
-             */
-            $tabla->unsignedTinyInteger('corte')->default(3);
+                /*
+                 * Cuántas perdidas hacen falta. **No es el corte del año**, y es el error
+                 * que más caro sale: `years.cant_areas_pierde_year` vale 3 en
+                 * `simonbolivar`, y un compromiso que llegue a las 3 llega cuando el
+                 * alumno ya está en el límite. El defecto es 3 porque es el número que
+                 * Joseth confirmó el 20 sep 2026 para la hoja de riesgo del semáforo
+                 * (`myvc_front/app2/src/app/informes/semaforo/riesgo-del-grupo.ts:69`),
+                 * y que las dos pantallas señalen a los mismos alumnos vale más que
+                 * afinar el número antes de que nadie lo use.
+                 */
+                $tabla->unsignedTinyInteger('corte')->default(3);
 
-            /*
-             * El parágrafo del SIEP: en 1.º, 2.º y 3.º la promoción se circunscribe a
-             * dos asignaturas. **Hoy esto no existe en ninguna parte del sistema** —ni
-             * columna, ni consulta— así que nace apagado: encenderlo es una decisión
-             * del colegio, no un defecto que se le aparece.
-             *
-             * Apunta a `materias` y no a `asignaturas` porque la asignatura es de un
-             * grupo concreto y esto vale para tres grados enteros.
-             */
-            $tabla->boolean('primaria_activa')->default(false);
-            $tabla->unsignedInteger('primaria_materia_1_id')->nullable();
-            $tabla->unsignedInteger('primaria_materia_2_id')->nullable();
+                /*
+                 * El parágrafo del SIEP: en 1.º, 2.º y 3.º la promoción se circunscribe a
+                 * dos asignaturas. **Hoy esto no existe en ninguna parte del sistema** —ni
+                 * columna, ni consulta— así que nace apagado: encenderlo es una decisión
+                 * del colegio, no un defecto que se le aparece.
+                 *
+                 * Apunta a `materias` y no a `asignaturas` porque la asignatura es de un
+                 * grupo concreto y esto vale para tres grados enteros.
+                 */
+                $tabla->boolean('primaria_activa')->default(false);
+                $tabla->unsignedInteger('primaria_materia_1_id')->nullable();
+                $tabla->unsignedInteger('primaria_materia_2_id')->nullable();
 
-            /* ── El plazo, que es lo que el papel promete ── */
+                /* ── El plazo, que es lo que el papel promete ── */
 
-            $tabla->string('plazo_label', 120)->default('Semana de nivelaciones');
-            $tabla->unsignedTinyInteger('plazo_dias')->default(5);
+                $tabla->string('plazo_label', 120)->default('Semana de nivelaciones');
+                $tabla->unsignedTinyInteger('plazo_dias')->default(5);
 
-            /*
-             * Días hábiles para reclamar el resultado. Sale impreso en el papel, así
-             * que es una promesa del colegio y no un ajuste interno: el plazo empieza
-             * a correr en `compromisos.resultado_entregado_at` (R4 del diseño), no
-             * antes.
-             */
-            $tabla->unsignedTinyInteger('dias_reclamacion')->default(5);
+                /*
+                 * Días hábiles para reclamar el resultado. Sale impreso en el papel, así
+                 * que es una promesa del colegio y no un ajuste interno: el plazo empieza
+                 * a correr en `compromisos.resultado_entregado_at` (R4 del diseño), no
+                 * antes.
+                 */
+                $tabla->unsignedTinyInteger('dias_reclamacion')->default(5);
 
-            /* ── El encabezado del papel ── */
+                /* ── El encabezado del papel ── */
 
-            $tabla->string('titulo', 160)->nullable();
-            $tabla->string('subtitulo', 160)->nullable();
-            $tabla->boolean('muestra_escudo')->default(true);
-            $tabla->boolean('muestra_foto')->default(true);
-            $tabla->boolean('muestra_resolucion')->default(true);
+                $tabla->string('titulo', 160)->nullable();
+                $tabla->string('subtitulo', 160)->nullable();
+                $tabla->boolean('muestra_escudo')->default(true);
+                $tabla->boolean('muestra_foto')->default(true);
+                $tabla->boolean('muestra_resolucion')->default(true);
 
-            /* ── Las columnas de la tabla de perdidas ── */
+                /* ── Las columnas de la tabla de perdidas ── */
 
-            $tabla->boolean('col_periodos')->default(true);
-            $tabla->boolean('col_falta')->default(true);
+                $tabla->boolean('col_periodos')->default(true);
+                $tabla->boolean('col_falta')->default(true);
 
-            /*
-             * Los rótulos de firma, en JSON dentro de `text`, como
-             * `years.firmantes_acta`.
-             *
-             * **Y aquí guarda CARGOS, no personas**, que es la diferencia con su
-             * hermana y la razón de que esta lista sí se herede en enero.
-             * `firmantes_acta` está en la lista de las que nacen vacías a propósito
-             * —«los firmantes se confirman cada año» (Joseth, 31 ago 2026)— porque
-             * guarda nombres y cédulas, y un acta firmada por quien ya no está es
-             * peor que un acta sin firmantes. Esto guarda «Coord. Académico»,
-             * «Titular», «Acudiente», «Estudiante»: los cargos no se van del colegio
-             * en diciembre, y las personas detrás de ellos salen de `Year::datos()`,
-             * que ya se confirma cada año por su lado.
-             */
-            $tabla->text('firmantes')->nullable();
+                /*
+                 * Los rótulos de firma, en JSON dentro de `text`, como
+                 * `years.firmantes_acta`.
+                 *
+                 * **Y aquí guarda CARGOS, no personas**, que es la diferencia con su
+                 * hermana y la razón de que esta lista sí se herede en enero.
+                 * `firmantes_acta` está en la lista de las que nacen vacías a propósito
+                 * —«los firmantes se confirman cada año» (Joseth, 31 ago 2026)— porque
+                 * guarda nombres y cédulas, y un acta firmada por quien ya no está es
+                 * peor que un acta sin firmantes. Esto guarda «Coord. Académico»,
+                 * «Titular», «Acudiente», «Estudiante»: los cargos no se van del colegio
+                 * en diciembre, y las personas detrás de ellos salen de `Year::datos()`,
+                 * que ya se confirma cada año por su lado.
+                 */
+                $tabla->text('firmantes')->nullable();
 
-            /* ── Entrega y firma ── */
+                /* ── Entrega y firma ── */
 
-            $tabla->boolean('canal_papel')->default(true);
-            $tabla->boolean('canal_push')->default(true);
+                $tabla->boolean('canal_papel')->default(true);
+                $tabla->boolean('canal_push')->default(true);
 
-            /*
-             * El correo nace APAGADO, y es el único de los tres canales que lo hace.
-             * Medido el 22 sep 2026 sobre el volcado de `simonbolivar`: de 1.085
-             * acudientes, **100 tienen correo y 1.020 celular**. Un canal encendido
-             * por defecto que alcanza al 9 % es peor que uno apagado, porque el
-             * colegio cree que avisó.
-             */
-            $tabla->boolean('canal_correo')->default(false);
+                /*
+                 * El correo nace APAGADO, y es el único de los tres canales que lo hace.
+                 * Medido el 22 sep 2026 sobre el volcado de `simonbolivar`: de 1.085
+                 * acudientes, **100 tienen correo y 1.020 celular**. Un canal encendido
+                 * por defecto que alcanza al 9 % es peor que uno apagado, porque el
+                 * colegio cree que avisó.
+                 */
+                $tabla->boolean('canal_correo')->default(false);
 
-            $tabla->boolean('firma_digital')->default(true);
+                $tabla->boolean('firma_digital')->default(true);
 
-            /*
-             * La segunda firma (R4). Nace encendida porque es la que arranca el plazo
-             * de reclamación: sin ella el expediente demuestra que el colegio avisó
-             * del problema, no que informó de cómo terminó.
-             */
-            $tabla->boolean('pide_segunda_firma')->default(true);
+                /*
+                 * La segunda firma (R4). Nace encendida porque es la que arranca el plazo
+                 * de reclamación: sin ella el expediente demuestra que el colegio avisó
+                 * del problema, no que informó de cómo terminó.
+                 */
+                $tabla->boolean('pide_segunda_firma')->default(true);
 
-            $tabla->unsignedInteger('created_by')->nullable();
-            $tabla->unsignedInteger('updated_by')->nullable();
-            $tabla->timestamps();
+                $tabla->unsignedInteger('created_by')->nullable();
+                $tabla->unsignedInteger('updated_by')->nullable();
+                $tabla->timestamps();
 
-            /*
-             * Una fila por año y no más. El `unique` es la regla, no una optimización:
-             * dos filas de configuración para el mismo año son dos respuestas a la
-             * misma pregunta, y el código tendría que elegir una.
-             */
-            $tabla->unique('year_id', 'config_compromiso_del_anio');
+                /*
+                 * Una fila por año y no más. El `unique` es la regla, no una optimización:
+                 * dos filas de configuración para el mismo año son dos respuestas a la
+                 * misma pregunta, y el código tendría que elegir una.
+                 */
+                $tabla->unique('year_id', 'config_compromiso_del_anio');
 
-            $tabla->foreign('year_id')->references('id')->on('years')->onDelete('cascade');
-            $tabla->foreign('primaria_materia_1_id')->references('id')->on('materias')->onDelete('set null');
-            $tabla->foreign('primaria_materia_2_id')->references('id')->on('materias')->onDelete('set null');
-        });
+                $tabla->foreign('year_id')->references('id')->on('years')->onDelete('cascade');
+                $tabla->foreign('primaria_materia_1_id')->references('id')->on('materias')->onDelete('set null');
+                $tabla->foreign('primaria_materia_2_id')->references('id')->on('materias')->onDelete('set null');
+            });
         }
 
         if (Schema::hasTable('compromiso_bloques')) {
             echo "  compromiso_bloques: ya existe, no se toca.\n";
+
             return;
         }
 
