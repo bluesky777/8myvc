@@ -8,6 +8,66 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+> ## ✅ LOS AVISOS PUSH YA DICEN DE QUÉ HIJO SON (23 sep 2026)
+>
+> **Pedido por Joseth y transmitido por la sesión `myvc-flutter-75`, que enchufó el lado
+> de la app.** `avisosDeMatricula` ya llevaba la regla escrita en su docblock —«EL NOMBRE
+> SÍ, EL MOTIVO NO»— y el docblock de la clase ya ponía el ejemplo bueno, «Laura tiene 4
+> notas nuevas en Matemáticas». Las otras tres fuentes se escribieron antes y se quedaron
+> sin ella, así que **esto cierra una promesa escrita, no abre una decisión nueva**.
+>
+> Notas, asistencia y disciplina nombran al alumno con el `primerNombreDe()` de matrícula.
+> **Lo que NO llevan sigue sin llevarse**: ni la nota, ni el motivo de la situación, ni si
+> fue falta o tardanza — el cuerpo se ve en una pantalla bloqueada que puede no ser del
+> acudiente, y el push llega aunque el colegio tenga `alumnos_can_see_notas = 0`.
+> `avisosDelMuro` no nombra a propósito; las dos de compromiso ya nombraban. **Son 7
+> fuentes, no 4**, que es lo que el encargo no sabía.
+>
+> **Y el hueco que el encargo no nombraba:** los tres mandaban `'datos' => ['pantalla' =>
+> …]` mientras matrícula mandaba también `'alumno_id'`. El aviso decía «Laura tiene 3 notas
+> nuevas» y al tocarlo **la app no sabía a qué hijo abrir** — justo el caso de dos acudidos
+> que motivó el encargo. Va como `string`. La app **todavía no puede usarlo**: sus rutas
+> `/mis-notas`, `/mi-asistencia` y `/mi-disciplina` no reciben argumentos; va primero el
+> dato y después las pantallas, porque al revés la app pide una clave que no viene.
+>
+> `primerNombreEnFrase()` porque el respaldo «Tu hijo» sirve al principio de la frase y no
+> en «…de Tu hijo». Se compara contra la constante en vez de bajar la inicial: un `lcfirst`
+> convertiría «Laura» en «laura», y ése es el caso normal.
+>
+> **Las tres aserciones nuevas comprobadas rompiéndolas, por separado**: sin `alumno_id` en
+> `datos` salen 2 rojos; con el texto viejo de asistencia, 1. Y se montó el test de
+> asistencia, que era el único de los tres textos sin red debajo, con la fila que trae
+> `cantidad_ausencia` Y `cantidad_tardanza` a la vez.
+>
+> `EnviarNotificacionesTest` 10 verdes (58 aserciones) · `pint:test` PASS 555 · `stan` [OK]
+> 788.
+>
+> ### 🟠 Y DOS COSAS QUE ESPERAN A JOSETH, las dos medidas por `myvc-flutter-75`
+>
+> **1. En SEIS colegios `notificaciones:enviar` NO EXISTE para artisan.** `php artisan
+> list` da 0 en `coal`, `colbosque`, `comad-san-andres`, `demo`, `eal` y `lal`. El fichero
+> **sí está en los diecisiete**, todos en `a3cb1418`, así que no es un despliegue a medias:
+> es el autocargador del `vendor/` compartido, sin la clase en su `autoload_classmap.php`.
+> **El fallo es mudo** — el cron corre, el comando no existe y nadie se queja. Lo arregla un
+> `composer dump-autoload -o` sobre la carpeta compartida, **y antes hay que ver a dónde
+> apunta `App\` en su `autoload_psr4.php`**: desde la carpeta equivocada, los seis
+> ejecutarían el `app/` de otro colegio. Decisión suya.
+>
+> **2. La lista de los que comparten `vendor/` estaba mal por los dos lados, y el total no
+> avisó.** Decía `maranathaarauca` —que ya no cuelga— y no decía `demo` —que sí—. Seis y
+> seis: **dos errores que se cancelaban**. Corregido en `DESPLIEGUE.md` y
+> `DESPLIEGUE-REFERENCIA.md` con la fecha, la sesión que lo midió y las dos órdenes para
+> rehacerlo. *Un censo se comprueba por sus miembros, no por su cardinal.*
+>
+> **3. `Kernel.php` afirmaba en presente que el cron de `schedule:run` «ya está, uno por
+> colegio», tres renglones debajo de su propia lección** sobre los tiempos verbales sin
+> fecha. Era falso el día que se escribió: no existía en ninguna de las dos cuentas, así que
+> ni los avisos, ni `importaciones:marcar-abandonadas`, ni `sesion:limpiar` habían corrido
+> nunca. Se pusieron el 23 sep (1 en `micolevi`, 16 en `micolev1`), y **`lal` se dejó fuera a
+> propósito**: corre sobre una copia de la base del LAL vivo y con cron publicaría avisos de
+> datos congelados en los mismos temas que las familias del LAL de verdad. Queda fechado en
+> el archivo con la sesión que lo midió, porque yo no lo medí.
+
 > ## ✅ VOTACIONES: EL REDISEÑO ENTERO YA ESTÁ EN `main` (23 sep 2026)
 >
 > Fundida `votaciones-back` (dos entregas, 30 ficheros, seis migraciones). Se va

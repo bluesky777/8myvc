@@ -237,9 +237,12 @@ done
 ```
 
 - Repítelo en la otra cuenta de cPanel (`lalvirtual.edu.co`): otro login, el `for` no la alcanza.
-- Los **seis** de `vendor/` compartido —`coal`, `colbosque`, `comad-san-andres`, `eal`,
-  `maranathaarauca` y **`lal`** (desde el 30 ago 2026, al montarlo en la cuenta de
-  `micolev1`)— van **primero**: son los que no se pueden escalonar.
+- Los **seis** de `vendor/` compartido —`coal`, `colbosque`, `comad-san-andres`, **`demo`**,
+  `eal` y **`lal`**— van **primero**: son los que no se pueden escalonar.
+  **Recontados por sus miembros el 23 sep 2026** (sesión `myvc-flutter-75`, con Joseth
+  ejecutando): `maranathaarauca` **ya no cuelga** y **`demo` sí**, que no figuraba. Siguen
+  siendo seis, o sea que **el total no avisó del cambio** — el porqué y cómo rehacer la
+  medición, en [DESPLIEGUE-REFERENCIA.md](DESPLIEGUE-REFERENCIA.md).
 - **Entre el `pull` y el `migrate` ese colegio da 500**: segundos, pero existen, así que no en
   horario de clase. **Si falla una de las dos mitades, para y arréglalo antes de seguir.**
 

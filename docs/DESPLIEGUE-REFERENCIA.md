@@ -134,6 +134,45 @@ Sacado del servidor, no supuesto. Los 16 colegios tienen el mismo commit de `app
 > `composer` sobre esa carpeta los cambia a los cinco a la vez y el salto de
 > framework no se puede escalonar en ellos.
 
+##### CONTESTADO el 23 sep 2026, y la lista de arriba está mal por los dos lados
+
+**Medido desde la sesión `myvc-flutter-75`, con Joseth ejecutando en los
+diecisiete.** Siguen colgando **seis**, pero **no son los seis que dice esta
+página**:
+
+| | Colegios |
+|---|---|
+| Cuelgan de `laravel_compartido` (23 sep 2026) | `coal`, `colbosque`, `comad-san-andres`, **`demo`**, `eal`, `lal` |
+| Ya NO cuelga, y aquí figuraba | `maranathaarauca` |
+| Cuelga, y aquí NO figuraba | `demo` |
+
+El total coincide —seis y seis—, **y ahí está la trampa**: un recuento igual se
+lee como confirmación y esta tabla llevaba dos errores que se cancelaban. Un censo
+se comprueba por sus miembros, no por su cardinal.
+
+**Cómo se midió, para poder rehacerlo:**
+
+```bash
+php artisan list | grep -c 'notificaciones:enviar'              # 0 = no está cargado
+grep -c EnviarNotificaciones vendor/composer/autoload_classmap.php   # 0 = ídem
+```
+
+**Y el hallazgo que lo destapó no era éste.** En esos seis,
+`notificaciones:enviar` **no existe para artisan**: `php artisan list` da 0. El
+fichero `EnviarNotificaciones.php` **sí está en los diecisiete**, todos en el mismo
+commit `a3cb1418`, así que no es un despliegue a medias — es el autocargador del
+`vendor/` compartido, que no tiene la clase en su `autoload_classmap.php`. La clase
+existe en disco y no es autocargable.
+
+**El fallo es mudo**: el cron corre cada minuto, el comando no existe y nadie se
+queja. Sin mirarlo, la conclusión habría sido «el push no funciona» en vez de «en
+seis colegios no está cargado» — y se habría buscado en Firebase, que estaba bien.
+
+Lo arregla un `composer dump-autoload -o` sobre la carpeta compartida, que alcanza
+a los seis de golpe. **Está por hacer y lo decide Joseth**: antes hay que ver a
+dónde apunta `App\` en el `autoload_psr4.php` compartido, porque lanzarlo desde la
+carpeta equivocada haría que los seis ejecutaran el `app/` de otro colegio.
+
 **Cómo se descubrió.** Al pasar el servidor a PHP 8.5, esos 9 colegios empezaron a
 devolver `Return type of Illuminate\Support\Collection::offsetExists($key) should
 either be compatible with…` en cada petición, y desde el arranque. Es un Laravel
