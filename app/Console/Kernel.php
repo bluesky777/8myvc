@@ -63,9 +63,33 @@ class Kernel extends ConsoleKernel
         // **en el eje del tiempo en vez del espacio**: una cifra contada en un
         // worktree describe un árbol que mañana no existe, y un comentario en futuro
         // describe un día que ya pasó. *Un tiempo verbal no lleva fecha dentro.*
-        // Y no hace falta un cron nuevo: el de `schedule:run` ya está, uno por
-        // colegio, y esa decisión es la que hace que añadir esto sean tres
-        // líneas aquí en vez de dieciséis visitas a paneles de cPanel.
+        // Y LA LÍNEA DE ABAJO ERA EL MISMO FALLO OTRA VEZ, tres renglones después de
+        // explicarlo. Decía «no hace falta un cron nuevo: el de `schedule:run` ya
+        // está, uno por colegio» — en presente, sin fecha, y **era falso el día que
+        // se escribió**: no existía ningún `schedule:run` en ninguna de las dos
+        // cuentas, así que ni esto, ni `importaciones:marcar-abandonadas`, ni
+        // `sesion:limpiar` habían corrido una sola vez desde que se añadieron.
+        //
+        // Medido el **23 sep 2026 entre las 15:00 y las 16:10**, desde la sesión
+        // `myvc-flutter-75` y con Joseth ejecutando en las dos cuentas: `crontab -l`
+        // en `micolevi` (`mi3-ss54`) salía **vacío**, y en `micolev1` (`mi3-ss55`)
+        // traía **sólo `MAILTO=""`**. Ese mismo día se pusieron: **una línea en
+        // `micolevi`** y **dieciséis en `micolev1`**, cada una con la ruta de su
+        // colegio. Comprobado que corre y no supuesto — la salida se desvió a
+        // `~/cron.log` un par de minutos y apareció dos veces `INFO No scheduled
+        // commands are ready to run.`, y el `php` de `micolevi` es 8.4.25.
+        //
+        // **Dieciséis y no diecisiete: `lal.micolevirtual.com` se dejó fuera a
+        // propósito.** Es el subdominio de pruebas del traslado y corre sobre una
+        // copia de la base del LAL vivo, así que con cron habría publicado avisos
+        // calculados sobre datos congelados **en los mismos temas** que las familias
+        // del LAL de verdad. Quien añada ahí el cron sin saber esto le manda a esas
+        // familias notificaciones de un colegio que no existe.
+        //
+        // La lección no es que faltara el cron: es que **una frase en presente sin
+        // fecha se lee como medida**, y ésta llevaba un mes justificando por qué
+        // añadir un comando eran «tres líneas aquí». Lo eran; lo que no había era
+        // el cron que las ejecutara.
         $schedule->command('notificaciones:enviar')
             ->everyFifteenMinutes()
             ->withoutOverlapping();
@@ -75,8 +99,9 @@ class Kernel extends ConsoleKernel
         // archivo subido no se guarda en disco, sólo vive durante la petición
         // que lo trae— sólo pasa la fila a `fallida` con un error que dice qué
         // hacer, para que no mienta diciendo que algo la sigue trabajando.
-        // Mismo cron que las líneas de arriba: no hace falta uno nuevo por
-        // colegio, sólo esta línea aquí.
+        // Mismo cron que las líneas de arriba, que desde el 23 sep 2026 existe de
+        // verdad — antes de ese día esto no había corrido nunca. Ver el bloque de
+        // `notificaciones:enviar`.
         $schedule->command('importaciones:marcar-abandonadas')
             ->everyTenMinutes()
             ->withoutOverlapping();

@@ -261,15 +261,16 @@ class EnviarNotificaciones extends Command
 
         foreach ($filas as $fila) {
             $cuantas = (int) $fila->cuantas;
-            $nombre = $this->primerNombreDe((int) $fila->alumno_id);
+            $alumnoId = (int) $fila->alumno_id;
+            $nombre = $this->primerNombreDe($alumnoId);
 
             $avisos[] = [
-                'tema' => TemasDeNotificacion::deAlumnoYTipo((int) $fila->alumno_id, 'notas'),
+                'tema' => TemasDeNotificacion::deAlumnoYTipo($alumnoId, 'notas'),
                 'titulo' => 'Notas nuevas',
                 'cuerpo' => $cuantas === 1
                     ? $nombre.' tiene 1 nota nueva en '.$fila->asignatura.'.'
                     : $nombre.' tiene '.$cuantas.' notas nuevas en '.$fila->asignatura.'.',
-                'datos' => ['pantalla' => 'notas'],
+                'datos' => ['pantalla' => 'notas', 'alumno_id' => (string) $alumnoId],
             ];
         }
 
@@ -304,15 +305,16 @@ class EnviarNotificaciones extends Command
 
         foreach ($filas as $fila) {
             $cuantas = (int) $fila->cuantas;
-            $nombre = $this->primerNombreEnFrase((int) $fila->alumno_id);
+            $alumnoId = (int) $fila->alumno_id;
+            $nombre = $this->primerNombreEnFrase($alumnoId);
 
             $avisos[] = [
-                'tema' => TemasDeNotificacion::deAlumnoYTipo((int) $fila->alumno_id, 'asistencia'),
+                'tema' => TemasDeNotificacion::deAlumnoYTipo($alumnoId, 'asistencia'),
                 'titulo' => 'Asistencia',
                 'cuerpo' => $cuantas === 1
                     ? 'Se registró una novedad de asistencia de '.$nombre.'.'
                     : 'Se registraron '.$cuantas.' novedades de asistencia de '.$nombre.'.',
-                'datos' => ['pantalla' => 'asistencia'],
+                'datos' => ['pantalla' => 'asistencia', 'alumno_id' => (string) $alumnoId],
             ];
         }
 
@@ -341,17 +343,18 @@ class EnviarNotificaciones extends Command
 
         foreach ($filas as $fila) {
             $cuantas = (int) $fila->cuantas;
-            $nombre = $this->primerNombreEnFrase((int) $fila->alumno_id);
+            $alumnoId = (int) $fila->alumno_id;
+            $nombre = $this->primerNombreEnFrase($alumnoId);
 
             $avisos[] = [
-                'tema' => TemasDeNotificacion::deAlumnoYTipo((int) $fila->alumno_id, 'disciplina'),
+                'tema' => TemasDeNotificacion::deAlumnoYTipo($alumnoId, 'disciplina'),
                 'titulo' => 'Observador',
                 // Sin decir de qué tipo ni qué pasó: eso se lee dentro, y lo que
                 // llega al bolsillo no puede contarlo delante de nadie.
                 'cuerpo' => $cuantas === 1
                     ? 'Se anotó una situación de '.$nombre.'. Ábrela para verla.'
                     : 'Se anotaron '.$cuantas.' situaciones de '.$nombre.'. Ábrelas para verlas.',
-                'datos' => ['pantalla' => 'disciplina'],
+                'datos' => ['pantalla' => 'disciplina', 'alumno_id' => (string) $alumnoId],
             ];
         }
 

@@ -129,6 +129,9 @@ class EnviarNotificacionesTest extends CasoDeContrato
 
         $this->assertStringContainsString($this->primerNombreDelAlumno($ctx['alumno']), $deNotas[0]['cuerpo'],
             'El aviso no dice de qué alumno es: un acudiente con dos hijos no sabe si le toca sin abrir la app.');
+
+        $this->assertSame((string) $ctx['alumno'], $deNotas[0]['datos']['alumno_id'],
+            'El aviso dice de quién es en el texto pero no en `datos`, así que al tocarlo la app no sabe a qué hijo abrir.');
     }
 
     /**
@@ -230,6 +233,61 @@ class EnviarNotificacionesTest extends CasoDeContrato
         $this->assertSame([], $this->mandadosAlTema(
             TemasDeNotificacion::deAlumnoYTipo($ctx['alumno'], 'notas')
         ), 'La situación avisó también por el tema de notas: apagar uno apagaría el otro.');
+    }
+
+    /**
+     * **El aviso de asistencia dice de quién es y NO dice qué fue.**
+     *
+     * Las dos mitades se rompen por separado y las dos importan. Sin el nombre, un
+     * acudiente con dos hijos tiene que abrir la app para saber **si le toca**, que
+     * es distinto de abrirla para ver el detalle. Y con el tipo dentro afirmaría
+     * «falta» o «tardanza» en una pantalla bloqueada — pero `cantidad_ausencia` y
+     * `cantidad_tardanza` **pueden venir las dos en la misma fila**, que es lo que
+     * monta este test a propósito, así que cualquiera de las dos palabras se
+     * equivocaría la mitad de las veces.
+     *
+     * Existe porque asistencia era **el único de los tres textos que cambió sin red
+     * debajo**: notas y disciplina ya tenían clase donde colgar la aserción.
+     */
+    public function test_el_aviso_de_asistencia_dice_de_quien_es_y_no_que_fue(): void
+    {
+        $ctx = $this->asignaturaConNotas();
+
+        $this->correr();   // marca
+        $this->publicador->mandados = [];
+
+        DB::table('ausencias')->insert([
+            'asignatura_id' => $ctx['asignatura'],
+            'alumno_id' => $ctx['alumno'],
+            'periodo_id' => $ctx['periodo'],
+            // Las dos a la vez, que es el caso que hace imposible nombrar una.
+            'cantidad_ausencia' => 1,
+            'cantidad_tardanza' => 1,
+            'tipo' => 'LAS DOS COSAS',
+            'fecha_hora' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->correr();
+
+        $deAsistencia = $this->mandadosAlTema(
+            TemasDeNotificacion::deAlumnoYTipo($ctx['alumno'], 'asistencia')
+        );
+
+        $this->assertCount(1, $deAsistencia,
+            'Una novedad de asistencia dio '.count($deAsistencia).' avisos.');
+
+        $this->assertStringContainsString($this->primerNombreDelAlumno($ctx['alumno']), $deAsistencia[0]['cuerpo'],
+            'El aviso de asistencia no dice de qué alumno es.');
+
+        foreach (['tardanza', 'Tardanza', 'ausencia', 'Ausencia', 'falta', 'Falta'] as $palabra) {
+            $this->assertStringNotContainsString($palabra, $deAsistencia[0]['cuerpo'],
+                'El aviso afirma «'.$palabra.'» y la fila trae tardanza Y ausencia: se equivoca la mitad de las veces.');
+        }
+
+        $this->assertSame((string) $ctx['alumno'], $deAsistencia[0]['datos']['alumno_id'],
+            'El aviso dice de quién es en el texto pero no en `datos`, así que al tocarlo la app no sabe a qué hijo abrir.');
     }
 
     /**
