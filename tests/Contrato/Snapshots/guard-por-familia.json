@@ -151,6 +151,10 @@
         "total": 4,
         "con_guard": 3
     },
+    "compromisos": {
+        "total": 15,
+        "con_guard": 13
+    },
     "contratos": {
         "total": 3,
         "con_guard": 2

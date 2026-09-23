@@ -110,13 +110,18 @@ class TemasDeNotificacionTest extends CasoDeContrato
     /**
      * Un alumno recibe los suyos, y sólo los suyos.
      *
-     * **Eran tres y son CUATRO desde el 20 sep 2026**: entró `matricula`, decidido por
-     * Joseth el día de las estaciones. La lista va escrita a mano y **en orden**, no
-     * derivada de `TIPOS`: lo que este test protege es el contrato que lee la app, y
-     * un `foreach (TIPOS)` se adaptaría solo a cualquier cambio futuro — o sea que
-     * dejaría de avisar justo cuando hay algo de lo que avisar.
+     * **Eran tres, fueron CUATRO el 20 sep 2026 y son CINCO desde el 22**: entró
+     * `matricula` el día de las estaciones y `compromiso` el del compromiso académico
+     * (`myvc_front/COMPROMISOS-ACADEMICOS.md` §4). La lista va escrita a mano y **en
+     * orden**, no derivada de `TIPOS`: lo que este test protege es el contrato que lee
+     * la app, y un `foreach (TIPOS)` se adaptaría solo a cualquier cambio futuro — o
+     * sea que dejaría de avisar justo cuando hay algo de lo que avisar.
+     *
+     * Que haya que venir a tocar esta línea cada vez que entra un tipo **es la
+     * función del test**, no su coste: el cambio en la constante es de una palabra y
+     * el de aquí obliga a mirar si la app que está publicada sabe leerlo.
      */
-    public function test_un_alumno_recibe_sus_cuatro_temas(): void
+    public function test_un_alumno_recibe_sus_cinco_temas(): void
     {
         $usuario = $this->usuarioDeTipo('Alumno');
 
@@ -135,7 +140,7 @@ class TemasDeNotificacionTest extends CasoDeContrato
         $this->assertCount(1, $cuerpo['alumnos'], 'Un alumno recibió temas de más de una persona.');
         $this->assertSame((int) $suyo->id, $cuerpo['alumnos'][0]['alumno_id']);
 
-        $this->assertSame(['notas', 'asistencia', 'disciplina', 'matricula'],
+        $this->assertSame(['notas', 'asistencia', 'disciplina', 'matricula', 'compromiso'],
             array_keys($cuerpo['alumnos'][0]['temas']));
 
         $this->assertSame(

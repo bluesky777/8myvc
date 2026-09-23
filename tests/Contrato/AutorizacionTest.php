@@ -668,6 +668,26 @@ class AutorizacionTest extends CasoDeContrato
         // autorización no puede ver eso, así que lo fija `LaFamiliaPreguntaTest`
         // buscando el dato del alumno en el JSON entero. Doc 41 §10.
         'GET api/colillas-inscripcion/{codigo}' => 'la pregunta la familia de un aspirante, que no tiene cuenta; lo que la acota es que la respuesta describe el trámite y no a la persona',
+
+        // **Las dos firmas del compromiso académico**, y aquí el guard se quitó a
+        // sabiendas (decisión de Joseth, 23 sep 2026). Nacieron con `persona.propia`
+        // y **no protegía nada**: `ExigirPersonaPropia` recoge los identificadores
+        // por su NOMBRE de su lista de claves de persona, y el `{id}` de estas dos
+        // rutas es un **compromiso**. Sin ningún identificador reconocido el guard
+        // entiende «lo mío» y deja pasar la petición entera — la forma exacta del
+        // IDOR de `images-users/destroy/{id}` (05 §13.2), con el guard puesto.
+        //
+        // Un guard declarado que no reconoce nada es peor que no ponerlo, porque el
+        // siguiente que lea la ruta se fía. Y `persona.propia:<clave>` no lo
+        // arregla: sólo admite claves de persona, así que declarar que este `{id}`
+        // apunta a una sería mentirle al guard.
+        //
+        // **Y esta entrada no se escribe creyéndole al código**, que es como esta
+        // lista se equivocó dos veces —`piars-alumnos/field` (05 §35) y
+        // `images-users/imagenes-de-usuario` (05 §53)—: la comprobación está
+        // **medida**, y se vio en rojo quitándola.
+        'PUT api/compromisos/{id}/acuse' => 'el `{id}` es de `compromisos` y no de una persona, así que el guard no reconocería ninguno de sus identificadores; la propiedad la comprueba `CompromisosDeLaFamiliaController::compromisoDelAcudiente()` contra `parentescos`, y lo demuestra `CompromisosDelAlumnoTest::test_un_acudiente_no_puede_firmar_el_compromiso_de_otro`',
+        'PUT api/compromisos/{id}/acuse-resultado' => 'la segunda firma: mismo motivo y mismo método, `compromisoDelAcudiente()` es quien comprueba que el alumno del compromiso sea hijo de quien firma',
     ];
 
     public function test_ninguna_ruta_se_queda_sola_sin_el_guard_de_su_familia(): void

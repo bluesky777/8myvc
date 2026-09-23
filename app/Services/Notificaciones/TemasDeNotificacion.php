@@ -65,8 +65,36 @@ class TemasDeNotificacion
      * degradarse bien — no se rompe ninguna versión desplegada. Hoy además no hay
      * ninguna que pueda recibirlos: `myvc_flutter` todavía no tiene
      * `firebase_messaging` (medido el 20 sep 2026 en su `pubspec.yaml`).
+     *
+     * ## EL QUINTO ENTRÓ EL 22 SEP 2026 Y ES `compromiso`
+     *
+     * El compromiso académico. Diseño en `myvc_front/COMPROMISOS-ACADEMICOS.md`
+     * §4 y §5; lo escriben `EnviarNotificaciones::avisosDeCompromiso` y
+     * `::avisosDelResultadoDelCompromiso`.
+     *
+     * **Por qué no se cuelga de `notas`, que es donde parecería que va.** Porque un
+     * compromiso **no es una nota**: es un documento con fecha que el acudiente
+     * tiene que leer y firmar, y del que corre un plazo. El acudiente que apagó
+     * «Notas» porque le llegaban cuatro avisos al día no está diciendo *«no me
+     * avises de los papeles que tengo que firmar»* — y colgándolo de ahí es
+     * exactamente lo que pasaría, en silencio y justo con el único aviso de esta
+     * lista que **el colegio necesita poder demostrar que mandó** (§1.4 del diseño:
+     * *lo que blinda no es la firma, es el rastro con fechas*).
+     *
+     * **Y es UNO aunque los momentos sean DOS.** La entrega y el resultado (§5,
+     * pasos 4 y 10) son dos avisos distintos y llevan dos marcas distintas en el
+     * comando, pero **un solo interruptor**: un acudiente que quiera enterarse de
+     * que su hijo tiene un compromiso y no de cómo terminó no existe, y separarlos
+     * sería ofrecerle apagar justo la mitad que dice *niveló* y arranca el plazo
+     * para reclamar. La regla de arriba —*un tipo es un interruptor que la familia
+     * puede apagar por separado*— se cumple aquí al revés que con `matricula`: lo
+     * que separarlos rompería es el par.
+     *
+     * **Esto vuelve a mover el contrato de `GET notificaciones/temas`**: de cuatro
+     * claves a cinco, y se degrada igual de bien que la vez anterior — una app que
+     * no conozca el tema no se apunta y no recibe estos avisos.
      */
-    public const TIPOS = ['notas', 'asistencia', 'disciplina', 'matricula'];
+    public const TIPOS = ['notas', 'asistencia', 'disciplina', 'matricula', 'compromiso'];
 
     /**
      * Los del colegio entero, que no dependen de ningún alumno.

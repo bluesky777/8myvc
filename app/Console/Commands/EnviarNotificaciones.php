@@ -4,10 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Notificaciones\Publicador;
 use App\Services\Notificaciones\TemasDeNotificacion;
+use App\Support\Reloj;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Avisa a las familias de lo que ha pasado desde la última pasada.
@@ -109,6 +111,21 @@ class EnviarNotificaciones extends Command
         $mandados += $this->porFuente('disciplina', fn ($desde) => $this->avisosDeDisciplina($desde), $publicador, $seco);
         $mandados += $this->porFuente('muro', fn ($desde) => $this->avisosDelMuro($desde), $publicador, $seco);
         $mandados += $this->porFuente('matricula', fn ($desde) => $this->avisosDeMatricula($desde), $publicador, $seco);
+
+        // **DOS FUENTES PARA UN SOLO TIPO, y es la única pareja de esta lista.**
+        //
+        // No es simetría ni gusto: es que las dos fechas viven **en la misma fila**
+        // y se escriben con semanas de diferencia —`entregado_at` el día del
+        // boletín, `resultado_entregado_at` después de la semana de nivelaciones
+        // (§5, pasos 4 y 10)—. Con una sola marca, la del resultado nacería ya por
+        // detrás: la fuente avanzaría con la entrega y **el segundo aviso no
+        // volvería a entrar en ninguna ventana**, que es precisamente el aviso que
+        // arranca el plazo de reclamación.
+        //
+        // El tema al que publican las dos es el mismo (`compromiso`): dos marcas,
+        // un interruptor. El porqué está en `TemasDeNotificacion::TIPOS`.
+        $mandados += $this->porFuente('compromiso', fn ($desde) => $this->avisosDeCompromiso($desde), $publicador, $seco);
+        $mandados += $this->porFuente('compromiso-resultado', fn ($desde) => $this->avisosDelResultadoDelCompromiso($desde), $publicador, $seco);
 
         $this->info(($seco ? 'Se mandarían ' : 'Mandados ').$mandados.' avisos.');
 
@@ -566,6 +583,203 @@ class EnviarNotificaciones extends Command
         }
 
         return (string) $fila->nombre;
+    }
+
+    /**
+     * **Paso 4 del flujo: el compromiso se entregó.** §5 del diseño.
+     *
+     * Dispara cuando el coordinador marca la entrega —`compromisos.entregado_at`—,
+     * no cuando lo crea. Un borrador no se avisa: el compromiso nace en
+     * `borrador` a propósito para que el coordinador pueda repasar el lote antes
+     * de que salga, y avisar de un borrador sería entregarlo por la espalda.
+     *
+     * ## LO QUE NO LLEVA DENTRO, que es lo que hay que leer antes de tocarlo
+     *
+     * **Ni una asignatura, ni un número de perdidas, ni una nota.** §4.4: esto se
+     * ve en la pantalla bloqueada de un teléfono **que puede no ser del
+     * acudiente** —el 94 % de los acudientes de `simonbolivar` tiene celular y
+     * muchos lo comparten—, y «tu hijo perdió tres asignaturas» leído por el
+     * vecino del bus es exactamente el dato de un menor que la Ley 1581 protege y
+     * que el compromiso cita en su última página.
+     *
+     * El aviso dice **que hay un documento y dónde verlo**. El nombre sí, igual
+     * que en `avisosDeMatricula`: `notificaciones.md` lo permite y sin él la
+     * familia con tres hijos no sabe de cuál le hablan.
+     *
+     * ## LA MARCA ES EL SELLO COMO NÚMERO, no el `id`
+     *
+     * Por dos motivos, y el primero basta: **`entregado_at` se escribe sobre una
+     * fila que ya existe**. Un compromiso creado en septiembre y entregado en
+     * octubre tiene un `id` que quedó muy por detrás de la marca, así que una
+     * fuente que avanzara por `id` **no lo avisaría nunca**. Es lo contrario de
+     * `notas` o `ausencias`, donde el hecho y la fila nacen juntos.
+     *
+     * El segundo es el de `avisosDeMatricula` y está razonado allí: un sello no se
+     * puede convertir a segundos de época para compararlo, porque lo escribe
+     * `Reloj` con la hora de pared de Bogotá y `FROM_UNIXTIME()` lo leería con la
+     * zona de la sesión de MySQL —UTC en el docker, y dieciséis cuentas de cPanel
+     * distintas en producción—. Los dos lados de la comparación son aquí la misma
+     * cadena de pared, así que no hay ninguna zona de por medio.
+     *
+     * Y el borde va con `>=` por la doctrina de esta clase: el sello es un
+     * `DATETIME` de precisión de segundo, así que con `>` un compromiso entregado
+     * en el mismo segundo de la pasada anterior **se pierde para siempre** —la
+     * marca ya avanzó y ese sello no vuelve a entrar en ninguna ventana— y con
+     * `>=` se repite una vez. Ante la duda se repite.
+     *
+     * ## EL COLEGIO PUEDE TENER EL PUSH APAGADO PARA ESTO
+     *
+     * `config_compromiso.canal_push` es del año y del módulo, distinto del
+     * interruptor de la familia. Se respeta aquí y no en la pantalla porque el que
+     * manda es este comando. **`COALESCE(…, 1)` y `LEFT JOIN` a propósito:** la
+     * fila de configuración se crea perezosamente —sólo cuando el colegio guarda
+     * por primera vez— así que un colegio que no ha abierto nunca la pantalla no
+     * tiene fila, y el defecto de la columna es encendido. Con `INNER JOIN` ese
+     * colegio se quedaría sin avisos y nadie sabría por qué.
+     *
+     * ## LA TABLA PUEDE NO ESTAR TODAVÍA, y por eso hay una guarda
+     *
+     * `compromisos` la crea `2026_09_22_200000_el_compromiso_academico`, que se
+     * escribió el mismo día que esto y **no está corrida en los dieciséis
+     * colegios**. Sin la guarda, el cron de cada quince minutos escupiría un
+     * «Base table doesn't exist» en cada uno hasta que se despliegue. Con ella, la
+     * marca avanza igual en cada pasada, así que **el día que la tabla aparezca la
+     * marca está en «ahora mismo» y no hay avalancha de lo viejo** — que es la
+     * misma protección que la cabecera de esta clase le da a la primera pasada.
+     *
+     * Columnas de las que depende: `compromisos.id`, `.matricula_id`, `.year_id`,
+     * `.entregado_at`, `.resultado_entregado_at`, y `config_compromiso.canal_push`.
+     * **Y no lleva `deleted_at`**, comprobado en esa migración el 22 sep 2026 —un
+     * documento con valor probatorio no se borra—; el día que lo lleve, estas dos
+     * consultas necesitan la condición o avisarán de compromisos anulados. Esa
+     * migración ya contempla ese día por otro motivo (el `unique` que no puso).
+     *
+     * @return array{avisos: array<int, array<string, mixed>>, hasta: int}
+     */
+    private function avisosDeCompromiso(int $desde): array
+    {
+        $tope = (int) Reloj::ahora()->format('YmdHis');
+
+        if (! Schema::hasTable('compromisos')) {
+            return ['avisos' => [], 'hasta' => $tope];
+        }
+
+        $filas = DB::select(
+            'SELECT c.id, m.alumno_id
+               FROM compromisos c
+              INNER JOIN matriculas m ON m.id = c.matricula_id AND m.deleted_at IS NULL
+              INNER JOIN alumnos a ON a.id = m.alumno_id AND a.deleted_at IS NULL
+               LEFT JOIN config_compromiso cc ON cc.year_id = c.year_id
+              WHERE c.entregado_at IS NOT NULL
+                AND DATE_FORMAT(c.entregado_at, "%Y%m%d%H%i%s") + 0 >= ?
+                AND DATE_FORMAT(c.entregado_at, "%Y%m%d%H%i%s") + 0 <= ?
+                AND COALESCE(cc.canal_push, 1) = 1
+              ORDER BY c.id
+              LIMIT '.self::TOPE_POR_FUENTE,
+            [$desde, $tope]
+        );
+
+        $avisos = [];
+
+        foreach ($filas as $fila) {
+            $alumnoId = (int) $fila->alumno_id;
+
+            $avisos[] = [
+                'tema' => TemasDeNotificacion::deAlumnoYTipo($alumnoId, 'compromiso'),
+                'titulo' => 'Compromiso académico',
+                'cuerpo' => $this->primerNombreDe($alumnoId)
+                    .' tiene un compromiso académico. Ábrelo en la app para leerlo y firmarlo.',
+                // A dónde ir, nunca qué dice. El `compromiso_id` es lo que evita que
+                // la familia con dos compromisos abiertos tenga que adivinar cuál.
+                'datos' => [
+                    'pantalla' => 'compromiso',
+                    'compromiso_id' => (string) $fila->id,
+                    'alumno_id' => (string) $alumnoId,
+                ],
+            ];
+        }
+
+        return ['avisos' => $avisos, 'hasta' => $tope];
+    }
+
+    /**
+     * **Paso 10 del flujo: el resultado vuelve.** §5 del diseño, R4.
+     *
+     * ## NO ES EL MISMO AVISO, y de ahí que sea otro método y otra marca
+     *
+     * El primero dice *«hay algo que firmar»*; éste dice *«ya se sabe cómo
+     * terminó»* y **arranca un plazo**: `config_compromiso.dias_reclamacion` se
+     * cuenta desde `resultado_entregado_at`, así que este aviso no es cortesía —
+     * es la notificación de la que el colegio depende para poder decir que el
+     * plazo corrió. §1.5: *el paso 10 es el que ningún formato del país sabe hacer
+     * hoy, y es lo que convierte el módulo en prueba.*
+     *
+     * ## EL PLAZO SE NOMBRA Y NO SE CUENTA
+     *
+     * «Hay un plazo para responder», sin el número de días. No por proteger nada
+     * —cinco días hábiles no es un dato de nadie— sino porque **el número es del
+     * colegio y del año** (`dias_reclamacion`), y meterlo aquí obligaría a leer la
+     * configuración para componer una frase que en el papel ya va impresa. Un
+     * aviso que diga «tienes 5 días» cuando el colegio cambió a 3 la semana pasada
+     * es peor que uno que no lo diga.
+     *
+     * ## Y NO DICE SI NIVELÓ
+     *
+     * Aunque sea la buena noticia. Es el mismo criterio del primero (§4.4) y aquí
+     * es más claro todavía: *«Laura no niveló»* en una pantalla bloqueada es
+     * exactamente el dato que el módulo existe para tratar con cuidado. El
+     * veredicto se lee abriendo el documento, que es donde además está firmado.
+     *
+     * Marca y guarda: lo mismo que `avisosDeCompromiso`, y el porqué está allí.
+     *
+     * @return array{avisos: array<int, array<string, mixed>>, hasta: int}
+     */
+    private function avisosDelResultadoDelCompromiso(int $desde): array
+    {
+        $tope = (int) Reloj::ahora()->format('YmdHis');
+
+        if (! Schema::hasTable('compromisos')) {
+            return ['avisos' => [], 'hasta' => $tope];
+        }
+
+        $filas = DB::select(
+            'SELECT c.id, m.alumno_id
+               FROM compromisos c
+              INNER JOIN matriculas m ON m.id = c.matricula_id AND m.deleted_at IS NULL
+              INNER JOIN alumnos a ON a.id = m.alumno_id AND a.deleted_at IS NULL
+               LEFT JOIN config_compromiso cc ON cc.year_id = c.year_id
+              WHERE c.resultado_entregado_at IS NOT NULL
+                AND DATE_FORMAT(c.resultado_entregado_at, "%Y%m%d%H%i%s") + 0 >= ?
+                AND DATE_FORMAT(c.resultado_entregado_at, "%Y%m%d%H%i%s") + 0 <= ?
+                AND COALESCE(cc.canal_push, 1) = 1
+              ORDER BY c.id
+              LIMIT '.self::TOPE_POR_FUENTE,
+            [$desde, $tope]
+        );
+
+        $avisos = [];
+
+        foreach ($filas as $fila) {
+            $alumnoId = (int) $fila->alumno_id;
+
+            $avisos[] = [
+                'tema' => TemasDeNotificacion::deAlumnoYTipo($alumnoId, 'compromiso'),
+                'titulo' => 'Compromiso académico',
+                'cuerpo' => 'Ya está el resultado del compromiso académico de '
+                    .$this->primerNombreDe($alumnoId)
+                    .'. Ábrelo en la app: hay un plazo para responder.',
+                'datos' => [
+                    'pantalla' => 'compromiso',
+                    'compromiso_id' => (string) $fila->id,
+                    'alumno_id' => (string) $alumnoId,
+                    // La app abre directamente la segunda firma (§5, paso 12) en vez
+                    // del documento entero: es lo único que se le pide aquí.
+                    'momento' => 'resultado',
+                ],
+            ];
+        }
+
+        return ['avisos' => $avisos, 'hasta' => $tope];
     }
 
     private function avisosDelMuro(int $desde): array

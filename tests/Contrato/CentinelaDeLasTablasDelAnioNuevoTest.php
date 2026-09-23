@@ -302,6 +302,20 @@ class CentinelaDeLasTablasDelAnioNuevoTest extends TestCase
         // identificadores del anterior. Un año nuevo empieza sin que nadie haya
         // descargado nada, y eso es lo correcto.
         'descargas_de_planilla' => 'el rastro de qué libros salieron del colegio ESE año, con sus alumnos, periodos y asignaturas dentro; es de auditoría y copiarla fabricaría descargas que nadie hizo (21 sep 2026, docs 49 y 50)',
+
+        // El expediente del alumno: las notas congeladas, los veredictos de sus
+        // docentes y las dos firmas del acudiente (migración `2026_09_22_200000`,
+        // `myvc_front/COMPROMISOS-ACADEMICOS.md` §8.3).
+        //
+        // **Su hermana `config_compromiso` SÍ se copia, y ésta no**, y las dos
+        // decisiones son la misma regla mirada por sus dos caras: *lo que el colegio
+        // escribió para decir cómo trabaja se copia; lo que ocurrió porque ese año se
+        // vivió, no*. Copiar esto le daría a un alumno de enero un compromiso con
+        // notas de otro año y con dos firmas que nadie dio.
+        //
+        // (`compromiso_items` no sale en este censo y no es un olvido: no tiene
+        // `year_id`, cuelga de `compromiso_id`. Como `colillas_inscripcion`.)
+        'compromisos' => 'el expediente de ESE año, con las notas congeladas y las dos firmas del acudiente; copiarlo fabricaría compromisos que nadie firmó (22 sep 2026, COMPROMISOS-ACADEMICOS.md §8.3)',
     ];
 
     /**

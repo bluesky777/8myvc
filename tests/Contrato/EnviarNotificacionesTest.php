@@ -71,7 +71,11 @@ class EnviarNotificacionesTest extends CasoDeContrato
         // Las marcas viven en el caché, que **no** entra en la transacción del
         // test: sin esto, la marca de un test la heredaría el siguiente y los
         // resultados dependerían del orden.
-        foreach (['notas', 'asistencia', 'disciplina', 'muro'] as $fuente) {
+        // Las dos del compromiso entraron el 22 sep 2026 y **hoy no pueden ensuciar
+        // nada** —`compromisos` todavía no existe, así que devuelven cero—; se
+        // olvidan igual porque el día que la tabla aterrice la marca heredada sería
+        // justo lo que hace que un test publique un aviso que no pidió.
+        foreach (['notas', 'asistencia', 'disciplina', 'muro', 'compromiso', 'compromiso-resultado'] as $fuente) {
             Cache::forget('notificaciones.marca.'.$fuente);
         }
     }
