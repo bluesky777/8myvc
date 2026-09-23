@@ -352,9 +352,19 @@ class CompromisosDelDocenteController extends Controller
             ]
         );
 
-        return $suyo
+        $frase = $suyo
             ? 'Veredicto guardado.'
             : 'Veredicto guardado como titular del grupo: queda firmado a su nombre y el papel lo dirá.';
+
+        // El recorte se dice, no se esconde. Va detrás y no en vez de: el veredicto SÍ
+        // se guardó, y lo que cambia es que la observación entró corta. Ver el docblock
+        // de `observacionValidada`.
+        if ($veredicto['observacion_recortada']) {
+            $frase .= ' La observación se guardó recortada a '.self::LARGO_OBSERVACION
+                .' caracteres, que es lo que cabe en el papel.';
+        }
+
+        return $frase;
     }
 
     /**
@@ -439,7 +449,13 @@ class CompromisosDelDocenteController extends Controller
      * familia: el mensaje lo lee un docente en mitad de la semana de nivelaciones y
      * tiene que decir qué hacer, no qué regla se incumplió.
      *
-     * @return array{asistio: ?int, resultado: string, nota_al_cerrar: ?float, observacion: ?string}
+     * `observacion_recortada` no es un dato del veredicto: es lo que hace que el
+     * recorte de {@see observacionValidada} se pueda **decir** en la respuesta en vez
+     * de hacerse en silencio. Viaja aquí y no en una propiedad del controlador porque
+     * el router reutiliza la instancia entre llamadas del mismo proceso (03-tests.md),
+     * y un estado suyo se le quedaría pegado a la petición siguiente.
+     *
+     * @return array{asistio: ?int, resultado: string, nota_al_cerrar: ?float, observacion: ?string, observacion_recortada: bool}
      */
     private function veredictoValidado(int $year_id): array
     {
@@ -449,11 +465,14 @@ class CompromisosDelDocenteController extends Controller
             abort(422, 'El resultado tiene que ser `'.implode('`, `', self::RESULTADOS).'`.');
         }
 
+        $observacion = $this->observacionValidada();
+
         return [
             'asistio' => $this->asistioValidado(),
             'resultado' => $resultado,
             'nota_al_cerrar' => $this->notaAlCerrarValidada($year_id),
-            'observacion' => $this->observacionValidada(),
+            'observacion' => $observacion['texto'],
+            'observacion_recortada' => $observacion['recortada'],
         ];
     }
 
@@ -526,17 +545,39 @@ class CompromisosDelDocenteController extends Controller
     /**
      * La observación del docente. Vacía se guarda como `NULL`.
      *
-     * El tope está repetido aquí y no se confía a la columna porque **MySQL con el
-     * `sql_mode` de estos servidores trunca en vez de lanzar**: una observación cortada
-     * por la mitad dentro de un papel que se firma es peor que un 422, y nadie se entera
-     * hasta que lo tiene impreso delante de una familia.
+     * ## SE RECORTA AQUÍ, Y NI SE RECHAZA NI SE DEJA A LA BASE
+     *
+     * *Decisión de Joseth, 23 sep 2026.* Las tres salidas son distintas y las tres
+     * tienen precio:
+     *
+     *  - **Dejarlo a la columna no se puede**, aunque el `varchar(255)` parezca que
+     *    ya lo resuelve: **bajo `sql_mode` estricto MySQL no trunca, lanza**. Que hoy
+     *    «funcione» depende de una configuración del servidor que no controlamos, y
+     *    son **dieciséis cuentas de cPanel** que no tienen por qué coincidir. El
+     *    fallo sería un 500 al guardar un veredicto, en el colegio que tenga el
+     *    `sql_mode` estricto y sólo en ése — o sea el que no se reproduce en local.
+     *  - **Un 422 que rechace** —que es lo que había aquí— le tira al docente lo que
+     *    acaba de escribir, y esta pantalla está hecha para despachar **cuarenta
+     *    filas seguidas**: lo que cuesta no es una frase, es la tanda.
+     *  - **Recortar en silencio** es pérdida de datos, y esto acaba en un papel que
+     *    se firma. **Media frase en un documento es peor que una frase corta**,
+     *    porque nadie se entera hasta que lo tiene impreso delante de una familia.
+     *
+     * Así que se recorta **y se dice**: {@see putVeredicto} añade la frase a su
+     * respuesta cuando `recortada` viene en `true`.
+     *
+     * `mb_substr` y no `substr`: el tope de la columna se cuenta en caracteres para
+     * quien escribe, y cortar bytes por la mitad de una tilde deja un carácter roto
+     * — la misma familia de fallo que esto viene a evitar, y más fea.
+     *
+     * @return array{texto: ?string, recortada: bool}
      */
-    private function observacionValidada(): ?string
+    private function observacionValidada(): array
     {
         $valor = Request::input('observacion');
 
         if ($valor === null) {
-            return null;
+            return ['texto' => null, 'recortada' => false];
         }
 
         if (! is_string($valor)) {
@@ -546,14 +587,17 @@ class CompromisosDelDocenteController extends Controller
         $valor = trim($valor);
 
         if ($valor === '') {
-            return null;
+            return ['texto' => null, 'recortada' => false];
         }
 
         if (mb_strlen($valor) > self::LARGO_OBSERVACION) {
-            abort(422, 'La observación no puede pasar de '.self::LARGO_OBSERVACION.' caracteres.');
+            return [
+                'texto' => mb_substr($valor, 0, self::LARGO_OBSERVACION),
+                'recortada' => true,
+            ];
         }
 
-        return $valor;
+        return ['texto' => $valor, 'recortada' => false];
     }
 
     /**

@@ -119,8 +119,18 @@ class CompromisosController extends Controller
     /** `compromisos.cantidad_perdidas` es `unsignedTinyInteger`: no cabe más. */
     private const TOPE_DE_PERDIDAS = 255;
 
-    /** `compromiso_items.observacion` es `varchar(255)`, y MySQL aquí trunca en vez de lanzar. */
-    private const LARGO_OBSERVACION = 255;
+    /*
+     * Aquí vivía `LARGO_OBSERVACION = 255`, y se fue el 23 sep 2026 porque **esta
+     * clase no escribe `compromiso_items.observacion` en ninguna parte**: sólo la
+     * lee, al pintar los renglones. La columna la escribe `putVeredicto`, que es de
+     * `CompromisosDelDocenteController`, y allí hay otra copia de la constante — que
+     * sí se usa, y ahora además recorta en vez de rechazar.
+     *
+     * Se deja dicho porque un tope de columna declarado dos veces en dos clases es
+     * la forma de que un día digan números distintos, y porque la constante de aquí
+     * no se borró por «no la usa nadie» sino por estar en la clase equivocada. Lo
+     * cazó larastan (`classConstant.unused`) y tumbó el CI en `622aa09`.
+     */
 
     /* ══════════════════════════════════════════════════════════════════════════════
      * EL COORDINADOR
@@ -857,7 +867,7 @@ class CompromisosController extends Controller
     private function notasDeLosCuatroPeriodos(int $grupo_id, array $alumnos, string $huecos, string $regla): array
     {
         if ($regla === 'area') {
-            return DB::select('SELECT nf.alumno_id, ar.id AS clave,
+            return array_values(DB::select('SELECT nf.alumno_id, ar.id AS clave,
                     AVG(CASE WHEN nf.periodo = 1 THEN nf.nota END) AS per1_nota,
                     AVG(CASE WHEN nf.periodo = 2 THEN nf.nota END) AS per2_nota,
                     AVG(CASE WHEN nf.periodo = 3 THEN nf.nota END) AS per3_nota,
@@ -868,20 +878,20 @@ class CompromisosController extends Controller
                 INNER JOIN notas_finales nf ON nf.asignatura_id = asg.id
                     AND nf.alumno_id IN ('.$huecos.')
                 WHERE asg.grupo_id = ? AND asg.deleted_at IS NULL
-                GROUP BY nf.alumno_id, ar.id', array_merge($alumnos, [$grupo_id]));
+                GROUP BY nf.alumno_id, ar.id', array_merge($alumnos, [$grupo_id])));
         }
 
         $ultima = static fn (int $n): string => 'SUBSTRING_INDEX(GROUP_CONCAT(
                 CASE WHEN nf.periodo = '.$n.' THEN nf.nota END ORDER BY nf.id DESC), ",", 1)
             AS per'.$n.'_nota';
 
-        return DB::select('SELECT nf.alumno_id, asg.id AS clave,
+        return array_values(DB::select('SELECT nf.alumno_id, asg.id AS clave,
                 '.$ultima(1).', '.$ultima(2).', '.$ultima(3).', '.$ultima(4).'
             FROM asignaturas asg
             INNER JOIN notas_finales nf ON nf.asignatura_id = asg.id
                 AND nf.alumno_id IN ('.$huecos.')
             WHERE asg.grupo_id = ? AND asg.deleted_at IS NULL
-            GROUP BY nf.alumno_id, asg.id', array_merge($alumnos, [$grupo_id]));
+            GROUP BY nf.alumno_id, asg.id', array_merge($alumnos, [$grupo_id])));
     }
 
     /**
@@ -913,7 +923,7 @@ class CompromisosController extends Controller
     private function faltasDelPeriodo(int $grupo_id, array $alumnos, string $huecos, int $periodo_id, string $regla): array
     {
         if ($regla === 'area') {
-            return DB::select('SELECT au.alumno_id, ar.id AS clave,
+            return array_values(DB::select('SELECT au.alumno_id, ar.id AS clave,
                     SUM(CASE WHEN au.tipo = "ausencia" THEN au.cantidad_ausencia ELSE 0 END) AS faltas
                 FROM ausencias au
                 INNER JOIN asignaturas asg ON asg.id = au.asignatura_id
@@ -921,14 +931,14 @@ class CompromisosController extends Controller
                 INNER JOIN materias mat ON mat.id = asg.materia_id AND mat.deleted_at IS NULL
                 INNER JOIN areas ar ON ar.id = mat.area_id AND ar.deleted_at IS NULL
                 WHERE au.alumno_id IN ('.$huecos.') AND au.periodo_id = ? AND au.deleted_at IS NULL
-                GROUP BY au.alumno_id, ar.id', array_merge([$grupo_id], $alumnos, [$periodo_id]));
+                GROUP BY au.alumno_id, ar.id', array_merge([$grupo_id], $alumnos, [$periodo_id])));
         }
 
-        return DB::select('SELECT alumno_id, asignatura_id AS clave,
+        return array_values(DB::select('SELECT alumno_id, asignatura_id AS clave,
                 SUM(CASE WHEN tipo = "ausencia" THEN cantidad_ausencia ELSE 0 END) AS faltas
             FROM ausencias
             WHERE alumno_id IN ('.$huecos.') AND periodo_id = ? AND deleted_at IS NULL
-            GROUP BY alumno_id, asignatura_id', array_merge($alumnos, [$periodo_id]));
+            GROUP BY alumno_id, asignatura_id', array_merge($alumnos, [$periodo_id])));
     }
 
     private function contarPerdidas(
@@ -981,7 +991,7 @@ class CompromisosController extends Controller
      */
     private function asignaturasPerdidas(int $periodo, float $minima, array $donde, array $datos): array
     {
-        return DB::select('SELECT m.id AS matricula_id, m.alumno_id, g.id AS grupo_id, g.grado_id,
+        return array_values(DB::select('SELECT m.id AS matricula_id, m.alumno_id, g.id AS grupo_id, g.grado_id,
                 asg.id AS asignatura_id, NULL AS area_id, asg.materia_id, asg.profesor_id,
                 mat.materia AS nombre,
                 TRIM(CONCAT(COALESCE(p.nombres, ""), " ", COALESCE(p.apellidos, ""))) AS profesor,
@@ -996,7 +1006,7 @@ class CompromisosController extends Controller
                 AND nf.asignatura_id = asg.id AND nf.periodo = ?
             WHERE '.implode(' AND ', $donde).'
               AND nf.nota < ?
-            ORDER BY m.id, nombre', array_merge([$periodo], $datos, [$minima]));
+            ORDER BY m.id, nombre', array_merge([$periodo], $datos, [$minima])));
     }
 
     /**
@@ -1034,7 +1044,7 @@ class CompromisosController extends Controller
      */
     private function areasPerdidas(int $periodo, float $minima, array $donde, array $datos): array
     {
-        return DB::select('SELECT m.id AS matricula_id, m.alumno_id, g.id AS grupo_id, g.grado_id,
+        return array_values(DB::select('SELECT m.id AS matricula_id, m.alumno_id, g.id AS grupo_id, g.grado_id,
                 NULL AS asignatura_id, ar.id AS area_id, NULL AS profesor_id, NULL AS profesor,
                 ar.nombre AS nombre,
                 AVG(nf.nota) AS nota,
@@ -1050,7 +1060,7 @@ class CompromisosController extends Controller
             WHERE '.implode(' AND ', $donde).'
             GROUP BY m.id, m.alumno_id, g.id, g.grado_id, ar.id, ar.nombre
             HAVING AVG(nf.nota) < ?
-            ORDER BY m.id, nombre', array_merge([$periodo], $datos, [$minima]));
+            ORDER BY m.id, nombre', array_merge([$periodo], $datos, [$minima])));
     }
 
     /**
@@ -1208,11 +1218,11 @@ class CompromisosController extends Controller
      */
     private function materiasDeLaPerdida(object $fila): array
     {
-        if (isset($fila->materias) && $fila->materias !== null && $fila->materias !== '') {
+        if (isset($fila->materias) && $fila->materias !== '') {
             return array_map('intval', explode(',', (string) $fila->materias));
         }
 
-        if (isset($fila->materia_id) && $fila->materia_id !== null) {
+        if (isset($fila->materia_id)) {
             return [(int) $fila->materia_id];
         }
 
@@ -1272,7 +1282,7 @@ class CompromisosController extends Controller
                 .'nivel educativo antes de poder aplicarlo.');
         }
 
-        return array_map(static fn ($f): int => (int) $f->id, $filas);
+        return array_values(array_map(static fn ($f): int => (int) $f->id, $filas));
     }
 
     /**

@@ -389,6 +389,65 @@ class CompromisosDelAlumnoTest extends CasoDeContrato
             'El 422 escribió igual: una petición rechazada movió la columna.');
     }
 
+    /**
+     * **Una observación larga se recorta, se guarda, y la respuesta lo dice.**
+     *
+     * Las tres cosas van juntas porque quitar cualquiera deja un fallo distinto y
+     * los tres son caros (decisión de Joseth, 23 sep 2026):
+     *
+     *  - Si **rechazara** —que es lo que hacía— un 422 en mitad de una tanda de
+     *    cuarenta filas le tira al docente lo que acaba de escribir.
+     *  - Si **no recortara** y lo dejara a la columna, el colegio que tenga
+     *    `sql_mode` estricto se come un 500 al guardar un veredicto: MySQL ahí no
+     *    trunca, **lanza**. Son dieciséis cuentas de cPanel y no controlamos la
+     *    configuración de ninguna.
+     *  - Si recortara **en silencio**, media frase acabaría dentro de un papel que
+     *    se firma y nadie se enteraría hasta tenerlo impreso delante de la familia.
+     *
+     * El recorte se comprueba en **caracteres y no en bytes**: el texto va con
+     * tildes a propósito, así que un `substr` en vez de `mb_substr` guardaría 255
+     * bytes —menos de 255 caracteres— y además partiría el último por la mitad.
+     */
+    #[Test]
+    public function test_una_observacion_larga_se_recorta_y_la_respuesta_lo_dice(): void
+    {
+        $item = $this->unItemEntregado();
+
+        // 300 caracteres con tilde: más que el tope, y con multibyte dentro.
+        $larga = str_repeat('á', 300);
+
+        $r = $this->veredicto($item, ['resultado' => 'no_nivelo', 'observacion' => $larga]);
+
+        $r->assertStatus(200);
+
+        $guardada = DB::selectOne('SELECT observacion FROM compromiso_items WHERE id=?',
+            [$item['item_id']])->observacion;
+
+        $this->assertSame(255, mb_strlen((string) $guardada),
+            'La observación no se guardó recortada a 255 CARACTERES. Con `substr` en vez de '
+            .'`mb_substr` saldrían 255 bytes —127 caracteres y medio— y el último partido.');
+
+        $this->assertSame(mb_substr($larga, 0, 255), $guardada,
+            'Lo guardado no es el principio de lo que escribió el docente.');
+
+        $this->assertStringContainsString('recortada', (string) $r->getContent(),
+            'El servidor recortó sin decirlo. Recortar en silencio es pérdida de datos, y esto '
+            .'acaba en un papel que se firma: el docente tiene que enterarse ahora y no cuando '
+            .'lo tenga impreso delante de una familia.');
+
+        // Y una que cabe no se toca ni avisa de nada.
+        $corta = 'Asistió a las dos sesiones y entregó el taller.';
+        $r = $this->veredicto($item, ['resultado' => 'nivelo', 'observacion' => $corta]);
+
+        $r->assertStatus(200);
+
+        $this->assertSame($corta, DB::selectOne('SELECT observacion FROM compromiso_items WHERE id=?',
+            [$item['item_id']])->observacion);
+
+        $this->assertStringNotContainsString('recortada', (string) $r->getContent(),
+            'Avisó de un recorte que no hubo: el aviso deja de significar algo.');
+    }
+
     /* ══════════════════════════════════════════════════════════════════════════════
      * LA MÁQUINA DE ESTADOS (§5)
      * ══════════════════════════════════════════════════════════════════════════════ */
