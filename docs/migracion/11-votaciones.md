@@ -660,6 +660,28 @@ encontrarlos habría sido la noticia.
 Hay que correrlas colegio por colegio, y el front todavía no existe: hasta que
 exista, la pantalla vieja de participantes queda sin backend.
 
+**Y hay que regenerar `database/dumps/test-seed.sql`, que no es opcional.** Lo midió
+la sesión de compromisos el 23 sep montando su base de tests: con estas migraciones
+en el árbol, `tools/construir-bd-test.sh` **deja la base inservible y no lo dice**.
+El seed muere en `vt_participantes` —línea 33016 de 33356, porque la 400000 tira esa
+tabla— y otra vez en `vt_votos.blanco_aspiracion_id`, que quita la 600000; y como
+**`years` es la última tabla del volcado**, la base se queda con **cero años**, así
+que cualquier test que corra contra ella mide sobre nada. El guion imprime su
+`Listo:` igualmente, que es el mismo género de fallo que este documento persigue:
+un verde que no verificó nada.
+
+O sea que el día que esto entre a `main`, antes de que nadie construya una base de
+tests:
+
+```
+docker exec 8myvc-app-1 php tools/generar-seed-test.php
+```
+
+(el procedimiento entero, en [03-tests.md](03-tests.md)). En el CI no se nota,
+porque allí la base se construye desde el código commiteado, donde
+`vt_participantes` todavía existe — y por eso conviene que quede escrito aquí y no
+se descubra dos semanas después.
+
 ---
 
 ## §9. La fuga del §1 volvió por la otra puerta — **arreglada el 23 sep 2026**
