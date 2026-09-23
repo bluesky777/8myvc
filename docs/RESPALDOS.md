@@ -26,15 +26,37 @@ En cPanel **no hay una casilla de «respaldos automáticos»**: la programación
 vive en WHM, que es del proveedor, no de la cuenta. Lo que sí es de la cuenta es el
 cron, y con él se hace lo mismo.
 
-**Advanced → Cron Jobs → Add New Cron Job**, una vez por cuenta de cPanel:
+**Advanced → Cron Jobs → Add New Cron Job**, una vez por cuenta de cPanel. Son **dos**,
+porque el bucle de una cuenta no ve las carpetas de la otra — la misma repetición a mano que
+ya lleva el Paso 1 de [`DESPLIEGUE.md`](DESPLIEGUE.md). La hora va en los campos de arriba
+(`5 2 * * *`, o *Once Per Day* y corregir el minuto) y esto en **Command**, tal cual:
 
 ```
-5 2 * * *  /home/micolev1/demo.micolevirtual.com/8myvc/tools/respaldo-diario-cpanel.sh
+/home/micolev1/demo.micolevirtual.com/8myvc/tools/respaldo-diario-cpanel.sh
 ```
 
-Y otra vez en `lalvirtual.edu.co`, con su ruta y su `RAIZ`: el bucle de una cuenta no ve
-las carpetas de la otra — la misma repetición a mano que ya lleva el Paso 1 de
-[`DESPLIEGUE.md`](DESPLIEGUE.md).
+```
+RAIZ=/home/micolevi/public_html/8myvc /home/micolevi/public_html/8myvc/tools/respaldo-diario-cpanel.sh
+```
+
+La primera es la cuenta `micolev1` —los dieciséis colegios más `demo`— y no lleva `RAIZ`
+porque la de fábrica ya es la suya; da igual desde qué carpeta se lance, el guión las recorre
+todas. La segunda es la cuenta **`micolevi`**, donde vive el LAL de verdad, y ahí sí hace falta
+`RAIZ`: su instalación está en `~/public_html/8myvc` y no cumple el patrón
+`*.micolevirtual.com`. *No es la carpeta `lal.micolevirtual.com` de `micolev1`* — ésa es la
+copia parada del ensayo de traslado ([`TRASLADO-LAL.md`](TRASLADO-LAL.md)), y el bucle de la
+primera línea ya la coge.
+
+Antes de pegar la segunda, la comprobación de que la ruta existe de verdad —que en esta cuenta
+se ha deducido mal dos veces—, y después, en **cada** cuenta, la que demuestra que quedó puesto:
+
+```sh
+ls ~/public_html/8myvc/artisan      # en `micolevi`, antes de pegar
+crontab -l | grep respaldo          # en las dos, después
+```
+
+Si `crontab -l` no imprime nada, el cron **no** está puesto por mucho que la pantalla de cPanel
+se haya visitado.
 
 Tres cosas de esta pantalla que se pagan caro:
 
