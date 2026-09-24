@@ -36,6 +36,18 @@ mañana**. Un respaldo que obliga a elegir qué día pierdes no es una vuelta at
 > del mediodía sin borrar la mañana de los docentes** (§ el guion de antes de migrar), y una
 > copia que vive en el proveedor no cubre perder la cuenta CON el proveedor.
 >
+> **El horizonte son 30 días y ni un día más — leído el 24 sep 2026 en el desplegable de
+> `Choose Other Backup`.** La lista va del **24 sep 02:56** al **25 ago 02:01**, treinta
+> entradas, una por día... salvo que **falta el 18 de septiembre**: la cadena tiene agujeros,
+> y ninguno avisa. Las horas van de la 01:25 a las 03:31, así que tampoco hay un hueco fijo
+> en la madrugada que un cron propio pudiera ocupar.
+>
+> De ahí sale lo único que el proveedor **no** puede darte: **cualquier cosa anterior a un
+> mes**. El año pasado, el cierre del periodo anterior, el estado de una base antes de una
+> tanda de hace seis semanas — nada de eso existe en ningún sitio. Por eso
+> `tools/bajar-respaldos.sh` se queda, pero con otro ritmo: **una copia al mes, guardada un
+> año**, en tu disco. No compite con JetBackup; cubre justo donde JetBackup termina.
+>
 > **Dos cosas sin comprobar:** si `micolevi` —la otra cuenta, donde está LAL solo— tiene lo
 > mismo, y si esas copias cuentan contra la cuota. Y un detalle que se ve en la lista:
 > `micolev1_la_hermosa` sigue ahí, con 2,81 MB. Es el colegio cuya **carpeta** se borró el 30
