@@ -48,6 +48,7 @@
         "prematr_antiguos": "int",
         "prematr_nuevos": "int",
         "profes_can_edit_alumnos": "int",
+        "profes_pueden_cambiar_definitivas": "int",
         "profes_pueden_editar_plantilla": "int",
         "psicorientador_id": "null",
         "puestos_alfabeticamente": "int",

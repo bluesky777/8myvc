@@ -22,6 +22,7 @@ use App\Services\Auditoria;
 use App\Services\BoletinIndependiente;
 use App\Services\DefinitivasDeAsignatura;
 use App\Support\CierreDeLoNoCalificado;
+use App\Support\DefinitivasAMano;
 use App\Support\EscalaDeNotas;
 use App\Support\PeriodoDeLaFila;
 use App\Support\NombreDelAlumno;
@@ -354,9 +355,13 @@ class DefinitivasPeriodosController extends Controller {
 			abort(422, 'Falta `num_periodo`: sin `nf_id` hay que decir en qué periodo se escribe.');
 		}
 
-		User::pueden_modificar_definitivas($user, Request::input('nf_id')
+		$periodoDeLaFila = Request::input('nf_id')
 			? PeriodoDeLaFila::deNotaFinal(Request::input('nf_id'))
-			: PeriodoDeLaFila::porNumero($user, Request::input('num_periodo')));
+			: PeriodoDeLaFila::porNumero($user, Request::input('num_periodo'));
+
+		User::pueden_modificar_definitivas($user, $periodoDeLaFila);
+		// Fase 3 del cierre: con la nivelación abierta, ¿cabe también la edición a mano?
+		DefinitivasAMano::exigir($user, $periodoDeLaFila);
 		
 		$now 		= Carbon::now('America/Bogota');
 		
@@ -1058,6 +1063,7 @@ class DefinitivasPeriodosController extends Controller {
 	{
 		$user 			= User::fromToken();
 		User::pueden_modificar_definitivas($user, PeriodoDeLaFila::deNotaFinal(Request::input('nf_id')));
+		DefinitivasAMano::exigir($user, PeriodoDeLaFila::deNotaFinal(Request::input('nf_id')));
 		
 		if ($user->tipo == 'Profesor' || ($user->is_superuser)) {
 			// No pasa nada
@@ -1147,6 +1153,7 @@ class DefinitivasPeriodosController extends Controller {
 	{
 		$user 			= User::fromToken();
 		User::pueden_modificar_definitivas($user, PeriodoDeLaFila::deNotaFinal(Request::input('nf_id')));
+		DefinitivasAMano::exigir($user, PeriodoDeLaFila::deNotaFinal(Request::input('nf_id')));
 
 		if ($user->tipo == 'Profesor' || ($user->is_superuser)) {
 			// No pasa nada
@@ -1200,6 +1207,7 @@ class DefinitivasPeriodosController extends Controller {
 	{
 		$user 	= User::fromToken();
 		User::pueden_modificar_definitivas($user, PeriodoDeLaFila::deNotaFinal($id));
+		DefinitivasAMano::exigir($user, PeriodoDeLaFila::deNotaFinal($id));
 		$consulta 	= 'DELETE FROM notas_finales WHERE id=?';
 		DB::delete($consulta, [$id]);
 

@@ -588,6 +588,20 @@ class Autoriza
     }
 
     /**
+     * Quién decide si los docentes cambian la definitiva a mano en la semana de
+     * nivelaciones — `years.profes_pueden_cambiar_definitivas`, fase 3 del cierre de
+     * periodo (24 sep 2026).
+     *
+     * **Los mismos que la de arriba y por el mismo motivo**: el que la pulsa puede ser
+     * parte interesada. Con `auth.personal` a secas, los 53 docentes podrían abrirse la
+     * edición suelta de sus propias definitivas desde los ajustes del año.
+     */
+    public static function puedeDecidirLasDefinitivasAMano($user): bool
+    {
+        return self::puedeCambiarLaNotaNumerica($user);
+    }
+
+    /**
      * Quién ata el papel de inscripción a un alumno, y quién corrige su código.
      *
      * Decidido por Joseth el 20 sep 2026 con las dos poblaciones delante:

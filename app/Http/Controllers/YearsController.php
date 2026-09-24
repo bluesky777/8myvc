@@ -267,6 +267,11 @@ class YearsController extends Controller {
 			// sembrar. Un 403 en enero, sin nadie que lo haya decidido y con el rastro
 			// apuntando al candado en vez de a esta línea que faltaría.
 			$year->profes_pueden_editar_plantilla = $pasado->profes_pueden_editar_plantilla;
+			// Y la octava, fase 3 del cierre de periodo (24 sep 2026): si la definitiva a
+			// mano se abre con la nivelación. El colegio que la cerró no la quiere ver
+			// abierta de nuevo cada enero sin que nadie lo haya decidido. `?? 1` porque
+			// el año de origen puede ser de antes de la columna.
+			$year->profes_pueden_cambiar_definitivas = $pasado->profes_pueden_cambiar_definitivas ?? 1;
 			// El año nuevo hereda la elección del anterior por lo mismo que las de
 			// arriba: es una decisión del SIEE del colegio, no algo que se vuelva a
 			// tomar cada enero. Sin esta línea, un colegio que imprime sin número
@@ -1915,6 +1920,56 @@ class YearsController extends Controller {
 	}
 
 	/**
+	 * Si los docentes cambian la definitiva a mano mientras el periodo está abierto a
+	 * nivelar. `PUT years/definitivas-a-mano` -> `years.profes_pueden_cambiar_definitivas`.
+	 *
+	 * Fase 3 del cierre de periodo (`myvc_front/PLAN-CIERRE-DE-PERIODO.md`, decisión 3):
+	 * **nivelar es sólo nivelar**. Qué endpoints mira y por qué no son los siete de
+	 * `pueden_modificar_definitivas`, en {@see \App\Support\DefinitivasAMano}.
+	 *
+	 * Misma forma que {@see putCierreSinCalificar}, y por lo mismo: ruta propia, permiso
+	 * dentro (`Autoriza::puedeDecidirLasDefinitivasAMano`), la columna en `$conDueno` de
+	 * `putToggleCambiarValor` para que el genérico no se la salte, y devuelve el valor
+	 * guardado.
+	 *
+	 * **`pueden` se valida estricto, 0 o 1**, y no con el `(bool)` de los interruptores
+	 * hermanos: con aquél la cadena `"false"` sería «sí», y este campo existe justo para
+	 * decir que no.
+	 */
+	public function putDefinitivasAMano(){
+		$user = User::fromToken();
+
+		Autoriza::exigir(
+			Autoriza::puedeDecidirLasDefinitivasAMano($user),
+			'Solo un superusuario, secretario, coordinador académico o rector puede '
+				.'decidir si los docentes cambian las definitivas a mano.'
+		);
+
+		$pueden = Request::input('pueden');
+
+		if (! in_array($pueden, [0, 1, '0', '1', true, false], true)) {
+			abort(422, '`pueden` tiene que ser 0 o 1.');
+		}
+
+		$year_id = Request::input('year_id', $user->year_id ?? null);
+
+		if (! is_numeric($year_id)) {
+			abort(422, 'Hace falta `year_id` y la sesión no trae ninguno.');
+		}
+
+		$year = Year::findOrFail((int) $year_id);
+
+		$year->profes_pueden_cambiar_definitivas = (int) $pueden;
+		$year->updated_by = $user->user_id;
+		$year->save();
+
+		return [
+			'year_id' => (int) $year->id,
+			'profes_pueden_cambiar_definitivas' => (bool) $year->profes_pueden_cambiar_definitivas,
+		];
+	}
+
+	/**
 	 * Abrir y cerrar la campaña de prematrícula, que son DOS interruptores distintos.
 	 *
 	 *     PUT years/toggle-prematricula-nuevos    ->  years.prematr_nuevos
@@ -2097,6 +2152,11 @@ class YearsController extends Controller {
 			// casillas que su profesor no calificó.
 			'cierre_sin_calificar' => ['Qué pasa al cerrar con lo no calificado',
 				'years/cierre-sin-calificar',
+				'ser superusuario, Secretario, Coord académico o Rector'],
+			// La quinta, fase 3 del cierre de periodo (24 sep 2026). Sin este corte, un
+			// docente se abriría en una línea la edición suelta de sus definitivas.
+			'profes_pueden_cambiar_definitivas' => ['Si los docentes cambian las definitivas a mano',
+				'years/definitivas-a-mano',
 				'ser superusuario, Secretario, Coord académico o Rector'],
 		];
 
