@@ -60,6 +60,22 @@ class Matricula extends Model {
 	use SoftDeletes;
 	protected $softDelete = true;
 
+	/**
+	 * **`estado_desde` se escribe solo, cada vez que cambia `estado`** (migración
+	 * `2026_09_24_970000`). En el modelo y no en cada controlador porque son decenas de
+	 * sitios los que cambian el estado, viejos y nuevos. Lo que cambie el estado con SQL
+	 * crudo no pasa por aquí: esas filas se quedan con la fecha anterior o en NULL, y el
+	 * pendiente de prematrículas lo trata como fecha desconocida.
+	 */
+	protected static function booted()
+	{
+		static::saving(function (Matricula $m) {
+			if ($m->isDirty('estado')) {
+				$m->estado_desde = \App\Support\Reloj::ahora()->toDateString();
+			}
+		});
+	}
+
 
 	/**
 	 * **Qué fila de `matriculas` es «la del año» — la regla, en un solo sitio.**

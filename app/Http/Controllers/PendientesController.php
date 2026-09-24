@@ -40,6 +40,10 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
  * | `fechas_de_periodos` | Importante | ídem | — |
  * | `periodo_desfasado` | Importante, pero lo pospone el colegio entero | ídem | — |
  * | `plantilla_sin_propagar` | Importante | quien edita la plantilla (`Autoriza::puedeEditarPlantillaNotas`) | — |
+ * | `tardanzas_sin_situacion` | Importante | superusuario y Coord disciplinario (el rol o `years.coordinador_disciplinario_id`) | — |
+ * | `prematricula_vieja` | Posponible | superusuario, `Admin` y `Secretario` | Secretario |
+ * | `alumnos_sin_datos` | Posponible | ídem | Secretario |
+ * | `docentes_sin_datos` | Posponible | ídem | Secretario |
  *
  * «Directivos» es superusuario, `Admin`, `Rector`, `Secretario`, `Coord académico` y
  * `Coord disciplinario`. A quien no le toca nada se le contesta la lista vacía en 200.
@@ -101,7 +105,7 @@ class PendientesController extends Controller
         $roles = array_map(static fn ($r) => (string) $r->name, Role::getUserRoles($user->user_id ?? 0));
         $vacio = ['year_id' => (int) $user->year_id, 'pendientes' => [], 'ocultos' => []];
 
-        $year = DB::selectOne('SELECT id, year, actual FROM years WHERE id = ? AND deleted_at IS NULL', [(int) $user->year_id]);
+        $year = DB::selectOne('SELECT * FROM years WHERE id = ? AND deleted_at IS NULL', [(int) $user->year_id]);
 
         if ($year === null) {
             return $vacio;
@@ -112,6 +116,10 @@ class PendientesController extends Controller
         $coordAcademico = $super || in_array('Coord académico', $roles, true);
         $profesorId = ($user->tipo ?? null) === 'Profesor' && ($user->persona_id ?? null) !== null ? (int) $user->persona_id : null;
         $todasLasAsignaturas = $super || array_intersect(['Coord académico', 'Rector'], $roles) !== [];
+        $coordDisciplinario = $super || in_array('Coord disciplinario', $roles, true)
+            || ($profesorId !== null && (int) ($year->coordinador_disciplinario_id ?? 0) === $profesorId);
+        $secretaria = $super || array_intersect(['Admin', 'Secretario'], $roles) !== [];
+
         // Los de periodos, a quien puede arreglarlos: `/colegio/:y/periodos` es `esAdmin`.
         $periodos = ($super || in_array('Admin', $roles, true))
             ? DB::select('SELECT * FROM periodos WHERE year_id = ? AND deleted_at IS NULL ORDER BY numero', [(int) $year->id])
@@ -131,6 +139,10 @@ class PendientesController extends Controller
             $periodos !== null ? $this->fechasDePeriodos($year, $periodos) : null,
             $periodos !== null ? $this->periodoDesfasado($year, $periodos) : null,
             Autoriza::puedeEditarPlantillaNotas($user) ? $this->plantillaSinPropagar($year) : null,
+            $coordDisciplinario ? $this->tardanzasSinSituacion($year) : null,
+            $secretaria ? $this->prematriculaVieja($year) : null,
+            $secretaria ? $this->alumnosSinDatos($year) : null,
+            $secretaria ? $this->docentesSinDatos($year) : null,
         ]);
 
         foreach ($pendientes as &$p) {
@@ -911,6 +923,288 @@ class PendientesController extends Controller
             'destino' => ['ruta' => '/plan-evaluacion', 'query' => ['paso' => 'plantilla'], 'etiqueta' => 'Revisar la plantilla'],
             'primero_para' => ['Coord académico'],
         ];
+    }
+
+    /* ── 11. Tardanzas que ya dan una situación y nadie la ha creado ──────────────── */
+
+    /**
+     * Con la regla del colegio (`dis_configuraciones`): cada `cant_tard_to_ft1` tardanzas **de
+     * entrada** dan una situación tipo 1. Se cuentan por periodo si `reinicia_por_periodo`
+     * —y entonces sólo el periodo actual, que es el que se está viviendo— o en el año entero.
+     * Contra las situaciones que ya salieron de tardanzas (`dis_procesos.deriva_de_tardanzas`):
+     * con 10 tardanzas y una situación, falta la segunda.
+     *
+     * No hay dónde marcar «ya lo vi»: se va cuando la situación existe. Con el umbral en 0
+     * la regla está apagada y no sale nada.
+     */
+    private function tardanzasSinSituacion(object $year): ?array
+    {
+        $conf = DB::selectOne('SELECT * FROM dis_configuraciones WHERE year_id = ? AND deleted_at IS NULL ORDER BY id LIMIT 1', [(int) $year->id]);
+        $umbral = $conf === null ? 0 : (int) $conf->cant_tard_to_ft1;
+
+        if ($umbral <= 0) {
+            return null;
+        }
+
+        $porPeriodo = (int) $conf->reinicia_por_periodo === 1;
+        $filtro = '';
+        $datos = [(int) $year->id];
+
+        if ($porPeriodo) {
+            $actual = DB::selectOne('SELECT id FROM periodos WHERE year_id = ? AND actual = 1 AND deleted_at IS NULL', [(int) $year->id]);
+            if ($actual === null) {
+                return null;
+            }
+            $filtro = ' AND p.id = ?';
+            $datos[] = (int) $actual->id;
+        }
+
+        $cuentas = DB::select(
+            'SELECT a.alumno_id, COUNT(*) AS tardanzas,
+                    (SELECT COUNT(*) FROM dis_procesos d
+                      WHERE d.alumno_id = a.alumno_id AND d.year_id = p.year_id AND d.deriva_de_tardanzas = 1
+                        AND d.deleted_at IS NULL'.($porPeriodo ? ' AND d.periodo_id = p.id' : '').') AS situaciones
+               FROM ausencias a
+               INNER JOIN periodos p ON p.id = a.periodo_id AND p.year_id = ? AND p.deleted_at IS NULL'.$filtro.'
+              WHERE a.tipo = "tardanza" AND a.entrada = 1 AND a.deleted_at IS NULL
+              GROUP BY a.alumno_id'.($porPeriodo ? ', p.id, p.year_id' : ', p.year_id').'
+             HAVING tardanzas >= ?',
+            array_merge($datos, [$umbral])
+        );
+
+        $faltan = [];
+        foreach ($cuentas as $c) {
+            if (intdiv((int) $c->tardanzas, $umbral) > (int) $c->situaciones) {
+                $faltan[(int) $c->alumno_id] = (int) $c->tardanzas;
+            }
+        }
+
+        if ($faltan === []) {
+            return null;
+        }
+
+        $alumnos = $this->alumnosDelAnio((int) $year->id, array_keys($faltan));
+        usort($alumnos, static fn ($a, $b) => $faltan[(int) $b->alumno_id] <=> $faltan[(int) $a->alumno_id]);
+        $n = count($alumnos);
+
+        if ($n === 0) {
+            return null;
+        }
+
+        $situacion = mb_strtolower((string) ($conf->falta_tipo1_displayname ?: 'situación tipo 1'));
+
+        return [
+            'tipo' => 'tardanzas_sin_situacion',
+            'clave' => 'tardanzas_sin_situacion:y='.$year->id,
+            'insistencia' => self::IMPORTANTE,
+            'urgencia' => 170,
+            'icono' => 'field-time',
+            'titular' => $this->plural($n, "estudiante llegó a {$umbral} tardanzas y no tiene {$situacion}", "estudiantes llegaron a {$umbral} tardanzas y no tienen {$situacion}"),
+            'detalle' => 'Así está configurado en Disciplina: **'.$umbral.' tardanzas de entrada** = una '.$situacion.'. '
+                .($porPeriodo ? 'Se cuenta por periodo.' : 'Se cuenta en todo el año.'),
+            'filas' => array_map(fn ($a) => $this->filaDeAlumno(
+                $a, $a->abrev_grupo ?: $a->nombre_grupo, $faltan[(int) $a->alumno_id].' tardanzas', true
+            ), array_slice($alumnos, 0, self::TOPE_DE_FILAS)),
+            'total_filas' => $n,
+            'destino' => ['ruta' => '/disciplina', 'etiqueta' => 'Ir a disciplina'],
+            'primero_para' => [],
+        ];
+    }
+
+    /* ── 12. Prematriculados y asistentes que ya deberían estar matriculados ─────────── */
+
+    /**
+     * Desde el periodo 2 (el actual del año), las matrículas PREM, PREA o ASIS que llevan
+     * en ese estado más de `years.dias_max_prematricula` días (10 por defecto). La fecha es
+     * `estado_desde`; en las filas de antes de existir esa columna, la mejor que hay
+     * —`prematriculado`, `fecha_matricula` o el alta de la fila— y la nota dice «al menos».
+     */
+    private function prematriculaVieja(object $year): ?array
+    {
+        $actual = DB::selectOne('SELECT numero FROM periodos WHERE year_id = ? AND actual = 1 AND deleted_at IS NULL', [(int) $year->id]);
+
+        if ($actual === null || (int) $actual->numero < 2) {
+            return null;
+        }
+
+        $dias = (int) ($year->dias_max_prematricula ?? 10);
+        $conFecha = property_exists($year, 'dias_max_prematricula');
+        $hoy = Reloj::ahora()->startOfDay();
+
+        $filas = DB::select(
+            'SELECT al.id AS alumno_id, al.nombres, al.apellidos, i.nombre AS foto,
+                    g.nombre AS nombre_grupo, g.abrev AS abrev_grupo, m.estado,
+                    '.($conFecha ? 'm.estado_desde' : 'NULL').' AS estado_desde,
+                    COALESCE(IF(m.estado = "PREM", m.prematriculado, NULL), m.fecha_matricula, DATE(m.created_at)) AS aprox
+               FROM matriculas m
+               INNER JOIN grupos g ON g.id = m.grupo_id AND g.year_id = ? AND g.deleted_at IS NULL
+               INNER JOIN alumnos al ON al.id = m.alumno_id AND al.deleted_at IS NULL
+               LEFT JOIN images i ON i.id = al.foto_id AND i.deleted_at IS NULL
+              WHERE m.deleted_at IS NULL AND m.estado IN ("PREM", "PREA", "ASIS")
+              ORDER BY g.orden, g.nombre, al.apellidos, al.nombres',
+            [(int) $year->id]
+        );
+
+        $nombres = ['PREM' => 'prematriculado', 'PREA' => 'prematriculado', 'ASIS' => 'asistente'];
+        $viejas = [];
+
+        foreach ($filas as $f) {
+            $desde = $f->estado_desde ?? $f->aprox;
+            if ($desde === null) {
+                continue;
+            }
+            $lleva = (int) round(Carbon::parse($desde, $hoy->getTimezone())->startOfDay()->diffInDays($hoy));
+            if ($lleva > $dias) {
+                $f->nota = ($nombres[$f->estado] ?? $f->estado).' hace '.($f->estado_desde === null ? 'al menos ' : '').$lleva.' días';
+                $viejas[] = $f;
+            }
+        }
+
+        $n = count($viejas);
+
+        if ($n === 0) {
+            return null;
+        }
+
+        return [
+            'tipo' => 'prematricula_vieja',
+            'clave' => 'prematricula_vieja:y='.$year->id,
+            'insistencia' => self::POSPONIBLE,
+            'urgencia' => 80,
+            'icono' => 'solution',
+            'titular' => $this->plural($n, 'estudiante sigue', 'estudiantes siguen').' como prematriculado o asistente',
+            'detalle' => 'Ya va el **Periodo '.$actual->numero.'** y '.($n === 1 ? 'lleva' : 'llevan').' más de **'.$dias.' días** en ese estado: o se '.($n === 1 ? 'matricula o se retira.' : 'matriculan o se retiran.'),
+            'filas' => array_map(fn ($a) => $this->filaDeAlumno($a, $a->abrev_grupo ?: $a->nombre_grupo, $a->nota, false), array_slice($viejas, 0, self::TOPE_DE_FILAS)),
+            'total_filas' => $n,
+            'destino' => ['ruta' => '/matriculas', 'etiqueta' => 'Ir a matrículas'],
+            'primero_para' => ['Secretario'],
+        ];
+    }
+
+    /* ── 13. Personas del año sin documento o sin correo ─────────────────────────────── */
+
+    /**
+     * Matriculados sin documento o sin correo. **El correo es el de la cuenta**
+     * (`users.email`, plan §2.6): es el único con el que se recupera la contraseña. Un
+     * `…@myvc.com` inventado al crear la cuenta cuenta como vacío: nadie lo lee.
+     */
+    private function alumnosSinDatos(object $year): ?array
+    {
+        $alumnos = DB::select(
+            'SELECT al.id AS alumno_id, al.nombres, al.apellidos, i.nombre AS foto,
+                    g.nombre AS nombre_grupo, g.abrev AS abrev_grupo,
+                    (al.documento IS NULL OR TRIM(al.documento) = "") AS sin_documento,
+                    (u.email IS NULL OR TRIM(u.email) = "" OR u.email LIKE "%@myvc.com") AS sin_correo
+               FROM matriculas m
+               INNER JOIN grupos g ON g.id = m.grupo_id AND g.year_id = ? AND g.deleted_at IS NULL
+               INNER JOIN alumnos al ON al.id = m.alumno_id AND al.deleted_at IS NULL
+               LEFT JOIN users u ON u.id = al.user_id AND u.deleted_at IS NULL
+               LEFT JOIN images i ON i.id = al.foto_id AND i.deleted_at IS NULL
+              WHERE m.deleted_at IS NULL AND '.self::MATRICULADO.'
+             HAVING sin_documento = 1 OR sin_correo = 1
+              ORDER BY g.orden, g.nombre, al.apellidos, al.nombres',
+            [(int) $year->id]
+        );
+
+        $n = count($alumnos);
+
+        if ($n === 0) {
+            return null;
+        }
+
+        return [
+            'tipo' => 'alumnos_sin_datos',
+            'clave' => 'alumnos_sin_datos:y='.$year->id,
+            'insistencia' => self::POSPONIBLE,
+            'urgencia' => 60,
+            'icono' => 'idcard',
+            'titular' => $this->plural($n, 'estudiante no tiene', 'estudiantes no tienen').' documento o correo',
+            'detalle' => "Matriculados en **{$year->year}**. Sin correo en su cuenta no pueden recuperar la contraseña.",
+            'filas' => array_map(fn ($a) => $this->filaDeAlumno($a, $a->abrev_grupo ?: $a->nombre_grupo, $this->queFalta($a), false), array_slice($alumnos, 0, self::TOPE_DE_FILAS)),
+            'total_filas' => $n,
+            'destino' => ['ruta' => '/alumnos', 'etiqueta' => 'Ir a alumnos'],
+            'primero_para' => ['Secretario'],
+        ];
+    }
+
+    /** Docentes con contrato en el año, sin cédula o sin correo en su cuenta. */
+    private function docentesSinDatos(object $year): ?array
+    {
+        $docentes = DB::select(
+            'SELECT p.id, p.nombres, p.apellidos, i.nombre AS foto,
+                    (p.num_doc IS NULL OR TRIM(p.num_doc) = "") AS sin_documento,
+                    (u.email IS NULL OR TRIM(u.email) = "" OR u.email LIKE "%@myvc.com") AS sin_correo
+               FROM contratos c
+               INNER JOIN profesores p ON p.id = c.profesor_id AND p.deleted_at IS NULL
+               LEFT JOIN users u ON u.id = p.user_id AND u.deleted_at IS NULL
+               LEFT JOIN images i ON i.id = p.foto_id AND i.deleted_at IS NULL
+              WHERE c.year_id = ? AND c.deleted_at IS NULL
+              GROUP BY p.id, p.nombres, p.apellidos, i.nombre, p.num_doc, u.email
+             HAVING sin_documento = 1 OR sin_correo = 1
+              ORDER BY p.apellidos, p.nombres',
+            [(int) $year->id]
+        );
+
+        $n = count($docentes);
+
+        if ($n === 0) {
+            return null;
+        }
+
+        return [
+            'tipo' => 'docentes_sin_datos',
+            'clave' => 'docentes_sin_datos:y='.$year->id,
+            'insistencia' => self::POSPONIBLE,
+            'urgencia' => 55,
+            'icono' => 'idcard',
+            'titular' => $this->plural($n, 'docente no tiene', 'docentes no tienen').' cédula o correo',
+            'detalle' => "Con contrato en **{$year->year}**. Sin correo en su cuenta no pueden recuperar la contraseña.",
+            'filas' => array_map(fn ($d) => [
+                'texto' => trim($d->nombres.' '.$d->apellidos),
+                'nota' => $this->queFalta($d, 'cédula'),
+                'aviso' => false,
+                'foto' => $d->foto,
+                'nombres' => $d->nombres,
+                'apellidos' => $d->apellidos,
+            ], array_slice($docentes, 0, self::TOPE_DE_FILAS)),
+            'total_filas' => $n,
+            'destino' => ['ruta' => '/profesores', 'etiqueta' => 'Ir a docentes'],
+            'primero_para' => ['Secretario'],
+        ];
+    }
+
+    private function queFalta(object $p, string $documento = 'documento'): string
+    {
+        if ((int) $p->sin_documento === 1 && (int) $p->sin_correo === 1) {
+            return "sin {$documento} ni correo";
+        }
+
+        return (int) $p->sin_documento === 1 ? "sin {$documento}" : 'sin correo';
+    }
+
+    /**
+     * Los matriculados del año entre `$ids`, con grupo y foto.
+     *
+     * @param  list<int>  $ids
+     * @return list<object>
+     */
+    private function alumnosDelAnio(int $yearId, array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return DB::select(
+            'SELECT al.id AS alumno_id, al.nombres, al.apellidos, i.nombre AS foto,
+                    g.nombre AS nombre_grupo, g.abrev AS abrev_grupo
+               FROM matriculas m
+               INNER JOIN grupos g ON g.id = m.grupo_id AND g.year_id = ? AND g.deleted_at IS NULL
+               INNER JOIN alumnos al ON al.id = m.alumno_id AND al.deleted_at IS NULL
+               LEFT JOIN images i ON i.id = al.foto_id AND i.deleted_at IS NULL
+              WHERE m.deleted_at IS NULL AND '.self::MATRICULADO.'
+                AND al.id IN ('.implode(',', array_fill(0, count($ids), '?')).')',
+            array_merge([$yearId], $ids)
+        );
     }
 
     /* ── Piezas ──────────────────────────────────────────────────────────────────────── */
