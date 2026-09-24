@@ -67,7 +67,11 @@ FECHA_PEDIDA="${1:-}"
 # `BatchMode=yes` para que una cuenta que pida contraseña falle en diez segundos en
 # vez de quedarse esperando a que alguien teclee algo. Si sale «Permission denied»,
 # lo que falta es la clave: `ssh-copy-id -i ~/.ssh/cpanel -p 7822 usuario@host`.
+IDENTIDAD="${IDENTIDAD:-$HOME/.ssh/cpanel}"
 SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=15"
+# La clave va nombrada y no se deja a lo que haya en el agente: este guion lo va a
+# lanzar un cron o un agente, no una persona con su llavero abierto.
+[ -f "$IDENTIDAD" ] && SSH_OPTS="-i $IDENTIDAD $SSH_OPTS"
 
 mkdir -p "$DESTINO" || exit 1
 chmod 700 "$DESTINO" 2>/dev/null || true

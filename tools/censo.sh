@@ -44,7 +44,11 @@ micolevi micolevi@lalvirtual.edu.co 7822 $HOME/public_html
 CUENTAS_FIN
 )}"
 SALIDA="${SALIDA:-censo.json}"
+IDENTIDAD="${IDENTIDAD:-$HOME/.ssh/cpanel}"
 SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=15"
+# La clave va nombrada y no se deja a lo que haya en el agente: este guion lo va a
+# lanzar un cron o un agente, no una persona con su llavero abierto.
+[ -f "$IDENTIDAD" ] && SSH_OPTS="-i $IDENTIDAD $SSH_OPTS"
 
 JSON=0
 MIGRACIONES=0
