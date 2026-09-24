@@ -106,16 +106,40 @@ instantánea antes de un cambio gordo, no para tener ayer.
 ## 3. Sacarlo de la cuenta, que es lo único que cubre perder la cuenta
 
 Un respaldo que vive en el mismo disco que la base no cubre el caso en que el problema
-sea el disco. Desde el Mac, una vez por semana:
+sea el disco. Desde el Mac, una vez por semana, y ya no a mano —
+[`tools/bajar-respaldos.sh`](../tools/bajar-respaldos.sh), escrito el 23 sep 2026:
 
 ```bash
-rsync -avz --delete \
-  micolev1@SERVIDOR:~/respaldos/diario/ \
-  ~/DESARROLLOS/respaldos-myvc/micolev1/
+tools/bajar-respaldos.sh                  # la última fecha que tengan LAS DOS cuentas
+tools/bajar-respaldos.sh 2026-09-20       # una fecha concreta
 ```
 
-Es tirar y no empujar **a propósito**: si el servidor queda comprometido, no tiene
-credenciales para llegar a tu máquina.
+Trae las dos cuentas, comprueba con `gzip -t` que nada llegó cortado y deja un solo
+`myvc-bases-FECHA.tar` en `~/DESARROLLOS/respaldos-myvc/`. Los 17 volcados de `micolev1`
+más el de `lal` caben en unos 300 MB, así que el tar va sin `-z`: dentro ya está todo
+comprimido.
+
+Tres decisiones del guion que son el guion:
+
+- **Se tira, no se empuja.** Si el servidor queda comprometido, no tiene credenciales
+  para llegar a tu máquina. Esto ya estaba escrito aquí y no cambia.
+- **Las dos cuentas se juntan en el Mac, no en un servidor.** Están en dos máquinas
+  (`mi3-ss55` y `mi3-ss54`) y los usuarios de MySQL son locales a cada una. Para que una
+  volcara las bases de la otra habría que guardarle sus credenciales, y entonces quien
+  entre en una cuenta entra en las dieciséis.
+- **La fecha se negocia.** No baja «hoy» —a la una de la mañana el volcado de hoy no
+  existe todavía— ni «la más reciente de cada cuenta», que juntaría el lunes de una con
+  el jueves de la otra sin avisar: baja **la más reciente que tengan las dos**, y si no
+  hay ninguna en común no baja nada y dice qué tiene cada una. Eso es un cron parado.
+
+Si algo no cuadra, el tar se llama `…-INCOMPLETO.tar` y el guion sale con código
+distinto de cero: un respaldo a medias no se confunde con uno entero seis meses después.
+
+> **Probado el 23 sep 2026 con servidores simulados, no contra producción** — los cinco
+> caminos: la conexión que no entra, el cron sin poner (mensajes distintos, porque se
+> arreglan en sitios distintos), la corrida limpia, un `.gz` cortado y dos cuentas sin
+> ninguna fecha en común. Contra los servidores de verdad **no se ha corrido todavía**:
+> hace falta la clave, y el 23 sep sólo había acceso por contraseña.
 
 ## 4. Un respaldo que nadie ha restaurado no es un respaldo
 
