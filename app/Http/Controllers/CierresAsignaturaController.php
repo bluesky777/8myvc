@@ -265,39 +265,15 @@ class CierresAsignaturaController extends Controller
         ];
     }
 
-    /**
-     * Las casillas sin nota de cada asignatura del periodo — la misma cuenta que
-     * `CierreDeLoNoCalificado::porAsignatura`, que es la que cierra el periodo.
-     *
-     * @return array<int, int>
-     */
+    /** @return array<int, int> Ver `CierreDeAsignatura::ES_FALTANTE`: el criterio vive allí. */
     private function faltanPorAsignatura(int $periodoId): array
     {
-        $salida = [];
-
-        foreach (CierreDeLoNoCalificado::porAsignatura($periodoId) as $f) {
-            $salida[(int) $f->asignatura_id] = (int) $f->casillas;
-        }
-
-        return $salida;
+        return CierreDeAsignatura::faltantesPorAsignatura($periodoId);
     }
 
     /** @return list<array{unidad:string, subunidad:string, faltan:int}> */
     private function faltanPorIndicador(int $periodoId, int $asignaturaId): array
     {
-        return array_map(fn ($f) => [
-            'unidad' => (string) $f->unidad,
-            'subunidad' => (string) $f->subunidad,
-            'faltan' => (int) $f->faltan,
-        ], DB::select(
-            'SELECT u.definicion AS unidad, s.definicion AS subunidad, COUNT(*) AS faltan
-               FROM notas n
-               INNER JOIN subunidades s ON s.id = n.subunidad_id AND s.deleted_at IS NULL
-               INNER JOIN unidades u ON u.id = s.unidad_id AND u.deleted_at IS NULL
-              WHERE u.periodo_id = ? AND u.asignatura_id = ? AND n.deleted_at IS NULL AND n.nota IS NULL
-              GROUP BY u.id, u.orden, u.definicion, s.id, s.orden, s.definicion
-              ORDER BY u.orden, u.id, s.orden, s.id',
-            [$periodoId, $asignaturaId]
-        ));
+        return CierreDeAsignatura::faltantesPorIndicador($periodoId, $asignaturaId);
     }
 }

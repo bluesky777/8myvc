@@ -171,6 +171,69 @@ class CierreDeAsignatura
         ) > 0;
     }
 
+    /**
+     * **Qué cuenta como «faltante» al cerrar una asignatura. UN SOLO SITIO, a propósito.**
+     *
+     * Hoy: **toda casilla vacía** (`notas.nota IS NULL`) de un indicador vivo es una
+     * nota que falta. Está pendiente de decidir (24 sep 2026) si una celda vacía puede
+     * querer decir «esa actividad no le aplica»; si la respuesta es no, queda así, y si
+     * aparece un estado EXENTO explícito (con motivo y autor, que no bloquea ni promedia)
+     * **se cambia esta condición y nada más**: la cuenta del tablero, la del diálogo de
+     * cerrar y el 422 de `bloquear` salen todos de aquí. Ningún guard la mira.
+     *
+     * Es un fragmento de SQL sobre el alias `n` (`notas`), para que las dos consultas de
+     * abajo —por asignatura y por indicador— no puedan separarse.
+     */
+    public const ES_FALTANTE = 'n.nota IS NULL';
+
+    /**
+     * Cuántas faltan en cada asignatura del periodo.
+     *
+     * @return array<int, int> asignatura_id => casillas que faltan (sólo las que tienen alguna)
+     */
+    public static function faltantesPorAsignatura(int $periodoId): array
+    {
+        $salida = [];
+
+        foreach (DB::select(
+            'SELECT u.asignatura_id, COUNT(*) AS faltan
+               FROM notas n
+               INNER JOIN subunidades s ON s.id = n.subunidad_id AND s.deleted_at IS NULL
+               INNER JOIN unidades u ON u.id = s.unidad_id AND u.deleted_at IS NULL
+              WHERE u.periodo_id = ? AND n.deleted_at IS NULL AND '.self::ES_FALTANTE.'
+              GROUP BY u.asignatura_id',
+            [$periodoId]
+        ) as $f) {
+            $salida[(int) $f->asignatura_id] = (int) $f->faltan;
+        }
+
+        return $salida;
+    }
+
+    /**
+     * Las que faltan en una asignatura, por indicador: lo que enseña el diálogo de cerrar.
+     *
+     * @return list<array{unidad:string, subunidad:string, faltan:int}>
+     */
+    public static function faltantesPorIndicador(int $periodoId, int $asignaturaId): array
+    {
+        return array_map(fn ($f) => [
+            'unidad' => (string) $f->unidad,
+            'subunidad' => (string) $f->subunidad,
+            'faltan' => (int) $f->faltan,
+        ], DB::select(
+            'SELECT u.definicion AS unidad, s.definicion AS subunidad, COUNT(*) AS faltan
+               FROM notas n
+               INNER JOIN subunidades s ON s.id = n.subunidad_id AND s.deleted_at IS NULL
+               INNER JOIN unidades u ON u.id = s.unidad_id AND u.deleted_at IS NULL
+              WHERE u.periodo_id = ? AND u.asignatura_id = ? AND n.deleted_at IS NULL
+                AND '.self::ES_FALTANTE.'
+              GROUP BY u.id, u.orden, u.definicion, s.id, s.orden, s.definicion
+              ORDER BY u.orden, u.id, s.orden, s.id',
+            [$periodoId, $asignaturaId]
+        ));
+    }
+
     /** @return array<int> */
     private static function ids(int|array|null $valor): array
     {

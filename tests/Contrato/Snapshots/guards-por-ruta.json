@@ -505,6 +505,7 @@
         "PUT api/votaciones/update/{id}",
         "PUT api/years/alumnos-can-see-notas",
         "PUT api/years/cierre-sin-calificar",
+        "PUT api/years/definitivas-a-mano",
         "PUT api/years/guardar-cambios",
         "PUT api/years/modelo-evaluacion",
         "PUT api/years/mostrar-todas-materias",
