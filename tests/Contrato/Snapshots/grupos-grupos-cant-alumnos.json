@@ -6,6 +6,7 @@
         "caritas": "int",
         "created_at": "string",
         "cupo": "int",
+        "foto_titular": "string",
         "grado_id": "int",
         "id": "int",
         "ih": "null",

@@ -37,6 +37,7 @@
                         "desempenio": "string",
                         "foto_id": "int",
                         "foto_nombre": "string",
+                        "foto_profesor": "string",
                         "frases": [
                             {
                                 "asignatura_id": "int",
@@ -122,6 +123,7 @@
                     "familiar_nota": "null",
                     "foto_id": "int",
                     "foto_nombre": "string",
+                    "foto_titular": "string",
                     "id": "int",
                     "nombres": "string",
                     "nota": "int",

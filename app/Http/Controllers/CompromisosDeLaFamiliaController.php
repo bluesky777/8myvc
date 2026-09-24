@@ -552,12 +552,14 @@ class CompromisosDeLaFamiliaController extends Controller
                     ci.veredicto_por, ci.veredicto_at,
                     COALESCE(mm.materia, ar.nombre) AS nombre,
                     TRIM(CONCAT(pr.nombres, " ", pr.apellidos)) AS profesor,
+                    fot.nombre AS foto_profesor,
                     TRIM(CONCAT(vp.nombres, " ", vp.apellidos)) AS veredicto_por_nombre
                FROM compromiso_items ci
                LEFT JOIN asignaturas asi ON asi.id = ci.asignatura_id
                LEFT JOIN materias mm ON mm.id = asi.materia_id
                LEFT JOIN areas ar ON ar.id = ci.area_id
                LEFT JOIN profesores pr ON pr.id = ci.profesor_id
+               LEFT JOIN images fot ON fot.id = pr.foto_id AND fot.deleted_at IS NULL
                LEFT JOIN profesores vp ON vp.id = ci.veredicto_por
               WHERE ci.compromiso_id IN ('.implode(',', $ids).')
               ORDER BY asi.orden, mm.materia, ar.nombre, ci.id'
@@ -742,6 +744,7 @@ class CompromisosDeLaFamiliaController extends Controller
             // Quién da la asignatura sí va: sale impreso y es a quien la familia pregunta.
             'profesor_id' => $fila->profesor_id === null ? null : (int) $fila->profesor_id,
             'profesor' => $fila->profesor === null || $fila->profesor === '' ? null : $fila->profesor,
+            'foto_profesor' => $fila->foto_profesor ?? null,
 
             // La nota con la que se abrió, congelada. Es lo que el padre leyó al firmar, y
             // por eso no se recalcula nunca: un papel que en diciembre dijera otro número

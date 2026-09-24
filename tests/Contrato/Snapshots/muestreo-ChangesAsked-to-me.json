@@ -73,6 +73,7 @@
             "fecha_nac": "string",
             "foto_id": "int|null",
             "foto_nombre": "string",
+            "foto_profesor": "null|string",
             "id": "null",
             "imagen_id": "null",
             "imagen_nombre": "string",

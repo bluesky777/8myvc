@@ -116,6 +116,7 @@
                     "desempenio": "null|string",
                     "foto_id": "int|null",
                     "foto_nombre": "string",
+                    "foto_profesor": "null|string",
                     "frases": [],
                     "grupo_id": "int",
                     "manual": "int|null",

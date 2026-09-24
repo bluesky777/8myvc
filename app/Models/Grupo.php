@@ -294,7 +294,7 @@ class Grupo extends Model {
 			FROM(SELECT a.id as asignatura_id, a.grupo_id, a.profesor_id, a.creditos, ar.orden as orden_area, m.orden as orden_materia, a.orden as orden_asignatura,
 				m.materia, m.alias as alias_materia, m.area_id,
 				p.nombres as nombres_profesor, p.apellidos as apellidos_profesor,
-				p.foto_id, IFNULL(i.nombre, IF(p.sexo="F","default_female.png", "default_male.png")) as foto_nombre
+				p.foto_id, IFNULL(i.nombre, IF(p.sexo="F","default_female.png", "default_male.png")) as foto_nombre, i.nombre as foto_profesor
 			FROM (SELECT @rownum:=0) r, asignaturas a 
 			inner join materias m on m.id=a.materia_id and m.deleted_at is null
 			left join areas ar on ar.id=m.area_id and ar.deleted_at is null
@@ -332,7 +332,7 @@ class Grupo extends Model {
 		$consulta = 'SELECT a.id as asignatura_id, a.grupo_id, a.profesor_id, a.creditos, ar.orden as orden_area, m.orden as orden_materia, a.orden,
 				m.materia, m.alias as alias_materia, m.area_id, ar.nombre as area_nombre, ar.alias as area_alias, a.materia_id, 
 				p.nombres as nombres_profesor, p.apellidos as apellidos_profesor,
-				p.foto_id, IFNULL(i.nombre, IF(p.sexo="F","default_female.png", "default_male.png")) as foto_nombre, 
+				p.foto_id, IFNULL(i.nombre, IF(p.sexo="F","default_female.png", "default_male.png")) as foto_nombre, i.nombre as foto_profesor, 
 				CAST(n.nota AS DOUBLE) as nota_asignatura, n.created_at, n.recuperada, n.manual, e.desempenio, n.id as nf_id,
 				CAST(n.nota_original AS DOUBLE) as nota_original_asignatura, n.nivelada_at as nivelada_at_asignatura
 			FROM asignaturas a 

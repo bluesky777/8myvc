@@ -232,11 +232,12 @@ class GruposController extends Controller {
 		$user = User::fromToken();
 
 		$consulta = 'SELECT g.id, g.nombre, g.abrev, g.orden, gra.orden as orden_grado, g.grado_id, g.year_id, g.titular_id, g.cupo, 
-						p.nombres as nombres_titular, p.apellidos as apellidos_titular, p.titulo, g.caritas, 
+						p.nombres as nombres_titular, p.apellidos as apellidos_titular, p.titulo, fot.nombre as foto_titular, g.caritas, 
 						g.created_at, g.updated_at, gra.nombre as nombre_grado
 					from grupos g
 					inner join grados gra on gra.id=g.grado_id and g.year_id=:year_id
 					left join profesores p on p.id=g.titular_id
+					left join images fot on fot.id=p.foto_id and fot.deleted_at is null
 					where g.deleted_at is null
 					order by g.orden';
 
@@ -328,13 +329,14 @@ class GruposController extends Controller {
 	{
 		$user = User::fromToken();
 		$consulta = 'SELECT g.id, g.nombre, g.abrev, g.orden, gra.orden as orden_grado, g.grado_id, g.year_id, g.titular_id, g.cupo, g.ih,
-						p.nombres as nombres_titular, p.apellidos as apellidos_titular, p.titulo, g.caritas, 
+						p.nombres as nombres_titular, p.apellidos as apellidos_titular, p.titulo, fot.nombre as foto_titular, g.caritas, 
 						g.created_at, g.updated_at, gra.nombre as nombre_grado, count(a.id) as cant_alumnos 
 					from grupos g
 					INNER join grados gra on gra.id=g.grado_id and g.year_id=:year_id
 					LEFT JOIN matriculas m ON m.grupo_id=g.id and m.deleted_at is null and (m.estado="ASIS" or m.estado="MATR")
 					LEFT JOIN alumnos a ON a.id=m.alumno_id and m.deleted_at is null and a.deleted_at is null
 					left join profesores p on p.id=g.titular_id
+					left join images fot on fot.id=p.foto_id and fot.deleted_at is null
 					where g.deleted_at is null
 					GROUP BY g.id 
 					order by g.orden';

@@ -529,7 +529,7 @@ class ChangeAskedController extends Controller {
 			$profes_actuales = DB::select('SELECT p.id as profesor_id, p.nombres, p.apellidos, p.sexo, p.foto_id, p.user_id, r.fecha_ingreso, h.id, h.entorno, h.device_family, h.platform_family, h.browser_family, h.ip, 
 										u.username, p.telefono, p.celular, p.email, p.fecha_nac, r2.cant_asignaturas,
 										u.imagen_id, IFNULL(i.nombre, IF(p.sexo="F","default_female.png", "default_male.png")) as imagen_nombre, 
-										p.foto_id, IFNULL(i2.nombre, IF(p.sexo="F","default_female.png", "default_male.png")) as foto_nombre
+										p.foto_id, IFNULL(i2.nombre, IF(p.sexo="F","default_female.png", "default_male.png")) as foto_nombre, i2.nombre as foto_profesor
 									FROM contratos c
 									inner join profesores p on p.id=c.profesor_id and p.deleted_at is null and c.deleted_at is null
 									left join (
@@ -550,7 +550,7 @@ class ChangeAskedController extends Controller {
 		
 		}else{
 			$profes_actuales = DB::select('SELECT p.id as profesor_id, p.nombres, p.apellidos, p.sexo, p.foto_id, r2.cant_asignaturas,
-											p.foto_id, IFNULL(i2.nombre, IF(p.sexo="F","default_female.png", "default_male.png")) as foto_nombre
+											p.foto_id, IFNULL(i2.nombre, IF(p.sexo="F","default_female.png", "default_male.png")) as foto_nombre, i2.nombre as foto_profesor
 										FROM contratos c
 										inner join profesores p on p.id=c.profesor_id and p.deleted_at is null and c.deleted_at is null
 										left join images i2 on i2.id=p.foto_id and i2.deleted_at is null

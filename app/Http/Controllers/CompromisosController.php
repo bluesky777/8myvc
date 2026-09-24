@@ -1830,6 +1830,7 @@ class CompromisosController extends Controller
         $filas = DB::select('SELECT ci.*,
                 COALESCE(mat.materia, ar.nombre) AS nombre,
                 TRIM(CONCAT(COALESCE(p.nombres, ""), " ", COALESCE(p.apellidos, ""))) AS profesor,
+                fot.nombre AS foto_profesor,
                 TRIM(CONCAT(COALESCE(pv.nombres, ""), " ", COALESCE(pv.apellidos, ""))) AS veredicto_por_nombre,
                 c.periodo, c.matricula_id, m.alumno_id, g.nombre AS grupo,
                 TRIM(CONCAT(COALESCE(al.nombres, ""), " ", COALESCE(al.apellidos, ""))) AS alumno
@@ -1842,6 +1843,7 @@ class CompromisosController extends Controller
             LEFT JOIN materias mat ON mat.id = asg.materia_id
             LEFT JOIN areas ar ON ar.id = ci.area_id
             LEFT JOIN profesores p ON p.id = ci.profesor_id
+            LEFT JOIN images fot ON fot.id = p.foto_id AND fot.deleted_at IS NULL
             LEFT JOIN profesores pv ON pv.id = ci.veredicto_por
             WHERE ci.compromiso_id IN ('.$huecos.')
             ORDER BY ci.compromiso_id, nombre, ci.id', $ids);
@@ -1861,6 +1863,7 @@ class CompromisosController extends Controller
                 'nombre' => (string) ($fila->nombre ?? ''),
                 'profesor_id' => $fila->profesor_id === null ? null : (int) $fila->profesor_id,
                 'profesor' => ($fila->profesor ?? '') === '' ? null : (string) $fila->profesor,
+                'foto_profesor' => $fila->foto_profesor === null ? null : (string) $fila->foto_profesor,
                 // `decimal` sale de PDO como cadena: sin este `float` el front recibe
                 // `"34.6667"` y cualquier comparación numérica en TypeScript se cae de
                 // lado. Es el mismo casteo que hace `pintarConfig` con los `tinyint(1)`.

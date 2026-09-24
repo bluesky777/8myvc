@@ -418,7 +418,7 @@ class HorarioLeccionesTest extends CasoDeContrato
 
         $this->assertCount(2, $docentes, 'La pieza de varios docentes ha perdido uno por el camino.');
         $this->assertEqualsCanonicalizing([$uno, $otro], array_column($docentes, 'id'));
-        $this->assertSame(['id', 'nombres', 'apellidos', 'tono'], array_keys($docentes[0]));
+        $this->assertSame(['id', 'nombres', 'apellidos', 'tono', 'foto_profesor'], array_keys($docentes[0]));
     }
 
     /**

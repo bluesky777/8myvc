@@ -504,9 +504,10 @@ class AsignaturasController extends Controller {
 	{
 		$user = User::fromToken();
 		
-		$consulta = 'SELECT a.id as asignatura_id, a.*, m.materia, m.area_id, p.nombres, p.apellidos, g.nombre as nombre_grupo, g.abrev as abrev_grupo FROM asignaturas a
+		$consulta = 'SELECT a.id as asignatura_id, a.*, m.materia, m.area_id, p.nombres, p.apellidos, g.nombre as nombre_grupo, g.abrev as abrev_grupo, fot.nombre as foto_profesor FROM asignaturas a
 					LEFT JOIN materias m ON m.id=a.materia_id and m.deleted_at is null
 					LEFT JOIN profesores p ON p.id=a.profesor_id and p.deleted_at is null
+					LEFT JOIN images fot ON fot.id=p.foto_id and fot.deleted_at is null
 					LEFT JOIN grupos g ON g.id=a.grupo_id and g.deleted_at is null
 					WHERE a.deleted_at is not null and g.year_id=?';
 					

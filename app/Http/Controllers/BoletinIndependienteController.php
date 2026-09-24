@@ -1039,10 +1039,12 @@ class BoletinIndependienteController extends Controller
         $todas = DB::select(
             'SELECT asg.id AS asignatura_id, asg.profesor_id, asg.orden,
                     mat.materia, mat.alias AS alias_materia,
-                    pro.nombres AS nombres_profesor, pro.apellidos AS apellidos_profesor
+                    pro.nombres AS nombres_profesor, pro.apellidos AS apellidos_profesor,
+                    fot.nombre AS foto_profesor
                FROM asignaturas asg
                INNER JOIN materias mat ON mat.id = asg.materia_id AND mat.deleted_at IS NULL
                LEFT JOIN profesores pro ON pro.id = asg.profesor_id AND pro.deleted_at IS NULL
+               LEFT JOIN images fot ON fot.id = pro.foto_id AND fot.deleted_at IS NULL
               WHERE asg.grupo_id = ? AND asg.deleted_at IS NULL
               ORDER BY asg.orden, mat.materia, mat.alias, asg.id',
             [(int) $alumno->grupo_id]
@@ -1077,6 +1079,7 @@ class BoletinIndependienteController extends Controller
                 'profesor_id' => $fila->profesor_id === null ? null : (int) $fila->profesor_id,
                 'nombres_profesor' => $fila->nombres_profesor,
                 'apellidos_profesor' => $fila->apellidos_profesor,
+                'foto_profesor' => $fila->foto_profesor,
                 // `porcentaje_unidades` sale del MISMO método que la planilla y que el
                 // recalculador —`DefinitivasDeAsignatura`—, y se devuelve **sin corregir**:
                 // regla 2 de ese servicio y §9.3 del 10. Cuesta una consulta por asignatura y

@@ -1455,9 +1455,10 @@ class HorarioController extends Controller
     protected function docentesDeLaVersion(int $versionId): array
     {
         $filas = DB::select(
-            'SELECT hpd.pieza_id, p.id, p.nombres, p.apellidos, p.tono
+            'SELECT hpd.pieza_id, p.id, p.nombres, p.apellidos, p.tono, fot.nombre AS foto_profesor
                FROM horario_pieza_docente hpd
                JOIN profesores p ON p.id = hpd.profesor_id
+               LEFT JOIN images fot ON fot.id = p.foto_id AND fot.deleted_at IS NULL
               WHERE hpd.version_id = ?
               ORDER BY p.apellidos, p.nombres, p.id',
             [$versionId]
@@ -1471,6 +1472,7 @@ class HorarioController extends Controller
                 'nombres' => $f->nombres,
                 'apellidos' => $f->apellidos,
                 'tono' => $f->tono,
+                'foto_profesor' => $f->foto_profesor,
             ];
         }
 

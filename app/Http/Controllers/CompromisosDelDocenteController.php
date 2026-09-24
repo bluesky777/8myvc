@@ -191,6 +191,7 @@ class CompromisosDelDocenteController extends Controller
                             al.id AS alumno_id, TRIM(CONCAT(al.nombres, " ", al.apellidos)) AS alumno,
                             COALESCE(mm.materia, ar.nombre) AS nombre,
                             TRIM(CONCAT(pr.nombres, " ", pr.apellidos)) AS profesor,
+                            fot.nombre AS foto_profesor,
                             TRIM(CONCAT(vp.nombres, " ", vp.apellidos)) AS veredicto_por_nombre
                        FROM compromiso_items ci
                        INNER JOIN compromisos c ON c.id = ci.compromiso_id
@@ -201,6 +202,7 @@ class CompromisosDelDocenteController extends Controller
                        LEFT JOIN materias mm ON mm.id = asi.materia_id
                        LEFT JOIN areas ar ON ar.id = ci.area_id
                        LEFT JOIN profesores pr ON pr.id = ci.profesor_id
+                       LEFT JOIN images fot ON fot.id = pr.foto_id AND fot.deleted_at IS NULL
                        LEFT JOIN profesores vp ON vp.id = ci.veredicto_por
                       WHERE c.year_id = :year_id
                         AND c.estado <> "borrador"
@@ -750,6 +752,7 @@ class CompromisosDelDocenteController extends Controller
             'nombre' => (string) ($fila->nombre ?? ''),
             'profesor_id' => $fila->profesor_id === null ? null : (int) $fila->profesor_id,
             'profesor' => $fila->profesor === null || $fila->profesor === '' ? null : $fila->profesor,
+            'foto_profesor' => $fila->foto_profesor ?? null,
 
             'nota_al_crear' => (float) $fila->nota_al_crear,
 

@@ -311,10 +311,11 @@ class DisciplinaController extends Controller {
 
 
 			// Traido los procesos
-			$consulta 	= 'SELECT d.*, SUBSTRING(d.fecha_hora_aprox, 1, 10) as fecha_corta, CONCAT(p.nombres, " ", p.apellidos) as profesor_nombre,
+			$consulta 	= 'SELECT d.*, SUBSTRING(d.fecha_hora_aprox, 1, 10) as fecha_corta, CONCAT(p.nombres, " ", p.apellidos) as profesor_nombre, fot.nombre as foto_profesor,
 					? as periodo_numero
 				FROM dis_procesos d 
 				LEFT JOIN profesores p ON p.id=d.profesor_id and p.deleted_at is null
+				LEFT JOIN images fot ON fot.id=p.foto_id and fot.deleted_at is null
 				WHERE alumno_id=? and d.periodo_id=? and d.deleted_at is null';
 
 			$procesos 	= DB::select($consulta, [ $periodos[$j]->numero, $alumno->alumno_id, $periodos[$j]->id ]);

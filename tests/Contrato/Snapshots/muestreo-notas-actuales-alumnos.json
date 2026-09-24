@@ -148,6 +148,7 @@
                             "desempenio": "string",
                             "foto_id": "int|null",
                             "foto_nombre": "string",
+                            "foto_profesor": "null|string",
                             "frases": [
                                 {
                                     "asignatura_id": "int",

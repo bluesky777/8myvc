@@ -171,7 +171,10 @@ class ActividadesController extends Controller {
 
 		$actividad 	= WsActividad::datosActividad($actividad_id);
 
-		$consulta 	= 'SELECT * FROM grupos g WHERE g.year_id=? and g.deleted_at is null';
+		$consulta 	= 'SELECT g.*, fot.nombre as foto_titular FROM grupos g
+			LEFT JOIN profesores p ON p.id=g.titular_id
+			LEFT JOIN images fot ON fot.id=p.foto_id AND fot.deleted_at IS NULL
+			WHERE g.year_id=? and g.deleted_at is null';
 		$grupos 	= DB::select($consulta, [$user->year_id]);
 
 

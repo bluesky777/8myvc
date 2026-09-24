@@ -33,6 +33,7 @@
             "creditos": "int",
             "foto_id": "int|null",
             "foto_nombre": "string",
+            "foto_profesor": "null|string",
             "grupo_id": "int",
             "indice": "int",
             "materia": "string",
