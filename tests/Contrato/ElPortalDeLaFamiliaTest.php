@@ -533,7 +533,67 @@ class ElPortalDeLaFamiliaTest extends CasoDeContrato
         $codigo = $this->unaOrdenPagada();
 
         $this->getJson(self::PORTAL.'/'.$codigo)->assertStatus(200);
-        $this->putJson(self::PORTAL.'/'.$codigo, ['nombres' => 'Laura'])->assertStatus(200);
+        // Con el documento: el nombre solo ya no se guarda, ver
+        // `test_el_nombre_sin_documento_ni_fecha_no_se_guarda`.
+        $this->putJson(self::PORTAL.'/'.$codigo,
+            ['nombres' => 'Laura', 'documento' => '1090123456'])->assertStatus(200);
+    }
+
+    /**
+     * **El nombre sin documento ni fecha cerraría el formulario para siempre.**
+     *
+     * Con nombre dentro, el portal pide el documento o la fecha de nacimiento para
+     * volver a abrirlo; sin ninguno de los dos no hay con qué comparar y el formulario
+     * queda cerrado para la familia y para el colegio. La pantalla guarda sola mientras
+     * se teclea, así que escribir el nombre primero bastaba.
+     */
+    public function test_el_nombre_sin_documento_ni_fecha_no_se_guarda(): void
+    {
+        $codigo = $this->unaOrdenPagada();
+
+        $this->putJson(self::PORTAL.'/'.$codigo, ['nombres' => 'Laura'])->assertStatus(422);
+
+        $this->assertNull(DB::selectOne('SELECT nombres FROM aspirantes ORDER BY id DESC LIMIT 1')->nombres ?? null,
+            'Se contestó 422 y aun así escribió el nombre.');
+
+        $r = $this->getJson(self::PORTAL.'/'.$codigo)->assertStatus(200);
+        $this->assertTrue($r->json('verificado'), 'El formulario quedó cerrado sin llave con la que abrirlo.');
+
+        // Con la fecha, en cambio, entra: es la llave del que todavía no tiene documento.
+        $this->putJson(self::PORTAL.'/'.$codigo,
+            ['nombres' => 'Laura', 'fecha_nac' => '2021-03-04'])->assertStatus(200);
+        $this->getJson(self::PORTAL.'/'.$codigo.'?fecha_nac=2021-03-04')
+            ->assertStatus(200)->assertJsonPath('verificado', true);
+    }
+
+    /**
+     * **Un dígito mal puesto en el documento se puede corregir.**
+     *
+     * El segundo factor y el campo se llamaban igual, así que corregir el documento
+     * contestaba 403: el número bueno no casaba con el malo guardado. `llave_documento`
+     * lleva el de identificarse y `documento` el que se guarda.
+     */
+    public function test_la_familia_corrige_su_documento_con_la_llave(): void
+    {
+        $codigo = $this->unaOrdenPagada();
+
+        $this->putJson(self::PORTAL.'/'.$codigo,
+            ['nombres' => 'Laura', 'documento' => '1090123465'])->assertStatus(200);
+
+        // Sin la llave, el número nuevo no identifica a nadie.
+        $this->putJson(self::PORTAL.'/'.$codigo, ['documento' => '1090123456'])->assertStatus(403);
+
+        // Con una llave que no es, tampoco.
+        $this->putJson(self::PORTAL.'/'.$codigo,
+            ['llave_documento' => '999', 'documento' => '1090123456'])->assertStatus(403);
+
+        $this->putJson(self::PORTAL.'/'.$codigo,
+            ['llave_documento' => '1090123465', 'documento' => '1090123456'])->assertStatus(200);
+
+        $this->getJson(self::PORTAL.'/'.$codigo.'?documento=1090123456')
+            ->assertStatus(200)->assertJsonPath('aspirante.documento', '1090123456');
+        $this->getJson(self::PORTAL.'/'.$codigo.'?documento=1090123465')
+            ->assertStatus(200)->assertJsonPath('verificado', false);
     }
 
     /**

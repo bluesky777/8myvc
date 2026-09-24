@@ -263,6 +263,12 @@ class PortalInscripcionController extends Controller
             $valores[] = $this->valorDe($campo);
         }
 
+        if (count($sets) > 0 && $this->dejariaElFormularioSinLlave($aspirante)) {
+            abort(422, 'Para guardar el nombre hace falta el documento del aspirante o, si '
+                .'todavía no tiene, su fecha de nacimiento: es lo que se pide para volver a abrir '
+                .'el formulario.');
+        }
+
         if (count($sets) === 0) {
             // Nada que escribir: se contesta lo que hay. **No es un error** —la
             // pantalla guarda sola y puede disparar sin cambios— y un 422 aquí le
@@ -461,13 +467,13 @@ class PortalInscripcionController extends Controller
         }
 
         if ($documento !== '') {
-            $pedido = mb_strtoupper(trim((string) Request::input('documento')));
+            $pedido = mb_strtoupper(trim((string) $this->llave('documento')));
 
             return $pedido !== '' && $pedido === mb_strtoupper($documento);
         }
 
         if ($nacimiento !== '') {
-            $pedido = trim((string) Request::input('fecha_nac'));
+            $pedido = trim((string) $this->llave('fecha_nac'));
 
             return $pedido !== '' && substr($nacimiento, 0, 10) === substr($pedido, 0, 10);
         }
@@ -477,6 +483,56 @@ class PortalInscripcionController extends Controller
         // lo desbloquea escribiendo el documento o la fecha, que es lo que la pantalla
         // le pide con `pide`.
         return false;
+    }
+
+    /**
+     * **La llave, con su nombre propio cuando el mismo campo se está corrigiendo.**
+     *
+     * El segundo factor viaja en `documento` / `fecha_nac`, que son TAMBIÉN dos de los
+     * campos que `putFormulario` escribe. Con un solo nombre para las dos cosas, la
+     * familia que se equivocó en un dígito del documento **no podía corregirlo nunca**:
+     * mandar el número bueno contestaba 403 porque no casaba con el malo guardado, y
+     * mandar el malo lo volvía a escribir. `llave_documento` / `llave_fecha_nac` dicen
+     * «con esto me identifico» por separado de «esto es lo que quiero guardar».
+     *
+     * **Sin ellas todo sigue igual**: se lee el campo de siempre, así que ningún
+     * llamante que ya existe cambia de comportamiento.
+     */
+    private function llave(string $campo): mixed
+    {
+        return Request::has('llave_'.$campo)
+            ? Request::input('llave_'.$campo)
+            : Request::input($campo);
+    }
+
+    /**
+     * **¿Este guardado dejaría el formulario cerrado para siempre?**
+     *
+     * `segundoFactorCoincide` cierra el formulario en cuanto tiene nombre y le pide a
+     * la familia el documento o, si no hay, la fecha de nacimiento. Si se guarda el
+     * nombre **sin ninguna de las dos**, la pantalla pide `fecha_nac`, no hay fecha con
+     * la que compararla, y **nadie puede volver a abrirlo** — ni la familia ni el
+     * colegio, que no tiene ruta para escribir en `aspirantes`. Con un formulario que
+     * se guarda solo mientras se teclea, basta con escribir el nombre primero.
+     *
+     * Se rechaza **antes** de escribir, con 422, y no se arregla en la pantalla porque
+     * la pantalla no es el único cliente de una ruta pública.
+     */
+    private function dejariaElFormularioSinLlave(object $aspirante): bool
+    {
+        $despues = function (string $campo) use ($aspirante): string {
+            if (Request::has($campo)) {
+                $valor = Request::input($campo);
+
+                return is_array($valor) ? '' : trim((string) $valor);
+            }
+
+            return trim((string) ($aspirante->{$campo} ?? ''));
+        };
+
+        return $despues('nombres') !== ''
+            && $despues('documento') === ''
+            && $despues('fecha_nac') === '';
     }
 
     /** Lo que la familia puede ver de su propio formulario. */
