@@ -184,8 +184,41 @@ class BolfinalesController extends Controller {
 		return $hojas;
 	}
 
+	/**
+	 * **El año del informe es el del GRUPO, no el de la sesión.**
+	 *
+	 * Todo lo de abajo -- periodos, escalas, cabecera, nivelaciones, puestos -- se lee con
+	 * `$user->year_id`. Con un grupo de otro año, el certificado de todos los años de un
+	 * alumno (`certificados-alumno`) sacaba 2024 y 2025 con la cabecera de 2026 y **todas las
+	 * notas en 0**: el `JOIN periodos p ON p.year_id=:year_id` no encontraba ninguno. Medido
+	 * el 24 sep 2026 en el docker, alumno 416, grupos 52 y 61.
+	 *
+	 * Con un grupo del año de la sesión no cambia nada: devuelve el mismo `$user`. Si no, una
+	 * COPIA, para no cambiarle el año a quien llamó.
+	 */
+	private function conElAnioDelGrupo($user, $grupo_id)
+	{
+		$anio = DB::selectOne('SELECT y.id, y.year, y.si_recupera_materia_recup_indicador
+			FROM grupos g INNER JOIN years y ON y.id=g.year_id
+			WHERE g.id=?', [$grupo_id]);
+
+		if (! $anio || (int) $anio->id === (int) $user->year_id) {
+			return $user;
+		}
+
+		$delGrupo = clone $user;
+		$delGrupo->year_id = $anio->id;
+		$delGrupo->year = $anio->year;
+		$delGrupo->si_recupera_materia_recup_indicador = $anio->si_recupera_materia_recup_indicador;
+
+		return $delGrupo;
+	}
+
+
 	public function detailedNotasGrupo($grupo_id, $user, $requested_alumnos='')
 	{
+		$user = $this->conElAnioDelGrupo($user, $grupo_id);
+
 
 		$this->escalas_val = DB::select('SELECT * FROM escalas_de_valoracion WHERE year_id=? AND deleted_at is null', [$user->year_id]);
 
@@ -403,6 +436,10 @@ class BolfinalesController extends Controller {
 		
 		$grupo			= Grupo::datos($grupo_id);
 		$year			= Year::datos($user->year_id, $year_actual);
+		// Con `$year_actual` la cabecera -- rector, firmas, logo, contadores -- es la del año
+		// `actual`, que es quien firma hoy. Pero el año CURSADO es el del grupo: sin esto un
+		// certificado de 2024 decía «durante el año 2026».
+		$year->year		= $user->year;
 		
 		
 		$year_notas		= Year::datos($user->year_id);
