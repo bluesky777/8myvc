@@ -134,8 +134,14 @@ for d in ${patron}; do
     aplicadas=0
     if [ "\$migraciones" != "0" ]; then
         if ! salida=\$(php artisan migrate --force 2>&1); then
+            # El pull YA se hizo: este colegio se queda con el código nuevo y la base
+            # vieja, que es el 500 permanente. Y si el migrate ha fallado aquí, lo más
+            # probable es que falle igual en el siguiente, así que la tanda se para:
+            # romper un colegio es un incidente, romper diecisiete es una noche.
             printf 'FALLO\t%s\t%s\t%s\tmigrate: %s\n' "\$carpeta" "\$(git rev-parse --short HEAD)" "\$respaldo" "\$(echo "\$salida" | tail -1)"
-            continue
+            printf 'PARA\t%s\t-\t-\tTANDA DETENIDA. Este colegio tiene codigo nuevo y base vieja: da 500 hasta que se arregle.\n' "\$carpeta"
+            printf 'PARA\t%s\t-\t-\tVolver atras aqui es: git reset --hard %s y restaurar %s\n' "\$carpeta" "\$antes" "\$respaldo"
+            break
         fi
         aplicadas=\$(printf '%s\n' "\$salida" | grep -c DONE)
     fi
@@ -167,6 +173,14 @@ while read -r etiqueta destino puerto patron; do
     printf '%s\n' "$salida" | while IFS= read -r l; do
         [ -n "$l" ] && printf '%s\t%s\n' "$etiqueta" "$l"
     done >> "$CRUDO"
+
+    # Si una cuenta se paró en seco, la otra tampoco se toca: la causa de un migrate
+    # que falla casi nunca es de ese colegio, y la segunda cuenta es OTRA máquina a la
+    # que llegar con el mismo error no aporta nada y sí deja más que arreglar.
+    if grep -q "$(printf '\tPARA\t')" "$CRUDO"; then
+        echo "DESPLIEGUE: la tanda se detuvo en ${etiqueta}; no se sigue con las demás cuentas." >&2
+        break
+    fi
 done <<< "$CUENTAS"
 
 if [ ! -s "$CRUDO" ]; then
