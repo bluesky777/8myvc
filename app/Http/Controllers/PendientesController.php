@@ -33,6 +33,7 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
  * | `acudientes` | Posponible | directivos | Secretario |
  * | `celular` | Posponible | directivos | Secretario |
  * | `jefes_de_area` | Silenciable | superusuario y Coord académico (plan §4) | — |
+ * | `firmas_por_aprobar` | Importante | quien aprueba firmas (`Autoriza::puedeAprobarFirmas`) | — |
  *
  * «Directivos» es superusuario, `Admin`, `Rector`, `Secretario`, `Coord académico` y
  * `Coord disciplinario`. A quien no le toca nada se le contesta la lista vacía en 200.
@@ -55,12 +56,6 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
  *
  * Una consulta por tipo, más dos del cierre (`delPeriodo`, `faltantesPorAsignatura`) y
  * las de `contarPerdidas`. Nada por fila.
- *
- * ## Punto de extensión: firmas del titular por aprobar
- *
- * Cuando esté commiteado `firmas-del-titular/pendientes` (otro frente, 24 sep 2026), su
- * pendiente es un método más como los de abajo, añadido a `getMios()` con su audiencia
- * (`Autoriza::puedeAprobarFirmas`). No hay nada que tocar en el front.
  */
 class PendientesController extends Controller
 {
@@ -116,6 +111,7 @@ class PendientesController extends Controller
             $directivo ? $this->intensidadHoraria($year) : null,
             $directivo ? $this->sinAcudiente($year) : null,
             $directivo ? $this->sinCelular($year) : null,
+            Autoriza::puedeAprobarFirmas($user) ? $this->firmasPorAprobar((int) $user->user_id) : null,
         ]);
 
         foreach ($pendientes as &$p) {
@@ -657,6 +653,52 @@ class PendientesController extends Controller
         $digitos = preg_replace('/\D/', '', (string) $valor);
 
         return strlen($digitos) >= 7 && trim($digitos, '0') !== '';
+    }
+
+    /* ── 8. Firmas del titular esperando aprobación ─────────────────────────────────── */
+
+    /**
+     * Las mismas solicitudes que `firmas-del-titular/pendientes`, menos la propia: quien
+     * pidió su firma no puede aprobarla (`FirmasDelTitularController::getCuantas`).
+     * Importante porque la firma no sale en los boletines hasta que alguien la apruebe, y
+     * resolverla es un clic.
+     */
+    private function firmasPorAprobar(int $userId): ?array
+    {
+        $filas = DB::select('SELECT p.nombres, p.apellidos, i.nombre AS foto, c.created_at
+            FROM change_asked c
+            INNER JOIN change_asked_data d ON d.id = c.data_id AND d.firma_id_new IS NOT NULL
+            INNER JOIN profesores p ON p.user_id = c.asked_by_user_id AND p.deleted_at IS NULL
+            LEFT JOIN images i ON i.id = p.foto_id AND i.deleted_at IS NULL
+            WHERE c.deleted_at IS NULL AND c.answered_by IS NULL AND c.asked_by_user_id <> ?
+            ORDER BY c.created_at, c.id', [$userId]);
+
+        $cuantas = count($filas);
+
+        if ($cuantas === 0) {
+            return null;
+        }
+
+        return [
+            'tipo' => 'firmas_por_aprobar',
+            'clave' => 'firmas_por_aprobar',
+            'insistencia' => self::IMPORTANTE,
+            'urgencia' => 200,
+            'icono' => 'edit',
+            'titular' => $this->plural($cuantas, 'firma de titular espera tu aprobación', 'firmas de titular esperan tu aprobación'),
+            'detalle' => 'No sale en los boletines hasta que alguien la apruebe.',
+            'filas' => array_map(fn ($f) => [
+                'texto' => trim($f->nombres.' '.$f->apellidos),
+                'nota' => 'desde el '.Carbon::parse($f->created_at)->locale('es')->translatedFormat('j M'),
+                'aviso' => false,
+                'foto' => $f->foto,
+                'nombres' => $f->nombres,
+                'apellidos' => $f->apellidos,
+            ], array_slice($filas, 0, self::TOPE_DE_FILAS)),
+            'total_filas' => $cuantas,
+            'destino' => ['ruta' => '/firmas-por-aprobar', 'etiqueta' => 'Revisar firmas'],
+            'primero_para' => [],
+        ];
     }
 
     /* ── Piezas ──────────────────────────────────────────────────────────────────────── */
