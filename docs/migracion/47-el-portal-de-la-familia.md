@@ -589,3 +589,22 @@ esto medido ya no hay nada que investigar para escribirla.
 | Las doce pantallas de estaciones | **`myvc_flutter`** |
 | Llevar el `CON_COMPROMISO` de la cita al observador | de otra tanda. Aquí se garantiza que el dato exista y sea consultable, **no que aparezca en febrero en la planilla del docente** |
 | El vocabulario de `estado` **migrado** en los dieciséis | sigue pendiente: lo que se paga hoy es que **ninguna ruta pueda escribir fuera de la lista**, no que lo escrito antes se normalice |
+
+---
+
+## 10. Lo que cambió al pintar las pantallas *(24 sep 2026)*
+
+El front (`myvc_front/app2`, `PANTALLAS-MATRICULA.md` §8) destapó cinco huecos del contrato. Todos
+añaden, ninguno cambia lo que ya contestaba:
+
+| commit | qué |
+|---|---|
+| `c4a6c3a` | **`llave_documento` / `llave_fecha_nac`** en las escrituras del portal. El segundo factor y el campo se llamaban igual, así que un documento mal tecleado no se podía corregir (el bueno daba 403). Sin la llave, todo como antes. Y **el nombre sin documento ni fecha es 422**: con nombre, `pide: fecha_nac` sin fecha con qué comparar cerraba el formulario para siempre |
+| `18f1f1c` | **`grados`** en `GET inscripcion/{codigo}` |
+| `1852a5c` | **`requisitos_matricula.pide_documento`** (migración `2026_09_24_600000`, nace en 1): el portal ofrecía subir la entrevista. `postDocumento` da 422 si el paso no es un papel |
+| `b56756e` | **`recibido_por_usuario`** en la ficha del aspirante, como la firma de las estaciones (43df438) |
+| `4de0683` | **`motivo_decision`** del «no admitido» en el portal, con segundo factor |
+
+**Orden de despliegue:** estas rutas y la migración en los colegios **antes** que el bundle de
+`up2`. Al revés las pantallas funcionan casi enteras —el front trata los campos nuevos como
+opcionales—, pero corregir un documento daría 403 y el portal listaría la entrevista como documento.
