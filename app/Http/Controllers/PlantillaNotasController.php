@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Services\Auditoria;
+use App\Support\FotoDeLaPlantilla;
 use App\Support\CierreDeAsignatura;
 use App\Support\AlcanceDeLaPlantilla;
 use App\Support\Autoriza;
@@ -627,7 +628,52 @@ class PlantillaNotasController extends Controller
             ))
             ->guardar();
 
+        // La plantilla que acaba de propagarse: contra ella se miden los cambios sin
+        // propagar y a ella vuelve «Descartar» (plan de pendientes §2.3).
+        FotoDeLaPlantilla::tomar($yearId, (int) $this->user->user_id);
+
         return $conteo;
+    }
+
+    /**
+     * `GET plantilla-notas/cambios` — qué cambió en la plantilla desde la última vez que se
+     * propagó. `propagada` es `null` si nunca se propagó desde que existen las fotos: entonces
+     * no se sabe y `cambios` va vacío.
+     */
+    public function getCambios(): array
+    {
+        Autoriza::exigir(Autoriza::puedeEditarPlantillaNotas($this->user), self::SIN_PERMISO);
+
+        $yearId = (int) $this->user->year_id;
+        $foto = FotoDeLaPlantilla::ultima($yearId);
+
+        return [
+            'propagada' => $foto === null ? null : ['cuando' => FotoDeLaPlantilla::cuando($foto), 'por' => $foto->quien],
+            'cambios' => FotoDeLaPlantilla::cambios($yearId) ?? [],
+        ];
+    }
+
+    /**
+     * `PUT plantilla-notas/descartar` — devuelve la plantilla a como quedó la última vez que se
+     * propagó. No toca ninguna asignatura. 422 si nunca se propagó.
+     */
+    public function putDescartar(): array
+    {
+        Autoriza::exigir(Autoriza::puedeEditarPlantillaNotas($this->user), self::SIN_PERMISO);
+
+        $yearId = (int) $this->user->year_id;
+        $cuenta = FotoDeLaPlantilla::descartar($yearId, (int) $this->user->user_id);
+
+        abort_if($cuenta === null, 422, 'La plantilla no se ha propagado nunca, así que no hay a qué volver.');
+
+        Auditoria::registrar()
+            ->editar('unidad')
+            ->en(year: $yearId)
+            ->a($cuenta)
+            ->resumen(sprintf('Descartó los cambios de la plantilla: %d filas restauradas y %d quitadas', $cuenta['restauradas'], $cuenta['quitadas']))
+            ->guardar();
+
+        return $cuenta;
     }
 
     private const SIN_PERMISO = 'No tiene permiso para editar la plantilla de notas del colegio.';

@@ -55,6 +55,8 @@ Route::get('plantilla-notas', [PlantillaNotasController::class, 'getIndex'])->mi
 
 Route::put('plantilla-notas/orden', [PlantillaNotasController::class, 'putOrden'])->middleware('auth.personal');
 Route::put('plantilla-notas/sembrar', [PlantillaNotasController::class, 'putSembrar'])->middleware('auth.personal');
+Route::get('plantilla-notas/cambios', [PlantillaNotasController::class, 'getCambios'])->middleware('auth.personal');
+Route::put('plantilla-notas/descartar', [PlantillaNotasController::class, 'putDescartar'])->middleware('auth.personal');
 
 Route::post('plantilla-notas/unidad', [PlantillaNotasController::class, 'postUnidad'])->middleware('auth.personal');
 Route::put('plantilla-notas/unidad/{id}', [PlantillaNotasController::class, 'putUnidad'])->middleware('auth.personal');

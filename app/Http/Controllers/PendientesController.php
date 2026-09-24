@@ -7,6 +7,7 @@ use App\Models\Role;
 use App\Services\CalendarioDePeriodos;
 use App\Support\Autoriza;
 use App\Support\CierreDeAsignatura;
+use App\Support\FotoDeLaPlantilla;
 use App\Support\Reloj;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -38,6 +39,7 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
  * | `periodos_faltan` | Importante sin ninguno; Silenciable con 1 a 3 | quien abre `/colegio/:y/periodos`: superusuario y `Admin` | — |
  * | `fechas_de_periodos` | Importante | ídem | — |
  * | `periodo_desfasado` | Importante, pero lo pospone el colegio entero | ídem | — |
+ * | `plantilla_sin_propagar` | Importante | quien edita la plantilla (`Autoriza::puedeEditarPlantillaNotas`) | — |
  *
  * «Directivos» es superusuario, `Admin`, `Rector`, `Secretario`, `Coord académico` y
  * `Coord disciplinario`. A quien no le toca nada se le contesta la lista vacía en 200.
@@ -128,6 +130,7 @@ class PendientesController extends Controller
             $periodos !== null ? $this->periodosQueFaltan($year, $periodos) : null,
             $periodos !== null ? $this->fechasDePeriodos($year, $periodos) : null,
             $periodos !== null ? $this->periodoDesfasado($year, $periodos) : null,
+            Autoriza::puedeEditarPlantillaNotas($user) ? $this->plantillaSinPropagar($year) : null,
         ]);
 
         foreach ($pendientes as &$p) {
@@ -874,6 +877,40 @@ class PendientesController extends Controller
         $ultima = array_pop($cosas);
 
         return $cosas === [] ? $ultima : implode(', ', $cosas).' y '.$ultima;
+    }
+
+    /* ── 10. La plantilla cambió y no se ha propagado ───────────────────────────────── */
+
+    /**
+     * Contra la última foto (`FotoDeLaPlantilla`). Sin foto no sale: el colegio que nunca
+     * propagó desde que existen no tiene con qué comparar, y adivinarlo sería inventar.
+     */
+    private function plantillaSinPropagar(object $year): ?array
+    {
+        $cambios = FotoDeLaPlantilla::cambios((int) $year->id);
+
+        if ($cambios === null || $cambios === []) {
+            return null;
+        }
+
+        $foto = FotoDeLaPlantilla::ultima((int) $year->id);
+        $n = count($cambios);
+        $cuando = FotoDeLaPlantilla::cuando($foto);
+
+        return [
+            'tipo' => 'plantilla_sin_propagar',
+            'clave' => 'plantilla_sin_propagar:y='.$year->id,
+            'insistencia' => self::IMPORTANTE,
+            'urgencia' => 160,
+            'icono' => 'diff',
+            'titular' => 'La plantilla tiene '.$this->plural($n, 'cambio', 'cambios').' sin propagar',
+            'detalle' => 'Se propagó por última vez el **'.$cuando.'**'.($foto->quien ? ' ('.$foto->quien.')' : '')
+                .'. Las asignaturas siguen con la plantilla de ese día.',
+            'filas' => array_map(static fn ($c) => ['texto' => $c['texto'], 'nota' => null, 'aviso' => $c['tipo'] === 'menos'], array_slice($cambios, 0, self::TOPE_DE_FILAS)),
+            'total_filas' => $n,
+            'destino' => ['ruta' => '/plan-evaluacion', 'query' => ['paso' => 'plantilla'], 'etiqueta' => 'Revisar la plantilla'],
+            'primero_para' => ['Coord académico'],
+        ];
     }
 
     /* ── Piezas ──────────────────────────────────────────────────────────────────────── */
