@@ -7,6 +7,7 @@ use App\Models\Role;
 use App\Services\CalendarioDePeriodos;
 use App\Support\Autoriza;
 use App\Support\CierreDeAsignatura;
+use App\Support\AlcanceDeLaPlantilla;
 use App\Support\FotoDeLaPlantilla;
 use App\Support\Reloj;
 use Carbon\Carbon;
@@ -44,6 +45,11 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
  * | `prematricula_vieja` | Posponible | superusuario, `Admin` y `Secretario` | Secretario |
  * | `alumnos_sin_datos` | Posponible | ídem | Secretario |
  * | `docentes_sin_datos` | Posponible | ídem | Secretario |
+ * | `grupos_sin_titular` | Posponible | superusuario, `Admin` y Coord académico | Coord académico |
+ * | `asignaturas_sin_docente` | Importante | ídem | Coord académico |
+ * | `escala_incompleta` | Importante | superusuario y `Admin` | — |
+ * | `plantilla_que_no_suma` | Importante; Silenciable si está vacía | quien edita la plantilla | Coord académico |
+ * | `ficha_incompleta` | Silenciable | superusuario, `Admin` y `Secretario` | Secretario |
  *
  * «Directivos» es superusuario, `Admin`, `Rector`, `Secretario`, `Coord académico` y
  * `Coord disciplinario`. A quien no le toca nada se le contesta la lista vacía en 200.
@@ -143,6 +149,11 @@ class PendientesController extends Controller
             $secretaria ? $this->prematriculaVieja($year) : null,
             $secretaria ? $this->alumnosSinDatos($year) : null,
             $secretaria ? $this->docentesSinDatos($year) : null,
+            ($super || array_intersect(['Admin', 'Coord académico'], $roles) !== []) ? $this->gruposSinTitular($year) : null,
+            ($super || array_intersect(['Admin', 'Coord académico'], $roles) !== []) ? $this->asignaturasSinDocente($year) : null,
+            ($super || in_array('Admin', $roles, true)) ? $this->escalaIncompleta($year) : null,
+            Autoriza::puedeEditarPlantillaNotas($user) ? $this->plantillaQueNoSuma($year) : null,
+            $secretaria ? $this->fichaIncompleta($year) : null,
         ]);
 
         foreach ($pendientes as &$p) {
@@ -1205,6 +1216,258 @@ class PendientesController extends Controller
                 AND al.id IN ('.implode(',', array_fill(0, count($ids), '?')).')',
             array_merge([$yearId], $ids)
         );
+    }
+
+    /* ── 14. Configuración del año ──────────────────────────────────────────────────── */
+
+    /** Un año nuevo nace con los grupos sin titular a propósito (`YearsController:518`). */
+    private function gruposSinTitular(object $year): ?array
+    {
+        $grupos = DB::select('SELECT nombre FROM grupos WHERE year_id = ? AND deleted_at IS NULL AND titular_id IS NULL ORDER BY orden, nombre', [(int) $year->id]);
+        $n = count($grupos);
+
+        if ($n === 0) {
+            return null;
+        }
+
+        return [
+            'tipo' => 'grupos_sin_titular',
+            'clave' => 'grupos_sin_titular:y='.$year->id,
+            'insistencia' => self::POSPONIBLE,
+            'urgencia' => 75,
+            'icono' => 'team',
+            'titular' => $this->plural($n, 'grupo no tiene', 'grupos no tienen').' titular',
+            'detalle' => 'Sin titular, nadie firma sus boletines ni ve el aviso de sus asignaturas sin cerrar.',
+            'filas' => array_map(static fn ($g) => ['texto' => $g->nombre, 'nota' => 'sin titular', 'aviso' => false], array_slice($grupos, 0, self::TOPE_DE_FILAS)),
+            'total_filas' => $n,
+            'destino' => ['ruta' => '/grupos', 'etiqueta' => 'Poner titulares'],
+            'primero_para' => ['Coord académico'],
+        ];
+    }
+
+    /**
+     * Sin docente, o con uno que no tiene contrato este año: un año nuevo copia el
+     * `profesor_id` pero no los contratos, y la celda sale en blanco (`YearsController:579`).
+     */
+    private function asignaturasSinDocente(object $year): ?array
+    {
+        $filas = DB::select(
+            'SELECT m.materia, g.nombre AS grupo, a.profesor_id
+               FROM asignaturas a
+               INNER JOIN grupos g ON g.id = a.grupo_id AND g.year_id = ? AND g.deleted_at IS NULL
+               INNER JOIN materias m ON m.id = a.materia_id
+              WHERE a.deleted_at IS NULL
+                AND (a.profesor_id IS NULL OR NOT EXISTS (
+                     SELECT 1 FROM contratos c WHERE c.profesor_id = a.profesor_id AND c.year_id = g.year_id AND c.deleted_at IS NULL))
+              ORDER BY g.orden, g.nombre, m.orden, m.materia',
+            [(int) $year->id]
+        );
+        $n = count($filas);
+
+        if ($n === 0) {
+            return null;
+        }
+
+        return [
+            'tipo' => 'asignaturas_sin_docente',
+            'clave' => 'asignaturas_sin_docente:y='.$year->id,
+            'insistencia' => self::IMPORTANTE,
+            'urgencia' => 140,
+            'icono' => 'user-delete',
+            'titular' => $this->plural($n, 'asignatura no tiene', 'asignaturas no tienen').' docente',
+            'detalle' => 'Nadie puede poner sus notas. Cuenta también la que tiene un docente sin contrato en **'.$year->year.'**.',
+            'filas' => array_map(fn ($f) => [
+                'texto' => $this->capitalizar($f->materia).' · '.$f->grupo,
+                'nota' => $f->profesor_id === null ? 'sin docente' : 'docente sin contrato',
+                'aviso' => false,
+            ], array_slice($filas, 0, self::TOPE_DE_FILAS)),
+            'total_filas' => $n,
+            'destino' => ['ruta' => '/asignaturas', 'etiqueta' => 'Asignar docentes'],
+            'primero_para' => ['Coord académico'],
+        ];
+    }
+
+    /**
+     * La escala del año: que exista, que no tenga huecos y que alguna banda sea «perdido».
+     * Los huecos con la misma regla que el front (`cobertura-de-la-escala.ts`): una banda
+     * cubre hasta `porc_final + 1`, y lo que queda entre una y la siguiente es hueco.
+     */
+    private function escalaIncompleta(object $year): ?array
+    {
+        $bandas = DB::select('SELECT desempenio, porc_inicial, porc_final, perdido FROM escalas_de_valoracion
+            WHERE year_id = ? AND deleted_at IS NULL ORDER BY porc_inicial', [(int) $year->id]);
+        $problemas = [];
+
+        if ($bandas === []) {
+            $problemas[] = ['texto' => 'No hay ninguna banda', 'nota' => null, 'aviso' => true];
+        } else {
+            $cubierto = 0.0;
+            foreach ($bandas as $b) {
+                $desde = (float) $b->porc_inicial;
+                $hasta = (float) $b->porc_final + 1;
+                if ($desde > $cubierto) {
+                    $problemas[] = ['texto' => 'De '.$this->nota($cubierto).' a '.$this->nota($desde - 0.01), 'nota' => 'sin desempeño', 'aviso' => true];
+                }
+                $cubierto = max($cubierto, $hasta);
+            }
+            if (array_filter($bandas, static fn ($b) => (int) $b->perdido === 1) === []) {
+                $problemas[] = ['texto' => 'Ninguna banda está marcada como perdida', 'nota' => null, 'aviso' => true];
+            }
+        }
+
+        if ($problemas === []) {
+            return null;
+        }
+
+        return [
+            'tipo' => 'escala_incompleta',
+            'clave' => 'escala_incompleta:y='.$year->id,
+            'insistencia' => self::IMPORTANTE,
+            'urgencia' => 130,
+            'icono' => 'bar-chart',
+            'titular' => 'La escala de valoración de '.$year->year.' está incompleta',
+            'detalle' => 'Una nota que cae en un hueco sale sin desempeño en el boletín, y sin banda perdida no se sabe qué se pierde.',
+            'filas' => $problemas,
+            'total_filas' => count($problemas),
+            'destino' => ['ruta' => '/colegio/anios', 'etiqueta' => 'Revisar la escala'],
+            'primero_para' => [],
+        ];
+    }
+
+    /**
+     * Cada destino de la plantilla (nivel × materia de las asignaturas del año) tiene que
+     * sumar 100: es el 422 de `putSembrar`, dicho antes de que alguien pulse el botón.
+     * **Vacía** es Silenciable: un colegio puede no usar plantilla y dejar que cada docente
+     * monte la suya.
+     */
+    private function plantillaQueNoSuma(object $year): ?array
+    {
+        $yearId = (int) $year->id;
+        $vacia = ! DB::table('unidades_por_defecto')->where('year_id', $yearId)->whereNull('deleted_at')->exists();
+
+        if ($vacia) {
+            return [
+                'tipo' => 'plantilla_que_no_suma',
+                'clave' => 'plantilla_vacia:y='.$yearId,
+                'insistencia' => self::SILENCIABLE,
+                'urgencia' => 40,
+                'icono' => 'profile',
+                'titular' => 'El año '.$year->year.' no tiene plantilla de notas',
+                'detalle' => 'Sin ella, cada asignatura nace sin columnas y cada docente monta las suyas. Si el colegio lo prefiere así, silencia este aviso.',
+                'filas' => [],
+                'total_filas' => 0,
+                'destino' => ['ruta' => '/plan-evaluacion', 'query' => ['paso' => 'plantilla'], 'etiqueta' => 'Crear la plantilla'],
+                'primero_para' => ['Coord académico'],
+            ];
+        }
+
+        $destinos = DB::select(
+            'SELECT DISTINCT a.materia_id, g2.nivel_educativo_id, m.materia, n.nombre AS nivel
+               FROM asignaturas a
+               JOIN grupos g  ON g.id = a.grupo_id AND g.deleted_at IS NULL AND g.year_id = ?
+               JOIN grados g2 ON g2.id = g.grado_id AND g2.deleted_at IS NULL
+               LEFT JOIN materias m ON m.id = a.materia_id
+               LEFT JOIN niveles_educativos n ON n.id = g2.nivel_educativo_id
+              WHERE a.deleted_at IS NULL',
+            [$yearId]
+        );
+
+        $filas = [];
+        $vistas = [];
+        foreach ($destinos as $d) {
+            $unidades = AlcanceDeLaPlantilla::unidadesPara(
+                $yearId,
+                $d->nivel_educativo_id === null ? null : (int) $d->nivel_educativo_id,
+                $d->materia_id === null ? null : (int) $d->materia_id
+            );
+            if ($unidades === []) {
+                continue;
+            }
+            $suma = array_sum(array_map(static fn ($u) => (int) $u->porcentaje, $unidades));
+            // Varias materias caen en el mismo reparto (las filas generales): se dice una vez.
+            $firma = implode(',', array_map(static fn ($u) => (int) $u->id, $unidades));
+            if ($suma === 100 || isset($vistas[$firma])) {
+                continue;
+            }
+            $vistas[$firma] = true;
+            $general = array_filter($unidades, static fn ($u) => ($u->nivel_educativo_id ?? null) !== null || ($u->materia_id ?? null) !== null) === [];
+            $filas[] = [
+                'texto' => $general ? 'La plantilla general' : trim(($d->nivel ?? '').' · '.$this->capitalizar((string) $d->materia), ' ·'),
+                'nota' => 'suma '.$suma.' %',
+                'aviso' => true,
+            ];
+        }
+
+        $n = count($filas);
+
+        if ($n === 0) {
+            return null;
+        }
+
+        return [
+            'tipo' => 'plantilla_que_no_suma',
+            'clave' => 'plantilla_que_no_suma:y='.$yearId,
+            'insistencia' => self::IMPORTANTE,
+            'urgencia' => 150,
+            'icono' => 'profile',
+            'titular' => $n === 1 ? 'Un reparto de la plantilla no suma 100 %' : "{$n} repartos de la plantilla no suman 100 %",
+            'detalle' => 'Así no se puede propagar: las asignaturas de estos repartos quedarían con una definitiva que no llega o se pasa.',
+            'filas' => array_slice($filas, 0, self::TOPE_DE_FILAS),
+            'total_filas' => $n,
+            'destino' => ['ruta' => '/plan-evaluacion', 'query' => ['paso' => 'plantilla'], 'etiqueta' => 'Revisar la plantilla'],
+            'primero_para' => ['Coord académico'],
+        ];
+    }
+
+    /** Lo que sale en los papeles oficiales: logo, DANE, resolución, rector y su firma. */
+    private function fichaIncompleta(object $year): ?array
+    {
+        $vacio = static fn ($v) => $v === null || trim((string) $v) === '';
+        $falta = [];
+
+        if ($vacio($year->logo_id ?? null)) {
+            $falta[] = ['texto' => 'Logo del colegio', 'nota' => 'sale en boletines y certificados'];
+        }
+        if ($vacio($year->codigo_dane ?? null)) {
+            $falta[] = ['texto' => 'Código DANE', 'nota' => 'sale en certificados'];
+        }
+        if ($vacio($year->resolucion ?? null)) {
+            $falta[] = ['texto' => 'Resolución de aprobación', 'nota' => 'sale en certificados'];
+        }
+        if ($vacio($year->rector_id ?? null)) {
+            $falta[] = ['texto' => 'Rector', 'nota' => 'firma boletines finales y certificados'];
+        } else {
+            $firma = DB::selectOne('SELECT firma_id FROM profesores WHERE id = ? AND deleted_at IS NULL', [(int) $year->rector_id]);
+            if ($firma === null || $vacio($firma->firma_id)) {
+                $falta[] = ['texto' => 'Firma del rector', 'nota' => 'sale en boletines finales y certificados'];
+            }
+        }
+
+        $n = count($falta);
+
+        if ($n === 0) {
+            return null;
+        }
+
+        return [
+            'tipo' => 'ficha_incompleta',
+            'clave' => 'ficha_incompleta:y='.$year->id,
+            'insistencia' => self::SILENCIABLE,
+            'urgencia' => 45,
+            'icono' => 'bank',
+            'titular' => $n === 1 ? 'Falta en la ficha del colegio: '.lcfirst($falta[0]['texto']) : "Faltan {$n} datos en la ficha del colegio",
+            'detalle' => 'Salen en los papeles oficiales de **'.$year->year.'**.',
+            'filas' => array_map(static fn ($f) => $f + ['aviso' => false], $falta),
+            'total_filas' => $n,
+            'destino' => ['ruta' => '/colegio/'.$year->id.'/ficha', 'etiqueta' => 'Completar la ficha'],
+            'primero_para' => ['Secretario'],
+        ];
+    }
+
+    /** `29.99` → `29,99`; `30` → `30`. Como `rotuloDeNota` del front. */
+    private function nota(float $valor): string
+    {
+        return floor($valor) === $valor ? (string) (int) $valor : str_replace('.', ',', number_format($valor, 2, '.', ''));
     }
 
     /* ── Piezas ──────────────────────────────────────────────────────────────────────── */
