@@ -2204,6 +2204,14 @@ class YearsController extends Controller {
 				.'que comprueba que no quede vacío.');
 		}
 
+		// Los días que se tolera una prematrícula o un asistente antes de que salga en
+		// Pendientes (`PendientesController::prematriculaVieja`). Un número de verdad: con
+		// «0» o «abc» el pendiente saldría para todos o para nadie sin decir por qué.
+		if ($normalizado === 'dias_max_prematricula'
+			&& ! (ctype_digit((string) $valor) && (int) $valor >= 1 && (int) $valor <= 365)) {
+			abort(422, 'Los días de la prematrícula son un número entre 1 y 365.');
+		}
+
 		/*
 		 * **Opción A del [09 §13], y ésta llega ANTES que su pantalla** — que es lo que
 		 * la hace distinta de las otras dos y por lo que va en su propio commit.
