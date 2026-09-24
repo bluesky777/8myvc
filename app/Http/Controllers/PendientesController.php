@@ -42,6 +42,7 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
  * | `periodo_desfasado` | Importante, pero lo pospone el colegio entero | ídem | — |
  * | `plantilla_sin_propagar` | Importante | quien edita la plantilla (`Autoriza::puedeEditarPlantillaNotas`) | — |
  * | `tardanzas_sin_situacion` | Importante | superusuario y Coord disciplinario (el rol o `years.coordinador_disciplinario_id`) | — |
+ * | `situaciones_sin_escalar` | Importante | ídem | — |
  * | `prematricula_vieja` | Posponible | superusuario, `Admin` y `Secretario` | Secretario |
  * | `alumnos_sin_datos` | Posponible | ídem | Secretario |
  * | `docentes_sin_datos` | Posponible | ídem | Secretario |
@@ -146,6 +147,7 @@ class PendientesController extends Controller
             $periodos !== null ? $this->periodoDesfasado($year, $periodos) : null,
             Autoriza::puedeEditarPlantillaNotas($user) ? $this->plantillaSinPropagar($year) : null,
             $coordDisciplinario ? $this->tardanzasSinSituacion($year) : null,
+            $coordDisciplinario ? $this->situacionesSinEscalar($year) : null,
             $secretaria ? $this->prematriculaVieja($year) : null,
             $secretaria ? $this->alumnosSinDatos($year) : null,
             $secretaria ? $this->docentesSinDatos($year) : null,
@@ -1015,6 +1017,83 @@ class PendientesController extends Controller
                 .($porPeriodo ? 'Se cuenta por periodo.' : 'Se cuenta en todo el año.'),
             'filas' => array_map(fn ($a) => $this->filaDeAlumno(
                 $a, $a->abrev_grupo ?: $a->nombre_grupo, $faltan[(int) $a->alumno_id].' tardanzas', true
+            ), array_slice($alumnos, 0, self::TOPE_DE_FILAS)),
+            'total_filas' => $n,
+            'destino' => ['ruta' => '/disciplina', 'etiqueta' => 'Ir a disciplina'],
+            'primero_para' => [],
+        ];
+    }
+
+    /**
+     * La cascada: `cant_ft1_to_ft2` situaciones tipo 1 dan una tipo 2, y `cant_ft2_to_ft3`
+     * tipo 2 dan una tipo 3. Las que ya se escalaron llevan `become_id` —lo pone la pantalla
+     * de disciplina al crear la derivada—, así que se cuentan **sólo las que no lo tienen**,
+     * igual que `DisciplinaController` al pintar el observador. Por periodo o por año, con la
+     * misma regla que las tardanzas.
+     */
+    private function situacionesSinEscalar(object $year): ?array
+    {
+        $conf = DB::selectOne('SELECT * FROM dis_configuraciones WHERE year_id = ? AND deleted_at IS NULL ORDER BY id LIMIT 1', [(int) $year->id]);
+
+        if ($conf === null) {
+            return null;
+        }
+
+        $filtro = '';
+        $datos = [(int) $year->id];
+
+        if ((int) $conf->reinicia_por_periodo === 1) {
+            $actual = DB::selectOne('SELECT id FROM periodos WHERE year_id = ? AND actual = 1 AND deleted_at IS NULL', [(int) $year->id]);
+            if ($actual === null) {
+                return null;
+            }
+            $filtro = ' AND d.periodo_id = ?';
+            $datos[] = (int) $actual->id;
+        }
+
+        $nombre = static fn (int $tipo) => mb_strtolower((string) ($conf->{'falta_tipo'.$tipo.'_displayname'} ?: 'situación tipo '.$tipo));
+        $faltan = [];
+
+        foreach ([1 => (int) $conf->cant_ft1_to_ft2, 2 => (int) $conf->cant_ft2_to_ft3] as $tipo => $umbral) {
+            if ($umbral <= 0) {
+                continue;
+            }
+
+            foreach (DB::select(
+                'SELECT d.alumno_id, COUNT(*) AS n FROM dis_procesos d
+                  WHERE d.year_id = ? AND d.tipo_situacion = '.$tipo.' AND d.become_id IS NULL AND d.deleted_at IS NULL'.$filtro.'
+                  GROUP BY d.alumno_id HAVING n >= ?',
+                array_merge($datos, [$umbral])
+            ) as $f) {
+                // Si ya le toca la tipo 3, eso es lo que se dice.
+                $plural = mb_strtolower((string) ($conf->{'faltas_tipo'.$tipo.'_displayname'} ?: 'situaciones tipo '.$tipo));
+                $una = ($conf->{'genero_falta_t'.($tipo + 1)} ?? 'F') === 'M' ? 'un' : 'una';
+                $faltan[(int) $f->alumno_id] = $f->n.' '.$plural.' → falta '.$una.' '.$nombre($tipo + 1);
+            }
+        }
+
+        if ($faltan === []) {
+            return null;
+        }
+
+        $alumnos = $this->alumnosDelAnio((int) $year->id, array_keys($faltan));
+        $n = count($alumnos);
+
+        if ($n === 0) {
+            return null;
+        }
+
+        return [
+            'tipo' => 'situaciones_sin_escalar',
+            'clave' => 'situaciones_sin_escalar:y='.$year->id,
+            'insistencia' => self::IMPORTANTE,
+            'urgencia' => 175,
+            'icono' => 'rise',
+            'titular' => $this->plural($n, 'estudiante acumula', 'estudiantes acumulan').' situaciones para subir de tipo',
+            'detalle' => 'Así está configurado en Disciplina: **'.(int) $conf->cant_ft1_to_ft2.'** de tipo 1 dan una de tipo 2, y **'
+                .(int) $conf->cant_ft2_to_ft3.'** de tipo 2 dan una de tipo 3.',
+            'filas' => array_map(fn ($a) => $this->filaDeAlumno(
+                $a, $a->abrev_grupo ?: $a->nombre_grupo, $faltan[(int) $a->alumno_id], true
             ), array_slice($alumnos, 0, self::TOPE_DE_FILAS)),
             'total_filas' => $n,
             'destino' => ['ruta' => '/disciplina', 'etiqueta' => 'Ir a disciplina'],
