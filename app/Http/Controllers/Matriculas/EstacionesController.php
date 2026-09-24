@@ -1400,7 +1400,8 @@ class EstacionesController extends Controller
 
         $marcas = DB::select('SELECT ra.requisito_id, ra.estado, ra.descripcion,
                 ra.motivo_devolucion, ra.cerrado_por, ra.cerrado_at,
-                p.nombres AS firma_nombres, p.apellidos AS firma_apellidos
+                p.nombres AS firma_nombres, p.apellidos AS firma_apellidos,
+                u.username AS firma_usuario
             FROM requisitos_alumno ra
             INNER JOIN requisitos_matricula r ON r.id=ra.requisito_id AND r.deleted_at IS NULL
             LEFT JOIN users u ON u.id=ra.cerrado_por AND u.deleted_at IS NULL
@@ -1437,7 +1438,12 @@ class EstacionesController extends Controller
 
                 if ($marca && $marca->cerrado_at !== null) {
                     $cerrados++;
-                    $firma = $firma ?? trim(($marca->firma_nombres ?? '').' '.($marca->firma_apellidos ?? ''));
+                    // **Con el `username` de respaldo, como `nombreDe`**: secretaría no
+                    // tiene ficha en `profesores`, así que sin él la ficha enseñaba el
+                    // paso cerrado SIN firma mientras `marcar` sí la devolvía. Medido
+                    // con la respuesta de las dos rutas lado a lado el 24 sep 2026.
+                    $firma = $firma ?? $this->nombreOCuenta($marca->firma_nombres,
+                        $marca->firma_apellidos, $marca->firma_usuario);
                     $firmaAt = $this->masReciente($firmaAt, $marca->cerrado_at);
                 }
 
@@ -1526,7 +1532,8 @@ class EstacionesController extends Controller
     {
         $filas = DB::select('SELECT n.id, n.requisito_id, n.texto, n.pendiente, n.reservada,
                 n.escrita_por, n.resuelta_por, n.resuelta_at, n.created_at,
-                p.nombres AS de_nombres, p.apellidos AS de_apellidos
+                p.nombres AS de_nombres, p.apellidos AS de_apellidos,
+                u.username AS de_usuario
             FROM notas_estacion n
             INNER JOIN requisitos_matricula r ON r.id=n.requisito_id AND r.deleted_at IS NULL
             LEFT JOIN users u ON u.id=n.escrita_por AND u.deleted_at IS NULL
@@ -1546,7 +1553,7 @@ class EstacionesController extends Controller
                 'reservada' => $reservada,
                 'pendiente' => (bool) $fila->pendiente,
                 'resuelta' => $fila->resuelta_at !== null,
-                'de' => trim(($fila->de_nombres ?? '').' '.($fila->de_apellidos ?? '')) ?: null,
+                'de' => $this->nombreOCuenta($fila->de_nombres, $fila->de_apellidos, $fila->de_usuario),
                 'cuando' => $fila->created_at,
                 // Lo que enciende o apaga el botón de la pantalla, calculado aquí y no
                 // en la app: **la app es una sola para dieciséis colegios** y el rol
@@ -1685,6 +1692,22 @@ class EstacionesController extends Controller
             ->deAlumno((int) $alumnoId)
             ->resumen('Movió '.implode(', ', array_map(static fn ($x) => explode('=', $x)[0], $sets)).' del requisito en la estación')
             ->guardar();
+    }
+
+    /**
+     * La misma regla que `nombreDe`, para las lecturas que ya traen las columnas en su
+     * `JOIN`: el nombre de la ficha de `profesores` y, si no hay, el `username`. Sin la
+     * segunda mitad, la firma de secretaría salía en blanco en la ficha.
+     */
+    private function nombreOCuenta(?string $nombres, ?string $apellidos, ?string $usuario): ?string
+    {
+        $nombre = trim(($nombres ?? '').' '.($apellidos ?? ''));
+
+        if ($nombre !== '') {
+            return $nombre;
+        }
+
+        return ($usuario === null || $usuario === '') ? null : $usuario;
     }
 
     /** El nombre de una cuenta del personal, por `profesores.user_id`. */

@@ -369,6 +369,44 @@ class LasEstacionesEnLaAppTest extends CasoDeContrato
     }
 
     /**
+     * **La firma que devuelve `marcar` es la que enseña la ficha**, también para quien
+     * no tiene ficha en `profesores` —secretaría entera—.
+     *
+     * Hasta el 24 sep 2026 `marcar` caía al `username` y la ficha no: el mismo paso,
+     * cerrado por la misma persona, salía firmado en la pantalla de «cerrado» y **sin
+     * firma** al volver a abrir a la persona. La firma con nombre y hora es lo único
+     * que protege el paso desde que cierra cualquiera del personal. El autor de la
+     * nota tenía el mismo hueco.
+     */
+    public function test_la_ficha_firma_igual_que_marcar_aunque_no_haya_ficha_de_profesor(): void
+    {
+        [$ana] = $this->dosAlumnos();
+        $this->unRecorridoDeTres();
+
+        $sinFicha = DB::selectOne('SELECT COUNT(*) AS n FROM profesores p
+            INNER JOIN personal_access_tokens t ON t.tokenable_id=p.user_id
+            WHERE p.deleted_at IS NULL AND t.token=?',
+            [hash('sha256', explode('|', $this->tokenLlano(), 2)[1] ?? '')]);
+        $this->assertSame(0, (int) $sinFicha->n,
+            'El sujeto tiene ficha de profesor: este test no mediría el respaldo del username.');
+
+        $firma = $this->withToken($this->tokenLlano())->putJson(self::RUTA.'/1/marcar', [
+            'alumno_id' => $ana, 'resultado' => 'cumple',
+        ])->assertStatus(200)->json('cerrado_por');
+
+        $this->withToken($this->tokenLlano())->postJson(self::RUTA.'/2/nota', [
+            'alumno_id' => $ana, 'texto' => 'Trae la EPS', 'pendiente' => true, 'reservada' => false,
+        ])->assertStatus(200);
+
+        $r = $this->withToken($this->tokenLlano())->getJson(self::RUTA.'/alumno/'.$ana)
+            ->assertStatus(200);
+
+        $this->assertNotNull($firma);
+        $this->assertSame($firma, $r->json('pasos.0.cerrado_por'));
+        $this->assertSame($firma, $r->json('pasos.1.notas_detalle.0.de'));
+    }
+
+    /**
      * **La fila se crea si no existe**, y sin esto la ruta contestaría que todo fue
      * bien sin escribir nada.
      *
