@@ -465,6 +465,46 @@ class BoletinIndependiente
      */
     public static function ponerPuestos(array $alumnos, array $periodoIds, int $yearId): void
     {
+        self::calcularPuestos($alumnos, $periodoIds, $yearId);
+
+        /*
+         * **Si el periodo está cerrado y hay foto, manda la foto** — fase 4 del cierre de
+         * periodo (`myvc_front/PLAN-CIERRE-DE-PERIODO.md`, decisiones 4 y 5). Sólo con UN
+         * periodo: los informes que promedian varios salen de las vigentes, que es lo que
+         * eligió Joseth. Y alumno por alumno: el que no tiene fila —matriculado después
+         * del cierre, o un periodo cerrado antes de que hubiera fotos— sigue al vuelo.
+         *
+         * `puesto_congelado_at` viaja SÓLO con el puesto congelado: es lo que deja al
+         * papel rotular «puesto a fecha de cierre», que es la mitigación de la decisión 5.
+         */
+        if (count($periodoIds) !== 1) {
+            return;
+        }
+
+        $foto = PuestosDelCierre::deLosAlumnos(
+            (int) reset($periodoIds),
+            array_map(fn ($a) => (int) $a->alumno_id, $alumnos)
+        );
+
+        foreach ($alumnos as $alumno) {
+            $fila = $foto[(int) $alumno->alumno_id] ?? null;
+
+            if ($fila !== null) {
+                $alumno->puesto = $fila->puesto === null ? null : (int) $fila->puesto;
+                $alumno->puesto_congelado_at = (string) $fila->congelado_at;
+            }
+        }
+    }
+
+    /**
+     * El cálculo vivo, sin mirar la foto. Lo usa `ponerPuestos` y lo usa quien TOMA la
+     * foto ({@see PuestosDelCierre::tomar}), que no puede leerse a sí misma.
+     *
+     * @param  array<int, object>  $alumnos  filas con `alumno_id` y `promedio`
+     * @param  list<int>  $periodoIds
+     */
+    public static function calcularPuestos(array $alumnos, array $periodoIds, int $yearId): void
+    {
         $cuentan = self::losQueCuentanParaElPuesto($alumnos, $periodoIds, $yearId);
 
         $entra = [];

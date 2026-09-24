@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\DB;
 use App\Services\BoletinIndependiente;
 use App\Services\DefinitivasDeAsignatura;
+use App\Services\PuestosDelCierre;
 use App\Support\CierreDeLoNoCalificado;
 use Illuminate\Support\Facades\Request;
 use Carbon\Carbon;
@@ -216,7 +217,7 @@ class PeriodosController extends Controller {
 			// cerrado, lo que ve la familia y lo que dice el papel vuelven a ser el
 			// mismo número.*
 			return 'Periodo cerrado. '.$puestas
-				.' casillas sin calificar pasaron a cero.';
+				.' casillas sin calificar pasaron a cero.'.$this->congelarLosPuestos($periodo);
 		}
 
 		$hecho = DefinitivasDeAsignatura::rehacerElPeriodo(
@@ -227,7 +228,26 @@ class PeriodosController extends Controller {
 			.$hecho['escritas'].' definitivas rehechas en '.$hecho['asignaturas']
 			.' asignaturas'.($hecho['respetadas'] > 0
 				? ' ('.$hecho['respetadas'].' manuales o recuperadas sin tocar).'
-				: '.');
+				: '.').$this->congelarLosPuestos($periodo);
+	}
+
+	/**
+	 * **La foto del puesto**, fase 4 del cierre de periodo (decisiones 4 y 5 del
+	 * `PLAN-CIERRE-DE-PERIODO.md`). Va **después** de aplicar la política de lo no
+	 * calificado, para fotografiar las definitivas que quedaron y no las de antes.
+	 *
+	 * Y va en los dos caminos que aplican política —cerrar y reanudar—, que es la
+	 * decisión 5: al recerrar tras una rendija, la foto se rehace siempre. El periodo
+	 * cerrado de antes de esto (sin marca) no entra aquí: sale por `'Cambiado'` y
+	 * sigue calculándose al vuelo.
+	 *
+	 * Devuelve la cola de la frase, porque el cierre contesta TEXTO (ver arriba).
+	 */
+	private function congelarLosPuestos(Periodo $periodo): string
+	{
+		$n = PuestosDelCierre::tomar((int) $periodo->id, (int) $this->user->user_id);
+
+		return $n > 0 ? ' El puesto de '.$n.' alumnos queda fijo a fecha de hoy: las nivelaciones ya no lo mueven.' : '';
 	}
 
 	/**
