@@ -468,8 +468,11 @@ class NotasController extends Controller
         $consulta = $puestosCtrl->consulta_notas_finales_alumno3;
         $notas_asig = DB::select($consulta, [':gr_id' => $grupo_id, ':alu_id' => $alumno_id, ':year_id' => $user->year_id, ':min' => $user->nota_minima_aceptada, ':alu_id2' => $alumno_id, ':year_id2' => $user->year_id]);
 
-        foreach ($notas_asig as $keyAsig => $asignatura) {
-            $asignatura->nota_final_year = round($asignatura->nota_final_year);
+        // EXACTA: los fronts calculan con ella la nota faltante (mínima*4 − esto*3) y
+        // redondean al pintar. El `NULL` de una asignatura sin definitivas sigue
+        // saliendo 0, como cuando pasaba por `round()`.
+        foreach ($notas_asig as $asignatura) {
+            $asignatura->nota_final_year = (float) $asignatura->nota_final_year;
         }
         $datos->notas_tercer_per = $notas_asig;
         // !! Definitivas

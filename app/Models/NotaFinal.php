@@ -253,7 +253,11 @@ class NotaFinal extends Model {
         
         for ($i=0; $i < $cant_alum; $i++) { 
             
-            $alumnos[$i]->promedio_automatico = round(($alumnos[$i]->nota_final_per1 + $alumnos[$i]->nota_final_per2 + $alumnos[$i]->nota_final_per3 + $alumnos[$i]->nota_final_per4) / 4, 0);
+            // EXACTO: los dos fronts calculan con él la nota requerida y redondean al
+            // pintar (`promedio.ts`, `promedioTotalDef`). A 6 decimales porque es lo
+            // que da un cuarto de cuatro `DECIMAL(7,4)`: quita el ruido del float, no
+            // precisión.
+            $alumnos[$i]->promedio_automatico = round(($alumnos[$i]->nota_final_per1 + $alumnos[$i]->nota_final_per2 + $alumnos[$i]->nota_final_per3 + $alumnos[$i]->nota_final_per4) / 4, 6);
             
             if($alumnos[$i]->nfinal1_desactualizada && $alumnos[$i]->updated_at_def_1){
                 $per_desact['per1'] = true;

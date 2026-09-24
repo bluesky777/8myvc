@@ -646,17 +646,14 @@ class DefinitivasPeriodosController extends Controller {
 		$original = $fila->nota_original !== null ? (float) $fila->nota_original : (float) $fila->nota;
 		$vigente  = (float) $fila->nota;
 
-		// La regla trabaja en enteros —es la escala del colegio—, y la definitiva es
-		// `DECIMAL(7,4)` porque la produce una suma ponderada. Se redondea **sólo
-		// para decidir**, y lo que se guarda es lo que la regla eligió: con `mayor`
-		// puede ser la original con sus decimales intactos.
-		$aplicada = Nivelacion::aplicar(
-			$config['regla'], (int) round($original), (int) round((float) $nivelacion), $config['nota_minima']
+		// La definitiva es `DECIMAL(7,4)` y la regla se aplica con los valores
+		// exactos: redondear para decidir daba con `mayor` 65,4 vs 65,45 → 65, menos
+		// que las dos. Sólo el veredicto de `topada` mira lo impreso (`NotaImpresa`).
+		$aplicada = Nivelacion::aplicarExacta(
+			$config['regla'], $original, (float) $nivelacion, $config['nota_minima']
 		);
 
-		$nueva = $config['regla'] === Nivelacion::MAYOR && $original >= (float) $nivelacion
-			? $original
-			: (float) $aplicada['nota'];
+		$nueva = $aplicada['nota'];
 
 		$fecha = Request::input('fecha');
 		$niveladaAt = $fecha === null || $fecha === '' ? $now->format('Y-m-d H:i:s') : $this->fechaDelActa($fecha);

@@ -62,6 +62,33 @@ class ReglaDeNivelacionTest extends TestCase
     }
 
     /**
+     * La definitiva es `DECIMAL(7,4)`: la regla se aplica con los valores exactos.
+     * Redondear antes daba con `mayor` `max(65, 65) = 65`, menos que las dos.
+     * Sólo el veredicto de `topada` mira lo impreso (`NotaImpresa`).
+     *
+     * @return iterable<string, array{string, float, float, int, float}>
+     */
+    public static function conDecimales(): iterable
+    {
+        // regla, original, nivelación, mínima, queda
+        yield 'mayor: 65,4 → 65,45 queda 65,45' => ['mayor', 65.4, 65.45, 70, 65.45];
+        yield 'mayor: 65,45 → 65,4 queda 65,45' => ['mayor', 65.45, 65.4, 70, 65.45];
+        yield 'reemplaza: 55 → 65,45 queda 65,45' => ['reemplaza', 55.0, 65.45, 70, 65.45];
+        yield 'topada: 55 → 65,45 queda 65,45, tal cual' => ['topada', 55.0, 65.45, 70, 65.45];
+        yield 'topada: 55 → 69,5 se imprime 70 y se topa' => ['topada', 55.0, 69.5, 70, 70.0];
+        yield 'topada: 55 → 69,4 se imprime 69 y queda tal cual' => ['topada', 55.0, 69.4, 70, 69.4];
+    }
+
+    #[DataProvider('conDecimales')]
+    public function test_con_decimales_la_regla_usa_el_valor_exacto(string $regla, float $original, float $nivelacion, int $minima, float $queda): void
+    {
+        $resultado = Nivelacion::aplicarExacta($regla, $original, $nivelacion, $minima);
+
+        $this->assertSame($queda, $resultado['nota'], "Con {$regla}, {$original} → niveló {$nivelacion} (mínima {$minima}).");
+        $this->assertStringEndsWith('Queda '.$queda.'.', $resultado['explicacion']);
+    }
+
+    /**
      * Una regla que no es de las tres **no cae al defecto**. `years.regla_nivelacion`
      * es un `varchar` y la base puede llevar cualquier cosa; sustituirla en
      * silencio por `topada` sería un valor inventado con pinta de decisión, y aquí

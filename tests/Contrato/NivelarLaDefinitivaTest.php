@@ -193,6 +193,60 @@ class NivelarLaDefinitivaTest extends CasoDeContrato
             'Nivelar por debajo redondeó la definitiva: 43,75 se convirtió en 44 sin que nadie lo pidiera.');
     }
 
+    /**
+     * **La regla decide con los valores exactos.** Redondeando antes, con `mayor`
+     * 40,4 contra 40,45 quedaba 40: menos que las dos. Y bajo `topada` y
+     * `reemplaza` la nivelación con decimales se guarda con ellos.
+     */
+    public function test_con_mayor_gana_la_mayor_exacta_aunque_se_impriman_igual(): void
+    {
+        $token = $this->tokenDeSuperusuario();
+        $nf = $this->unaDefinitiva();
+
+        $this->conRegla((int) $nf->year_id, Nivelacion::MAYOR, 35);
+        DB::update('UPDATE notas_finales SET nota = 40.4, nota_original = NULL WHERE id = ?', [$nf->id]);
+
+        $this->withToken($token)->putJson('/api/definitivas_periodos/nivelar',
+            ['nf_id' => $nf->id, 'nota_nivelacion' => 40.45])->assertStatus(200);
+
+        $this->assertEquals(40.45, $this->filaDe((int) $nf->id)->nota,
+            'La regla redondeó antes de comparar: max(40, 40) = 40, menos que las dos.');
+    }
+
+    public function test_con_reemplaza_la_nivelacion_se_guarda_con_sus_decimales(): void
+    {
+        $token = $this->tokenDeSuperusuario();
+        $nf = $this->unaDefinitiva();
+
+        $this->conRegla((int) $nf->year_id, Nivelacion::REEMPLAZA, 35);
+        DB::update('UPDATE notas_finales SET nota = 28, nota_original = NULL WHERE id = ?', [$nf->id]);
+
+        $this->withToken($token)->putJson('/api/definitivas_periodos/nivelar',
+            ['nf_id' => $nf->id, 'nota_nivelacion' => 33.45])->assertStatus(200);
+
+        $this->assertEquals(33.45, $this->filaDe((int) $nf->id)->nota);
+    }
+
+    /** Con `topada`, el veredicto sigue a lo impreso: 34,6 se lee «35» y se topa en 35. */
+    public function test_con_topada_se_topa_por_lo_impreso_y_si_no_guarda_los_decimales(): void
+    {
+        $token = $this->tokenDeSuperusuario();
+        $nf = $this->unaDefinitiva();
+
+        $this->conRegla((int) $nf->year_id, Nivelacion::TOPADA, 35);
+        DB::update('UPDATE notas_finales SET nota = 28, nota_original = NULL WHERE id = ?', [$nf->id]);
+
+        $this->withToken($token)->putJson('/api/definitivas_periodos/nivelar',
+            ['nf_id' => $nf->id, 'nota_nivelacion' => 33.45])->assertStatus(200);
+
+        $this->assertEquals(33.45, $this->filaDe((int) $nf->id)->nota, 'Por debajo de la mínima queda tal cual, con decimales.');
+
+        $this->withToken($token)->putJson('/api/definitivas_periodos/nivelar',
+            ['nf_id' => $nf->id, 'nota_nivelacion' => 34.6])->assertStatus(200);
+
+        $this->assertEquals(35, $this->filaDe((int) $nf->id)->nota, '34,6 se imprime 35: alcanza la mínima y se topa en ella.');
+    }
+
     /** La línea de auditoría es `nivelar` sobre `nota_final`, no `editar`. */
     public function test_la_nivelacion_de_la_definitiva_se_audita_como_nivelacion(): void
     {

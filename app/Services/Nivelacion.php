@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\NotaImpresa;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -109,9 +110,29 @@ final class Nivelacion
      */
     public static function aplicar(string $regla, int $original, int $nivelacion, int $minima): array
     {
+        $resultado = self::aplicarExacta($regla, $original, $nivelacion, $minima);
+
+        return ['nota' => (int) $resultado['nota'], 'explicacion' => $resultado['explicacion']];
+    }
+
+    /**
+     * La misma tabla con los valores **exactos**, para la definitiva
+     * (`notas_finales`, `DECIMAL(7,4)`). Redondear antes de comparar daba con
+     * `mayor` `max(round(65,4), round(65,45)) = 65`, menos que las dos.
+     *
+     * Lo único que se juzga sobre lo impreso es el veredicto de `topada`
+     * («¿la nivelación alcanza la mínima?»), por `NotaImpresa`: un 69,6 se
+     * imprime 70 y aprueba. Todo lo demás —el `max`, lo que se guarda— es exacto.
+     *
+     * Con enteros da exactamente lo que daba `aplicar()`: `aplicar()` es ésta.
+     *
+     * @return array{nota: float, explicacion: string}
+     */
+    public static function aplicarExacta(string $regla, float $original, float $nivelacion, int $minima): array
+    {
         switch ($regla) {
             case self::TOPADA:
-                $nota = $nivelacion >= $minima ? $minima : $nivelacion;
+                $nota = NotaImpresa::perdida($nivelacion, $minima) ? $nivelacion : (float) $minima;
 
                 return [
                     'nota' => $nota,
