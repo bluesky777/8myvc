@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Models\Role;
+use App\Services\CalendarioDePeriodos;
 use App\Support\Autoriza;
 use App\Support\CierreDeAsignatura;
 use App\Support\Reloj;
@@ -34,6 +35,9 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
  * | `celular` | Posponible | directivos | Secretario |
  * | `jefes_de_area` | Silenciable | superusuario y Coord académico (plan §4) | — |
  * | `firmas_por_aprobar` | Importante | quien aprueba firmas (`Autoriza::puedeAprobarFirmas`) | — |
+ * | `periodos_faltan` | Importante sin ninguno; Silenciable con 1 a 3 | quien abre `/colegio/:y/periodos`: superusuario y `Admin` | — |
+ * | `fechas_de_periodos` | Importante | ídem | — |
+ * | `periodo_desfasado` | Importante, pero lo pospone el colegio entero | ídem | — |
  *
  * «Directivos» es superusuario, `Admin`, `Rector`, `Secretario`, `Coord académico` y
  * `Coord disciplinario`. A quien no le toca nada se le contesta la lista vacía en 200.
@@ -45,6 +49,11 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
  * **Importante** no se oculta. **Posponible** se oculta 7 días. **Silenciable** se oculta por el
  * año: su `clave` lleva el año, y el año siguiente es otra clave. Lo guarda
  * `pendientes_ocultos` (`PUT pendientes/ocultar`, `PUT pendientes/mostrar`).
+ *
+ * **La excepción es el que trae `posponer`**: un Importante que sí se pospone, con su propia
+ * etiqueta y, si `para_todos`, para el colegio entero. Se guarda con `user_id = 0` —cada
+ * colegio tiene su base, así que 0 es «el colegio»— y lo leen todos. Hoy sólo lo trae
+ * `periodo_desfasado`: «Seguimos nivelando» es una decisión del colegio (plan §2.7).
  *
  * ## Todo del año que ELIGIÓ el usuario
  *
@@ -90,7 +99,7 @@ class PendientesController extends Controller
         $roles = array_map(static fn ($r) => (string) $r->name, Role::getUserRoles($user->user_id ?? 0));
         $vacio = ['year_id' => (int) $user->year_id, 'pendientes' => [], 'ocultos' => []];
 
-        $year = DB::selectOne('SELECT id, year FROM years WHERE id = ? AND deleted_at IS NULL', [(int) $user->year_id]);
+        $year = DB::selectOne('SELECT id, year, actual FROM years WHERE id = ? AND deleted_at IS NULL', [(int) $user->year_id]);
 
         if ($year === null) {
             return $vacio;
@@ -101,6 +110,10 @@ class PendientesController extends Controller
         $coordAcademico = $super || in_array('Coord académico', $roles, true);
         $profesorId = ($user->tipo ?? null) === 'Profesor' && ($user->persona_id ?? null) !== null ? (int) $user->persona_id : null;
         $todasLasAsignaturas = $super || array_intersect(['Coord académico', 'Rector'], $roles) !== [];
+        // Los de periodos, a quien puede arreglarlos: `/colegio/:y/periodos` es `esAdmin`.
+        $periodos = ($super || in_array('Admin', $roles, true))
+            ? DB::select('SELECT * FROM periodos WHERE year_id = ? AND deleted_at IS NULL ORDER BY numero', [(int) $year->id])
+            : null;
 
         $pendientes = array_filter([
             ($todasLasAsignaturas || $profesorId !== null)
@@ -112,6 +125,9 @@ class PendientesController extends Controller
             $directivo ? $this->sinAcudiente($year) : null,
             $directivo ? $this->sinCelular($year) : null,
             Autoriza::puedeAprobarFirmas($user) ? $this->firmasPorAprobar((int) $user->user_id) : null,
+            $periodos !== null ? $this->periodosQueFaltan($year, $periodos) : null,
+            $periodos !== null ? $this->fechasDePeriodos($year, $periodos) : null,
+            $periodos !== null ? $this->periodoDesfasado($year, $periodos) : null,
         ]);
 
         foreach ($pendientes as &$p) {
@@ -128,7 +144,7 @@ class PendientesController extends Controller
         // Lo que esta persona ocultó y sigue oculto. Un Importante nunca: si alguien lo metió
         // a mano en la tabla, se ignora.
         $ocultas = [];
-        foreach (DB::select('SELECT clave, hasta FROM pendientes_ocultos WHERE user_id = ? AND (hasta IS NULL OR hasta > ?)',
+        foreach (DB::select('SELECT clave, hasta FROM pendientes_ocultos WHERE user_id IN (?, 0) AND (hasta IS NULL OR hasta > ?)',
             [(int) $user->user_id, Reloj::ahoraTexto()]) as $o) {
             $ocultas[$o->clave] = $o->hasta;
         }
@@ -136,7 +152,7 @@ class PendientesController extends Controller
         $visibles = [];
         $ocultos = [];
         foreach ($pendientes as $p) {
-            if ($p['insistencia'] !== self::IMPORTANTE && array_key_exists($p['clave'], $ocultas)) {
+            if (($p['insistencia'] !== self::IMPORTANTE || isset($p['posponer'])) && array_key_exists($p['clave'], $ocultas)) {
                 $p['oculto_hasta'] = $ocultas[$p['clave']];
                 $ocultos[] = $p;
             } else {
@@ -173,26 +189,26 @@ class PendientesController extends Controller
         }
 
         abort_if($mio === null, 422, 'Ese pendiente no te sale ahora mismo.');
-        abort_if($mio['insistencia'] === self::IMPORTANTE, 422, 'Este pendiente no se puede ocultar: sale hasta que se resuelva.');
+        abort_if($mio['insistencia'] === self::IMPORTANTE && ! ($modo === 'posponer' && isset($mio['posponer'])), 422, 'Este pendiente no se puede ocultar: sale hasta que se resuelva.');
         abort_if($modo === 'silenciar' && $mio['insistencia'] !== self::SILENCIABLE, 422, 'Este pendiente sólo se puede posponer.');
 
         $hasta = $modo === 'posponer' ? Reloj::ahora()->addDays(self::DIAS_DE_POSPONER)->toDateTimeString() : null;
         $ahora = Reloj::ahoraTexto();
 
         DB::table('pendientes_ocultos')->updateOrInsert(
-            ['user_id' => (int) $this->user->user_id, 'clave' => $clave],
+            ['user_id' => ($mio['posponer']['para_todos'] ?? false) ? 0 : (int) $this->user->user_id, 'clave' => $clave],
             ['hasta' => $hasta, 'updated_at' => $ahora, 'created_at' => $ahora]
         );
 
         return ['clave' => $clave, 'hasta' => $hasta];
     }
 
-    /** `PUT pendientes/mostrar` — `{clave}`: deshace el ocultar. */
+    /** `PUT pendientes/mostrar` — `{clave}`: deshace el ocultar, también el del colegio entero. */
     public function putMostrar(): array
     {
         $clave = (string) Request::input('clave', '');
 
-        DB::table('pendientes_ocultos')->where('user_id', (int) $this->user->user_id)->where('clave', $clave)->delete();
+        DB::table('pendientes_ocultos')->whereIn('user_id', [(int) $this->user->user_id, 0])->where('clave', $clave)->delete();
 
         return ['clave' => $clave];
     }
@@ -699,6 +715,165 @@ class PendientesController extends Controller
             'destino' => ['ruta' => '/firmas-por-aprobar', 'etiqueta' => 'Revisar firmas'],
             'primero_para' => [],
         ];
+    }
+
+    /* ── 9. Periodos: que existan, que tengan fechas y que el actual sea el de hoy ─── */
+
+    /**
+     * **Sin ninguno** es Importante: no hay dónde poner notas. **Con 1 a 3** es Silenciable:
+     * `CalendarioDePeriodos` crea 4, pero un colegio por trimestres tiene 3 a propósito y no
+     * puede quedarse con un aviso que no se va.
+     *
+     * @param  list<object>  $periodos
+     */
+    private function periodosQueFaltan(object $year, array $periodos): ?array
+    {
+        $n = count($periodos);
+
+        if ($n >= CalendarioDePeriodos::CANTIDAD) {
+            return null;
+        }
+
+        return [
+            'tipo' => 'periodos_faltan',
+            'clave' => 'periodos_faltan:y='.$year->id,
+            'insistencia' => $n === 0 ? self::IMPORTANTE : self::SILENCIABLE,
+            'urgencia' => $n === 0 ? 900 : 50,
+            'icono' => 'calendar',
+            'titular' => $n === 0
+                ? "El año {$year->year} no tiene periodos"
+                : "El año {$year->year} tiene ".$this->plural($n, 'periodo', 'periodos').' de '.CalendarioDePeriodos::CANTIDAD,
+            'detalle' => $n === 0
+                ? 'Sin periodos no se pueden poner notas ni sacar boletines.'
+                : 'Si el colegio trabaja con '.$n.' a propósito, silencia este aviso por el año.',
+            'filas' => [],
+            'total_filas' => 0,
+            'destino' => ['ruta' => '/colegio/'.$year->id.'/periodos', 'etiqueta' => 'Crear periodos'],
+            'primero_para' => [],
+        ];
+    }
+
+    /**
+     * Inicio y fin en todos; entrega de boletines sólo en los que no han terminado —pedirla
+     * de un periodo cerrado en junio no sirve de nada—. Los tres juntos en un pendiente: se
+     * arreglan en la misma pantalla y tres avisos seguidos serían ruido.
+     *
+     * @param  list<object>  $periodos
+     */
+    private function fechasDePeriodos(object $year, array $periodos): ?array
+    {
+        $hoy = Reloj::ahora()->startOfDay();
+        $filas = [];
+
+        foreach ($periodos as $p) {
+            $falta = [];
+
+            if ($p->fecha_inicio === null) {
+                $falta[] = 'el inicio';
+            }
+            if ($p->fecha_fin === null) {
+                $falta[] = 'el fin';
+            }
+            // `property_exists`: la columna la añade una migración que puede no haber corrido.
+            $sigue = $p->fecha_fin === null || Carbon::parse($p->fecha_fin, $hoy->getTimezone())->startOfDay()->gte($hoy);
+            if (property_exists($p, 'fecha_entrega_boletines') && $p->fecha_entrega_boletines === null && $sigue) {
+                $falta[] = 'la entrega de boletines';
+            }
+
+            if ($falta !== []) {
+                $nota = count($falta) === 3 ? 'sin ninguna fecha' : (count($falta) === 1 ? 'falta ' : 'faltan ').$this->enLista($falta);
+                $filas[] = ['texto' => 'Periodo '.$p->numero, 'nota' => $nota, 'aviso' => false];
+            }
+        }
+
+        $n = count($filas);
+
+        if ($n === 0) {
+            return null;
+        }
+
+        return [
+            'tipo' => 'fechas_de_periodos',
+            'clave' => 'fechas_de_periodos:y='.$year->id,
+            'insistencia' => self::IMPORTANTE,
+            'urgencia' => 120,
+            'icono' => 'calendar',
+            'titular' => $n === 1 ? 'Faltan fechas en el '.$filas[0]['texto'] : "Faltan fechas en {$n} periodos",
+            'detalle' => 'Con las fechas puestas, MyVC avisa cuándo cambiar de periodo y cuándo se acerca la **entrega de boletines**.',
+            'filas' => $filas,
+            'total_filas' => $n,
+            'destino' => ['ruta' => '/colegio/'.$year->id.'/periodos', 'etiqueta' => 'Poner las fechas'],
+            'primero_para' => [],
+        ];
+    }
+
+    /** Días que se deja al colegio en el periodo anterior antes de avisar (plan, encargo). */
+    public const DIAS_DE_GRACIA_DEL_PERIODO = 7;
+
+    /**
+     * Según `fecha_inicio`, hoy es de un periodo posterior al actual, y hace **7 días o
+     * más**: antes es normal, porque muchos colegios se quedan en el anterior mientras
+     * nivelan. Sólo en el año en curso, que es el único que tiene un «hoy».
+     *
+     * «Seguimos nivelando» lo pospone 7 días **para todo el colegio** (plan §2.7).
+     *
+     * @param  list<object>  $periodos
+     */
+    private function periodoDesfasado(object $year, array $periodos): ?array
+    {
+        if ((int) $year->actual !== 1) {
+            return null;
+        }
+
+        $hoy = Reloj::ahora()->startOfDay();
+        $actual = null;
+        $deHoy = null;
+        $desde = null;
+
+        foreach ($periodos as $p) {
+            if ((int) $p->actual === 1) {
+                $actual = $p;
+            }
+            if ($p->fecha_inicio !== null) {
+                $inicio = Carbon::parse($p->fecha_inicio, $hoy->getTimezone())->startOfDay();
+                if ($inicio->lte($hoy)) {
+                    $deHoy = $p;
+                    $desde = $inicio;
+                }
+            }
+        }
+
+        if ($actual === null || $deHoy === null || (int) $deHoy->numero <= (int) $actual->numero) {
+            return null;
+        }
+
+        if ((int) round($desde->diffInDays($hoy)) < self::DIAS_DE_GRACIA_DEL_PERIODO) {
+            return null;
+        }
+
+        return [
+            'tipo' => 'periodo_desfasado',
+            'clave' => 'periodo_desfasado:p='.$deHoy->id,
+            'insistencia' => self::IMPORTANTE,
+            'urgencia' => 180,
+            'icono' => 'swap',
+            'titular' => 'El periodo actual sigue siendo el '.$actual->numero,
+            'detalle' => 'Según las fechas, el colegio está en el **Periodo '.$deHoy->numero.'** desde el **'
+                .$desde->locale('es')->isoFormat('D [de] MMMM').'**. Quien ingresa queda en el periodo actual.',
+            'filas' => [],
+            'total_filas' => 0,
+            'destino' => ['ruta' => '/colegio/'.$year->id.'/periodos', 'etiqueta' => 'Cambiar el periodo actual'],
+            'posponer' => ['etiqueta' => 'Seguimos nivelando', 'para_todos' => true],
+            'primero_para' => [],
+        ];
+    }
+
+    /** `['el inicio', 'el fin']` → `el inicio y el fin`. */
+    private function enLista(array $cosas): string
+    {
+        $ultima = array_pop($cosas);
+
+        return $cosas === [] ? $ultima : implode(', ', $cosas).' y '.$ultima;
     }
 
     /* ── Piezas ──────────────────────────────────────────────────────────────────────── */
