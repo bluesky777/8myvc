@@ -1,5 +1,6 @@
 <?php namespace App\Http\Controllers;
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Request;
 
 
@@ -159,6 +160,21 @@ class VtAspiracionesController extends Controller {
 		}
 
 		VtVotacion::exigirAdministrable($aspiracion->votacion_id, $user);
+
+		// El borrado es FÍSICO (el modelo no lleva SoftDeletes) y el esquema cuelga
+		// en cascada de `vt_aspiraciones` los candidatos, `vt_votos.aspiracion_id`
+		// —blancos incluidos— y `vt_acta_votos.aspiracion_id`, actas firmadas
+		// incluidas. O sea que borrar un cargo con urna era borrar su escrutinio sin
+		// vuelta atrás (05 §58.1). Un cargo sin votos ni cifras se sigue pudiendo
+		// quitar: es el caso de montar la elección y equivocarse.
+		$conVotos = DB::selectOne('SELECT
+				EXISTS(SELECT 1 FROM vt_votos WHERE aspiracion_id = ?) AS digitales,
+				EXISTS(SELECT 1 FROM vt_acta_votos WHERE aspiracion_id = ?) AS de_papel',
+			[$aspiracion->id, $aspiracion->id]);
+
+		if ($conVotos->digitales || $conVotos->de_papel) {
+			abort(409, 'Ese cargo ya tiene votos: borrarlo borraría su escrutinio.');
+		}
 
 		$aspiracion->delete();
 

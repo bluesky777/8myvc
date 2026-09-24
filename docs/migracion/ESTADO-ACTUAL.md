@@ -131,8 +131,12 @@
 > vecinas: **322 passed (2105 assertions)**; `CensoDeInterruptoresTest` 1 passed. **No
 > medido: la suite entera después de estos commits**; la corre el CI del push.
 >
-> **Dos fallos del código que salieron al rehacer los tests y NO se arreglaron** (esperan
-> decisión):
+> **Dos fallos del código que salieron al rehacer los tests — ARREGLADOS el 24 sep 2026** por
+> encargo de Joseth, después del despliegue de `0db94dce`, así que **van en la tanda
+> siguiente**: `candidatos/destroy` pasa por `exigirAdministrable()` (403 a quien no manda en
+> la elección) y `aspiraciones/destroy` contesta **409** si el cargo tiene un voto digital o
+> una cifra de acta. `VotacionesBorradoTest` 6 passed; quitando el arreglo, 3 rojos. Lo que
+> había:
 > - **`candidatos/destroy` no tiene guard de dueño** (`VtCandidatosController::deleteDestroy`,
 >   `findOrFail` + `delete()` sin `exigirAdministrable()`): cualquiera de las 75 cuentas de
 >   `auth.personal` borra un candidato de la elección de otro. Sus hermanos `votaciones/` y

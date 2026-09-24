@@ -194,44 +194,111 @@ class VotacionesBorradoTest extends CasoDeContrato
     }
 
     /**
-     * Borrar una aspiración **destruye los votos de verdad**, sin papelera.
+     * Un cargo con votos **no se borra**: 409, y no cae nada.
      *
-     * `VtAspiracion` es el único de los cinco modelos que **no** lleva el trait
-     * —lo importa en la cabecera y no lo usa dentro de la clase—, así que aquí
-     * `delete()` sí manda un `DELETE` a MySQL. Y entonces la cascada del esquema
-     * hace su trabajo: `vt_candidatos.aspiracion_id` cae, y con ella
-     * `vt_votos.candidato_id`. Desde el rediseño (11 §8, punto 4) el voto cuelga
-     * además de `vt_votos.aspiracion_id`, también en cascada, así que **el voto en
-     * blanco** —que no tiene candidato— **cae igual**.
-     *
-     * O sea: **el escrutinio de una elección se puede borrar de forma
-     * irreversible con una sola llamada**, aunque las tablas de candidatos y
-     * votos tengan su `deleted_at` puesto y nadie lo vaya a rellenar. Es la
-     * diferencia entre esta ruta y su vecina de arriba, y no se ve en el
-     * controlador porque el controlador es idéntico.
+     * `VtAspiracion` no lleva `SoftDeletes`, así que su `delete()` es un `DELETE`
+     * de verdad, y el esquema cuelga de `vt_aspiraciones` en cascada los
+     * candidatos, `vt_votos.aspiracion_id` —el voto en blanco incluido, que no
+     * tiene candidato— y `vt_acta_votos.aspiracion_id`. **Hasta el 24 sep 2026 esta
+     * ruta borraba así el escrutinio del cargo con una sola llamada** (05 §58.1,
+     * agravado por la FK del rediseño, 11 §8 punto 4). Ahora contesta 409 en
+     * cuanto hay un voto, digital o de papel.
      */
-    public function test_borrar_una_aspiracion_es_fisico_y_arrastra_candidatos_y_votos(): void
+    public function test_un_cargo_con_votos_no_se_borra(): void
     {
         $quien = $this->personal();
         $eleccion = $this->eleccionConUnVoto($quien);
 
         $this->withToken($quien->token)
             ->deleteJson("api/aspiraciones/destroy/{$eleccion->aspiracion_id}")
+            ->assertStatus(409);
+
+        $this->assertSame(1, $this->vivas('vt_aspiraciones', 'id', $eleccion->aspiracion_id));
+        $this->assertSame(2, $this->vivas('vt_candidatos', 'aspiracion_id', $eleccion->aspiracion_id));
+        $this->assertSame(2, (int) DB::selectOne('SELECT COUNT(*) n FROM vt_votos WHERE id IN (?, ?)',
+            [$eleccion->voto_id, $eleccion->blanco_id])->n, 'Un 409 no se lleva ningún voto.');
+    }
+
+    /**
+     * Y las cifras de un acta de papel cuentan igual que un voto digital: sin
+     * esto, borrar el cargo se llevaría el acta por `vt_acta_votos.aspiracion_id`,
+     * **firmada o no**, y un acta firmada es justo lo que no se puede deshacer.
+     */
+    public function test_un_cargo_con_cifras_de_acta_no_se_borra(): void
+    {
+        $quien = $this->personal();
+        $eleccion = $this->eleccionConUnVoto($quien);
+
+        DB::table('vt_votos')->whereIn('id', [$eleccion->voto_id, $eleccion->blanco_id])->delete();
+
+        $actaId = DB::table('vt_actas')->insertGetId([
+            'votacion_id' => $eleccion->votacion_id,
+            'grupo_id' => $this->grupoConAlumnos()->id,
+            'conto_user_id' => $quien->user_id,
+            'firmada_por' => $quien->user_id,
+            'firmada_en' => '2026-09-24 10:00:00',
+        ]);
+        $cifraId = DB::table('vt_acta_votos')->insertGetId([
+            'acta_id' => $actaId,
+            'aspiracion_id' => $eleccion->aspiracion_id,
+            'candidato_id' => $eleccion->candidatos[0],
+            'cantidad' => 12,
+        ]);
+
+        $this->withToken($quien->token)
+            ->deleteJson("api/aspiraciones/destroy/{$eleccion->aspiracion_id}")
+            ->assertStatus(409);
+
+        $this->assertSame(1, $this->vivas('vt_aspiraciones', 'id', $eleccion->aspiracion_id));
+        $this->assertNotNull(DB::selectOne('SELECT id FROM vt_acta_votos WHERE id = ?', [$cifraId]),
+            'La cifra del acta firmada se fue en cascada.');
+    }
+
+    /**
+     * Sin votos ni cifras, el cargo **sí** se borra, y de verdad: es el caso de
+     * montar la elección y equivocarse de cargo. La cascada se lleva sus
+     * candidatos, que tampoco tienen a nadie que los haya votado.
+     */
+    public function test_un_cargo_sin_votos_se_borra_con_sus_candidatos(): void
+    {
+        $quien = $this->personal();
+        $eleccion = $this->eleccionConUnVoto($quien);
+
+        DB::table('vt_votos')->whereIn('id', [$eleccion->voto_id, $eleccion->blanco_id])->delete();
+
+        $this->withToken($quien->token)
+            ->deleteJson("api/aspiraciones/destroy/{$eleccion->aspiracion_id}")
             ->assertOk();
 
-        $aspiracion = DB::selectOne('SELECT id FROM vt_aspiraciones WHERE id = ?', [$eleccion->aspiracion_id]);
-        $this->assertNull($aspiracion,
-            'La aspiración sigue en la tabla: el borrado sería lógico y este test ya no describe lo que pasa.');
+        $this->assertNull(DB::selectOne('SELECT id FROM vt_aspiraciones WHERE id = ?', [$eleccion->aspiracion_id]),
+            'El borrado del cargo es físico; si queda la fila, alguien le puso SoftDeletes y este test ya no describe lo que pasa.');
+        $this->assertSame(0, (int) DB::selectOne('SELECT COUNT(*) n FROM vt_candidatos WHERE aspiracion_id = ?',
+            [$eleccion->aspiracion_id])->n, 'Los candidatos sobrevivieron: la cascada del esquema no disparó.');
+    }
 
-        $candidatos = DB::selectOne('SELECT COUNT(*) n FROM vt_candidatos WHERE aspiracion_id = ?',
-            [$eleccion->aspiracion_id]);
-        $this->assertSame(0, (int) $candidatos->n,
-            'Los candidatos sobrevivieron: la cascada del esquema no disparó.');
+    /**
+     * Quitar un candidato de la elección de otro es **403**, y el candidato sigue.
+     *
+     * Hasta el 24 sep 2026 `candidatos/destroy` era el único borrado del módulo
+     * sin `exigirAdministrable()`: cualquiera de las cuentas de `auth.personal`
+     * lo hacía. El control es el test de abajo, donde el dueño sí puede.
+     */
+    public function test_el_personal_no_quita_un_candidato_de_la_eleccion_de_otro(): void
+    {
+        $duenio = $this->personal();
+        $eleccion = $this->eleccionConUnVoto($duenio);
 
-        $votos = DB::selectOne('SELECT COUNT(*) n FROM vt_votos WHERE id IN (?, ?)',
-            [$eleccion->voto_id, $eleccion->blanco_id]);
-        $this->assertSame(0, (int) $votos->n,
-            'Un voto sobrevivió. Si esto falla, alguien arregló la cascada — mira 05 §58 antes de tocar el test.');
+        $otro = DB::selectOne('SELECT u.id, u.username FROM users u
+            WHERE u.tipo = "Usuario" AND u.is_active = 1 AND u.deleted_at IS NULL
+              AND u.is_superuser = 0 AND u.id <> ? ORDER BY u.id LIMIT 1', [$duenio->user_id]);
+        $this->assertNotNull($otro, 'El seed no tiene otro Usuario que no sea superusuario.');
+
+        $this->withToken($this->tokenDe($otro->username))
+            ->deleteJson("api/candidatos/destroy/{$eleccion->candidatos[0]}")
+            ->assertStatus(403);
+
+        $this->assertSame(2, $this->vivas('vt_candidatos', 'aspiracion_id', $eleccion->aspiracion_id),
+            'Un 403 no quita a nadie de la papeleta.');
     }
 
     /**

@@ -185,9 +185,28 @@ class VtCandidatosController extends Controller {
 	}
 
 
+	/**
+	 * Quita un candidato de la papeleta (borrado lógico: su voto se queda).
+	 *
+	 * **El dueño del candidato es el dueño de su elección**, igual que en
+	 * `aspiraciones/destroy` y `votaciones/destroy`. Hasta el 24 sep 2026 éste era
+	 * el único borrado del módulo sin esa pregunta, y cualquiera de las cuentas de
+	 * `auth.personal` quitaba un candidato de la elección de otro.
+	 */
 	public function deleteDestroy($id)
 	{
+		$user = User::fromToken();
 		$candidato = VtCandidato::findOrFail($id);
+
+		// Un candidato cuyo cargo ya no existe no tiene elección que administrar.
+		$aspiracion = VtAspiracion::find($candidato->aspiracion_id);
+
+		if (! $aspiracion) {
+			abort(404, 'El cargo de ese candidato no existe.');
+		}
+
+		VtVotacion::exigirAdministrable($aspiracion->votacion_id, $user);
+
 		$candidato->delete();
 
 		return $candidato;
