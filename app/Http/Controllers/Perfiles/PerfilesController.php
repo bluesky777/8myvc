@@ -348,9 +348,15 @@ class PerfilesController extends Controller
                 $perfil->sexo = Request::input('sexo', $perfil->sexo);
                 $perfil->fecha_nac = Request::input('fecha_nac', $perfil->fecha_nac);
                 $perfil->celular = Request::input('celular', $perfil->celular);
+                $fichaAntes = $perfil->email;
                 $perfil->email = Request::input('email_persona', $perfil->email);
 
                 $perfil->save();
+
+                // El correo de la ficha llega también a la cuenta si ésta no tenía uno
+                // propio: es el único que lee la recuperación de contraseña. Decisión
+                // de Joseth del 24 sep 2026; las reglas, en `CorreoDeLaCuenta`.
+                CorreoDeLaCuenta::seguirALaFicha($perfil->user_id, $fichaAntes, $perfil->email);
 
                 return $perfil;
             } catch (\Exception $e) {
@@ -368,9 +374,15 @@ class PerfilesController extends Controller
                 $perfil->sexo = Request::input('sexo', $perfil->sexo);
                 $perfil->fecha_nac = Request::input('fecha_nac', $perfil->fecha_nac);
                 $perfil->celular = Request::input('celular', $perfil->celular);
+                $fichaAntes = $perfil->email;
                 $perfil->email = Request::input('email', $perfil->email);
 
                 $perfil->save();
+
+                // El correo de la ficha llega también a la cuenta si ésta no tenía uno
+                // propio: es el único que lee la recuperación de contraseña. Decisión
+                // de Joseth del 24 sep 2026; las reglas, en `CorreoDeLaCuenta`.
+                CorreoDeLaCuenta::seguirALaFicha($perfil->user_id, $fichaAntes, $perfil->email);
 
                 return $perfil;
             } catch (\Exception $e) {

@@ -973,6 +973,12 @@ class AlumnosController extends Controller
             // `Request::has()` ya no distingue lo que mandó el cliente. 05 §68.
             $vinieron = CamposQueVinieron::capturar();
 
+            // Lo que hace falta para llevar el correo de la ficha a la cuenta, leído
+            // antes de que nada lo toque: `sanarInputUser` rellena `email2` con la
+            // ficha cuando viene vacío, y la ficha se pisa unas líneas más abajo.
+            $fichaAntes = $alumno->email;
+            $email2QueVino = $vinieron->trae('email2') ? (string) Request::input('email2') : null;
+
             $this->sanarInputAlumno();
 
             try {
@@ -1013,6 +1019,7 @@ class AlumnosController extends Controller
                     $this->checkOrChangeUsername($alumno->user_id);
 
                     $usuario = User::find($alumno->user_id);
+                    $cuentaAntes = $usuario->email;
                     $usuario->username = Request::input('username');
                     $usuario->is_superuser = 0;
                     $usuario->updated_by = $this->user->user_id;
@@ -1048,6 +1055,17 @@ class AlumnosController extends Controller
                     $alumno->updated_by = $this->user->user_id;
 
                     $alumno->save();
+
+                    // El correo de la FICHA llega también a la CUENTA, que es el único
+                    // que lee la recuperación de contraseña (`LoginController:240-266`).
+                    // Decisión de Joseth del 24 sep 2026, PLAN-COSAS-PENDIENTES §2.6.
+                    // Sólo si la cuenta no tenía uno propio y el cliente no la editó;
+                    // el porqué de cada caso, en `CorreoDeLaCuenta::seguirALaFicha`.
+                    //
+                    // Va DESPUÉS del `save()` del usuario porque lo de arriba puede
+                    // haber escrito `email2`, y lo que manda es lo que quedó.
+                    CorreoDeLaCuenta::seguirALaFicha($usuario->id, $fichaAntes, $alumno->email, $cuentaAntes, $email2QueVino);
+                    $usuario->refresh();
 
                     $alumno->user = $usuario;
                 }

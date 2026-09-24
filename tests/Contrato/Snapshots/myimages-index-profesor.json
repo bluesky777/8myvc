@@ -61,7 +61,7 @@
             "contrato_id": "int",
             "direccion": "string",
             "email": "string",
-            "email_usu": "null",
+            "email_usu": "string",
             "estado_civil": "null",
             "facebook": "null",
             "fecha_nac": "string",

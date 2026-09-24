@@ -413,10 +413,15 @@ class ProfesoresController extends Controller
             // de lo que se rellenó solo. Ver App\Support\CamposQueVinieron y 05 §68.
             $vinieron = CamposQueVinieron::capturar();
 
+            // Antes de `sanarInputUser`, que rellena `email2` con la ficha cuando
+            // viene vacío: aquí hace falta lo que mandó el cliente, tal cual.
+            $email2QueVino = $vinieron->trae('email2') ? (string) Request::input('email2') : null;
+
             $this->sanarInputUser();
             $this->sanarInputProfesor();
 
             $profesor = Profesor::findOrFail($id);
+            $fichaAntes = $profesor->email;
             try {
                 // Las diecisiete columnas de la ficha, con la clave —o las dos claves—
                 // con las que puede llegar cada una. Van en una tabla y no en
@@ -474,6 +479,7 @@ class ProfesoresController extends Controller
                 if ($profesor->user_id) {
 
                     $usuario = User::find($profesor->user_id);
+                    $cuentaAntes = $usuario->email;
 
                     // **Renombraba al docente al corregirle el teléfono.** El
                     // `username` fabricado se escribía encima del real: `ZZTestFirma`
@@ -531,6 +537,16 @@ class ProfesoresController extends Controller
                     $profesor->user_id = $usuario->id;
 
                     $profesor->save();
+
+                    // El correo de la FICHA llega también a la CUENTA, que es el único
+                    // que lee la recuperación de contraseña (`LoginController:240-266`).
+                    // Decisión de Joseth del 24 sep 2026, PLAN-COSAS-PENDIENTES §2.6.
+                    // Sólo si la cuenta no tenía uno propio y el cliente no la editó;
+                    // el porqué de cada caso, en `CorreoDeLaCuenta::seguirALaFicha`.
+                    // Medido ese día en `simonbolivar`: 13 de 47 docentes vivos con la
+                    // cuenta vacía, 5 de ellos con el correo escrito en la ficha.
+                    CorreoDeLaCuenta::seguirALaFicha($usuario->id, $fichaAntes, $profesor->email, $cuentaAntes, $email2QueVino);
+                    $usuario->refresh();
 
                     $profesor->user = $usuario;
                     // El `!$profesor->user_id` que había aquí sobra desde que la puerta de

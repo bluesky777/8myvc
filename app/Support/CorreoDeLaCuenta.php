@@ -2,6 +2,9 @@
 
 namespace App\Support;
 
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+
 /**
  * Qué se puede escribir en `users.email`, que no es lo mismo que lo que se puede
  * escribir en la ficha de una persona.
@@ -88,5 +91,84 @@ final class CorreoDeLaCuenta
         }
 
         return $correo;
+    }
+
+    /**
+     * Cuando se guarda el correo de la FICHA de un alumno o un docente, lleva el
+     * mismo a su CUENTA si la cuenta no tenía uno propio.
+     *
+     * Decisión de Joseth del 24 sep 2026 (PLAN-COSAS-PENDIENTES §2.6): *el correo
+     * que cuenta es `users.email`*, el único que lee la recuperación. La ficha y la
+     * cuenta son dos columnas que nadie sincronizaba, así que un correo corregido en
+     * la ficha no llegaba nunca al reseteo.
+     *
+     * «No tenía uno propio» son dos casos, y sólo esos:
+     *
+     *   - la cuenta estaba **vacía**, o
+     *   - tenía **el mismo que la ficha de antes** — iban juntas, y cambiar una sin
+     *     la otra las separaría.
+     *
+     * Si la cuenta tenía otro, alguien lo puso ahí a propósito y no se toca. Y si el
+     * cliente mandó `email2` distinto del que tenía la cuenta, **editó la cuenta** en
+     * esta misma petición: gana eso, también cuando la vació. `AlumnosEditCtrl.ts:122`
+     * devuelve el `email2` que leyó en cada guardado, así que un `email2` igual al de
+     * antes es un eco, no una decisión.
+     *
+     * No vacía nunca la cuenta: si la ficha queda vacía o con algo que no es una
+     * dirección (`oNada`), la cuenta se queda como estaba.
+     *
+     * Las colisiones se saltan, igual que en las dos migraciones: `LoginController:240`
+     * se queda con la primera fila, así que un correo repetido le manda el enlace a
+     * uno de los dos y el otro no se entera.
+     *
+     * @param  mixed  $cuentaAntes  el `users.email` de antes de esta petición; `false`
+     *                              si la petición no ha tocado la cuenta y se puede
+     *                              leer ahora
+     * @param  mixed  $email2QueVino  el `email2` que mandó el cliente, tal cual y antes
+     *                                de ningún `sanarInput*`; `null` si no vino
+     * @return string qué pasó — `copiado`, `sin_cuenta`, `no_es_correo`,
+     *                `cuenta_propia`, `el_cliente_la_edito`, `ya_estaba` o `colision`
+     */
+    public static function seguirALaFicha(mixed $userId, mixed $fichaAntes, mixed $fichaNueva, mixed $cuentaAntes = false, mixed $email2QueVino = null): string
+    {
+        $nuevo = self::oNada($fichaNueva);
+
+        if ($nuevo === null) {
+            return 'no_es_correo';
+        }
+
+        $cuenta = $userId ? DB::selectOne('SELECT email FROM users WHERE id = ? AND deleted_at IS NULL', [$userId]) : null;
+
+        if ($cuenta === null) {
+            return 'sin_cuenta';
+        }
+
+        $antes = trim((string) ($cuentaAntes === false ? $cuenta->email : $cuentaAntes));
+        $fichaDeAntes = trim((string) $fichaAntes);
+
+        if ($antes !== '' && $antes !== $fichaDeAntes) {
+            return 'cuenta_propia';
+        }
+
+        if ($email2QueVino !== null && trim((string) $email2QueVino) !== $antes) {
+            return 'el_cliente_la_edito';
+        }
+
+        if (trim((string) $cuenta->email) === $nuevo) {
+            return 'ya_estaba';
+        }
+
+        $ocupado = DB::selectOne(
+            'SELECT COUNT(*) AS n FROM users WHERE deleted_at IS NULL AND id <> ? AND email = ?',
+            [$userId, $nuevo]
+        );
+
+        if ((int) $ocupado->n > 0) {
+            return 'colision';
+        }
+
+        DB::update('UPDATE users SET email = ?, updated_at = ? WHERE id = ?', [$nuevo, Carbon::now('America/Bogota'), $userId]);
+
+        return 'copiado';
     }
 }
