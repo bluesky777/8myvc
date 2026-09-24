@@ -953,6 +953,9 @@ class AutorizacionTest extends CasoDeContrato
         'DELETE api/matriculas/destroy/{id}' => 'aborta 400 salvo superusuario o profesor con permiso',
         'DELETE api/enfermeria/destroy/{id}' => 'aborta 401 si no es superusuario ni Usuario',
         'POST api/acudientes/crear' => 'aborta 403 si no es superusuario, Profesor ni Secretario',
+        // Su «hermana» es `firmas-del-titular/retirar` (4f44e06), que sólo comparte el
+        // nombre del método: retirar una firma pedida no es retirar una matrícula.
+        'PUT api/matriculas/retirar' => 'no hace nada salvo superusuario o Profesor con profes_can_edit_alumnos',
 
         // El módulo de tardanzas se autentica solo, y por eso ni siquiera lleva
         // `auth.token`: el lector de códigos manda usuario y contraseña en CADA

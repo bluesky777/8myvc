@@ -148,13 +148,20 @@ class FotoOficialTest extends CasoDeContrato
         $this->assertSame($profesor->firma_id, DB::table('profesores')->where('id', $profesor->id)->value('firma_id'));
     }
 
-    /** Y el profesor sí, que es lo que no se puede romper. */
-    public function test_un_profesor_cambia_la_firma(): void
+    /**
+     * Y quien aprueba firmas sí, que es lo que no se puede romper.
+     *
+     * Hasta el 24 sep 2026 aquí entraba cualquier Profesor; desde 4f44e06 la puerta
+     * es `Autoriza::puedeAprobarFirmas`, porque abierta a los docentes se saltaba la
+     * aprobación. Que el docente llano ya no pase lo vigila
+     * `FirmaDelTitularTest::test_un_docente_llano_tampoco_pone_la_firma_por_la_puerta_directa`.
+     */
+    public function test_quien_aprueba_firmas_cambia_la_firma(): void
     {
         $profesor = DB::selectOne('SELECT id FROM profesores WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
         $imagen = $this->imagen();
 
-        $this->withToken($this->tokenDe($this->usuarioDeTipo('Profesor')->username))
+        $this->withToken($this->tokenDe($this->usuarioDeTipo('Usuario')->username))
             ->putJson("/api/images-users/cambiar-firma-un-profe/{$profesor->id}", ['imagen_id' => $imagen])
             ->assertStatus(200);
 
