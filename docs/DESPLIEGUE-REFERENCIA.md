@@ -134,6 +134,27 @@ Sacado del servidor, no supuesto. Los 16 colegios tienen el mismo commit de `app
 > `composer` sobre esa carpeta los cambia a los cinco a la vez y el salto de
 > framework no se puede escalonar en ellos.
 
+> ### Confirmado el 24 sep 2026: **queda UNO**, no cinco ni seis
+>
+> Medido por SSH en las 17 carpetas de `micolev1`, mirando `[ -L vendor ]` una por una:
+>
+> | Estado hoy | Cuántos | Cuáles |
+> |---|---|---|
+> | Symlink a `/home/micolev1/laravel_compartido` | **1** | `maranathaarauca` |
+> | Carpeta propia, 65 MB, inodes distintos | **16** | todos los demás, incluidos `coal`, `colbosque`, `comad-san-andres`, `eal` y `lal` |
+>
+> Los cuatro que colgaban en agosto y el `lal` que entró el 30 ago **ya tienen carpeta
+> propia**, que es lo que `DESPLIEGUE.md:246` decía que se hizo. Así que **el salto de
+> framework sí se puede escalonar**: el único que arrastra a otro es `maranathaarauca`,
+> y arrastra a nadie más porque es el único que queda colgado.
+>
+> Precio de haberlo igualado, para que esté dicho: **16 × 65 MB ≈ 1 GB** de `vendor`
+> duplicado en una cuenta que usa 12,0 GB.
+>
+> Y de aquí sale una regla para lo que venga: `tools/desplegar.sh` **no se cree esta
+> tabla**. Mide `-L vendor` en cada pasada, porque esta misma tabla ha dicho 5, 6 y 1 en
+> cinco semanas.
+
 ##### CONTESTADO el 23 sep 2026, y la lista de arriba está mal por los dos lados
 
 **Medido desde la sesión `myvc-flutter-75`, con Joseth ejecutando en los
