@@ -793,6 +793,45 @@ class ElPortalDeLaFamiliaTest extends CasoDeContrato
         $this->assertStringNotContainsString('cupo', json_encode($this->getJson(self::PORTAL.'/'.$codigo)->json()));
     }
 
+    /**
+     * **La observación de una cita reservada no viaja a cualquiera del personal.** La ven
+     * quien la escribió, Orientación y los directivos; los demás ven que la cita existe y
+     * que tiene algo guardado, sin el texto. Y moverle la hora sin poder leerla no la borra.
+     */
+    public function test_la_observacion_reservada_solo_la_leen_quienes_pueden(): void
+    {
+        [$aspirante] = $this->unAspiranteConDocumento();
+
+        // El llano, sin ningún rol que lo deje leer.
+        $llano = DB::selectOne('SELECT id FROM users WHERE id=(SELECT tokenable_id FROM personal_access_tokens
+            WHERE id=?)', [(int) explode('|', $this->tokenLlano())[0]]);
+        DB::delete('DELETE FROM role_user WHERE user_id=?', [(int) $llano->id]);
+
+        $this->withToken($this->tokenAdmin())->putJson(self::ASPIRANTES.'/'.$aspirante.'/cita', [
+            'tipo' => 'entrevista', 'observacion' => 'Duelo reciente en la familia.', 'reservada' => true,
+        ])->assertStatus(200);
+
+        $delLlano = $this->withToken($this->tokenLlano())->getJson(self::ASPIRANTES.'/'.$aspirante)->assertStatus(200);
+        $this->assertCount(1, $delLlano->json('citas'), 'La cita reservada tiene que seguir contando.');
+        $this->assertNull($delLlano->json('citas.0.observacion'));
+        $this->assertTrue($delLlano->json('citas.0.observacion_oculta'));
+        $this->assertStringNotContainsString('Duelo', json_encode($delLlano->json()));
+
+        $delAdmin = $this->withToken($this->tokenAdmin())->getJson(self::ASPIRANTES.'/'.$aspirante)->assertStatus(200);
+        $this->assertSame('Duelo reciente en la familia.', $delAdmin->json('citas.0.observacion'));
+        $this->assertFalse($delAdmin->json('citas.0.observacion_oculta'));
+
+        // El llano mueve la hora con la observación que vio —ninguna—: no la borra ni la desmarca.
+        $this->withToken($this->tokenLlano())->putJson(self::ASPIRANTES.'/'.$aspirante.'/cita', [
+            'tipo' => 'entrevista', 'cuando' => '2026-10-02 09:30:00', 'observacion' => null, 'reservada' => false,
+        ])->assertStatus(200);
+
+        $fila = DB::selectOne('SELECT observacion, reservada, cuando FROM citas_admision WHERE aspirante_id=?', [$aspirante]);
+        $this->assertSame('Duelo reciente en la familia.', $fila->observacion, 'Mover la hora borró lo que escribió Orientación.');
+        $this->assertSame(1, (int) $fila->reservada);
+        $this->assertStringStartsWith('2026-10-02 09:30', (string) $fila->cuando);
+    }
+
     /** Sin pagar no se llena: es el pecado que la prematrícula pública comete hoy. */
     public function test_un_formulario_sin_pagar_no_se_puede_llenar(): void
     {

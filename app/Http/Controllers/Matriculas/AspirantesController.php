@@ -199,10 +199,26 @@ class AspirantesController extends Controller
             ORDER BY r.orden, r.id, d.id', [(int) $aspirante->id]);
 
         $citas = DB::select('SELECT c.id, c.tipo, c.cuando, c.donde, c.resultado, c.observacion,
-                c.reservada, c.requisito_id
+                c.reservada, c.requisito_id, c.creada_por
             FROM citas_admision c
             WHERE c.aspirante_id=? AND c.deleted_at IS NULL ORDER BY c.cuando, c.id',
             [(int) $aspirante->id]);
+
+        // **Lo reservado es reservado de verdad** (PANTALLAS-MATRICULA §3): la cita se ve —
+        // que existe cuenta—, el texto de la observación sólo viaja a quien puede leerlo.
+        // Es la regla de las notas reservadas de las estaciones.
+        foreach ($citas as $cita) {
+            $oculta = (bool) $cita->reservada
+                && ! $this->puedeLeerLoReservado($cita->creada_por === null ? null : (int) $cita->creada_por);
+
+            $cita->observacion_oculta = $oculta;
+
+            if ($oculta) {
+                $cita->observacion = null;
+            }
+
+            unset($cita->creada_por);
+        }
 
         return [
             'aspirante' => $aspirante,
@@ -355,6 +371,14 @@ class AspirantesController extends Controller
         $donde = trim((string) Request::input('donde'));
 
         if ($cita) {
+            // Quien no puede leer la observación reservada tampoco la pisa: la pantalla le
+            // manda la que vio —ninguna— y sin esto moverle la hora a la entrevista borraría
+            // lo que escribió Orientación. Tampoco la puede desmarcar como reservada.
+            $previa = DB::selectOne('SELECT observacion, reservada, creada_por FROM citas_admision WHERE id=?',
+                [(int) $cita->id]);
+            $ciega = (bool) $previa->reservada
+                && ! $this->puedeLeerLoReservado($previa->creada_por === null ? null : (int) $previa->creada_por);
+
             DB::update('UPDATE citas_admision
                 SET cuando=?, donde=?, con_quien=?, resultado=?, observacion=?, reservada=?, updated_at=?
                 WHERE id=?',
@@ -363,8 +387,8 @@ class AspirantesController extends Controller
                     $donde === '' ? null : $donde,
                     $this->conQuien(),
                     $resultado,
-                    Request::input('observacion'),
-                    Request::boolean('reservada') ? 1 : 0,
+                    $ciega ? $previa->observacion : Request::input('observacion'),
+                    $ciega ? 1 : (Request::boolean('reservada') ? 1 : 0),
                     $ahora,
                     (int) $cita->id,
                 ]);
@@ -479,6 +503,37 @@ class AspirantesController extends Controller
     }
 
     // ------------------------------------------------------------------
+
+    /**
+     * **¿Puede leer la observación de una cita reservada?** Quien la escribió, Orientación
+     * (`Psicólogo`) y los directivos: Admin, Rector, Secretario y las dos coordinaciones.
+     * Decidido el 24 sep 2026. Va aquí y no en `Autoriza` porque ese fichero tenía cambios
+     * de otra sesión sin commitear; moverlo allí es un corte y pega.
+     */
+    private function puedeLeerLoReservado(?int $escritaPor): bool
+    {
+        $quien = (int) ($this->user->user_id ?? 0);
+
+        if ($quien <= 0) {
+            return false;
+        }
+
+        if ($escritaPor !== null && $quien === $escritaPor) {
+            return true;
+        }
+
+        if (Autoriza::esSuperusuario($this->user)) {
+            return true;
+        }
+
+        foreach (['Psicólogo', 'Admin', 'Rector', 'Secretario', 'Coord académico', 'Coord disciplinario'] as $rol) {
+            if (\App\Models\Role::hasRole($quien, $rol)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private function aspirante($id): object
     {
