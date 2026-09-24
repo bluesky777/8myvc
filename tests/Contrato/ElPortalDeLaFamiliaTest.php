@@ -715,6 +715,47 @@ class ElPortalDeLaFamiliaTest extends CasoDeContrato
         $this->assertSame('Asma', $r->json('aspirante.condicion_salud'));
     }
 
+    /**
+     * **Un paso que no es un papel no se «sube».** En el recorrido los requisitos son
+     * también las estaciones —la entrevista, tesorería—, y el portal ofrecía subirlas.
+     * `pide_documento` lo dice el colegio en la pantalla 01; nace en 1 para que nada
+     * cambie al desplegar.
+     */
+    public function test_un_paso_que_no_es_documento_no_se_sube(): void
+    {
+        $codigo = $this->unaOrdenPagada();
+        $papel = $this->unPaso('Registro civil', 2);
+        $entrevista = $this->unPaso('Entrevista', 4);
+
+        $this->assertSame(1, (int) DB::selectOne('SELECT pide_documento p FROM requisitos_matricula WHERE id=?', [$papel])->p,
+            'Sin el campo, un requisito nuevo tiene que seguir pidiéndose como documento.');
+
+        $this->withToken($this->tokenLlano())->putJson('/api/requisitos/update', [
+            'id' => $entrevista, 'requisito' => 'Entrevista', 'descripcion' => '', 'pide_documento' => false,
+        ])->assertStatus(200);
+
+        // Corregir el nombre sin mandar el campo no lo vuelve a encender.
+        $this->withToken($this->tokenLlano())->putJson('/api/requisitos/update', [
+            'id' => $entrevista, 'requisito' => 'Entrevista familiar', 'descripcion' => '',
+        ])->assertStatus(200);
+        $this->assertSame(0, (int) DB::selectOne('SELECT pide_documento p FROM requisitos_matricula WHERE id=?', [$entrevista])->p);
+
+        $this->putJson(self::PORTAL.'/'.$codigo, ['nombres' => 'Laura', 'documento' => '1090123456'])->assertStatus(200);
+
+        $r = $this->getJson(self::PORTAL.'/'.$codigo.'?documento=1090123456')->assertStatus(200);
+        $porId = collect($r->json('requisitos'))->keyBy('requisito_id');
+        $this->assertTrue($porId[$papel]['pide_documento']);
+        $this->assertFalse($porId[$entrevista]['pide_documento']);
+
+        $this->postJson(self::PORTAL.'/'.$codigo.'/documento/'.$entrevista,
+            ['documento' => '1090123456', 'en_papel' => true])->assertStatus(422);
+        $this->postJson(self::PORTAL.'/'.$codigo.'/documento/'.$papel,
+            ['documento' => '1090123456', 'en_papel' => true])->assertStatus(200);
+
+        $this->assertSame(1, (int) DB::selectOne('SELECT COUNT(*) c FROM documentos_admision')->c,
+            'Se contestó 422 y aun así se anotó el paso que no es un papel.');
+    }
+
     /** Sin pagar no se llena: es el pecado que la prematrícula pública comete hoy. */
     public function test_un_formulario_sin_pagar_no_se_puede_llenar(): void
     {

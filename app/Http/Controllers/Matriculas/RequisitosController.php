@@ -293,10 +293,13 @@ class RequisitosController extends Controller {
         // es exactamente el comportamiento de antes.
         $orden   = (int) (Request::input('orden') ?? 0);
         $bloquea = Request::boolean('bloquea') ? 1 : 0;
+        // `pide_documento`: si la familia lo entrega como papel (el portal le ofrece subirlo).
+        // Sin el campo, 1 — lo mismo que el defecto de la columna y lo que hacía el portal.
+        $pideDocumento = Request::has('pide_documento') ? (Request::boolean('pide_documento') ? 1 : 0) : 1;
 
-        $consulta = 'INSERT INTO requisitos_matricula(requisito, descripcion, orden, bloquea, updated_by, created_at, updated_at, year_id) 
-            VALUES(?,?,?,?,?,?,?,?)';
-        DB::insert($consulta, [$requ, $descrip, $orden, $bloquea, $this->user->user_id, $now, $now, $year_id]);
+        $consulta = 'INSERT INTO requisitos_matricula(requisito, descripcion, orden, bloquea, pide_documento, updated_by, created_at, updated_at, year_id) 
+            VALUES(?,?,?,?,?,?,?,?,?)';
+        DB::insert($consulta, [$requ, $descrip, $orden, $bloquea, $pideDocumento, $this->user->user_id, $now, $now, $year_id]);
         
         $consulta = 'SELECT * FROM requisitos_matricula WHERE id=?';
         $requisito = DB::select($consulta, [ DB::getPdo()->lastInsertId() ] )[0];
@@ -344,6 +347,13 @@ class RequisitosController extends Controller {
 		if (Request::has('bloquea')) {
 			$sets[]    = 'bloquea=?';
 			$valores[] = Request::boolean('bloquea') ? 1 : 0;
+		}
+
+		// Igual que los dos de arriba: sólo si viene. Una pantalla vieja que corrige el nombre
+		// no puede quitarle a la familia el botón de subir ese documento.
+		if (Request::has('pide_documento')) {
+			$sets[]    = 'pide_documento=?';
+			$valores[] = Request::boolean('pide_documento') ? 1 : 0;
 		}
 
 		$sets[]    = 'updated_by=?';

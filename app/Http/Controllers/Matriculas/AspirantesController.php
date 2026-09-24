@@ -554,7 +554,8 @@ class AspirantesController extends Controller
      */
     private function requisitosDeLaCampana(): array
     {
-        $filas = DB::select('SELECT r.id, r.orden AS estacion, r.requisito, r.descripcion, r.bloquea
+        $filas = DB::select('SELECT r.id, r.orden AS estacion, r.requisito, r.descripcion, r.bloquea,
+                r.pide_documento
             FROM requisitos_matricula r
             INNER JOIN years y ON y.id=r.year_id AND y.deleted_at IS NULL AND y.actual=1
             WHERE r.deleted_at IS NULL
@@ -566,6 +567,7 @@ class AspirantesController extends Controller
             'requisito' => $fila->requisito,
             'descripcion' => $fila->descripcion,
             'bloquea' => (bool) $fila->bloquea,
+            'pide_documento' => (bool) $fila->pide_documento,
         ], $filas);
     }
 }

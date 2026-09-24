@@ -351,12 +351,18 @@ class PortalInscripcionController extends Controller
             abort(403, 'Para subir documentos hay que confirmar el documento del aspirante.');
         }
 
-        $requisito = DB::selectOne('SELECT r.id FROM requisitos_matricula r
+        $requisito = DB::selectOne('SELECT r.id, r.pide_documento FROM requisitos_matricula r
             INNER JOIN years y ON y.id=r.year_id AND y.deleted_at IS NULL AND y.actual=1
             WHERE r.id=? AND r.deleted_at IS NULL', [(int) $requisito_id]);
 
         if (! $requisito) {
             abort(404, 'Ese requisito no existe en la campaña de este año.');
+        }
+
+        // Un paso que no es un papel —la entrevista, tesorería— no se «sube». El colegio lo
+        // marcó así en su recorrido (`pide_documento = 0`).
+        if (! (bool) $requisito->pide_documento) {
+            abort(422, 'Ese paso no es un documento: se hace en el colegio el día de matrículas.');
         }
 
         $pendiente = DB::selectOne('SELECT id FROM documentos_admision
@@ -589,18 +595,23 @@ class PortalInscripcionController extends Controller
      */
     private function requisitosDeLaCampana(): array
     {
-        $filas = DB::select('SELECT r.id, r.orden AS estacion, r.requisito, r.descripcion, r.bloquea
+        $filas = DB::select('SELECT r.id, r.orden AS estacion, r.requisito, r.descripcion, r.bloquea,
+                r.pide_documento
             FROM requisitos_matricula r
             INNER JOIN years y ON y.id=r.year_id AND y.deleted_at IS NULL AND y.actual=1
             WHERE r.deleted_at IS NULL
             ORDER BY r.orden, r.id');
 
+        // `pide_documento` viaja y NO filtra: el portal pinta los que se entregan y puede
+        // enseñar los demás como pasos del recorrido. Quien cierra la puerta de subir uno
+        // que no es un papel es `postDocumento`.
         return array_map(fn ($fila) => [
             'requisito_id' => (int) $fila->id,
             'estacion' => (int) $fila->estacion,
             'requisito' => $fila->requisito,
             'descripcion' => $fila->descripcion,
             'bloquea' => (bool) $fila->bloquea,
+            'pide_documento' => (bool) $fila->pide_documento,
         ], $filas);
     }
 
