@@ -294,7 +294,7 @@ class BolfinalesPreescolarController extends Controller {
 		// —la §141, el centinela `["notas_finales" => []]`— y se revirtió. El
 		// motivo: **no recibe lo mismo que ellas.** Su único llamante (línea 209)
 		// le pasa `$alumno->nota_comportamiento_year`, que sale de
-		// `NotaComportamiento::nota_promedio_year()` y es **siempre un `(int)`**
+		// `NotaComportamiento::nota_promedio_year()` y es **siempre un número** (`float` desde el 24 sep; antes `(int)`)
 		// —un promedio, o `0` si no hay notas—. Nunca es el objeto ni el array.
 		//
 		// Con un número, `is_object` es siempre falso: el cambio habría apagado
@@ -316,7 +316,7 @@ class BolfinalesPreescolarController extends Controller {
 			$escala = '';
 			
 			if ( $mostrar_nota_comport ) {
-				$la_nota = $nota;
+				$la_nota = \App\Support\NotaImpresa::valor($nota);
 				if ($la_nota < $nota_minima_aceptada) {
 					$clase = ' nota-perdida-bold ';
 				}

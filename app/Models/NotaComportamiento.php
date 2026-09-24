@@ -153,7 +153,9 @@ class NotaComportamiento extends Model {
 		$nota 		= DB::select($consulta, $params);
 
 		if(count($nota) > 0){
-			return (int)$nota[0]->nota_comportamiento_year;
+			// Con sus decimales: la cuenta va exacta y quien la imprime la redondea
+			// (`NotaImpresa`). Antes era `(int)`, que truncaba: 59,9 salía 59.
+			return $nota[0]->nota_comportamiento_year === null ? 0 : (float)$nota[0]->nota_comportamiento_year;
 		}else{
 			return 0;
 		}
