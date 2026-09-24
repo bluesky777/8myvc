@@ -184,6 +184,7 @@
     "GET api/observador/vertical-todos": "App\\Http\\Controllers\\Informes\\ObservadorController@getVerticalTodos",
     "GET api/observador/vertical/{grupo_id}/{tamanio}": "App\\Http\\Controllers\\Informes\\ObservadorController@getVertical",
     "GET api/paises": "App\\Http\\Controllers\\PaisesController@getIndex",
+    "GET api/pendientes/mios": "App\\Http\\Controllers\\PendientesController@getMios",
     "GET api/perfiles": "App\\Http\\Controllers\\Perfiles\\PerfilesController@getIndex",
     "GET api/perfiles/comprobarusername/{username}": "App\\Http\\Controllers\\Perfiles\\PerfilesController@getComprobarusername",
     "GET api/perfiles/show/{id}": "App\\Http\\Controllers\\Perfiles\\PerfilesController@getShow",

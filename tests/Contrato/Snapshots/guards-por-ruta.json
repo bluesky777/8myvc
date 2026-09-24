@@ -134,6 +134,7 @@
         "GET api/observador",
         "GET api/observador/vertical-todos",
         "GET api/observador/vertical/{grupo_id}/{tamanio}",
+        "GET api/pendientes/mios",
         "GET api/perfiles/show/{id}",
         "GET api/perfiles/trashed",
         "GET api/perfiles/usuariosall",

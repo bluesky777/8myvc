@@ -221,6 +221,34 @@ class CompromisosController extends Controller
     }
 
     /**
+     * **Los candidatos del colegio entero que todavía no tienen compromiso**, con la regla
+     * y el corte del año. Es lo que pinta el aviso de `GET pendientes/mios`.
+     *
+     * Existe para que ese aviso cuente **con esta misma cuenta** y no con otra: §2.6 de
+     * `myvc_front/COMPROMISOS-ACADEMICOS.md` documenta tres «perdidas» distintas, y la
+     * que propone compromisos es `contarPerdidas` (definitiva del periodo contra la
+     * mínima del año). Un aviso que contara `matriculas.cant_areas_perdidas` prometería
+     * candidatos que esta pantalla no enseña.
+     *
+     * No comprueba permisos: quien llama ya decidió quién lo ve.
+     *
+     * @return array{regla: string, corte: int, candidatos: list<array<string, mixed>>}
+     */
+    public function candidatosSinCompromiso(int $year_id, int $periodo): array
+    {
+        $config = $this->configDelAnio($year_id);
+        $regla = $this->reglaDeLaPeticion(null, $config);
+        $corte = $this->corteDeLaPeticion(null, $config);
+
+        $candidatos = array_values(array_filter(
+            $this->contarPerdidas($year_id, $periodo, null, $regla, $corte, $config),
+            static fn (array $c): bool => $c['ya_tiene'] === null
+        ));
+
+        return ['regla' => $regla, 'corte' => $corte, 'candidatos' => $candidatos];
+    }
+
+    /**
      * **Crear, uno o en lote, por la misma ruta.**
      *
      * El botón individual manda una matrícula y el de grupo manda cien. Si fueran dos

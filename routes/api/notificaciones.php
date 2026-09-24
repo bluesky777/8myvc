@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\NotificacionesController;
+use App\Http\Controllers\PendientesController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -23,3 +24,11 @@ use Illuminate\Support\Facades\Route;
 // pedirle que compruebe un `alumno_id` que esta ruta no acepta: no se pide de
 // quién, se contesta quién eres.
 Route::get('notificaciones/temas', [NotificacionesController::class, 'getTemas']);
+
+// PendientesController
+//
+// Las cosas pendientes del colegio: el aviso que sale una vez por ingreso y el
+// bloque de Inicio › Pendientes. `auth.personal` porque alumnos y acudientes no
+// tienen nada que ver aquí; el reparto fino —sólo directivos, y qué tipo a quién—
+// lo hace el controlador, que al resto del personal le contesta la lista vacía.
+Route::get('pendientes/mios', [PendientesController::class, 'getMios'])->middleware('auth.personal');

@@ -1,0 +1,24 @@
+{
+    "pendientes": [
+        {
+            "destino": {
+                "etiqueta": "string",
+                "ruta": "string"
+            },
+            "detalle": "string",
+            "filas": [
+                {
+                    "aviso": "bool",
+                    "nota": "string",
+                    "texto": "string"
+                }
+            ],
+            "icono": "string",
+            "tipo": "string",
+            "titular": "string",
+            "total_filas": "int",
+            "urgencia": "int"
+        }
+    ],
+    "year_id": "int"
+}
