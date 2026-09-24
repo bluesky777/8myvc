@@ -321,6 +321,41 @@ class User extends Authenticatable
 	 * @param  int|array<int>|null  $periodo
 	 */
 	/**
+	 * El texto del 400 cuando lo cerrado es la asignatura y no el periodo.
+	 *
+	 * **Mismo código que el candado del periodo** (400) para que los clientes que
+	 * ya lo tratan —la app móvil, que lo traduce a «No tienes permiso para editar
+	 * notas en este periodo»— sigan rechazando igual; lo que cambia es el motivo,
+	 * que `app2` sí enseña.
+	 */
+	public const ASIGNATURA_CERRADA = 'Esta asignatura está cerrada en este periodo. Para cambiar algo, pide a coordinación que la reabra.';
+
+	/**
+	 * **El cierre por asignatura** (fase 2 de `PLAN-CIERRE-DE-PERIODO.md`), la otra
+	 * mitad de los tres guards de escribir notas.
+	 *
+	 * Muerde sólo al tipo Profesor —el mismo trato que el candado del periodo— y
+	 * sólo cuando el llamante sabe de qué asignatura es la fila
+	 * (`AsignaturaDeLaFila`). Sin asignatura, o sin periodo derivado, no mira nada:
+	 * así se comporta cada puerta que todavía no la pasa, y así nace el colegio
+	 * que nunca ha cerrado una (la tabla vacía).
+	 *
+	 * `puedeNivelar` y `pueden_modificar_definitivas` NO la llaman, a propósito:
+	 * cerrar la asignatura no cierra su nivelación. Ver `CierreDeAsignatura`.
+	 *
+	 * @param  int|array<int>|null  $periodo
+	 * @param  int|array<int>|null  $asignatura
+	 */
+	private static function asignaturaCerradaParaElDocente($user, int|array|null $periodo, int|array|null $asignatura): bool
+	{
+		if ($user->tipo != 'Profesor' || $asignatura === null || $periodo === null) {
+			return false;
+		}
+
+		return \App\Support\CierreDeAsignatura::algunaCerrada($periodo, $asignatura);
+	}
+
+	/**
 	 * Lo mismo que `pueden_editar_notas()` pero contestando en vez de abortar.
 	 *
 	 * Hace falta para las rutas que **leen y de paso escriben**: no se les puede
@@ -336,11 +371,15 @@ class User extends Authenticatable
 	 *
 	 * @param  int|array<int>|null  $periodo
 	 */
-	public static function permiteEditarNotas($user, int|array|null $periodo = null): bool
+	public static function permiteEditarNotas($user, int|array|null $periodo = null, int|array|null $asignatura = null): bool
 	{
 		self::aplicarBanderasDelPeriodo($user, $periodo);
 
 		if ($user->tipo == 'Profesor' && $user->profes_pueden_editar_notas == 0) {
+			return false;
+		}
+
+		if (self::asignaturaCerradaParaElDocente($user, $periodo, $asignatura)) {
 			return false;
 		}
 
@@ -367,21 +406,27 @@ class User extends Authenticatable
 	 *
 	 * @param  int|array<int>|null  $periodo
 	 */
-	public static function exigirPeriodoAbiertoParaNotas($user, int|array|null $periodo = null): void
+	public static function exigirPeriodoAbiertoParaNotas($user, int|array|null $periodo = null, int|array|null $asignatura = null): void
 	{
 		self::aplicarBanderasDelPeriodo($user, $periodo);
 
 		if ($user->tipo == 'Profesor' && $user->profes_pueden_editar_notas == 0) {
 			abort(400, 'El periodo está bloqueado y no se puede modificar.');
 		}
+
+		if (self::asignaturaCerradaParaElDocente($user, $periodo, $asignatura)) {
+			abort(400, self::ASIGNATURA_CERRADA);
+		}
 	}
 
-	public static function pueden_editar_notas($user, int|array|null $periodo = null)
+	public static function pueden_editar_notas($user, int|array|null $periodo = null, int|array|null $asignatura = null)
 	{
 		self::aplicarBanderasDelPeriodo($user, $periodo);
 		
 		if ($user->tipo == 'Profesor' && $user->profes_pueden_editar_notas==0) {
 			return abort(400, 'No tienes permiso');
+		}else if (self::asignaturaCerradaParaElDocente($user, $periodo, $asignatura)) {
+			return abort(400, self::ASIGNATURA_CERRADA);
 		}else if(($user->is_superuser) || $user->tipo == 'Profesor'){
 			// todo bien
 		}else{

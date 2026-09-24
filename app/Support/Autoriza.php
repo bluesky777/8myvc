@@ -569,6 +569,25 @@ class Autoriza
     }
 
     /**
+     * Quién reabre una asignatura que su docente cerró (fase 2 de
+     * `myvc_front/PLAN-CIERRE-DE-PERIODO.md`, `PUT cierres-asignatura/reabrir`).
+     *
+     * **Decisión 2 de Joseth del 23 sep 2026: «cierra el docente su asignatura;
+     * reabre coordinación»**. Y aquí `auth.personal` no vale, aunque el mock dijera
+     * «lo mismo que hoy puede mover el candado del periodo»: ese conjunto son las 74
+     * cuentas de personal, **53 de ellas docentes**, así que el docente se reabriría
+     * a sí mismo y el cierre sería una cortesía — que es justo lo que el patrón del
+     * mercado (el que cierra es uno, el que reabre es otro) viene a evitar.
+     *
+     * Mismo conjunto que `puedeElegirQuePasaAlCerrar` —superusuario, Secretario,
+     * Coord académico y Rector—, con nombre propio por la regla de esta clase.
+     */
+    public static function puedeReabrirUnaAsignatura($user): bool
+    {
+        return self::puedeCambiarLaNotaNumerica($user);
+    }
+
+    /**
      * Quién ata el papel de inscripción a un alumno, y quién corrige su código.
      *
      * Decidido por Joseth el 20 sep 2026 con las dos poblaciones delante:

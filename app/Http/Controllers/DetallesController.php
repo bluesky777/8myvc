@@ -206,7 +206,14 @@ class DetallesController extends Controller {
 		$alumno_id 		= Request::input('alumno_id');
 		$grupo_id 		= Request::input('grupo_id');
 
-		User::pueden_editar_notas($user, $periodo_id ? (int) $periodo_id : null);
+		// Borra las notas del alumno en TODAS las asignaturas del grupo, así que basta
+		// que su docente haya cerrado una para que no pase (fase 2 del cierre).
+		$asignaturasDelGrupo = array_map(fn ($a) => (int) $a->id, DB::select(
+			'SELECT id FROM asignaturas WHERE grupo_id = ? AND deleted_at IS NULL', [(int) $grupo_id]
+		));
+
+		User::pueden_editar_notas($user, $periodo_id ? (int) $periodo_id : null,
+			$asignaturasDelGrupo === [] ? null : $asignaturasDelGrupo);
 
 		$consulta 	= 'DELETE n FROM notas n
 						inner join subunidades s on s.id=n.subunidad_id

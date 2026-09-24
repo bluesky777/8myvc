@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CierresAsignaturaController;
 use App\Http\Controllers\ContratosController;
 use App\Http\Controllers\GradosController;
 use App\Http\Controllers\GruposController;
@@ -260,6 +261,17 @@ Route::put('periodos/toggle-profes-pueden-editar-notas', [PeriodosController::cl
 Route::put('periodos/toggle-profes-pueden-nivelar', [PeriodosController::class, 'putToggleProfesPuedenNivelar'])->middleware('auth.personal');
 Route::delete('periodos/destroy/{periodo_id}', [PeriodosController::class, 'deleteDestroy'])->middleware('auth.personal');
 Route::put('periodos/establecer-actual/{periodo_id}', [PeriodosController::class, 'putEstablecerActual'])->middleware('auth.personal');
+
+// **El cierre por asignatura** (fase 2 de `myvc_front/PLAN-CIERRE-DE-PERIODO.md`):
+// el docente cierra la suya y coordinación la reabre con fecha y motivo. Las cuatro
+// con `auth.personal` y el permiso fino DENTRO, como `years/cierre-sin-calificar`:
+// `auth.personal` deja pasar a los 53 docentes, y reabrir es justo lo que el docente
+// no debe poder hacerse a sí mismo (`Autoriza::puedeReabrirUnaAsignatura`). Familia
+// nueva, sin comodines sueltos: cada `{id}` va detrás de un literal.
+Route::get('cierres-asignatura/periodo/{periodo_id}', [CierresAsignaturaController::class, 'getPeriodo'])->middleware('auth.personal');
+Route::get('cierres-asignatura/asignatura/{asignatura_id}/{periodo_id}', [CierresAsignaturaController::class, 'getAsignatura'])->middleware('auth.personal');
+Route::put('cierres-asignatura/cerrar', [CierresAsignaturaController::class, 'putCerrar'])->middleware('auth.personal');
+Route::put('cierres-asignatura/reabrir', [CierresAsignaturaController::class, 'putReabrir'])->middleware('auth.personal');
 Route::get('periodos/show/{year_id}', [PeriodosController::class, 'getShow']);
 Route::post('periodos/store/{year_id}', [PeriodosController::class, 'postStore'])->middleware('auth.personal');
 Route::put('periodos/update/{id}', [PeriodosController::class, 'putUpdate'])->middleware('auth.personal');

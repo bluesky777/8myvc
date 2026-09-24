@@ -424,7 +424,8 @@ class PeriodosController extends Controller {
 		$periodo_to_id		= Request::input('periodo_to_id');
 		$unidades_ids		= Request::input('unidades_ids');
 
-		User::pueden_editar_notas($this->user, $periodo_to_id ? (int) $periodo_to_id : null);
+		User::pueden_editar_notas($this->user, $periodo_to_id ? (int) $periodo_to_id : null,
+			$asignatura_to_id ? (int) $asignatura_to_id : null);
 
 		/*
 		 * Copiar la estructura tiene que llevarse TAMBIÉN las unidades con dueño, y

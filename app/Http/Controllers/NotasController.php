@@ -17,6 +17,7 @@ use App\Services\DefinitivasDeAsignatura;
 use App\Services\Nivelacion;
 use App\Support\EscalaDeNotas;
 use App\Support\NombreDelAlumno;
+use App\Support\AsignaturaDeLaFila;
 use App\Support\PeriodoDeLaFila;
 use App\Support\RepartoDeLaNota;
 use App\User;
@@ -571,7 +572,7 @@ class NotasController extends Controller
         // que sí. Es una de las dos que la §27.1 daba por difíciles.
         $periodoDeLaNota = PeriodoDeLaFila::deNota($id);
 
-        User::pueden_editar_notas($user, $periodoDeLaNota);
+        User::pueden_editar_notas($user, $periodoDeLaNota, AsignaturaDeLaFila::deNota($id));
 
         // Que el número quepa en la escala del colegio. No lo comprobaba nadie:
         // los diez sitios que miran `porc_final` son para pintar la banda, no
@@ -902,7 +903,7 @@ class NotasController extends Controller
 
         // Antes de la primera escritura, y con los ids **únicos**: ver la nota de
         // arriba sobre `count($filas) === count($ids)`.
-        User::pueden_editar_notas($user, array_keys($periodos));
+        User::pueden_editar_notas($user, array_keys($periodos), array_map(fn ($par) => $par[0], array_values($pares)));
 
         // La escala, y **después del permiso, no antes**. Ponerla en el bucle de
         // arriba parecía natural —está al lado de las otras dos validaciones de
@@ -1121,7 +1122,7 @@ class NotasController extends Controller
     public function deleteDestroy($id)
     {
         $user = User::fromToken();
-        User::pueden_editar_notas($user, PeriodoDeLaFila::deNota($id));
+        User::pueden_editar_notas($user, PeriodoDeLaFila::deNota($id), AsignaturaDeLaFila::deNota($id));
 
         // `LEFT JOIN` y no `INNER`, y no es estilo: con `INNER` una nota cuya
         // unidad ya se borró no traía fila, y de ella no quedaba **nada** — ni

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Grupo;
 use App\Support\Autoriza;
+use App\Support\CierreDeAsignatura;
 use App\Support\EscalaDeNotas;
 use App\Support\ParecidoDeNombres;
 use App\Support\RepartoDeLaNota;
@@ -694,6 +695,25 @@ class EnsayoDeLaPlanilla
             // {@see rematarElCierre}, cuando se sabe; ver {@see LAS_DEMAS_ENTRAN}.
             $ficha['motivo_fuera'] = 'El periodo '.$periodo->numero.' está cerrado, así que esta hoja no se '
                 .'puede subir.';
+            $cuentas['casillas'] = $this->contarCeldasConValor($nombre, $mapa);
+            $cuentas['se_quedan_fuera'] = $cuentas['casillas'];
+            $this->totales['se_quedan_fuera'] += $cuentas['casillas'];
+            $this->cerrarHoja($ficha, $cuentas, null);
+            $this->caidasPorElCierre[] = count($this->hojas) - 1;
+
+            return;
+        }
+
+        // **El cierre por asignatura** (fase 2 de `PLAN-CIERRE-DE-PERIODO.md`): el
+        // periodo está abierto, pero el docente ya cerró ESTA asignatura. Misma
+        // salida que el periodo cerrado —la hoja se queda fuera y se cuenta— y el
+        // mismo trato que los guards: sólo muerde al tipo Profesor.
+        if (($this->usuario->tipo ?? '') === 'Profesor' && $asignaturaId > 0
+            && CierreDeAsignatura::algunaCerrada((int) $periodo->id, $asignaturaId)) {
+            $ficha['reconocida'] = true;
+            $ficha['periodo_abierto'] = false;
+            $ficha['motivo_fuera'] = 'Esta asignatura está cerrada en el periodo '.$periodo->numero
+                .', así que esta hoja no se puede subir. Para cambiar algo, pida a coordinación que la reabra.';
             $cuentas['casillas'] = $this->contarCeldasConValor($nombre, $mapa);
             $cuentas['se_quedan_fuera'] = $cuentas['casillas'];
             $this->totales['se_quedan_fuera'] += $cuentas['casillas'];

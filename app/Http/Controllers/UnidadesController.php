@@ -10,6 +10,7 @@ use App\Services\BoletinIndependiente;
 use App\Services\DefinitivasDeAsignatura;
 use App\Support\AlcanceDeLaPlantilla;
 use App\Support\CandadoDeLaPlantilla;
+use App\Support\AsignaturaDeLaFila;
 use App\Support\PeriodoDeLaFila;
 use App\User;
 use Carbon\Carbon;
@@ -134,7 +135,7 @@ class UnidadesController extends Controller
         // sus hermanas: sería apagarle al profesor la vista de un periodo cerrado,
         // que es justo la que va a querer consultar cuando esté cerrado. Decidido
         // por Joseth: **enseña lo que hay y no crea nada**. Ver 05 §47.2.
-        $puedeEscribir = User::permiteEditarNotas($user, (int) $periodo_id);
+        $puedeEscribir = User::permiteEditarNotas($user, (int) $periodo_id, (int) $asignatura_id);
 
         if (count($unidades) == 0 && $puedeEscribir) {
             /*
@@ -270,7 +271,8 @@ class UnidadesController extends Controller
         // hay fila de la que derivarlo todavía. Faltaba —crear una unidad con el
         // periodo cerrado devolvía 201— mientras su gemelo
         // `SubunidadesController::postIndex` sí lo pedía. Ver 05 §47.
-        User::pueden_editar_notas($user, (int) $user->periodo_id);
+        User::pueden_editar_notas($user, (int) $user->periodo_id,
+            Request::input('asignatura_id') ? (int) Request::input('asignatura_id') : null);
 
         $asignatura_id = Request::input('asignatura_id');
 
@@ -417,7 +419,10 @@ class UnidadesController extends Controller
             }
         }
 
-        User::pueden_editar_notas($user, PeriodoDeLaFila::deVariasUnidades(array_keys($ordenes)));
+        User::pueden_editar_notas($user,
+            PeriodoDeLaFila::deVariasUnidades(array_keys($ordenes)),
+            AsignaturaDeLaFila::deVariasUnidades(array_keys($ordenes))
+        );
 
         // **P6, y va AQUÍ y no dentro del bucle**: el bucle escribe fila a fila, así
         // que preguntando dentro un lote mixto deja las anteriores ya guardadas y
@@ -440,7 +445,7 @@ class UnidadesController extends Controller
     public function putUpdate($id)
     {
         $user = User::fromToken();
-        User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad($id));
+        User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad($id), AsignaturaDeLaFila::deUnidad($id));
 
         $unidad = Unidad::findOrFail($id);
 
@@ -530,7 +535,7 @@ class UnidadesController extends Controller
     public function deleteDestroy($id)
     {
         $user = User::fromToken();
-        User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad($id));
+        User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad($id), AsignaturaDeLaFila::deUnidad($id));
         $unidad = Unidad::find($id);
 
         if ($unidad) {
@@ -558,7 +563,7 @@ class UnidadesController extends Controller
         $user = User::fromToken();
         // La unidad está en la papelera —esto es un forcedelete—, así que el
         // resolutor no filtra `deleted_at`. §27.
-        User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad($id));
+        User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad($id), AsignaturaDeLaFila::deUnidad($id));
 
         $unidad = Unidad::onlyTrashed()->findOrFail($id);
 
@@ -615,7 +620,7 @@ class UnidadesController extends Controller
         // es escribir en las notas igual que borrarla — y `deleteDestroy` sí lo
         // pedía. `PeriodoDeLaFila::deUnidad()` no filtra `deleted_at` justo para
         // esto. Ver 05 §47.
-        User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad($id));
+        User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad($id), AsignaturaDeLaFila::deUnidad($id));
 
         $consulta = 'UPDATE unidades SET deleted_at=NULL WHERE id=?';
 

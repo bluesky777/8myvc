@@ -7,6 +7,8 @@ use App\User;
 use App\Models\FraseAsignatura;
 use App\Services\Auditoria;
 use App\Support\Autoriza;
+use App\Support\AsignaturaDeLaFila;
+use App\Support\CierreDeAsignatura;
 use App\Support\PeriodoDeLaFila;
 use App\Support\NombreDelAlumno;
 use App\Support\Reloj;
@@ -75,7 +77,8 @@ class FrasesAsignaturaController extends Controller {
 		// La frase se crea con `periodo_id = $user->periodo_id` tres líneas más
 		// abajo, así que el periodo de la fila que se escribe es ése y no el que
 		// venga en `num_periodo`. §27.
-		User::pueden_editar_notas($user, (int) $user->periodo_id);
+		User::pueden_editar_notas($user, (int) $user->periodo_id,
+			Request::input('asignatura_id') ? (int) Request::input('asignatura_id') : null);
 
 		$frase = new FraseAsignatura;
 		$frase->alumno_id = Request::input('alumno_id');
@@ -120,7 +123,7 @@ class FrasesAsignaturaController extends Controller {
 	public function deleteDestroy($id)
 	{
 		$user = User::fromToken();
-		User::pueden_editar_notas($user, PeriodoDeLaFila::deFraseAsignatura($id));
+		User::pueden_editar_notas($user, PeriodoDeLaFila::deFraseAsignatura($id), AsignaturaDeLaFila::deFraseAsignatura($id));
 		
 		$frase = FraseAsignatura::findOrFail($id);
 
@@ -317,10 +320,12 @@ class FrasesAsignaturaController extends Controller {
 		 *
 		 * Y va **antes** de leer el cuerpo: lo que no se puede escribir no se valida.
 		 */
-		if (! User::permiteEditarNotas($user, $contexto->periodo_id)) {
-			abort(403, $contexto->periodo_abierto
-				? 'No tiene permiso para escribir las frases del boletín.'
-				: 'El periodo está cerrado: no se puede escribir en él.');
+		if (! User::permiteEditarNotas($user, $contexto->periodo_id, $contexto->asignatura_id)) {
+			abort(403, ! $contexto->periodo_abierto
+				? 'El periodo está cerrado: no se puede escribir en él.'
+				: ($contexto->asignatura_cerrada
+					? User::ASIGNATURA_CERRADA
+					: 'No tiene permiso para escribir las frases del boletín.'));
 		}
 
 		$pedidos = $this->alumnosDelCuerpo();
@@ -631,6 +636,9 @@ class FrasesAsignaturaController extends Controller {
 			'year_id'         => (int) $asignatura->year_id,
 			'periodo_id'      => (int) $periodo->id,
 			'periodo_abierto' => (int) $periodo->profes_pueden_editar_notas === 1,
+			// El cierre por asignatura (fase 2 del cierre de periodo): el periodo
+			// puede estar abierto y esta asignatura cerrada por su docente.
+			'asignatura_cerrada' => CierreDeAsignatura::algunaCerrada((int) $periodo->id, $asignaturaId),
 		];
 	}
 
@@ -959,7 +967,8 @@ class FrasesAsignaturaController extends Controller {
 			'year_id'         => $contexto->year_id,
 			'periodo_id'      => $contexto->periodo_id,
 			'periodo_abierto' => $contexto->periodo_abierto,
-			'puede_escribir'  => User::permiteEditarNotas($user, $contexto->periodo_id),
+			'asignatura_cerrada' => $contexto->asignatura_cerrada,
+			'puede_escribir'  => User::permiteEditarNotas($user, $contexto->periodo_id, $contexto->asignatura_id),
 			'alumnos'         => $alumnos,
 			'poblacion'       => $poblacion,
 		];

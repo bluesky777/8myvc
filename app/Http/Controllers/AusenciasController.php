@@ -275,7 +275,7 @@ class AusenciasController extends Controller {
 
 		// La falta se escribe en `$user->periodo_id` —tres líneas más abajo—, así
 		// que es a ESE periodo al que hay que preguntarle si está abierto.
-		User::exigirPeriodoAbiertoParaNotas($user, (int) $user->periodo_id);
+		User::exigirPeriodoAbiertoParaNotas($user, (int) $user->periodo_id, self::asignaturaPedida());
 
 		$aus = new Ausencia;
 		$aus->alumno_id 		= Request::input('alumno_id');
@@ -324,7 +324,7 @@ class AusenciasController extends Controller {
 	{
 		$user = User::fromToken();
 
-		User::exigirPeriodoAbiertoParaNotas($user, (int) $user->periodo_id);
+		User::exigirPeriodoAbiertoParaNotas($user, (int) $user->periodo_id, self::asignaturaPedida());
 
 		$aus = new Ausencia;
 		$aus->alumno_id 		= Request::input('alumno_id');
@@ -348,7 +348,7 @@ class AusenciasController extends Controller {
 	{
 		$user = User::fromToken();
 
-		User::exigirPeriodoAbiertoParaNotas($user, (int) $user->periodo_id);
+		User::exigirPeriodoAbiertoParaNotas($user, (int) $user->periodo_id, self::asignaturaPedida());
 
 		$aus = new Ausencia;
 		$aus->alumno_id 		= Request::input('alumno_id');
@@ -429,7 +429,8 @@ class AusenciasController extends Controller {
 		// null, y las dos significan lo mismo aquí —no se sabe de qué periodo
 		// es—. Sin id, la guarda cae en el periodo del usuario, que es el lado
 		// prudente: la que decide es la bandera que ese profesor tiene delante.
-		User::exigirPeriodoAbiertoParaNotas($user, (int) ($aus->periodo_id ?: $user->periodo_id));
+		User::exigirPeriodoAbiertoParaNotas($user, (int) ($aus->periodo_id ?: $user->periodo_id),
+			$aus->asignatura_id ? (int) $aus->asignatura_id : null);
 
 		$aus->fecha_hora		= Request::input('fecha_hora', null);
 		$aus->updated_by		= $user->user_id;
@@ -450,7 +451,8 @@ class AusenciasController extends Controller {
 		
 		$aus = Ausencia::findOrFail(Request::input('ausencia_id'));
 
-		User::exigirPeriodoAbiertoParaNotas($user, (int) ($aus->periodo_id ?: $user->periodo_id));
+		User::exigirPeriodoAbiertoParaNotas($user, (int) ($aus->periodo_id ?: $user->periodo_id),
+			$aus->asignatura_id ? (int) $aus->asignatura_id : null);
 
 		if (Request::input('new_tipo') == 'tardanza') {
 			$aus->tipo					= 'tardanza';
@@ -493,7 +495,8 @@ class AusenciasController extends Controller {
 
 		$aus = Ausencia::findOrFail($id);
 
-		User::exigirPeriodoAbiertoParaNotas($user, (int) ($aus->periodo_id ?: $user->periodo_id));
+		User::exigirPeriodoAbiertoParaNotas($user, (int) ($aus->periodo_id ?: $user->periodo_id),
+			$aus->asignatura_id ? (int) $aus->asignatura_id : null);
 
 		$aus->deleted_by = $user->user_id;
 		$aus->save();
@@ -514,4 +517,16 @@ class AusenciasController extends Controller {
 		return $aus;
 	}
 
+
+	/**
+	 * La asignatura de la falta que se va a crear, para el cierre por asignatura
+	 * (fase 2 de `PLAN-CIERRE-DE-PERIODO.md`). `null` —la falta de entrada al
+	 * colegio, que no es de ninguna asignatura— deja sólo el candado del periodo.
+	 */
+	private static function asignaturaPedida(): ?int
+	{
+		$id = (int) Request::input('asignatura_id', 0);
+
+		return $id > 0 ? $id : null;
+	}
 }

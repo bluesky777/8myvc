@@ -8,6 +8,7 @@ use App\Models\Unidad;
 use App\Services\Auditoria;
 use App\Services\DefinitivasDeAsignatura;
 use App\Support\CandadoDeLaPlantilla;
+use App\Support\AsignaturaDeLaFila;
 use App\Support\PeriodoDeLaFila;
 use App\User;
 use Carbon\Carbon;
@@ -22,7 +23,7 @@ class SubunidadesController extends Controller
         $now = Carbon::now('America/Bogota');
         // La subunidad todavía no existe: nace colgada de `unidad_id`, así que el
         // periodo al que se escribe es el de esa unidad. §27.
-        User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad(Request::input('unidad_id')));
+        User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad(Request::input('unidad_id')), AsignaturaDeLaFila::deUnidad(Request::input('unidad_id')));
 
         // **Una sola transacción para las tres cosas**: la subunidad, sus notas y la
         // definitiva. Es lo que cierra la §5.1 de verdad — crearlas en el mismo
@@ -151,9 +152,11 @@ class SubunidadesController extends Controller
         // Esta toca VARIAS filas de golpe. Se comprueban todas y basta que una
         // esté en periodo cerrado para que no pase ninguna: escribir la mitad de
         // un reordenado es peor que no escribir nada. §27.
-        User::pueden_editar_notas($user, PeriodoDeLaFila::deVariasSubunidades(
-            self::idsDelSortHash(Request::input('sortHash'))
-        ));
+        $subunidadesMovidas = self::idsDelSortHash(Request::input('sortHash'));
+        User::pueden_editar_notas($user,
+            PeriodoDeLaFila::deVariasSubunidades($subunidadesMovidas),
+            AsignaturaDeLaFila::deVariasSubunidades($subunidadesMovidas)
+        );
 
         $sortHash = Request::input('sortHash');
 
@@ -179,9 +182,11 @@ class SubunidadesController extends Controller
         $user = User::fromToken();
         // Mueve subunidades entre dos unidades, así que hay dos periodos que
         // mirar y tienen que estar abiertos los dos. §27.
-        User::pueden_editar_notas($user, PeriodoDeLaFila::deVariasUnidades([
-            Request::input('unidad1_id'), Request::input('unidad2_id'),
-        ]));
+        $unidadesTocadas = [Request::input('unidad1_id'), Request::input('unidad2_id')];
+        User::pueden_editar_notas($user,
+            PeriodoDeLaFila::deVariasUnidades($unidadesTocadas),
+            AsignaturaDeLaFila::deVariasUnidades($unidadesTocadas)
+        );
 
         $sortHash1 = Request::input('sortHash1');
         $sortHash2 = Request::input('sortHash2');
@@ -255,7 +260,7 @@ class SubunidadesController extends Controller
     public function putUpdate($id)
     {
         $user = User::fromToken();
-        User::pueden_editar_notas($user, PeriodoDeLaFila::deSubunidad($id));
+        User::pueden_editar_notas($user, PeriodoDeLaFila::deSubunidad($id), AsignaturaDeLaFila::deSubunidad($id));
 
         $subunidad = Subunidad::findOrFail($id);
 
@@ -361,7 +366,7 @@ class SubunidadesController extends Controller
     {
         $user = User::fromToken();
 
-        User::pueden_editar_notas($user, PeriodoDeLaFila::deSubunidad($id));
+        User::pueden_editar_notas($user, PeriodoDeLaFila::deSubunidad($id), AsignaturaDeLaFila::deSubunidad($id));
 
         $subunidad = Subunidad::find($id);
 
@@ -394,7 +399,7 @@ class SubunidadesController extends Controller
         // que no existe, así que siempre cae en el else), pero el guard va igual:
         // arreglar esa variable es un cambio de una palabra.
         // En la papelera: el resolutor no filtra `deleted_at` justo por esto.
-        User::pueden_editar_notas($user, PeriodoDeLaFila::deSubunidad($id));
+        User::pueden_editar_notas($user, PeriodoDeLaFila::deSubunidad($id), AsignaturaDeLaFila::deSubunidad($id));
 
         $subunidad = Subunidad::onlyTrashed()->findOrFail($id);
 
@@ -434,7 +439,7 @@ class SubunidadesController extends Controller
         // su `porcentaje` a la rejilla, así que es escribir en las notas igual que
         // borrarla — y `putUpdate` y `deleteDestroy`, aquí al lado, sí lo piden.
         // Las dos salieron del mismo inventario. Ver 05 §47.
-        User::pueden_editar_notas($user, PeriodoDeLaFila::deSubunidad($id));
+        User::pueden_editar_notas($user, PeriodoDeLaFila::deSubunidad($id), AsignaturaDeLaFila::deSubunidad($id));
 
         $consulta = 'UPDATE subunidades SET deleted_at=NULL WHERE id=?';
 

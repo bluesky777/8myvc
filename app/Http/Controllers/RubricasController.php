@@ -406,7 +406,7 @@ class RubricasController extends Controller
             abort(404, 'Esa nota no existe.');
         }
 
-        User::pueden_editar_notas($this->user, (int) $nota->periodo_id);
+        User::pueden_editar_notas($this->user, (int) $nota->periodo_id, (int) $nota->asignatura_id);
 
         $rubrica = $this->rubricaDeLaNota($nota);
         $momento = $this->momento(Request::input('momento'));
@@ -496,7 +496,7 @@ class RubricasController extends Controller
             }
         }
 
-        User::pueden_editar_notas($this->user, (int) $primera->periodo_id);
+        User::pueden_editar_notas($this->user, (int) $primera->periodo_id, (int) $primera->asignatura_id);
 
         $rubrica = $this->rubricaDeLaNota($primera);
 
@@ -664,7 +664,7 @@ class RubricasController extends Controller
     /** La consulta de una nota con su subunidad, su rúbrica y su periodo. */
     private function consultaDeNota(string $condicion): string
     {
-        return "SELECT n.id, n.alumno_id, n.subunidad_id, s.rubrica_id, u.periodo_id
+        return "SELECT n.id, n.alumno_id, n.subunidad_id, s.rubrica_id, u.periodo_id, u.asignatura_id
                   FROM notas n
                  INNER JOIN subunidades s ON s.id = n.subunidad_id
                  INNER JOIN unidades u ON u.id = s.unidad_id

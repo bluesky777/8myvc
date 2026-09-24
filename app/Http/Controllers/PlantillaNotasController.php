@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Services\Auditoria;
+use App\Support\CierreDeAsignatura;
 use App\Support\AlcanceDeLaPlantilla;
 use App\Support\Autoriza;
 use App\Support\Reloj;
@@ -497,6 +498,7 @@ class PlantillaNotasController extends Controller
             'columnas_huerfanas' => 0,
             'manuales_respetadas' => 0,
             'saltadas_por_periodo_cerrado' => 0,
+            'saltadas_por_asignatura_cerrada' => 0,
             'saltadas_sin_plantilla' => 0,
             'independientes_respetadas' => 0,
         ];
@@ -507,6 +509,7 @@ class PlantillaNotasController extends Controller
         // que ningún grupo tiene no le estropea el despliegue a nadie.
         $plantillaPorClave = [];
         $candidatas = [];
+        $cerradas = [];
 
         foreach ($periodos as $periodo) {
             foreach ($asignaturas as $asignatura) {
@@ -514,6 +517,19 @@ class PlantillaNotasController extends Controller
 
                 if ((int) $periodo->profes_pueden_editar_notas === 0) {
                     $conteo['saltadas_por_periodo_cerrado']++;
+
+                    continue;
+                }
+
+                // El cierre por asignatura (fase 2 de `PLAN-CIERRE-DE-PERIODO.md`):
+                // sembrar indicadores en una asignatura que su docente ya cerró le
+                // movería la definitiva por debajo. Se salta como el periodo cerrado.
+                $cerradas[(int) $periodo->id] ??= array_keys(array_filter(
+                    CierreDeAsignatura::delPeriodo((int) $periodo->id), fn ($c) => $c['cerrada']
+                ));
+
+                if (in_array((int) $asignatura->id, $cerradas[(int) $periodo->id], true)) {
+                    $conteo['saltadas_por_asignatura_cerrada']++;
 
                     continue;
                 }
