@@ -48,11 +48,16 @@ class CierresAsignaturaController extends Controller
         $asignaturas = DB::select(
             'SELECT a.id AS asignatura_id, a.grupo_id, g.nombre AS nombre_grupo, g.abrev AS abrev_grupo,
                     m.materia, m.alias, a.profesor_id,
-                    TRIM(CONCAT(IFNULL(p.nombres, ""), " ", IFNULL(p.apellidos, ""))) AS profesor_nombre
+                    TRIM(CONCAT(IFNULL(p.nombres, ""), " ", IFNULL(p.apellidos, ""))) AS profesor_nombre,
+                    p.nombres AS nombres_profesor, p.apellidos AS apellidos_profesor,
+                    fp.nombre AS foto_nombre_profesor, iu.nombre AS imagen_nombre_profesor
                FROM asignaturas a
                INNER JOIN grupos g ON g.id = a.grupo_id AND g.deleted_at IS NULL
                LEFT JOIN materias m ON m.id = a.materia_id AND m.deleted_at IS NULL
                LEFT JOIN profesores p ON p.id = a.profesor_id AND p.deleted_at IS NULL
+               LEFT JOIN images fp ON fp.id = p.foto_id
+               LEFT JOIN users up ON up.id = p.user_id
+               LEFT JOIN images iu ON iu.id = up.imagen_id
               WHERE g.year_id = ? AND a.deleted_at IS NULL'.$filtro.'
               ORDER BY g.orden, g.nombre, a.orden, m.materia, a.id',
             $parametros
@@ -193,11 +198,16 @@ class CierresAsignaturaController extends Controller
         $a = $id > 0 ? DB::selectOne(
             'SELECT a.id AS asignatura_id, a.grupo_id, g.nombre AS nombre_grupo, g.abrev AS abrev_grupo,
                     m.materia, m.alias, a.profesor_id, g.year_id,
-                    TRIM(CONCAT(IFNULL(p.nombres, ""), " ", IFNULL(p.apellidos, ""))) AS profesor_nombre
+                    TRIM(CONCAT(IFNULL(p.nombres, ""), " ", IFNULL(p.apellidos, ""))) AS profesor_nombre,
+                    p.nombres AS nombres_profesor, p.apellidos AS apellidos_profesor,
+                    fp.nombre AS foto_nombre_profesor, iu.nombre AS imagen_nombre_profesor
                FROM asignaturas a
                INNER JOIN grupos g ON g.id = a.grupo_id AND g.deleted_at IS NULL
                LEFT JOIN materias m ON m.id = a.materia_id AND m.deleted_at IS NULL
                LEFT JOIN profesores p ON p.id = a.profesor_id AND p.deleted_at IS NULL
+               LEFT JOIN images fp ON fp.id = p.foto_id
+               LEFT JOIN users up ON up.id = p.user_id
+               LEFT JOIN images iu ON iu.id = up.imagen_id
               WHERE a.id = ? AND a.deleted_at IS NULL',
             [$id]
         ) : null;
@@ -254,6 +264,11 @@ class CierresAsignaturaController extends Controller
             'abrev_grupo' => $a->abrev_grupo,
             'profesor_id' => $a->profesor_id === null ? null : (int) $a->profesor_id,
             'profesor_nombre' => $a->profesor_nombre !== '' ? $a->profesor_nombre : null,
+            // Su cara, para la fila (regla: toda fila que nombra a un docente lleva su foto).
+            'nombres_profesor' => $a->nombres_profesor,
+            'apellidos_profesor' => $a->apellidos_profesor,
+            'foto_nombre_profesor' => $a->foto_nombre_profesor,
+            'imagen_nombre_profesor' => $a->imagen_nombre_profesor,
             'faltan' => $faltan,
             'estado' => $cierre['estado'] ?? 'abierta',
             'cerrada' => $cierre['cerrada'] ?? false,

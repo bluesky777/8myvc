@@ -284,10 +284,14 @@ final class CierreDeLoNoCalificado
      */
     public static function porAsignatura(int $periodoId): array
     {
+        // La foto del docente viaja con su nombre: toda fila que nombra a un docente lleva su
+        // cara (regla de Joseth, 24 sep 2026). La oficial (`profesores.foto_id`) y la de su
+        // usuario; el cliente elige con el mismo orden que para los alumnos.
         return array_values(DB::select(
             'SELECT a.id AS asignatura_id, a.grupo_id,
                     g.nombre AS nombre_grupo, m.materia,
                     a.profesor_id, p.nombres AS nombres_profesor, p.apellidos AS apellidos_profesor,
+                    fp.nombre AS foto_nombre_profesor, iu.nombre AS imagen_nombre_profesor,
                     COUNT(*) AS casillas,
                     COUNT(DISTINCT n.alumno_id) AS alumnos,
                     COUNT(DISTINCT s.id) AS indicadores
@@ -298,9 +302,12 @@ final class CierreDeLoNoCalificado
                INNER JOIN grupos g ON g.id = a.grupo_id AND g.deleted_at IS NULL
                LEFT JOIN materias m ON m.id = a.materia_id AND m.deleted_at IS NULL
                LEFT JOIN profesores p ON p.id = a.profesor_id
+               LEFT JOIN images fp ON fp.id = p.foto_id
+               LEFT JOIN users up ON up.id = p.user_id
+               LEFT JOIN images iu ON iu.id = up.imagen_id
               WHERE u.periodo_id = ? AND n.deleted_at IS NULL AND n.nota IS NULL
               GROUP BY a.id, a.grupo_id, g.nombre, m.materia,
-                       a.profesor_id, p.nombres, p.apellidos
+                       a.profesor_id, p.nombres, p.apellidos, fp.nombre, iu.nombre
               ORDER BY casillas DESC, a.id',
             [$periodoId]
         ));
