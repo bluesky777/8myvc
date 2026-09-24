@@ -156,6 +156,7 @@ class PortalInscripcionController extends Controller
             'aspirante' => null,
             'documentos' => [],
             'citas' => [],
+            'grados' => $this->gradosDelColegio(),
         ];
 
         if ($aspirante === null) {
@@ -533,6 +534,22 @@ class PortalInscripcionController extends Controller
         return $despues('nombres') !== ''
             && $despues('documento') === ''
             && $despues('fecha_nac') === '';
+    }
+
+    /**
+     * **Los grados del colegio, para que la familia elija a cuál aspira.**
+     *
+     * `grado_id` era uno de los campos que `putFormulario` acepta y **no había de dónde
+     * sacar los ids**: el portal es público y `grados` pide sesión. Viajan siempre, también
+     * sin segundo factor, porque no dicen nada de nadie: son los nombres que el colegio
+     * pinta en la puerta.
+     *
+     * @return list<array{id:int, nombre:string}>
+     */
+    private function gradosDelColegio(): array
+    {
+        return array_map(fn ($fila) => ['id' => (int) $fila->id, 'nombre' => (string) $fila->nombre],
+            DB::select('SELECT id, nombre FROM grados WHERE deleted_at IS NULL ORDER BY orden, id'));
     }
 
     /** Lo que la familia puede ver de su propio formulario. */

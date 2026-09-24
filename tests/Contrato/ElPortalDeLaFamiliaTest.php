@@ -607,6 +607,11 @@ class ElPortalDeLaFamiliaTest extends CasoDeContrato
         $r = $this->getJson(self::PORTAL.'/'.$codigo)->assertStatus(200);
 
         $this->assertFalse($r->json('tiene_formulario'));
+        // Los grados viajan para que `grado_id` se pueda elegir: sin ellos, el campo
+        // se aceptaba y no había de dónde sacar un id.
+        $this->assertNotEmpty($r->json('grados'));
+        $this->assertIsInt($r->json('grados.0.id'));
+        $this->assertIsString($r->json('grados.0.nombre'));
         $this->assertTrue($r->json('verificado'),
             'Sin datos dentro no hay nada que verificar: exigir una llave que nadie escribió es cerrar la puerta por dentro.');
     }
