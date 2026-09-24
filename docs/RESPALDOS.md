@@ -22,6 +22,25 @@ mañana**. Un respaldo que obliga a elegir qué día pierdes no es una vuelta at
 
 ## 1. El cron diario, que es lo que se puede montar hoy
 
+> ### Antes de montar esto: en `micolev1` el proveedor ya lo hace — leído en JetBackup el 24 sep 2026
+>
+> La cuenta tiene **JetBackup 5**, y en *Databases* salen **18 bases** con **30 copias cada
+> una**, `Daily` · `Incremental` · **`Cloud Backup - SSHv1`**, la última del 23 sep a las
+> **02:23**. Tres cosas se siguen de ahí y valen por tres de las cuatro preguntas de §2:
+> hay copias diarias, **se restauran desde el panel sin ticket** —y por base, no sólo la
+> cuenta entera—, y **no viven en el disco de la cuenta**: el destino es remoto.
+>
+> Así que **el cron de este apartado deja de ser urgente en `micolev1`**: duplicaría a las
+> 02:05 lo que el proveedor hace a las 02:23, ocupando cuota propia. Lo que NO cubre
+> JetBackup sigue en pie y es lo de siempre: **una copia de las 02:23 no deshace un `migrate`
+> del mediodía sin borrar la mañana de los docentes** (§ el guion de antes de migrar), y una
+> copia que vive en el proveedor no cubre perder la cuenta CON el proveedor.
+>
+> **Dos cosas sin comprobar:** si `micolevi` —la otra cuenta, donde está LAL solo— tiene lo
+> mismo, y si esas copias cuentan contra la cuota. Y un detalle que se ve en la lista:
+> `micolev1_la_hermosa` sigue ahí, con 2,81 MB. Es el colegio cuya **carpeta** se borró el 30
+> ago; la base no, y por eso se respalda cada noche.
+
 En cPanel **no hay una casilla de «respaldos automáticos»**: la programación de copias
 vive en WHM, que es del proveedor, no de la cuenta. Lo que sí es de la cuenta es el
 cron, y con él se hace lo mismo.
@@ -123,9 +142,14 @@ apriete, no cuando ya apretó.
 
 ## 2. Lo que hay que preguntarle al proveedor — las cuatro preguntas
 
-El proveedor **puede** estar haciendo copias diarias ya; también puede no estar
-haciendo ninguna. Las dos cosas son normales en un compartido y **ninguna se deduce
-del panel**. Por correo, con estas palabras:
+**En `micolev1` esto ya está contestado, y por el panel** (24 sep 2026, recuadro de §1):
+copias **diarias**, **30** por base, restaurables por ti sin ticket y guardadas **fuera** del
+servidor. De las cuatro preguntas quedan vivas la **4** —si cuentan contra la cuota, que con
+12,0 GB de uso no es ocioso— y todas las demás **para la cuenta `micolevi`**, que es otra
+máquina y otro contrato. Al proveedor sólo hay que escribirle por eso.
+
+El texto de abajo se queda porque sirve tal cual para `micolevi`, y porque el día que cambie
+el plan de alojamiento vuelven a hacer falta las cuatro:
 
 1. ¿Hacen copias de seguridad automáticas de mi cuenta y de sus bases de datos? ¿Cada
    cuánto, y **cuántos días atrás** puedo llegar?
