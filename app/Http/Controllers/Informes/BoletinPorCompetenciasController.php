@@ -840,6 +840,9 @@ class BoletinPorCompetenciasController extends Controller
             return null;
         }
 
+        // La banda de la nota IMPRESA (decisión del 24 sep 2026): 69,83 se imprime 70.
+        $nota = \App\Support\NotaImpresa::valor($nota);
+
         foreach ($this->escalasVal() as $banda) {
             if ($nota >= $banda->porc_inicial && $nota < $banda->porc_final + 1) {
                 return $banda;

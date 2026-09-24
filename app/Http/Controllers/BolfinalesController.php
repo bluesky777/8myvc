@@ -291,7 +291,7 @@ class BolfinalesController extends Controller {
 
 
 			// Si es un promedio perdido, debo sumarlo como una asignatura perdida
-			if ($asignatura->promedio < User::$nota_minima_aceptada) {
+			if (\App\Support\NotaImpresa::perdida($asignatura->promedio, User::$nota_minima_aceptada)) {
 				$alumno->cant_lost_asig += 1;
 			}
 

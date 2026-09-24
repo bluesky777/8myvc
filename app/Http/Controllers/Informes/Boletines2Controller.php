@@ -384,7 +384,7 @@ class Boletines2Controller extends Controller {
 			if(count($periodos)>0){
 				
 				if ($this->user->si_recupera_materia_recup_indicador){
-					if ($periodos[0]->definitiva_year < $this->user->nota_minima_aceptada && $periodos[0]->cant_perdidas_year > 0) {
+					if (\App\Support\NotaImpresa::perdida($periodos[0]->definitiva_year, $this->user->nota_minima_aceptada) && $periodos[0]->cant_perdidas_year > 0) {
 						$asignatura->detalle_periodos = $periodos[0];
 						$des = EscalaDeValoracion::valoracion($asignatura->detalle_periodos->definitiva_year, $this->escalasVal());
 
@@ -454,7 +454,7 @@ class Boletines2Controller extends Controller {
 				if(count($periodos)>0){
 					
 					if ($year_ant->si_recupera_materia_recup_indicador){
-						if ($periodos[0]->definitiva_year < $year_ant->nota_minima_aceptada && $periodos[0]->cant_perdidas_year > 0) {
+						if (\App\Support\NotaImpresa::perdida($periodos[0]->definitiva_year, $year_ant->nota_minima_aceptada) && $periodos[0]->cant_perdidas_year > 0) {
 							$asignatura->detalle_periodos = $periodos[0];
 							
 							$des = EscalaDeValoracion::valoracion($asignatura->detalle_periodos->definitiva_year, $this->escalasVal());

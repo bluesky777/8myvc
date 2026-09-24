@@ -389,7 +389,7 @@ class CertificadosPersonaController extends Controller {
 				$suma_tar += (int)$definitiva->cantidad_tardanza;
 				
 				
-				if(($si_recupera_materia_recup_indicador && $definitiva->DefMateria >= User::$nota_minima_aceptada) || ( $definitiva->manual==1 && $definitiva->DefMateria >= User::$nota_minima_aceptada)){
+				if(($si_recupera_materia_recup_indicador && ! \App\Support\NotaImpresa::perdida($definitiva->DefMateria, User::$nota_minima_aceptada)) || ( $definitiva->manual==1 && ! \App\Support\NotaImpresa::perdida($definitiva->DefMateria, User::$nota_minima_aceptada))){
 					// No se cuentan las notas perdidas
 				}else{
 					
@@ -436,7 +436,7 @@ class CertificadosPersonaController extends Controller {
 
 
 			// Si es un promedio perdido, debo sumarlo como una asignatura perdida
-			if (round($asignatura->promedio) < User::$nota_minima_aceptada) {
+			if (\App\Support\NotaImpresa::perdida($asignatura->promedio, User::$nota_minima_aceptada)) {
 				$alumno->cant_lost_asig += 1;
 			}
 
@@ -464,7 +464,7 @@ class CertificadosPersonaController extends Controller {
 		$cant_lost_areas = 0;
 		
 		for ($k=0; $k < count($areas); $k++) { 
-			if ($areas[$k]->area_nota < User::$nota_minima_aceptada){
+			if (\App\Support\NotaImpresa::perdida($areas[$k]->area_nota, User::$nota_minima_aceptada)){
 				$cant_lost_areas = $cant_lost_areas + 1;
 			}
 		}
@@ -486,6 +486,9 @@ class CertificadosPersonaController extends Controller {
 		// escrito que ALTO llega hasta 45 — y el camino de SQL, que no redondeaba, lo
 		// dejaba directamente **sin nivel**. Los trece sitios usan ahora la misma regla:
 		// la banda llega hasta justo antes del primer entero de la siguiente.
+
+		// La banda de la nota IMPRESA (decisión del 24 sep 2026): 45,5 se imprime 46.
+		$nota = \App\Support\NotaImpresa::valor($nota);
 
 		foreach ($this->escalas_val as $key => $escala_val) {
 			//Debugging::pin($escala_val->porc_inicial, $escala_val->porc_final, $nota);

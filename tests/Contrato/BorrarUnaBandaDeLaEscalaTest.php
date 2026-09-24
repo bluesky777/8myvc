@@ -123,7 +123,7 @@ class BorrarUnaBandaDeLaEscalaTest extends CasoDeContrato
         $this->assertSame(0, (int) DB::selectOne(
             'SELECT COUNT(*) AS n FROM notas_finales nf
                INNER JOIN periodos p ON p.id = nf.periodo_id AND p.deleted_at IS NULL
-              WHERE p.year_id = ? AND nf.nota >= ? AND nf.nota < ? + 1',
+              WHERE p.year_id = ? AND ROUND(nf.nota, 0) >= ? AND ROUND(nf.nota, 0) < ? + 1',
             [$creada['year_id'], $creada['porc_inicial'], $creada['porc_final']]
         )->n, 'La banda recién creada (91–100) sí recoge definitivas, así que este caso no mide lo '
             .'que dice: la escala del seed ya no llega hasta 50.');
@@ -189,8 +189,8 @@ class BorrarUnaBandaDeLaEscalaTest extends CasoDeContrato
         $banda = DB::selectOne('SELECT e.id, e.year_id, e.desempenio, e.porc_inicial, e.porc_final,
               (SELECT COUNT(*) FROM notas_finales nf
                  INNER JOIN periodos p ON p.id = nf.periodo_id AND p.deleted_at IS NULL
-                WHERE p.year_id = e.year_id AND nf.nota >= e.porc_inicial
-                  AND nf.nota < e.porc_final + 1) AS definitivas
+                WHERE p.year_id = e.year_id AND ROUND(nf.nota, 0) >= e.porc_inicial
+                  AND ROUND(nf.nota, 0) < e.porc_final + 1) AS definitivas
             FROM escalas_de_valoracion e
             INNER JOIN years y ON y.id = e.year_id AND y.actual = 1 AND y.deleted_at IS NULL
             WHERE e.deleted_at IS NULL

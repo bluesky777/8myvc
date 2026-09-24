@@ -262,6 +262,9 @@ class BolfinalesPreescolarController extends Controller {
 		// dejaba directamente **sin nivel**. Los trece sitios usan ahora la misma regla:
 		// la banda llega hasta justo antes del primer entero de la siguiente.
 
+		// La banda de la nota IMPRESA (decisión del 24 sep 2026): 45,5 se imprime 46.
+		$nota = \App\Support\NotaImpresa::valor($nota);
+
 		foreach ($this->escalas_val as $key => $escala_val) {
 			//Debugging::pin($escala_val->porc_inicial, $escala_val->porc_final, $nota);
 

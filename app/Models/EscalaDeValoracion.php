@@ -1,5 +1,6 @@
 <?php namespace App\Models;
 
+use App\Support\NotaImpresa;
 use App\Support\SellaConElReloj;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -52,6 +53,11 @@ class EscalaDeValoracion extends Model {
 		// escrito que ALTO llega hasta 45 — y el camino de SQL, que no redondeaba, lo
 		// dejaba directamente **sin nivel**. Los trece sitios usan ahora la misma regla:
 		// la banda llega hasta justo antes del primer entero de la siguiente.
+		//
+		// **Y el 24 sep 2026 vuelve el redondeo, esta vez por decisión de producto**:
+		// la banda es la de la nota IMPRESA (`NotaImpresa`), así que 45,5 se imprime
+		// 46 y es SUPERIOR. Ahora los caminos de SQL redondean igual (`ROUND(x, 0)`).
+		$nota = NotaImpresa::valor($nota);
 
 		foreach ($escalas_val as $key => $escala_val) {
 			//Debugging::pin($escala_val->porc_inicial, $escala_val->porc_final, $nota);

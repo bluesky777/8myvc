@@ -710,7 +710,7 @@ class CompromisosDelDocenteController extends Controller
             $nota = (float) $fila->nota;
 
             $mapa[$fila->alumno_id.'|'.$fila->asignatura_id.'|'.$fila->periodo] = [
-                'resultado' => $nota >= $minima ? 'nivelo' : 'no_nivelo',
+                'resultado' => ! \App\Support\NotaImpresa::perdida($nota, $minima) ? 'nivelo' : 'no_nivelo',
                 'nota' => $nota,
                 'observacion' => $fila->nivelacion_obs,
             ];

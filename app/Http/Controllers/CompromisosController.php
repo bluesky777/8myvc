@@ -1033,7 +1033,7 @@ class CompromisosController extends Controller
             INNER JOIN notas_finales nf ON nf.alumno_id = m.alumno_id
                 AND nf.asignatura_id = asg.id AND nf.periodo = ?
             WHERE '.implode(' AND ', $donde).'
-              AND nf.nota < ?
+              AND ROUND(nf.nota, 0) < ?
             ORDER BY m.id, nombre', array_merge([$periodo], $datos, [$minima])));
     }
 
@@ -1087,7 +1087,7 @@ class CompromisosController extends Controller
                 AND nf.asignatura_id = asg.id AND nf.periodo = ?
             WHERE '.implode(' AND ', $donde).'
             GROUP BY m.id, m.alumno_id, g.id, g.grado_id, ar.id, ar.nombre
-            HAVING AVG(nf.nota) < ?
+            HAVING ROUND(AVG(nf.nota), 0) < ?
             ORDER BY m.id, nombre', array_merge([$periodo], $datos, [$minima])));
     }
 
@@ -1940,7 +1940,7 @@ class CompromisosController extends Controller
             $nota = (float) $fila->nota_nivelacion;
 
             $salida[(int) $fila->id] = [
-                'resultado' => $nota >= (float) $fila->nota_minima_aceptada ? 'nivelo' : 'no_nivelo',
+                'resultado' => ! \App\Support\NotaImpresa::perdida($nota, (float) $fila->nota_minima_aceptada) ? 'nivelo' : 'no_nivelo',
                 'nota' => $nota,
                 'observacion' => ($fila->nivelacion_obs ?? '') === ''
                     ? null : (string) $fila->nivelacion_obs,

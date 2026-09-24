@@ -162,6 +162,12 @@ class Area extends Model {
 				// sólo subir. Es la misma regla que las notas de al lado, que es justo lo
 				// que hace que el papel no se contradiga consigo mismo.
 				//
+				// > **24 sep 2026: la banda y el «perdida» vuelven a juzgarse sobre lo
+				// > impreso** (`App\Support\NotaImpresa`), por decisión de producto. La
+				// > nota que se guarda aquí sigue sin redondear —se sigue usando para
+				// > calcular—; son `valoracion()` y los `< nota_minima` de los
+				// > controladores los que redondean. Un 29,6 vuelve a la banda del 30.
+				//
 				// Y `area_nota` pasa a poder ser decimal en esta rama: la maqueta que la
 				// imprima tiene que formatearla, como ya hace con las definitivas.
 				$areas[$i]->area_nota 		= $ponderada;

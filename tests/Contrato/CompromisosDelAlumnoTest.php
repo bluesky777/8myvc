@@ -239,6 +239,65 @@ class CompromisosDelAlumnoTest extends CasoDeContrato
     }
 
     /* ══════════════════════════════════════════════════════════════════════════════
+     * PERDIDA = LO QUE SE IMPRIME
+     * ══════════════════════════════════════════════════════════════════════════════ */
+
+    /**
+     * **Se pierde por la nota impresa, no por sus decimales** (decisión de producto,
+     * 24 sep 2026): con mínima 60, un 59,9 se imprime «60» y no entra en el
+     * compromiso; un 59,4 se imprime «59» y sí.
+     *
+     * La mínima se pone a 60 a mano para usar los números del ejemplo tal cual; el
+     * seed califica sobre 50, y con 60 casi todo queda perdido, así que se mira sólo
+     * el renglón de la fila tocada. La fila se elige sin gemelas (mismo alumno,
+     * asignatura y periodo): una segunda fila con nota baja la haría perder igual.
+     */
+    #[Test]
+    public function test_la_asignatura_se_pierde_por_la_nota_impresa_y_no_por_sus_decimales(): void
+    {
+        DB::update('UPDATE years SET nota_minima_aceptada = ? WHERE id = ?', ['60', self::ANIO_NO_PRIMARIA]);
+
+        $fila = DB::selectOne('SELECT nf.id, nf.alumno_id, nf.asignatura_id
+            FROM notas_finales nf
+            INNER JOIN asignaturas a ON a.id = nf.asignatura_id AND a.grupo_id = ? AND a.deleted_at IS NULL
+            INNER JOIN matriculas m ON m.alumno_id = nf.alumno_id AND m.grupo_id = a.grupo_id
+                AND m.deleted_at IS NULL AND m.estado = "MATR"
+            WHERE nf.periodo = 2
+              AND NOT EXISTS (SELECT 1 FROM notas_finales o
+                              WHERE o.alumno_id = nf.alumno_id AND o.asignatura_id = nf.asignatura_id
+                                AND o.periodo = nf.periodo AND o.id <> nf.id)
+            ORDER BY nf.id LIMIT 1', [self::GRUPO_NO_PRIMARIA]);
+
+        $this->assertNotNull($fila, 'Cuarto 2025 no tiene ninguna definitiva del periodo 2 en el seed.');
+
+        $token = $this->tokenDeCoordinacion();
+
+        foreach ([['59.9', false], ['59.4', true]] as [$nota, $perdida]) {
+            DB::update('UPDATE notas_finales SET nota = ? WHERE id = ?', [$nota, $fila->id]);
+
+            $candidatos = $this->candidatos($token, [
+                'year_id' => self::ANIO_NO_PRIMARIA,
+                'periodo' => 2,
+                'grupo_id' => self::GRUPO_NO_PRIMARIA,
+                'regla' => 'asignatura',
+                'corte' => 1,
+            ]);
+
+            $perdidas = [];
+
+            foreach ($candidatos as $candidato) {
+                if ((int) $candidato['alumno_id'] === (int) $fila->alumno_id) {
+                    $perdidas = array_merge($perdidas, array_column($candidato['perdidas'], 'asignatura_id'));
+                }
+            }
+
+            $this->assertSame($perdida, in_array((int) $fila->asignatura_id, $perdidas, true),
+                "Con mínima 60, un {$nota} se imprime «".round((float) $nota).'» y '
+                .($perdida ? 'SÍ' : 'NO').' tiene que salir como perdida en el compromiso.');
+        }
+    }
+
+    /* ══════════════════════════════════════════════════════════════════════════════
      * LO QUE SE CONGELA
      * ══════════════════════════════════════════════════════════════════════════════ */
 

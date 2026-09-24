@@ -244,7 +244,9 @@ class EscalasDeValoracionController extends Controller {
 	 * La regla de la banda es `porc_inicial <= nota < porc_final + 1`, la del doc
 	 * 36 y `bd02f66`. **Escrita igual que en los otros trece sitios a propósito**:
 	 * si aquí se contara con `<=` el aviso diría un número y el boletín pintaría
-	 * otro, que es exactamente el fallo que aquel arreglo vino a cerrar.
+	 * otro, que es exactamente el fallo que aquel arreglo vino a cerrar. Desde el
+	 * 24 sep 2026 la nota se redondea antes (`ROUND(nf.nota, 0)`, la IMPRESA), como
+	 * en `valoracion()` y los joins de `Grupo`: un 59,6 cuenta en la banda del 60.
 	 *
 	 * ## Recorre la tabla, y NO se le pone índice
 	 *
@@ -266,7 +268,7 @@ class EscalasDeValoracionController extends Controller {
 		$definitivas = (int) DB::selectOne(
 			'SELECT COUNT(*) AS n FROM notas_finales nf
 			   INNER JOIN periodos p ON p.id = nf.periodo_id AND p.deleted_at IS NULL
-			  WHERE p.year_id = ? AND nf.nota >= ? AND nf.nota < ? + 1',
+			  WHERE p.year_id = ? AND ROUND(nf.nota, 0) >= ? AND ROUND(nf.nota, 0) < ? + 1',
 			[ $escala->year_id, $escala->porc_inicial, $escala->porc_final ]
 		)->n;
 

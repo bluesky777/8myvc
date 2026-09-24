@@ -7,7 +7,15 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Una nota con decimales cae en una banda, y cae en la de abajo.
+ * Una nota con decimales cae en una banda: la de la nota IMPRESA.
+ *
+ * > ⚠️ **24 sep 2026 — la mitad de este docblock quedó en historia.** Por decisión
+ * > de producto la banda se busca sobre **la nota redondeada**, la que ve el
+ * > usuario (`App\Support\NotaImpresa`): 45,5 se imprime 46 y es SUPERIOR; 45,4 se
+ * > imprime 45 y es ALTO. Lo que sigue explica por qué el 13 sep se decidió lo
+ * > contrario («redondear sube de banda sin que nadie lo haya decidido»): ahora sí
+ * > lo decidió alguien. Lo que se conserva es que los trece sitios usan **la misma
+ * > regla**, y que el SQL también redondea (`ROUND(x, 0)`, sobre `DECIMAL`).
  *
  * ## El agujero que cierra, que estaba VIVO y no es de laboratorio
  *
@@ -85,8 +93,9 @@ class LaBandaLlegaHastaElSiguienteEnteroTest extends TestCase
     public static function notas(): array
     {
         return [
-            // Los cuatro decimales que estaban huérfanos en producción.
-            'el 45,5 medido' => [45.5, 'ALTO'],
+            // Los cuatro decimales que estaban huérfanos en producción: se imprimen
+            // redondeados y llevan la banda de lo impreso.
+            'el 45,5 medido, que se imprime 46' => [45.5, 'SUPERIOR'],
             'el 45,005' => [45.005, 'ALTO'],
             'el 45,05' => [45.05, 'ALTO'],
             'el 39,3' => [39.3, 'BÁSICO'],
@@ -99,14 +108,18 @@ class LaBandaLlegaHastaElSiguienteEnteroTest extends TestCase
             'el cero' => [0, 'BAJO'],
             'el techo' => [50, 'SUPERIOR'],
 
-            // Y el que demuestra que la banda no se traga el entero siguiente:
-            // 45,999 sigue siendo ALTO y 46 ya no.
-            'justo antes del siguiente' => [45.999, 'ALTO'],
+            // La frontera del redondeo, con los números del ejemplo de producto
+            // (59,9 / 59,4 contra 60) llevados a esta escala de 0 a 50.
+            'justo antes del siguiente, que se imprime 46' => [45.999, 'SUPERIOR'],
+            'el 45,4 se imprime 45' => [45.4, 'ALTO'],
+            'el 29,9 se imprime 30' => [29.9, 'BÁSICO'],
+            'el 29,4 se imprime 29' => [29.4, 'BAJO'],
+            'la cadena decimal que devuelve PDO' => ['29.9000', 'BÁSICO'],
         ];
     }
 
     #[DataProvider('notas')]
-    public function test_la_nota_cae_en_la_banda_que_escribio_el_colegio($nota, string $esperado): void
+    public function test_la_nota_cae_en_la_banda_de_lo_que_se_imprime($nota, string $esperado): void
     {
         $escala = EscalaDeValoracion::valoracion($nota, $this->escalas());
 
@@ -115,8 +128,8 @@ class LaBandaLlegaHastaElSiguienteEnteroTest extends TestCase
             .'todo decimal en una frontera, y el boletín salía sin nivel.');
 
         $this->assertSame($esperado, $escala->desempenio,
-            "La nota {$nota} cayó en {$escala->desempenio} y el colegio escribió {$esperado}. "
-            .'Si esto cambió a la banda de arriba, alguien ha vuelto a meter un `round()`.');
+            "La nota {$nota} cayó en {$escala->desempenio} y debía caer en {$esperado}. "
+            .'La banda es la de la nota redondeada, la impresa (`NotaImpresa`, 24 sep 2026).');
     }
 
     /**
