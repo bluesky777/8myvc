@@ -17,7 +17,7 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
  * en Inicio › Pendientes (`myvc_front/app2`, `comunes/pendientes/`). Diseño y decisiones de
  * Joseth: `myvc_front/PLAN-COSAS-PENDIENTES.md`.
  *
- * `GET pendientes/mios` devuelve la lista **ya ordenada** —Firmes, Posponibles,
+ * `GET pendientes/mios` devuelve la lista **ya ordenada** —Importantes, Posponibles,
  * Silenciables, y dentro por urgencia— y **ya filtrada por quién pregunta**. Cada
  * pendiente viaja con todo lo que la pantalla pinta —`tipo`, `clave`, `insistencia`,
  * `titular`, `detalle` (con `**negritas**`), `filas` y `destino`—, así que el front no
@@ -27,9 +27,9 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
  *
  * | tipo | insistencia | lo ve | primero para |
  * |---|---|---|---|
- * | `entrega_boletines` | Firme | superusuario, Coord académico y Rector: todas; docente: las suyas y las de su grupo si es titular | — (manda la fecha) |
- * | `compromisos` | Firme | quien coordina compromisos (`Autoriza::puedeCambiarLaNotaNumerica`) | Coord académico |
- * | `intensidad_horaria` | Firme | directivos | Coord académico |
+ * | `entrega_boletines` | Importante | superusuario, Coord académico y Rector: todas; docente: las suyas y las de su grupo si es titular | — (manda la fecha) |
+ * | `compromisos` | Importante | quien coordina compromisos (`Autoriza::puedeCambiarLaNotaNumerica`) | Coord académico |
+ * | `intensidad_horaria` | Importante | directivos | Coord académico |
  * | `acudientes` | Posponible | directivos | Secretario |
  * | `celular` | Posponible | directivos | Secretario |
  * | `jefes_de_area` | Silenciable | superusuario y Coord académico (plan §4) | — |
@@ -41,7 +41,7 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
  *
  * ## Insistencias (plan §3)
  *
- * **Firme** no se oculta. **Posponible** se oculta 7 días. **Silenciable** se oculta por el
+ * **Importante** no se oculta. **Posponible** se oculta 7 días. **Silenciable** se oculta por el
  * año: su `clave` lleva el año, y el año siguiente es otra clave. Lo guarda
  * `pendientes_ocultos` (`PUT pendientes/ocultar`, `PUT pendientes/mostrar`).
  *
@@ -66,7 +66,7 @@ class PendientesController extends Controller
 {
     use ResuelveElUsuario;
 
-    public const FIRME = 'firme';
+    public const IMPORTANTE = 'importante';
 
     public const POSPONIBLE = 'posponible';
 
@@ -126,10 +126,10 @@ class PendientesController extends Controller
         }
         unset($p);
 
-        $peso = [self::FIRME => 0, self::POSPONIBLE => 1, self::SILENCIABLE => 2];
+        $peso = [self::IMPORTANTE => 0, self::POSPONIBLE => 1, self::SILENCIABLE => 2];
         usort($pendientes, static fn ($a, $b) => [$peso[$a['insistencia']], $b['urgencia']] <=> [$peso[$b['insistencia']], $a['urgencia']]);
 
-        // Lo que esta persona ocultó y sigue oculto. Un Firme nunca: si alguien lo metió
+        // Lo que esta persona ocultó y sigue oculto. Un Importante nunca: si alguien lo metió
         // a mano en la tabla, se ignora.
         $ocultas = [];
         foreach (DB::select('SELECT clave, hasta FROM pendientes_ocultos WHERE user_id = ? AND (hasta IS NULL OR hasta > ?)',
@@ -140,7 +140,7 @@ class PendientesController extends Controller
         $visibles = [];
         $ocultos = [];
         foreach ($pendientes as $p) {
-            if ($p['insistencia'] !== self::FIRME && array_key_exists($p['clave'], $ocultas)) {
+            if ($p['insistencia'] !== self::IMPORTANTE && array_key_exists($p['clave'], $ocultas)) {
                 $p['oculto_hasta'] = $ocultas[$p['clave']];
                 $ocultos[] = $p;
             } else {
@@ -177,7 +177,7 @@ class PendientesController extends Controller
         }
 
         abort_if($mio === null, 422, 'Ese pendiente no te sale ahora mismo.');
-        abort_if($mio['insistencia'] === self::FIRME, 422, 'Este pendiente no se puede ocultar: sale hasta que se resuelva.');
+        abort_if($mio['insistencia'] === self::IMPORTANTE, 422, 'Este pendiente no se puede ocultar: sale hasta que se resuelva.');
         abort_if($modo === 'silenciar' && $mio['insistencia'] !== self::SILENCIABLE, 422, 'Este pendiente sólo se puede posponer.');
 
         $hasta = $modo === 'posponer' ? Reloj::ahora()->addDays(self::DIAS_DE_POSPONER)->toDateTimeString() : null;
@@ -345,7 +345,7 @@ class PendientesController extends Controller
         return [
             'tipo' => 'entrega_boletines',
             'clave' => 'entrega_boletines:p='.$periodo->id,
-            'insistencia' => self::FIRME,
+            'insistencia' => self::IMPORTANTE,
             // Iconos de Ant que `app2` ya registra (`app.config.ts`, `ICONOS`): uno que no
             // esté ahí se pide por la red y sale en blanco.
             'urgencia' => 200 + (self::DIAS_DE_AVISO_DE_ENTREGA - $dias),
@@ -418,7 +418,7 @@ class PendientesController extends Controller
         return [
             'tipo' => 'compromisos',
             'clave' => 'compromisos:y='.$year->id.':p='.$numeroPeriodo,
-            'insistencia' => self::FIRME,
+            'insistencia' => self::IMPORTANTE,
             'urgencia' => 150,
             'icono' => 'solution',
             'titular' => $this->plural($cuantos, 'estudiante', 'estudiantes')
@@ -554,7 +554,7 @@ class PendientesController extends Controller
         return [
             'tipo' => 'intensidad_horaria',
             'clave' => 'intensidad_horaria:y='.$year->id,
-            'insistencia' => self::FIRME,
+            'insistencia' => self::IMPORTANTE,
             'urgencia' => 90,
             'icono' => 'hourglass',
             'titular' => 'Hay '.implode(' y ', $partes),

@@ -186,7 +186,7 @@ class PendientesTest extends CasoDeContrato
         }
     }
 
-    /** Firmes, luego Posponibles, luego Silenciables (plan §2.1). */
+    /** Importantes, luego Posponibles, luego Silenciables (plan §2.1). */
     public function test_el_orden_va_por_insistencia(): void
     {
         $this->escenario();
@@ -194,7 +194,7 @@ class PendientesTest extends CasoDeContrato
         DB::table('jefes_de_area')->where('year_id', $yearId)->delete();
 
         $r = $this->withToken($this->tokenDe($this->usuarioDeTipo('Usuario')->username))->getJson('/api/pendientes/mios');
-        $peso = ['firme' => 0, 'posponible' => 1, 'silenciable' => 2];
+        $peso = ['importante' => 0, 'posponible' => 1, 'silenciable' => 2];
         $pesos = array_map(fn ($i) => $peso[$i], array_column($r->json('pendientes'), 'insistencia'));
 
         $ordenados = $pesos;
@@ -302,12 +302,12 @@ class PendientesTest extends CasoDeContrato
         DB::table('periodos')->where('id', $e->periodo_id)->update(['fecha_entrega_boletines' => $hoy->copy()->addDays(8)->toDateString()]);
         $this->assertNotContains('entrega_boletines', $this->tipos($token));
 
-        // A 7 días: sale, primero, Firme y con su texto.
+        // A 7 días: sale, primero, Importante y con su texto.
         DB::table('periodos')->where('id', $e->periodo_id)->update(['fecha_entrega_boletines' => $hoy->copy()->addDays(7)->toDateString()]);
         $r = $this->withToken($token)->getJson('/api/pendientes/mios')->assertStatus(200);
         $primero = $r->json('pendientes.0');
         $this->assertSame('entrega_boletines', $primero['tipo']);
-        $this->assertSame('firme', $primero['insistencia']);
+        $this->assertSame('importante', $primero['insistencia']);
         $this->assertStringStartsWith('Faltan 7 días para entregar los boletines del Periodo', $primero['titular']);
         $this->assertSame($e->periodo_id, $primero['destino']['query']['registro']);
 
