@@ -293,6 +293,24 @@ class LasEstacionesEnLaAppTest extends CasoDeContrato
             .'si no cabe en un pellizco no sirve para nada.');
     }
 
+    /**
+     * **Con las estaciones 0 y 1, la huella sigue siendo un objeto.** PHP guarda la
+     * clave `"0"` como entero y `json_encode` saca 0..n-1 como lista; la app espera un
+     * mapa y, con una lista, dejaba de ver llegar a nadie.
+     */
+    public function test_la_huella_es_un_objeto_aunque_se_numere_desde_cero(): void
+    {
+        $this->unosPasos([
+            ['orden' => 0, 'requisito' => 'Recepción', 'bloquea' => 1],
+            ['orden' => 1, 'requisito' => 'Documentos', 'bloquea' => 1],
+        ]);
+
+        $crudo = $this->withToken($this->tokenLlano())->getJson(self::RUTA.'/huella')
+            ->assertStatus(200)->getContent();
+
+        $this->assertStringStartsWith('{"por_estacion":{"0":', $crudo);
+    }
+
     // ------------------------------------------------------------------
     // Marcar
     // ------------------------------------------------------------------
@@ -404,6 +422,48 @@ class LasEstacionesEnLaAppTest extends CasoDeContrato
         $this->assertNotNull($firma);
         $this->assertSame($firma, $r->json('pasos.0.cerrado_por'));
         $this->assertSame($firma, $r->json('pasos.1.notas_detalle.0.de'));
+    }
+
+    /**
+     * **El recorrido del personal (`requisitos/recorrido`) ve la devolución como lo
+     * que es**: un paso que se debe, con el motivo que se le lee a la familia.
+     *
+     * Hasta el 24 sep 2026 un paso devuelto salía `cumplido` —sólo `falta` contaba
+     * como pendiente—, `puede_continuar` en verdadero, y el motivo no viajaba.
+     */
+    public function test_el_recorrido_no_da_por_cumplido_un_paso_devuelto(): void
+    {
+        [$ana] = $this->dosAlumnos();
+        $this->unRecorridoDeTres();
+        $this->marcar($ana, 1, 'devuelto', 'Falta el registro civil');
+
+        $r = $this->withToken($this->tokenLlano())->getJson('/api/requisitos/recorrido/'.$ana)
+            ->assertStatus(200);
+
+        $this->assertFalse($r->json('pasos.0.cumplido'));
+        $this->assertSame('Falta el registro civil', $r->json('pasos.0.motivo_devolucion'));
+        $this->assertFalse($r->json('puede_continuar'));
+        $this->assertSame(1, $r->json('devolver_a.estacion'));
+    }
+
+    /** Quien resuelve una nota queda en la auditoría CON el alumno de la nota. */
+    public function test_resolver_una_nota_audita_el_alumno(): void
+    {
+        [$ana] = $this->dosAlumnos();
+        $this->unRecorridoDeTres();
+
+        $nota = $this->withToken($this->tokenLlano())->postJson(self::RUTA.'/2/nota', [
+            'alumno_id' => $ana, 'texto' => 'Trae la EPS', 'pendiente' => true, 'reservada' => false,
+        ])->assertStatus(200)->json('id');
+
+        $this->withToken($this->tokenLlano())
+            ->putJson(self::RUTA.'/nota/'.$nota.'/resuelta')->assertStatus(200);
+
+        $linea = DB::selectOne('SELECT alumno_id FROM auditoria
+            WHERE entidad="nota_estacion" AND entidad_id=? ORDER BY id DESC LIMIT 1', [$nota]);
+
+        $this->assertNotNull($linea, 'Resolver la nota no dejó línea de auditoría.');
+        $this->assertSame($ana, (int) $linea->alumno_id);
     }
 
     /**

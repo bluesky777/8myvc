@@ -78,7 +78,13 @@ class RequisitosController extends Controller {
 				r.bloquea,
 				ra.id AS marca_id, ra.estado, ra.descripcion AS observacion,
 				ra.cerrado_por, ra.cerrado_at,
-				p.nombres AS cerrado_por_nombres, p.apellidos AS cerrado_por_apellidos
+				-- El motivo de una devolución, que es lo que se le lee a la familia por
+				-- teléfono. Hasta el 24 sep 2026 no viajaba y la app enseñaba en su
+				-- lugar `observacion`, la nota INTERNA del personal.
+				ra.motivo_devolucion,
+				p.nombres AS cerrado_por_nombres, p.apellidos AS cerrado_por_apellidos,
+				-- Secretaría no tiene ficha en `profesores`: sin esto, su firma sale en blanco.
+				u.username AS cerrado_por_usuario
 			FROM requisitos_matricula r
 			LEFT JOIN requisitos_alumno ra ON ra.requisito_id=r.id AND ra.alumno_id=?
 			LEFT JOIN users u ON u.id=ra.cerrado_por AND u.deleted_at IS NULL
@@ -101,8 +107,12 @@ class RequisitosController extends Controller {
 			// lista blanca de estados buenos se quedaría corta en silencio el día que
 			// un colegio escriba «Entregado» con mayúscula. Lo que sí es seguro es
 			// que `falta` —y una fila que no existe— significan que no está.
+			//
+			// **Y `devuelto` tampoco** (24 sep 2026): es un paso que se sigue debiendo,
+			// la misma lista que `EstadosDelPaso::REABREN`. Hasta hoy una familia
+			// devuelta salía con ese paso «cumplido» y `puede_continuar` en verdadero.
 			$paso->cumplido = $paso->marca_id !== null
-				&& mb_strtolower(trim((string) $paso->estado)) !== 'falta';
+				&& ! in_array(EstadosDelPaso::normalizar($paso->estado), EstadosDelPaso::REABREN, true);
 
 			$paso->bloquea = (bool) $paso->bloquea;
 

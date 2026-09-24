@@ -344,7 +344,12 @@ class EstacionesController extends Controller
             ];
         }
 
-        return ['por_estacion' => $porEstacion];
+        // **Un objeto siempre, también con las estaciones 0..n-1 seguidas.** PHP
+        // convierte la clave `"0"` en el entero 0, y un arreglo con claves 0..n-1
+        // `json_encode` lo saca como LISTA: `{"por_estacion":[{…}]}`. Con 1,2,3 salía
+        // objeto y con 0,1,2 lista, y la app —que espera un mapa— dejaba de ver
+        // llegar a nadie en el colegio que empezó a numerar por el cero.
+        return ['por_estacion' => (object) $porEstacion];
     }
 
     /**
@@ -862,7 +867,9 @@ class EstacionesController extends Controller
             abort(422, 'La nota no es válida.');
         }
 
-        $nota = DB::selectOne('SELECT n.id, n.escrita_por, n.pendiente, n.resuelta_at
+        // `alumno_id` va en la consulta porque la auditoría de abajo lo pide: sin él
+        // la línea de «resolvió una nota» quedaba sin alumno en la pantalla unificada.
+        $nota = DB::selectOne('SELECT n.id, n.alumno_id, n.escrita_por, n.pendiente, n.resuelta_at
             FROM notas_estacion n
             INNER JOIN requisitos_matricula r ON r.id=n.requisito_id AND r.deleted_at IS NULL
             WHERE n.id=? AND n.deleted_at IS NULL AND r.year_id=?',
