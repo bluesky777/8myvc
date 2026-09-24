@@ -18,6 +18,17 @@ use Illuminate\Support\Facades\DB;
  * - `estado = reabierta` con `reabierta_hasta` **en el futuro** → abierta (la
  *   rendija de coordinación). **Pasada la hora, cerrada otra vez**, sin que
  *   nadie escriba nada: la hora se compara al leer.
+ * - `estado = reabierta` con `reabierta_hasta` **NULL** → abierta **sin plazo**: la
+ *   reabrió su propio docente con el periodo abierto (Joseth, 24 sep 2026: «el
+ *   docente puede volver a abrirla si no se ha cerrado el periodo»), y sigue abierta
+ *   hasta que él la vuelva a cerrar. No hace falta que venza: si el periodo se
+ *   cierra, el candado del periodo ya le cierra la puerta al docente, que es lo
+ *   único que esta tabla cierra. Antes de esa fecha el NULL no podía darse
+ *   (`reabrir` exigía la fecha) y se leía como cerrada; ninguna fila lo tenía.
+ *
+ * **Esas tres líneas se leen en dos sitios de esta clase y en ninguno más**:
+ * `algunaCerrada` (el SQL de los guards) y `comoSeVe` (lo que ven tablero,
+ * planilla y pendientes). Si se tocan, se tocan las dos.
  *
  * ## Qué cierra y qué NO
  *
@@ -71,7 +82,7 @@ class CierreDeAsignatura
             'SELECT 1 AS si FROM cierres_asignatura
               WHERE periodo_id IN ('.self::marcas($p).')
                 AND asignatura_id IN ('.self::marcas($a).')
-                AND (estado = ? OR reabierta_hasta IS NULL OR reabierta_hasta <= ?)
+                AND (estado = ? OR (reabierta_hasta IS NOT NULL AND reabierta_hasta <= ?))
               LIMIT 1',
             [...$p, ...$a, self::CERRADA, self::ahora()->toDateTimeString()]
         );
@@ -117,9 +128,10 @@ class CierreDeAsignatura
     /** Lo que viaja al cliente: la fila con su estado efectivo. */
     public static function comoSeVe(object $f): array
     {
+        // `reabierta_hasta` NULL es la reapertura sin plazo del docente (ver arriba).
         $rendijaViva = $f->estado === self::REABIERTA
-            && $f->reabierta_hasta !== null
-            && $f->reabierta_hasta > self::ahora()->toDateTimeString();
+            && ($f->reabierta_hasta === null
+                || $f->reabierta_hasta > self::ahora()->toDateTimeString());
 
         return [
             'asignatura_id' => (int) $f->asignatura_id,
@@ -153,11 +165,13 @@ class CierreDeAsignatura
     }
 
     /**
-     * Coordinación abre una rendija hasta `$hasta`. **Sólo sobre una fila que
-     * existe**: reabrir lo que nunca se cerró no tiene sentido y devolvería una
-     * fila que dice «cerrada por nadie».
+     * Abre una rendija hasta `$hasta` (coordinación) o **sin plazo** con `$hasta`
+     * NULL (su docente, con el periodo abierto; 24 sep 2026). **Sólo sobre una fila
+     * que existe**: reabrir lo que nunca se cerró no tiene sentido y devolvería una
+     * fila que dice «cerrada por nadie». No borra la fila: `cerrada_at/por` se
+     * quedan, y `reabierta_at/por` + `motivo` dicen quién la abrió.
      */
-    public static function reabrir(int $periodoId, int $asignaturaId, Carbon $hasta, ?string $motivo, ?int $userId): bool
+    public static function reabrir(int $periodoId, int $asignaturaId, ?Carbon $hasta, ?string $motivo, ?int $userId): bool
     {
         $ahora = self::ahora()->toDateTimeString();
 
@@ -166,7 +180,7 @@ class CierreDeAsignatura
                 SET estado = ?, reabierta_hasta = ?, reabierta_at = ?, reabierta_por = ?,
                     motivo = ?, updated_at = ?
               WHERE periodo_id = ? AND asignatura_id = ?',
-            [self::REABIERTA, $hasta->toDateTimeString(), $ahora, $userId, $motivo, $ahora,
+            [self::REABIERTA, $hasta?->toDateTimeString(), $ahora, $userId, $motivo, $ahora,
                 $periodoId, $asignaturaId]
         ) > 0;
     }
@@ -175,9 +189,9 @@ class CierreDeAsignatura
      * **Qué cuenta como «faltante» al cerrar una asignatura. UN SOLO SITIO, a propósito.**
      *
      * Hoy: **toda casilla vacía** (`notas.nota IS NULL`) de un indicador vivo es una
-     * nota que falta. Está pendiente de decidir (24 sep 2026) si una celda vacía puede
-     * querer decir «esa actividad no le aplica»; si la respuesta es no, queda así, y si
-     * aparece un estado EXENTO explícito (con motivo y autor, que no bloquea ni promedia)
+     * nota que falta. **Sin estado EXENTO** (Joseth, 24 sep 2026): qué se hace con la
+     * vacía lo decide la política del colegio (`CierreDeLoNoCalificado`: cero, fuera o
+     * bloquear), y sólo `bloquear` impide cerrar. Si algún día se cambia el criterio,
      * **se cambia esta condición y nada más**: la cuenta del tablero, la del diálogo de
      * cerrar y el 422 de `bloquear` salen todos de aquí. Ningún guard la mira.
      *

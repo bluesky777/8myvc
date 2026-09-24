@@ -8,6 +8,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
+ * **SIN LLAMADORES desde el 24 sep 2026** (Joseth): el puesto se calcula al vuelo
+ * siempre, como la definitiva — «si un directivo edita una nota en una emergencia, el
+ * informe se recalcula aunque salga distinto del impreso; lo importante es que el
+ * historial queda». El cierre ya no llama a {@see tomar()} y `ponerPuestos` ya no llama
+ * a {@see deLosAlumnos()}. Queda como memoria de lo que se probó (ff370d2) hasta que
+ * alguien la borre; la tabla `puestos_del_cierre` se queda vacía.
+ *
  * **La foto del puesto al cerrar el periodo** — fase 4 del cierre de periodo
  * (`myvc_front/PLAN-CIERRE-DE-PERIODO.md`, propuesta C, decisiones 4 y 5 de Joseth del
  * 23 sep 2026).
@@ -89,7 +96,7 @@ class PuestosDelCierre
                 $alumno->promedio = self::promedio((int) $alumno->alumno_id, (int) $grupo->id, $periodoId, $yearId);
             }
 
-            BoletinIndependiente::calcularPuestos($alumnos, [$periodoId], $yearId);
+            BoletinIndependiente::ponerPuestos($alumnos, [$periodoId], $yearId);
 
             foreach ($alumnos as $alumno) {
                 $filas[(int) $alumno->alumno_id] = [

@@ -5,6 +5,13 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /*
+ * **SIN USO desde el 24 sep 2026** (Joseth): el puesto se calcula al vuelo siempre, como
+ * la definitiva, y ya nadie escribe ni lee esta tabla (`PeriodosController` dejó de
+ * llamar a `PuestosDelCierre::tomar` y `BoletinIndependiente::ponerPuestos` no mira la
+ * foto). Se deja creada, vacía, y no se borra: borrar una tabla desplegada es una
+ * migración que quita, y en producción sólo van las que añaden. Lo de abajo describe
+ * lo que fue.
+ *
  * `puestos_del_cierre`: la foto del puesto de cada alumno el día que se cerró el periodo.
  *
  * Fase 4 del cierre de periodo (`myvc_front/PLAN-CIERRE-DE-PERIODO.md`, decisiones 4 y 5

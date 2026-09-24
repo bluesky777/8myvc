@@ -198,7 +198,8 @@ class Autoriza
      *
      * @var list<string>
      */
-    private const ROLES_QUE_DECIDEN_LA_ADMISION = ['Secretario', 'Coord académico'];
+    // Joseth, 24 sep 2026: «secretaría, coordinador y rector». Sin comité.
+    private const ROLES_QUE_DECIDEN_LA_ADMISION = ['Secretario', 'Coord académico', 'Rector'];
 
     /**
      * Los roles que pueden **publicar el recuento** de una elección del colegio, y
@@ -594,6 +595,16 @@ class Autoriza
      *
      * Mismo conjunto que `puedeElegirQuePasaAlCerrar` —superusuario, Secretario,
      * Coord académico y Rector—, con nombre propio por la regla de esta clase.
+     *
+     * **Enmendada el 24 sep 2026** (Joseth): «el docente puede volver a abrirla si no
+     * se ha cerrado el periodo». El docente de la asignatura la reabre él mismo, sin
+     * fecha, mientras `periodos.profes_pueden_editar_notas = 1`; con el periodo cerrado
+     * sigue siendo sólo de coordinación. Lo de arriba sigue valiendo para la otra
+     * mitad: con el periodo cerrado el que reabre es otro. **Esa regla no vive aquí**
+     * —depende de la asignatura y del periodo, y esta clase decide por usuario—, sino
+     * en `CierresAsignaturaController::puedeReabrir`, que es coordinación (esto) o su
+     * docente con el periodo abierto. Esta función sigue contestando «¿es de
+     * coordinación?»: reabrir cualquiera, con fecha, con el periodo como esté.
      */
     public static function puedeReabrirUnaAsignatura($user): bool
     {
@@ -687,17 +698,8 @@ class Autoriza
      * O sea que **añade a una persona de verdad**, no a un conjunto vacío: es la
      * diferencia entre esta decisión y la de `Rector`, que hoy sería inerte.
      *
-     * > **Y `Rector` NO se mete de paso, aunque la pregunta de abajo lo nombre.**
-     * > Joseth nombró **un** rol. Meterlo sería [[crear-rol-no-regala-permisos]] al
-     * > revés —*lo que nadie pidió no se concede*— y encima no cambiaría nada medible:
-     * > cero titulares. Es una línea el día que él lo diga.
-     *
-     * > **Lo que sigue abierto y es de Joseth**, dicho aquí para que no se lea como
-     * > cerrado: `INVESTIGACION-MATRICULAS.md` §10.4 pregunta *«¿quién admite en un
-     * > colegio típico: el rector solo, o un comité?»*. La respuesta del 20 sep
-     * > contesta **media**: nombra a quién añadir, no si el colegio típico lo decide
-     * > en comité. Mientras tanto son trece, y la forma de lista hace que el día que
-     * > conteste sea una línea y no un rediseño.
+     * > **Cerrado el 24 sep 2026**: Joseth contestó *«secretaría, coordinador y rector»*,
+     * > sin comité. `Rector` entra en la lista.
      */
     public static function puedeDecidirAdmision($user): bool
     {

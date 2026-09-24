@@ -11,7 +11,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Request;
 
 /**
- * **El cierre por asignatura**: el docente cierra la suya, coordinación la reabre.
+ * **El cierre por asignatura**: el docente cierra la suya; la reabre él mismo mientras
+ * el periodo esté abierto, y coordinación siempre.
  *
  * Fase 2 de `myvc_front/PLAN-CIERRE-DE-PERIODO.md` (propuesta B del mock). Cuatro
  * rutas, todas `auth.personal` con el permiso fino dentro:
@@ -21,7 +22,7 @@ use Illuminate\Support\Facades\Request;
  * | `GET cierres-asignatura/periodo/{periodo_id}` | personal; el docente ve **las suyas**, coordinación todas |
  * | `GET cierres-asignatura/asignatura/{asignatura_id}/{periodo_id}` | personal |
  * | `PUT cierres-asignatura/cerrar` | el docente de la asignatura, o coordinación |
- * | `PUT cierres-asignatura/reabrir` | coordinación (`Autoriza::puedeReabrirUnaAsignatura`) |
+ * | `PUT cierres-asignatura/reabrir` | el docente de la asignatura con el periodo abierto (sin fecha), o coordinación (`Autoriza::puedeReabrirUnaAsignatura`, con fecha) |
  *
  * Lo que el cierre **hace** lo deciden los guards de `User` con
  * `CierreDeAsignatura`; aquí sólo se escribe y se lee la fila.
@@ -34,8 +35,8 @@ class CierresAsignaturaController extends Controller
     public function getPeriodo($periodo_id): array
     {
         $periodo = $this->periodo($periodo_id);
-        $puedeReabrir = Autoriza::puedeReabrirUnaAsignatura($this->user);
-        $soloMias = ! $puedeReabrir || (int) Request::input('mias', 0) === 1;
+        $esCoordinacion = Autoriza::puedeReabrirUnaAsignatura($this->user);
+        $soloMias = ! $esCoordinacion || (int) Request::input('mias', 0) === 1;
 
         $parametros = [(int) $periodo->year_id];
         $filtro = '';
@@ -73,6 +74,7 @@ class CierresAsignaturaController extends Controller
         foreach ($asignaturas as $a) {
             $fila = $this->fila($a, $cierres[(int) $a->asignatura_id] ?? null, $faltan[(int) $a->asignatura_id] ?? 0);
             $fila['mia'] = $miProfesor !== null && (int) $a->profesor_id === $miProfesor;
+            $fila['puede_reabrir'] = $this->puedeReabrir($a, $periodo);
             $cerradas += $fila['cerrada'] ? 1 : 0;
             $filas[] = $fila;
         }
@@ -81,7 +83,10 @@ class CierresAsignaturaController extends Controller
             'periodo_id' => (int) $periodo->id,
             'numero' => (int) $periodo->numero,
             'periodo_abierto' => (int) $periodo->profes_pueden_editar_notas === 1,
-            'puede_reabrir' => $puedeReabrir,
+            // El de arriba es **el de coordinación** (reabre cualquiera, también con el
+            // periodo cerrado, y ve el tablero entero). El del docente va por fila
+            // (`asignaturas[].puede_reabrir`) desde el 24 sep 2026.
+            'puede_reabrir' => $esCoordinacion,
             'resumen' => ['asignaturas' => count($filas), 'cerradas' => $cerradas],
             'asignaturas' => $filas,
         ];
@@ -98,7 +103,10 @@ class CierresAsignaturaController extends Controller
         return $this->fila($asignatura, $cierre, $faltan) + [
             'periodo_abierto' => (int) $periodo->profes_pueden_editar_notas === 1,
             'puede_cerrar' => $this->puedeCerrar($asignatura),
-            'puede_reabrir' => Autoriza::puedeReabrirUnaAsignatura($this->user),
+            'puede_reabrir' => $this->puedeReabrir($asignatura, $periodo),
+            // Si reabrir le pide fecha: a coordinación sí, al docente con el periodo
+            // abierto no (su reapertura es sin plazo). El front esconde el campo con esto.
+            'reabrir_pide_fecha' => ! $this->reabreSinPlazo($asignatura, $periodo),
             'faltan_por_indicador' => $this->faltanPorIndicador((int) $periodo->id, (int) $asignatura->asignatura_id),
         ];
     }
@@ -133,14 +141,29 @@ class CierresAsignaturaController extends Controller
         ];
     }
 
-    /** Coordinación abre una rendija con fecha y, si quiere, motivo. Al vencer, se cierra sola. */
+    /**
+     * Reabrir. **Dos puertas** (Joseth, 24 sep 2026, que enmienda la decisión 2 del
+     * 23 sep: «el docente puede volver a abrirla si no se ha cerrado el periodo»):
+     *
+     * - **Su docente, con el periodo abierto** (`profes_pueden_editar_notas = 1`):
+     *   sin fecha. Queda abierta hasta que él la vuelva a cerrar (`reabierta_hasta`
+     *   NULL, ver `CierreDeAsignatura`). Con el periodo abierto el cierre de la
+     *   asignatura es suyo —lo puso él, él lo quita—; una fecha obligatoria sería
+     *   pedirle que adivine cuándo termina de corregir. Si manda una, vale como
+     *   rendija normal.
+     * - **Coordinación**: como antes, con fecha futura, y también con el periodo
+     *   cerrado. Al vencer, se cierra sola.
+     *
+     * El motivo es opcional en las dos. La fila no se borra nunca: `cerrada_at/por`
+     * se quedan y `reabierta_at/por` dicen quién la abrió.
+     */
     public function putReabrir(): array
     {
-        Autoriza::exigir(Autoriza::puedeReabrirUnaAsignatura($this->user),
-            'Reabrir una asignatura es de coordinación.');
-
         $periodo = $this->periodo(Request::input('periodo_id'));
         $asignatura = $this->asignaturaDelPeriodo(Request::input('asignatura_id'), $periodo);
+
+        Autoriza::exigir($this->puedeReabrir($asignatura, $periodo),
+            'Reabrir una asignatura es de su docente mientras el periodo esté abierto, o de coordinación.');
 
         $motivo = trim((string) Request::input('motivo', ''));
 
@@ -148,14 +171,27 @@ class CierresAsignaturaController extends Controller
             abort(422, 'El motivo no puede pasar de 500 caracteres.');
         }
 
-        try {
-            $hasta = Carbon::parse((string) Request::input('hasta', ''), 'America/Bogota');
-        } catch (\Throwable) {
-            abort(422, 'La fecha de «hasta cuándo» no se entiende.');
+        $sinPlazo = $this->reabreSinPlazo($asignatura, $periodo);
+        $hasta = null;
+
+        if (! $sinPlazo || Request::filled('hasta')) {
+            try {
+                $hasta = Carbon::parse((string) Request::input('hasta', ''), 'America/Bogota');
+            } catch (\Throwable) {
+                abort(422, 'La fecha de «hasta cuándo» no se entiende.');
+            }
+
+            if (! Request::filled('hasta') || $hasta->lessThanOrEqualTo(CierreDeAsignatura::ahora())) {
+                abort(422, 'La reapertura tiene que acabar en el futuro.');
+            }
         }
 
-        if (! Request::filled('hasta') || $hasta->lessThanOrEqualTo(CierreDeAsignatura::ahora())) {
-            abort(422, 'La reapertura tiene que acabar en el futuro.');
+        $antes = CierreDeAsignatura::de((int) $periodo->id, (int) $asignatura->asignatura_id);
+
+        // Sin plazo sólo sobre una CERRADA: sobre una rendija viva de coordinación
+        // la convertiría en abierta para siempre sin que nadie lo decidiera.
+        if ($hasta === null && $antes !== null && ! $antes['cerrada']) {
+            abort(422, 'Esa asignatura ya está abierta.');
         }
 
         if (! CierreDeAsignatura::reabrir((int) $periodo->id, (int) $asignatura->asignatura_id, $hasta, $motivo === '' ? null : $motivo, $this->userId())) {
@@ -166,8 +202,11 @@ class CierresAsignaturaController extends Controller
         $faltan = $this->faltanPorAsignatura((int) $periodo->id)[(int) $asignatura->asignatura_id] ?? 0;
 
         return $this->fila($asignatura, $cierre, $faltan) + [
-            'mensaje' => $this->nombre($asignatura).' queda abierta hasta el '
-                .$hasta->locale('es')->translatedFormat('j \d\e F \a \l\a\s H:i').'.',
+            'puede_reabrir' => $this->puedeReabrir($asignatura, $periodo),
+            'mensaje' => $hasta === null
+                ? $this->nombre($asignatura).' queda abierta hasta que la vuelvas a cerrar.'
+                : $this->nombre($asignatura).' queda abierta hasta el '
+                    .$hasta->locale('es')->translatedFormat('j \d\e F \a \l\a\s H:i').'.',
         ];
     }
 
@@ -219,13 +258,31 @@ class CierresAsignaturaController extends Controller
         return $a;
     }
 
-    /** El docente de la asignatura, o quien puede reabrirla. */
+    /** El docente de la asignatura, o coordinación. */
     private function puedeCerrar(object $asignatura): bool
     {
-        if (Autoriza::puedeReabrirUnaAsignatura($this->user)) {
-            return true;
-        }
+        return Autoriza::puedeReabrirUnaAsignatura($this->user) || $this->esSuDocente($asignatura);
+    }
 
+    /**
+     * Quién reabre ESTA asignatura en ESTE periodo: coordinación siempre; su docente
+     * sólo con el periodo abierto (24 sep 2026). **Un solo sitio**: lo usan la ruta,
+     * el `puede_reabrir` de cada fila del tablero y el de la planilla.
+     */
+    private function puedeReabrir(object $asignatura, object $periodo): bool
+    {
+        return Autoriza::puedeReabrirUnaAsignatura($this->user)
+            || $this->reabreSinPlazo($asignatura, $periodo);
+    }
+
+    /** El docente de la asignatura con el periodo abierto: la puerta sin fecha. */
+    private function reabreSinPlazo(object $asignatura, object $periodo): bool
+    {
+        return (int) $periodo->profes_pueden_editar_notas === 1 && $this->esSuDocente($asignatura);
+    }
+
+    private function esSuDocente(object $asignatura): bool
+    {
         $mio = $this->miProfesorId();
 
         return $mio !== null && $asignatura->profesor_id !== null && (int) $asignatura->profesor_id === $mio;

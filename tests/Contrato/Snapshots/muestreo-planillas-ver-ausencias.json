@@ -61,6 +61,7 @@
         ],
         "apellidos_titular": "string",
         "created_at": "string",
+        "foto_titular": "string",
         "grado_id": "int",
         "id": "int",
         "nombre": "string",

@@ -4,49 +4,48 @@ namespace Tests\Contrato;
 
 use App\Models\Grupo;
 use App\Services\BoletinIndependiente;
-use App\Services\PuestosDelCierre;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
- * **El puesto se congela al cerrar** — fase 4 del cierre de periodo
- * (`myvc_front/PLAN-CIERRE-DE-PERIODO.md`, decisiones 4 y 5).
+ * **El puesto NO se congela al cerrar** (Joseth, 24 sep 2026). El nombre del fichero es
+ * el de la fase 4 del cierre de periodo (ff370d2), que fotografiaba el puesto en
+ * `puestos_del_cierre`; esa foto se quitó el mismo día y aquí queda la prueba de lo
+ * contrario: el puesto se calcula al vuelo siempre, como la definitiva — «si un
+ * directivo edita una nota en una emergencia, el informe se recalcula aunque salga
+ * distinto del impreso; lo importante es que el historial queda».
  *
  * El lienzo: un grupo con un periodo abierto y definitivas puestas a mano (para que ni
  * el cierre ni un recálculo las muevan), con un alumno —«el último»— por debajo de todos.
- * Se cierra, se le sube la definitiva como haría una nivelación, y se mira qué puesto
- * sale. Sin la foto sería 1; con ella, el de la fecha del cierre.
+ * Se cierra, se le sube la definitiva como haría la edición de un directivo, y el puesto
+ * tiene que salir 1.
  */
 class LosPuestosDelCierreTest extends CasoDeContrato
 {
     #[Test]
-    public function cerrar_toma_la_foto_de_todo_el_anio_y_lo_dice(): void
+    public function cerrar_ya_no_fotografia_el_puesto(): void
     {
         $l = $this->lienzo();
 
         $r = $this->cerrar($l->periodo_id);
         $r->assertStatus(200);
-        $this->assertStringContainsString('queda fijo a fecha de hoy', $r->getContent());
+        $this->assertStringNotContainsString('queda fijo', $r->getContent(),
+            'El cierre ya no promete un puesto fijo.');
 
-        $esperados = DB::selectOne('SELECT COUNT(DISTINCT m.alumno_id) AS n FROM matriculas m
-            INNER JOIN grupos g ON g.id = m.grupo_id AND g.year_id = ? AND g.deleted_at IS NULL
-            WHERE m.deleted_at IS NULL AND m.estado IN ("MATR","ASIS","PREM")', [$l->year_id])->n;
-
-        $this->assertSame((int) $esperados,
-            DB::table('puestos_del_cierre')->where('periodo_id', $l->periodo_id)->count(),
-            'La foto es del periodo entero: una fila por alumno matriculado del año.');
-
-        $this->assertSame(count($l->alumnos),
-            (int) DB::table('puestos_del_cierre')->where('periodo_id', $l->periodo_id)
-                ->where('alumno_id', $l->ultimo)->value('puesto'),
-            'El último del lienzo tiene que quedar último en la foto.');
+        $this->assertSame(0, DB::table('puestos_del_cierre')->where('periodo_id', $l->periodo_id)->count(),
+            'El cierre volvió a escribir la foto del puesto.');
     }
 
     #[Test]
-    public function con_el_periodo_cerrado_nivelar_no_mueve_el_puesto_y_el_papel_dice_la_fecha(): void
+    public function con_el_periodo_cerrado_editar_una_nota_recalcula_el_puesto(): void
     {
         $l = $this->lienzo();
         $this->cerrar($l->periodo_id)->assertStatus(200);
+
+        $antes = $this->conPromedioVivo($l);
+        BoletinIndependiente::ponerPuestos($antes, [$l->periodo_id], $l->year_id);
+        $this->assertSame(count($l->alumnos), $this->elDe($antes, $l->ultimo)->puesto,
+            'El lienzo no empieza con el último en el último puesto.');
 
         $this->subirAlUltimo($l);
 
@@ -54,70 +53,10 @@ class LosPuestosDelCierreTest extends CasoDeContrato
         BoletinIndependiente::ponerPuestos($alumnos, [$l->periodo_id], $l->year_id);
 
         $ultimo = $this->elDe($alumnos, $l->ultimo);
-        $this->assertSame(count($l->alumnos), $ultimo->puesto,
-            'Con el periodo cerrado el puesto es el de la foto, no el recalculado.');
-        $this->assertNotEmpty($ultimo->puesto_congelado_at ?? null,
-            'Sin la fecha, el papel no puede rotular «puesto a fecha de cierre».');
-    }
-
-    /** La rendija: con el periodo reabierto manda el cálculo vivo. */
-    #[Test]
-    public function reabierto_el_puesto_vuelve_a_calcularse(): void
-    {
-        $l = $this->lienzo();
-        $this->cerrar($l->periodo_id)->assertStatus(200);
-        $this->subirAlUltimo($l);
-        $this->cerrar($l->periodo_id, abrir: true)->assertStatus(200);
-
-        $alumnos = $this->conPromedioVivo($l);
-        BoletinIndependiente::ponerPuestos($alumnos, [$l->periodo_id], $l->year_id);
-
-        $ultimo = $this->elDe($alumnos, $l->ultimo);
-        $this->assertSame(1, $ultimo->puesto);
-        $this->assertObjectNotHasProperty('puesto_congelado_at', $ultimo);
-    }
-
-    /** Decisión 5: al recerrar, la foto se rehace siempre. */
-    #[Test]
-    public function recerrar_rehace_la_foto(): void
-    {
-        $l = $this->lienzo();
-        $this->cerrar($l->periodo_id)->assertStatus(200);
-        $this->subirAlUltimo($l);
-        $this->cerrar($l->periodo_id, abrir: true)->assertStatus(200);
-        $this->cerrar($l->periodo_id)->assertStatus(200);
-
-        $this->assertSame(1, (int) DB::table('puestos_del_cierre')->where('periodo_id', $l->periodo_id)
-            ->where('alumno_id', $l->ultimo)->value('puesto'));
-    }
-
-    /** Los informes de varios periodos salen de las vigentes (§4 del plan). */
-    #[Test]
-    public function un_informe_de_varios_periodos_no_lee_la_foto(): void
-    {
-        $l = $this->lienzo();
-        $this->cerrar($l->periodo_id)->assertStatus(200);
-        $this->subirAlUltimo($l);
-
-        $alumnos = $this->conPromedioVivo($l);
-        BoletinIndependiente::ponerPuestos($alumnos, [$l->periodo_id, $l->periodo_id + 1], $l->year_id);
-
-        $this->assertSame(1, $this->elDe($alumnos, $l->ultimo)->puesto);
-    }
-
-    /** Un periodo cerrado sin foto —todos los de antes de esto— sigue al vuelo. */
-    #[Test]
-    public function un_periodo_cerrado_sin_foto_sigue_al_vuelo(): void
-    {
-        $l = $this->lienzo();
-        DB::table('periodos')->where('id', $l->periodo_id)->update(['profes_pueden_editar_notas' => 0]);
-        $this->subirAlUltimo($l);
-
-        $alumnos = $this->conPromedioVivo($l);
-        BoletinIndependiente::ponerPuestos($alumnos, [$l->periodo_id], $l->year_id);
-
-        $this->assertSame(1, $this->elDe($alumnos, $l->ultimo)->puesto);
-        $this->assertSame([], PuestosDelCierre::deLosAlumnos($l->periodo_id, [$l->ultimo]));
+        $this->assertSame(1, $ultimo->puesto,
+            'Con el periodo cerrado el puesto tiene que recalcularse con la nota editada.');
+        $this->assertObjectNotHasProperty('puesto_congelado_at', $ultimo,
+            'Sin foto no hay «a fecha de cierre» que rotular.');
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -177,7 +116,7 @@ class LosPuestosDelCierreTest extends CasoDeContrato
         return $donde;
     }
 
-    /** Lo que haría una nivelación: la definitiva vigente del último sube por encima de todos. */
+    /** Lo que haría un directivo editando la nota: la definitiva vigente del último sube por encima de todos. */
     private function subirAlUltimo(object $l): void
     {
         DB::table('notas_finales')->where('alumno_id', $l->ultimo)

@@ -1013,16 +1013,10 @@ class ElPortalDeLaFamiliaTest extends CasoDeContrato
     }
 
     /**
-     * **Y `Rector` sigue fuera, que es la otra mitad de la decisión.**
-     *
-     * Joseth nombró **un** rol el 20 sep. `Rector` no cambiaría hoy nada medible —cero
-     * titulares en la copia de desarrollo y cero en el seed— y por eso es justo el que
-     * se colaría sin que nadie lo notara: *lo que nadie pidió no se concede de paso*.
-     *
-     * Este test es el que se pondrá rojo el día que se meta, y entonces hay que venir
-     * aquí a borrarlo **con la frase de Joseth delante**, no a hacerlo pasar.
+     * **El rector también admite.** Joseth, 24 sep 2026: *«secretaría, coordinador y
+     * rector»*. Sin comité.
      */
-    public function test_el_rector_no_admite_mientras_nadie_lo_pida(): void
+    public function test_el_rector_admite(): void
     {
         [$aspirante] = $this->unAspiranteConDocumento();
 
@@ -1037,7 +1031,7 @@ class ElPortalDeLaFamiliaTest extends CasoDeContrato
 
         $this->withToken($token)
             ->putJson(self::ASPIRANTES.'/'.$aspirante.'/decision', ['decision' => 'ADMITIDO'])
-            ->assertStatus(403);
+            ->assertStatus(200);
     }
 
     /** No admitir sin motivo tampoco: la familia recibe un no y nadie sabe por qué. */

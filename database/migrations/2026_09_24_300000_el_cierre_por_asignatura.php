@@ -30,6 +30,9 @@ use Illuminate\Support\Facades\Schema;
  *   con una tarea programada, porque este backend no tiene ninguna que toque
  *   periodos y una rendija que dependiera de un cron se quedaría abierta el día
  *   que el cron no corriera.
+ * - `reabierta` con `reabierta_hasta` NULL (24 sep 2026, sin migración: la columna ya
+ *   era nullable): la reabrió su docente con el periodo abierto, **sin plazo**, hasta
+ *   que la vuelva a cerrar. Ver `CierreDeAsignatura`.
  *
  * `cerrada_at/por` y `reabierta_at/por` + `motivo` son el rastro que una comisión
  * de evaluación pregunta en diciembre. Es **la última** reapertura, no la

@@ -16,7 +16,9 @@ use Illuminate\Support\Facades\DB;
  * 2. **Cerrar muerde sólo a esa asignatura**: la de al lado, del mismo docente y
  *    el mismo periodo, sigue abierta — es todo el punto frente al candado del
  *    periodo.
- * 3. **Reabrir es de coordinación, con fecha, y la rendija se cierra sola.**
+ * 3. **Reabrir es de coordinación, con fecha, y la rendija se cierra sola.** Y desde
+ *    el 24 sep 2026, también de su docente, sin fecha, mientras el periodo esté
+ *    abierto; con el periodo cerrado, no.
  *
  * Y las puertas: cada familia que escribe en una asignatura (nota, lote,
  * indicador, unidad, falta, frases) se prueba con la asignatura cerrada.
@@ -213,26 +215,78 @@ class CierrePorAsignaturaTest extends CasoDeContrato
             'Cerrar la asignatura le quitó la nivelación: el diálogo promete lo contrario.');
     }
 
-    public function test_el_docente_no_cierra_la_de_otro_ni_reabre_la_suya(): void
+    public function test_el_docente_no_cierra_ni_reabre_la_de_otro(): void
     {
         $e = $this->escenario();
 
         $ajena = DB::selectOne('SELECT a.id FROM asignaturas a
             INNER JOIN grupos g ON g.id = a.grupo_id
             INNER JOIN periodos p ON p.year_id = g.year_id AND p.id = ?
-            WHERE a.deleted_at IS NULL AND (a.profesor_id IS NULL OR a.profesor_id <> ?)
+            WHERE a.deleted_at IS NULL AND a.profesor_id IS NOT NULL AND a.profesor_id <> ?
             ORDER BY a.id LIMIT 1', [$e->periodo_id, $e->profesor_id]);
 
         $this->withToken($e->token)->putJson('/api/cierres-asignatura/cerrar', [
             'periodo_id' => $e->periodo_id, 'asignatura_id' => $ajena->id,
         ])->assertStatus(403);
 
+        // La cierra coordinación, y el docente de al lado no puede reabrírsela.
+        $this->withToken($this->tokenDeCoordinacion())->putJson('/api/cierres-asignatura/cerrar', [
+            'periodo_id' => $e->periodo_id, 'asignatura_id' => $ajena->id,
+        ])->assertStatus(200);
+
+        $this->withToken($e->token)->putJson('/api/cierres-asignatura/reabrir', [
+            'periodo_id' => $e->periodo_id, 'asignatura_id' => $ajena->id,
+        ])->assertStatus(403);
+    }
+
+    /**
+     * Joseth, 24 sep 2026: «el docente puede volver a abrirla si no se ha cerrado el
+     * periodo». Sin fecha: queda abierta hasta que la vuelva a cerrar, y la fila no se
+     * borra — quién la cerró sigue ahí.
+     */
+    public function test_el_docente_reabre_la_suya_con_el_periodo_abierto_sin_fecha(): void
+    {
+        $e = $this->escenario();
         $this->cerrar($e);
+
+        $this->withToken($e->token)->putJson('/api/cierres-asignatura/reabrir', [
+            'periodo_id' => $e->periodo_id, 'asignatura_id' => $e->cerrada,
+        ])->assertStatus(200)
+            ->assertJsonPath('estado', 'reabierta')
+            ->assertJsonPath('cerrada', false)
+            ->assertJsonPath('reabierta_hasta', null);
+
+        $fila = DB::table('cierres_asignatura')->where('periodo_id', $e->periodo_id)
+            ->where('asignatura_id', $e->cerrada)->first();
+        $this->assertSame($e->user_id, (int) $fila->cerrada_por, 'Reabrir borró quién la cerró.');
+        $this->assertSame($e->user_id, (int) $fila->reabierta_por);
+        $this->assertNotNull($fila->reabierta_at);
+
+        $this->withToken($e->token)->putJson('/api/notas/update/'.$e->nota, [
+            'nota' => $this->valorDe($e->nota),
+        ])->assertStatus(200);
+
+        // Sin plazo no es «para siempre»: la vuelve a cerrar y muerde otra vez.
+        $this->cerrar($e);
+        $this->withToken($e->token)->putJson('/api/notas/update/'.$e->nota, [
+            'nota' => $this->valorDe($e->nota),
+        ])->assertStatus(400);
+    }
+
+    public function test_con_el_periodo_cerrado_el_docente_no_reabre_la_suya(): void
+    {
+        $e = $this->escenario();
+        $this->cerrar($e);
+
+        DB::table('periodos')->where('id', $e->periodo_id)->update(['profes_pueden_editar_notas' => 0]);
 
         $this->withToken($e->token)->putJson('/api/cierres-asignatura/reabrir', [
             'periodo_id' => $e->periodo_id, 'asignatura_id' => $e->cerrada,
             'hasta' => CierreDeAsignatura::ahora()->addDay()->toDateTimeString(), 'motivo' => 'me reabro yo',
         ])->assertStatus(403);
+
+        $this->assertSame('cerrada', DB::table('cierres_asignatura')->where('periodo_id', $e->periodo_id)
+            ->where('asignatura_id', $e->cerrada)->value('estado'));
     }
 
     public function test_la_rendija_abre_y_se_cierra_sola_al_vencer(): void
@@ -321,7 +375,10 @@ class CierrePorAsignaturaTest extends CasoDeContrato
         $suyo = $this->withToken($e->token)->getJson('/api/cierres-asignatura/periodo/'.$e->periodo_id)
             ->assertStatus(200);
 
-        $this->assertFalse($suyo->json('puede_reabrir'));
+        $this->assertFalse($suyo->json('puede_reabrir'), 'El de arriba es el de coordinación.');
+        $cerradaEnElTablero = collect($suyo->json('asignaturas'))->firstWhere('asignatura_id', $e->cerrada);
+        $this->assertTrue($cerradaEnElTablero['puede_reabrir'],
+            'Con el periodo abierto el docente reabre la suya (24 sep 2026).');
         $profesores = array_unique(array_column($suyo->json('asignaturas'), 'profesor_id'));
         $this->assertSame([$e->profesor_id], array_values($profesores));
         $this->assertSame(1, $suyo->json('resumen.cerradas'));
@@ -337,7 +394,8 @@ class CierrePorAsignaturaTest extends CasoDeContrato
 
         $this->assertSame('cerrada', $una->json('estado'));
         $this->assertTrue($una->json('puede_cerrar'));
-        $this->assertFalse($una->json('puede_reabrir'));
+        $this->assertTrue($una->json('puede_reabrir'));
+        $this->assertFalse($una->json('reabrir_pide_fecha'));
         $this->assertIsArray($una->json('faltan_por_indicador'));
     }
 

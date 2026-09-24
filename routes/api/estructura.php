@@ -269,10 +269,12 @@ Route::delete('periodos/destroy/{periodo_id}', [PeriodosController::class, 'dele
 Route::put('periodos/establecer-actual/{periodo_id}', [PeriodosController::class, 'putEstablecerActual'])->middleware('auth.personal');
 
 // **El cierre por asignatura** (fase 2 de `myvc_front/PLAN-CIERRE-DE-PERIODO.md`):
-// el docente cierra la suya y coordinación la reabre con fecha y motivo. Las cuatro
-// con `auth.personal` y el permiso fino DENTRO, como `years/cierre-sin-calificar`:
-// `auth.personal` deja pasar a los 53 docentes, y reabrir es justo lo que el docente
-// no debe poder hacerse a sí mismo (`Autoriza::puedeReabrirUnaAsignatura`). Familia
+// el docente cierra la suya y coordinación la reabre con fecha y motivo; desde el
+// 24 sep 2026 el docente también reabre la suya, sin fecha, mientras el periodo esté
+// abierto. Las cuatro con `auth.personal` y el permiso fino DENTRO, como
+// `years/cierre-sin-calificar`: `auth.personal` deja pasar a los 53 docentes, y con el
+// periodo cerrado reabrir es lo que el docente no debe poder hacerse a sí mismo
+// (`CierresAsignaturaController::puedeReabrir`). Familia
 // nueva, sin comodines sueltos: cada `{id}` va detrás de un literal.
 Route::get('cierres-asignatura/periodo/{periodo_id}', [CierresAsignaturaController::class, 'getPeriodo'])->middleware('auth.personal');
 Route::get('cierres-asignatura/asignatura/{asignatura_id}/{periodo_id}', [CierresAsignaturaController::class, 'getAsignatura'])->middleware('auth.personal');
