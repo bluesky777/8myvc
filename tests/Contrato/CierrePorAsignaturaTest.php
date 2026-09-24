@@ -264,7 +264,7 @@ class CierrePorAsignaturaTest extends CasoDeContrato
             'El motivo de la reapertura es el rastro: no se pierde al vencer.');
     }
 
-    public function test_reabrir_pide_motivo_fecha_futura_y_algo_cerrado(): void
+    public function test_reabrir_pide_fecha_futura_y_algo_cerrado(): void
     {
         $e = $this->escenario();
         $coordinacion = $this->tokenDeCoordinacion();
@@ -277,13 +277,24 @@ class CierrePorAsignaturaTest extends CasoDeContrato
         $this->cerrar($e);
 
         $this->withToken($coordinacion)->putJson('/api/cierres-asignatura/reabrir', [
-            'periodo_id' => $e->periodo_id, 'asignatura_id' => $e->cerrada, 'hasta' => $futuro, 'motivo' => '  ',
-        ])->assertStatus(422);
-
-        $this->withToken($coordinacion)->putJson('/api/cierres-asignatura/reabrir', [
             'periodo_id' => $e->periodo_id, 'asignatura_id' => $e->cerrada,
             'hasta' => CierreDeAsignatura::ahora()->subHour()->toDateTimeString(), 'motivo' => 'tarde',
         ])->assertStatus(422);
+    }
+
+    /** El motivo es opcional: en blanco se reabre igual y queda en nulo. */
+    public function test_reabrir_sin_motivo(): void
+    {
+        $e = $this->escenario();
+        $this->cerrar($e);
+
+        $this->withToken($this->tokenDeCoordinacion())->putJson('/api/cierres-asignatura/reabrir', [
+            'periodo_id' => $e->periodo_id, 'asignatura_id' => $e->cerrada,
+            'hasta' => CierreDeAsignatura::ahora()->addDay()->toDateTimeString(), 'motivo' => '  ',
+        ])->assertOk();
+
+        $this->assertNull(DB::table('cierres_asignatura')
+            ->where('periodo_id', $e->periodo_id)->where('asignatura_id', $e->cerrada)->value('motivo'));
     }
 
     public function test_con_bloquear_no_se_cierra_con_huecos(): void

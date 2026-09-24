@@ -157,7 +157,7 @@ class CierreDeAsignatura
      * existe**: reabrir lo que nunca se cerró no tiene sentido y devolvería una
      * fila que dice «cerrada por nadie».
      */
-    public static function reabrir(int $periodoId, int $asignaturaId, Carbon $hasta, string $motivo, ?int $userId): bool
+    public static function reabrir(int $periodoId, int $asignaturaId, Carbon $hasta, ?string $motivo, ?int $userId): bool
     {
         $ahora = self::ahora()->toDateTimeString();
 

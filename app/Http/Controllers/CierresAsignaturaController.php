@@ -133,7 +133,7 @@ class CierresAsignaturaController extends Controller
         ];
     }
 
-    /** Coordinación abre una rendija con fecha y motivo. Al vencer, se cierra sola. */
+    /** Coordinación abre una rendija con fecha y, si quiere, motivo. Al vencer, se cierra sola. */
     public function putReabrir(): array
     {
         Autoriza::exigir(Autoriza::puedeReabrirUnaAsignatura($this->user),
@@ -143,10 +143,6 @@ class CierresAsignaturaController extends Controller
         $asignatura = $this->asignaturaDelPeriodo(Request::input('asignatura_id'), $periodo);
 
         $motivo = trim((string) Request::input('motivo', ''));
-
-        if ($motivo === '') {
-            abort(422, 'Falta el motivo: queda escrito junto a la reapertura.');
-        }
 
         if (mb_strlen($motivo) > 500) {
             abort(422, 'El motivo no puede pasar de 500 caracteres.');
@@ -162,7 +158,7 @@ class CierresAsignaturaController extends Controller
             abort(422, 'La reapertura tiene que acabar en el futuro.');
         }
 
-        if (! CierreDeAsignatura::reabrir((int) $periodo->id, (int) $asignatura->asignatura_id, $hasta, $motivo, $this->userId())) {
+        if (! CierreDeAsignatura::reabrir((int) $periodo->id, (int) $asignatura->asignatura_id, $hasta, $motivo === '' ? null : $motivo, $this->userId())) {
             abort(422, 'Esa asignatura no está cerrada: no hay nada que reabrir.');
         }
 
