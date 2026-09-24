@@ -90,9 +90,21 @@ class Kernel extends ConsoleKernel
         // fecha se lee como medida**, y ésta llevaba un mes justificando por qué
         // añadir un comando eran «tres líneas aquí». Lo eran; lo que no había era
         // el cron que las ejecutara.
-        $schedule->command('notificaciones:enviar')
-            ->everyFifteenMinutes()
-            ->withoutOverlapping();
+        // **Y AQUÍ YA NO SE PROGRAMA.** Medido el 23 sep 2026 en `demo`, con la
+        // salida del cron desviada a un log: `schedule:run` lanzaba
+        // `notificaciones:enviar` cada quince minutos, decía «DONE» en ~200 ms, y
+        // el aviso seguía pendiente (`--seco` lo listaba después). El mismo
+        // comando, lanzado por el cron directamente —sin pasar por el
+        // scheduler—, mandó el aviso a la primera. Descartado a mano, uno por
+        // uno: el candado de `withoutOverlapping` (no había), el PHP del cron
+        // (8.4.25, mismos 66 módulos), las credenciales (legibles con `env -i`)
+        // y la caché (la misma, con la misma marca). **El porqué no se sabe.**
+        //
+        // Lo dispara ahora una línea propia del crontab de cada cuenta que
+        // recorre los colegios por nombre —así `lal` de `micolev1` queda fuera—.
+        // Quitarlo de aquí es lo que impide que corran los dos: sin el candado,
+        // dos pasadas a la vez leerían la misma marca y duplicarían el aviso.
+        // Ver `myvc_flutter/docs/notificaciones.md`.
 
         // Las importaciones de alumnos que se quedaron `en_proceso` porque la
         // secretaría cerró la pestaña a medias. No reanuda nada —no puede: el
