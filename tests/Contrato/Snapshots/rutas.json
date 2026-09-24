@@ -683,7 +683,6 @@
     "PUT api/votos/show": "App\\Http\\Controllers\\VtVotosController@putShow",
     "PUT api/years/alumnos-can-see-notas": "App\\Http\\Controllers\\YearsController@putAlumnosCanSeeNotas",
     "PUT api/years/cierre-sin-calificar": "App\\Http\\Controllers\\YearsController@putCierreSinCalificar",
-    "PUT api/years/definitivas-a-mano": "App\\Http\\Controllers\\YearsController@putDefinitivasAMano",
     "PUT api/years/guardar-cambios": "App\\Http\\Controllers\\YearsController@putGuardarCambios",
     "PUT api/years/modelo-evaluacion": "App\\Http\\Controllers\\YearsController@putModeloEvaluacion",
     "PUT api/years/mostrar-todas-materias": "App\\Http\\Controllers\\YearsController@putMostrarTodasMaterias",
