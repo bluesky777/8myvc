@@ -204,6 +204,8 @@ class PendientesController extends Controller
 
         return [
             'tipo' => 'entrega_boletines',
+            // Iconos de Ant que `app2` ya registra (`app.config.ts`, `ICONOS`): uno que no
+            // esté ahí se pide por la red y sale en blanco.
             'urgencia' => 200 + (self::DIAS_DE_AVISO_DE_ENTREGA - $dias),
             'icono' => 'clock-circle',
             'titular' => "{$cuando} los boletines del Periodo {$periodo->numero} y hay {$asignaturas}",
@@ -278,7 +280,7 @@ class PendientesController extends Controller
         return [
             'tipo' => 'compromisos',
             'urgencia' => 150,
-            'icono' => 'file-protect',
+            'icono' => 'solution',
             'titular' => $this->plural($cuantos, 'estudiante', 'estudiantes')
                 ." {$pierden} {$cuenta['corte']} o más {$unidad[1]} y no {$tienen} compromiso académico",
             'detalle' => "Cuenta del **Periodo {$numeroPeriodo}**, con el corte de la plantilla del compromiso: "
@@ -325,7 +327,7 @@ class PendientesController extends Controller
         return [
             'tipo' => 'jefes_de_area',
             'urgencia' => 100,
-            'icono' => 'apartment',
+            'icono' => 'idcard',
             'titular' => $cuantas === 1
                 ? "Falta poner el jefe del área de {$this->capitalizar($areas[0])}"
                 : "Falta poner el jefe de {$cuantas} áreas",
@@ -410,7 +412,7 @@ class PendientesController extends Controller
         return [
             'tipo' => 'intensidad_horaria',
             'urgencia' => 90,
-            'icono' => 'field-time',
+            'icono' => 'hourglass',
             'titular' => 'Hay '.implode(' y ', $partes),
             'detalle' => 'La intensidad horaria es obligatoria para lo académico, aunque el colegio no use horario.'
                 .($descuadrados !== [] ? ' Un grupo cuadra cuando la suma de sus asignaturas da la **IH del grupo**.' : ''),
@@ -491,7 +493,7 @@ class PendientesController extends Controller
         }));
 
         $p = $this->pendienteDeAlumnos(
-            'celular', 60, 'mobile', $sin,
+            'celular', 60, 'phone', $sin,
             ['estudiante no tiene celular', 'estudiantes no tienen celular'],
             "Matriculados en **{$year->year}** sin celular propio, o con uno que no es un número (vacío, «0», menos de 7 dígitos).",
             ['ruta' => '/alumnos', 'etiqueta' => 'Ir a alumnos'],
