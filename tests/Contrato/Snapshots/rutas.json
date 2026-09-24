@@ -586,6 +586,8 @@
     "PUT api/ordinales/guardar-valor-config": "App\\Http\\Controllers\\Disciplina\\OrdinalesController@putGuardarValorConfig",
     "PUT api/ordinales/ordinales": "App\\Http\\Controllers\\Disciplina\\OrdinalesController@putOrdinales",
     "PUT api/ordinales/update": "App\\Http\\Controllers\\Disciplina\\OrdinalesController@putUpdate",
+    "PUT api/pendientes/mostrar": "App\\Http\\Controllers\\PendientesController@putMostrar",
+    "PUT api/pendientes/ocultar": "App\\Http\\Controllers\\PendientesController@putOcultar",
     "PUT api/perfiles/cambiaremailrestore/{id}": "App\\Http\\Controllers\\Perfiles\\PerfilesController@putCambiaremailrestore",
     "PUT api/perfiles/cambiarfirmaunprofe/{profeelegido}": "App\\Http\\Controllers\\Perfiles\\PerfilesController@putCambiarfirmaunprofe",
     "PUT api/perfiles/cambiarimgunalumno/{alumnoelegido}": "App\\Http\\Controllers\\Perfiles\\PerfilesController@putCambiarimgunalumno",

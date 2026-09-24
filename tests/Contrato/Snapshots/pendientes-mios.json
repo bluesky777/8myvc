@@ -1,6 +1,8 @@
 {
+    "ocultos": [],
     "pendientes": [
         {
+            "clave": "string",
             "destino": {
                 "etiqueta": "string",
                 "ruta": "string"
@@ -14,6 +16,7 @@
                 }
             ],
             "icono": "string",
+            "insistencia": "string",
             "tipo": "string",
             "titular": "string",
             "total_filas": "int",

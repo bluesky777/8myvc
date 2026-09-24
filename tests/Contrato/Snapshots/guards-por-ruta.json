@@ -424,6 +424,8 @@
         "PUT api/ordinales/guardar-valor-config",
         "PUT api/ordinales/ordinales",
         "PUT api/ordinales/update",
+        "PUT api/pendientes/mostrar",
+        "PUT api/pendientes/ocultar",
         "PUT api/perfiles/cambiarfirmaunprofe/{profeelegido}",
         "PUT api/perfiles/cambiarimgunalumno/{alumnoelegido}",
         "PUT api/perfiles/cambiarimgunprofe/{profeelegido}",

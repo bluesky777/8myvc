@@ -32,3 +32,7 @@ Route::get('notificaciones/temas', [NotificacionesController::class, 'getTemas']
 // tienen nada que ver aquí; el reparto fino —sólo directivos, y qué tipo a quién—
 // lo hace el controlador, que al resto del personal le contesta la lista vacía.
 Route::get('pendientes/mios', [PendientesController::class, 'getMios'])->middleware('auth.personal');
+// Posponer (7 días) o silenciar (el año) uno que no sea Firme, y deshacerlo. Cada uno
+// oculta SÓLO lo suyo: la fila va por `user_id` del token.
+Route::put('pendientes/ocultar', [PendientesController::class, 'putOcultar'])->middleware('auth.personal');
+Route::put('pendientes/mostrar', [PendientesController::class, 'putMostrar'])->middleware('auth.personal');
