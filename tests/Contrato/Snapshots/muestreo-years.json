@@ -24,6 +24,7 @@
         "deleted_by": "null",
         "desempeno_displayname": "string",
         "desempenos_displayname": "string",
+        "dias_max_prematricula": "int",
         "encabezado_certificado": "string",
         "firmantes_acta": "null",
         "frase_final_certificado": "string",
