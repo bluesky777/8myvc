@@ -180,6 +180,12 @@ class PortalInscripcionController extends Controller
         $salida['verificado'] = true;
         $salida['aspirante'] = $this->formularioDe($aspirante);
         $salida['estado_embudo'] = $aspirante->estado_embudo;
+        // **El motivo del «no» viaja a la familia**, y sólo el del «no». `putDecision` lo
+        // exige con 422 porque «lo lee la familia» — y hasta hoy no lo leía nadie: el
+        // portal no lo mandaba.
+        $salida['motivo_decision'] = $aspirante->estado_embudo === 'NO_ADMITIDO'
+            ? $aspirante->motivo_decision
+            : null;
         $salida['requisitos'] = $this->requisitosDeLaCampana();
         $salida['documentos'] = $this->documentosDe((int) $aspirante->id);
         $salida['citas'] = $this->citasDe((int) $aspirante->id);

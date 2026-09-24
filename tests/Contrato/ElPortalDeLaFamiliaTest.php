@@ -774,6 +774,25 @@ class ElPortalDeLaFamiliaTest extends CasoDeContrato
             'Recibió alguien sin ficha de profesor y la ficha no dice quién.');
     }
 
+    /**
+     * **El motivo de «no admitido» llega a la familia.** `putDecision` lo exige porque
+     * lo lee la familia, y el portal no lo mandaba.
+     */
+    public function test_el_motivo_de_no_admitir_llega_al_portal(): void
+    {
+        [$aspirante, , $codigo] = $this->unAspiranteConDocumento();
+
+        $this->withToken($this->tokenAdmin())->putJson(self::ASPIRANTES.'/'.$aspirante.'/decision',
+            ['decision' => 'NO_ADMITIDO', 'motivo_decision' => 'No hay cupo en primero este año.'])->assertStatus(200);
+
+        $r = $this->getJson(self::PORTAL.'/'.$codigo.'?documento=1090123456')->assertStatus(200);
+        $this->assertSame('NO_ADMITIDO', $r->json('estado_embudo'));
+        $this->assertSame('No hay cupo en primero este año.', $r->json('motivo_decision'));
+
+        // Y sin el segundo factor, ni el motivo ni el estado.
+        $this->assertStringNotContainsString('cupo', json_encode($this->getJson(self::PORTAL.'/'.$codigo)->json()));
+    }
+
     /** Sin pagar no se llena: es el pecado que la prematrícula pública comete hoy. */
     public function test_un_formulario_sin_pagar_no_se_puede_llenar(): void
     {

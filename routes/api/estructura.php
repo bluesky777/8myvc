@@ -151,6 +151,10 @@ Route::put('years/alumnos-can-see-notas', [YearsController::class, 'putAlumnosCa
 // `familias-que-nunca-entran-en-el-candado.json`.
 Route::put('years/cierre-sin-calificar', [YearsController::class, 'putCierreSinCalificar'])->middleware('auth.personal');
 Route::get('years/colegio', [YearsController::class, 'getColegio']);
+// **Si los docentes cambian la definitiva a mano con la nivelación abierta** — fase 3 del
+// cierre de periodo (24 sep 2026). Misma forma que `years/cierre-sin-calificar`:
+// `auth.personal` en la ruta y el permiso dentro, por el mismo motivo.
+Route::put('years/definitivas-a-mano', [YearsController::class, 'putDefinitivasAMano'])->middleware('auth.personal');
 Route::put('years/guardar-cambios', [YearsController::class, 'putGuardarCambios'])->middleware('auth.personal');
 // **El modelo de evaluación del año**, Fase 1 de
 // docs/migracion/35-el-modelo-de-evaluacion-del-colegio.md §2. Ruta propia por
