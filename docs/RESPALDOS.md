@@ -58,12 +58,48 @@ crontab -l | grep respaldo          # en las dos, después
 Si `crontab -l` no imprime nada, el cron **no** está puesto por mucho que la pantalla de cPanel
 se haya visitado.
 
+### Si se toca el crontab por SSH en vez de por el panel, por ficheros
+
+**`crontab -l | … | crontab -` dejó el crontab de `micolev1` VACÍO** —los dieciséis
+`schedule:run` fuera— y hubo que restaurarlo de un respaldo (23 sep 2026, sesión de
+notificaciones; el procedimiento quedó en `myvc_flutter/docs/notificaciones.md`). Un pipe que
+falla a media tubería escribe un crontab vacío perfectamente válido, que es el mismo patrón
+que el `.gz` truncado de más arriba. Por ficheros, y contando líneas antes y después:
+
+```sh
+crontab -l > ~/cron-actual.txt          # la copia, primero
+cp ~/cron-actual.txt ~/cron-nuevo.txt
+cat >> ~/cron-nuevo.txt <<'FIN'
+MAILTO="TU-CORREO"
+5 2 * * * /home/micolev1/demo.micolevirtual.com/8myvc/tools/respaldo-diario-cpanel.sh
+FIN
+wc -l ~/cron-actual.txt ~/cron-nuevo.txt   # dos líneas más, ni una menos
+crontab ~/cron-nuevo.txt
+crontab -l | grep -c respaldo              # 1
+```
+
+En `micolevi` es igual cambiando la última línea por la suya, la que lleva `RAIZ=`. Y **antes
+de poner el cron**, que el guion exista de verdad en esa cuenta —`ls -l
+…/8myvc/tools/respaldo-diario-cpanel.sh`—: si el colegio no tiene desplegada la versión del 22
+sep, el cron llamaría cada noche a un fichero que no está.
+
 Tres cosas de esta pantalla que se pagan caro:
 
 1. **Aquí NO se pone `>/dev/null 2>&1`.** En el cron de `schedule:run` sí, porque habla
    cada minuto. Éste está escrito para **callar cuando sale bien**: si imprime algo es
    porque una base no se respaldó, y ese correo de cPanel es justo el aviso que se
    quiere. Silenciarlo deja un respaldo que lleva medio año sin correr y nadie lo sabe.
+
+   > **Y hoy ese correo NO saldría: las dos cuentas empiezan el crontab con `MAILTO=""`.**
+   > Eso descarta la salida de **todas** las líneas que vengan detrás, así que el guion
+   > callaría igual el día que fallara — que es exactamente lo que este punto quiere
+   > evitar. La línea del respaldo va **al final del fichero y con su propio `MAILTO`
+   > delante**: cron aplica el que esté vigente en ese punto, y así `schedule:run` sigue
+   > mudo y el respaldo no.
+   >
+   > *(Leído el 23 sep 2026 de dos capturas de `crontab -l` —18 líneas en `micolev1`, 4 en
+   > `micolevi`— que Joseth pegó en la sesión de notificaciones. **No comprobado por SSH**:
+   > esa noche aquí sólo había acceso por contraseña.)*
 2. **La hora.** A las 02:05 no hay nadie calificando y el `--single-transaction` no le
    cierra la puerta a nadie. A las 07:00 sí.
 3. **La cuota.** Los respaldos ocupan disco de la misma cuenta que las bases. El guion
