@@ -193,9 +193,15 @@ class ImagesUsuariosController extends Controller {
 		// O sea que al administrativo que `auth.personal` deja pasar se le enseñaba
 		// la firma puesta y al recargar no estaba. Misma familia que la §44 y la
 		// §48; aquí el `else` existía y lo que mentía era el código. Ver 05 §48.2.
+		// **Era `tipo == 'Profesor' || is_superuser`: cualquier docente ponía la firma
+		// de cualquiera, la suya incluida, y salía en el boletín sin que nadie la
+		// viera.** Desde el 24 sep 2026 la firma de un titular es una solicitud que
+		// aprueba otra persona (`FirmasDelTitularController`), y esta puerta directa
+		// se queda sólo para quien aprueba — con ella abierta a los docentes, la
+		// aprobación sería un paso que se puede saltar.
 		Autoriza::exigir(
-			$user->tipo == 'Profesor' || $user->is_superuser,
-			'Solo un profesor o un superusuario cambia la firma de otro.'
+			Autoriza::puedeAprobarFirmas($user),
+			'Sólo administración, secretaría, rectoría o coordinación ponen la firma de un docente. Un titular la pide desde «Mi firma».'
 		);
 
 		$img_id 			= Request::input('imagen_id');

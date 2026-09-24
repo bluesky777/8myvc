@@ -73,7 +73,10 @@ class Solicitudes extends Controller {
                         LEFT JOIN users u on p.user_id=u.id and u.deleted_at is null
                         LEFT JOIN images i ON i.id=p.foto_id and i.deleted_at is null
                         LEFT JOIN images i2 ON i2.id=p.foto_id and i2.deleted_at is null
-                        WHERE c.year_asked_id=:year_id and c.tipo_user="Profesor" and c.deleted_at is null and c.accepted_at is null and c.rechazado_at is null';
+                        WHERE c.year_asked_id=:year_id and c.tipo_user="Profesor" and c.deleted_at is null and c.accepted_at is null and c.rechazado_at is null
+                            and not exists (SELECT 1 FROM change_asked_data fd WHERE fd.id=c.data_id and fd.firma_id_new is not null)';
+        // La firma del titular tiene su propia bandeja (`firmas-del-titular/pendientes`):
+        // aquí salía como un pedido de asignatura vacío.
         
         $pedidos    = DB::select($consulta, [
             ':year_id'  => $year_id

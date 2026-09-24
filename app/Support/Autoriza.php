@@ -244,6 +244,19 @@ class Autoriza
     private const ROLES_QUE_PUBLICAN_RESULTADOS = ['Rector', 'Coord académico', 'Coord disciplinario'];
 
     /**
+     * Quién aprueba o rechaza la firma que sube un docente titular.
+     *
+     * Pedido de Joseth, 24 sep 2026: *«que quede como solicitud para ser aprobada por
+     * secretario, rector, coordinador, obvio también administradores»*. `Admin` es el
+     * rol y el superusuario entra aparte, como en todas las de esta clase. Las dos
+     * coordinaciones porque la frase dice «coordinador» a secas — la misma lectura que
+     * `ROLES_QUE_PUBLICAN_RESULTADOS`.
+     *
+     * @var list<string>
+     */
+    private const ROLES_QUE_APRUEBAN_FIRMAS = ['Admin', 'Secretario', 'Rector', 'Coord académico', 'Coord disciplinario'];
+
+    /**
      * Marcar y desmarcar un periodo de un alumno como boletín independiente.
      * `PUT boletin-independiente/periodo`, §6.3 del
      * [19](../../docs/migracion/19-boletin-independiente.md).
@@ -700,6 +713,34 @@ class Autoriza
 
         foreach (Role::getUserRoles($userId) as $rol) {
             if (in_array($rol->name, self::ROLES_QUE_DECIDEN_LA_ADMISION, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Quién aprueba la firma de un titular. Ver `ROLES_QUE_APRUEBAN_FIRMAS`.
+     *
+     * Aprobar la PROPIA no lo decide esto: lo cierra `FirmasDelTitularController`
+     * comparando con quien pidió, porque un coordinador que además es titular sí
+     * aprueba las de los demás.
+     */
+    public static function puedeAprobarFirmas($user): bool
+    {
+        if (self::esSuperusuario($user)) {
+            return true;
+        }
+
+        $userId = $user->user_id ?? null;
+
+        if ($userId === null) {
+            return false;
+        }
+
+        foreach (Role::getUserRoles($userId) as $rol) {
+            if (in_array($rol->name, self::ROLES_QUE_APRUEBAN_FIRMAS, true)) {
                 return true;
             }
         }

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Perfiles\AccesosFavoritosController;
 use App\Http\Controllers\Perfiles\CalendarioController;
+use App\Http\Controllers\Perfiles\FirmasDelTitularController;
 use App\Http\Controllers\Perfiles\ImagesController;
 use App\Http\Controllers\Perfiles\ImagesUsuariosController;
 use App\Http\Controllers\Perfiles\PerfilesController;
@@ -159,3 +160,15 @@ Route::put('calendario/this-year', [CalendarioController::class, 'putThisYear'])
 // Y la tabla no lleva `year_id` a propósito — una ruta del menú no es de un año.
 Route::get('accesos-favoritos', [AccesosFavoritosController::class, 'getIndex'])->middleware('auth.personal');
 Route::put('accesos-favoritos', [AccesosFavoritosController::class, 'putIndex'])->middleware('auth.personal');
+
+// La firma del titular, pedida y no puesta: el titular la sube y queda pendiente
+// hasta que administración, secretaría, rectoría o coordinación la aprueban. La
+// regla de quién aprueba está en `Autoriza::puedeAprobarFirmas` y la de «la tuya
+// no», en el controlador. Ver su cabecera.
+Route::get('firmas-del-titular/mia', [FirmasDelTitularController::class, 'getMia'])->middleware('auth.personal');
+Route::post('firmas-del-titular/solicitar', [FirmasDelTitularController::class, 'postSolicitar'])->middleware('auth.personal');
+Route::put('firmas-del-titular/retirar', [FirmasDelTitularController::class, 'putRetirar'])->middleware('auth.personal');
+Route::get('firmas-del-titular/pendientes', [FirmasDelTitularController::class, 'getPendientes'])->middleware('auth.personal');
+Route::get('firmas-del-titular/cuantas', [FirmasDelTitularController::class, 'getCuantas'])->middleware('auth.personal');
+Route::put('firmas-del-titular/aprobar/{asked_id}', [FirmasDelTitularController::class, 'putAprobar'])->middleware('auth.personal');
+Route::put('firmas-del-titular/rechazar/{asked_id}', [FirmasDelTitularController::class, 'putRechazar'])->middleware('auth.personal');

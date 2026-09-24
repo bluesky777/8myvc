@@ -50,7 +50,11 @@ class ChangeAsked extends Model {
 	static $consulta_all = 'SELECT *, c.id as asked_id FROM change_asked c
 					left join change_asked_assignment a on a.id=c.assignment_id
 					left join change_asked_data d on d.id=c.data_id
-					WHERE c.asked_by_user_id=:user_id and c.year_asked_id=:year_id and c.deleted_at is null and c.answered_by is null';
+					WHERE c.asked_by_user_id=:user_id and c.year_asked_id=:year_id and c.deleted_at is null and c.answered_by is null
+						and d.firma_id_new is null';
+	// `d.firma_id_new is null`: la firma del titular va en SU fila y la resuelve otra
+	// gente (`FirmasDelTitularController`). Sin esto, el siguiente cambio de foto de ese
+	// docente se colgaba de la fila de la firma y los dos se resolvían juntos.
 
 
 
