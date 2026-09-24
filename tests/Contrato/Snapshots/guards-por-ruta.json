@@ -430,6 +430,7 @@
         "PUT api/perfiles/cambiarimgunusuario/{usuarioelegido}",
         "PUT api/perfiles/creartodoslosusuarios",
         "PUT api/perfiles/restore/{id}",
+        "PUT api/periodos/cambiar-fecha-entrega-boletines",
         "PUT api/periodos/cambiar-fecha-fin",
         "PUT api/periodos/cambiar-fecha-inicio",
         "PUT api/periodos/copiar",

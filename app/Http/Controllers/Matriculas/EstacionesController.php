@@ -448,7 +448,9 @@ class EstacionesController extends Controller
                     continue;
                 }
 
-                $esperas[] = max(0, $ahora->diffInMinutes($llego, true));
+                // **Entero.** `diffInMinutes` de Carbon 3 devuelve float, y la máxima
+                // salía como `67.93232834999999` en la pared del rector.
+                $esperas[] = (int) round(max(0, $ahora->diffInMinutes($llego, true)));
             }
 
             $media = count($esperas) > 0 ? (int) round(array_sum($esperas) / count($esperas)) : null;

@@ -54,6 +54,7 @@
                 "created_by": "null",
                 "deleted_at": "null",
                 "deleted_by": "null",
+                "fecha_entrega_boletines": "null",
                 "fecha_fin": "null|string",
                 "fecha_inicio": "null|string",
                 "fecha_plazo": "null|string",

@@ -232,6 +232,8 @@ Route::put('years/useractive/{year_id}', [YearsController::class, 'putUseractive
 Route::get('periodos', [PeriodosController::class, 'getIndex']);
 Route::put('periodos/cambiar-fecha-fin', [PeriodosController::class, 'putCambiarFechaFin'])->middleware('auth.personal');
 Route::put('periodos/cambiar-fecha-inicio', [PeriodosController::class, 'putCambiarFechaInicio'])->middleware('auth.personal');
+// **El día de entrega de boletines del periodo** (24 sep 2026). Vacía = «sin fecha».
+Route::put('periodos/cambiar-fecha-entrega-boletines', [PeriodosController::class, 'putCambiarFechaEntregaBoletines'])->middleware('auth.personal');
 Route::put('periodos/copiar', [PeriodosController::class, 'putCopiar'])->middleware('auth.personal');
 // **El diálogo de cierre: qué casillas de este periodo no ha calificado nadie** —
 // fase 4 del doc 43. Devuelve la cuenta, el desglose por asignatura con su docente y

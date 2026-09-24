@@ -147,6 +147,47 @@ class PeriodosTest extends CasoDeContrato
     }
 
     /**
+     * La fecha de entrega de boletines: nace vacía, se guarda, sale en `periodos`,
+     * se borra con vacío y lo que no es una fecha no entra.
+     */
+    public function test_la_fecha_de_entrega_de_boletines(): void
+    {
+        $usuario = $this->usuarioDeTipo('Usuario');
+        $token = $this->tokenDe($usuario->username);
+        $periodo = DB::selectOne('SELECT id, year_id, fecha_entrega_boletines FROM periodos
+            WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
+        $this->assertNull($periodo->fecha_entrega_boletines, 'La columna tiene que nacer en null.');
+
+        $ruta = '/api/periodos/cambiar-fecha-entrega-boletines';
+        $leer = fn () => DB::table('periodos')->where('id', $periodo->id)->value('fecha_entrega_boletines');
+
+        $this->withToken($token)->putJson($ruta, ['periodo_id' => $periodo->id, 'fecha' => '2026-05-08'])
+            ->assertStatus(200);
+        $this->assertSame('2026-05-08', (string) $leer());
+
+        // Y sale en la respuesta que ya devuelve los periodos del año.
+        $lista = $this->withToken($token)->getJson('/api/periodos/show/'.$periodo->year_id)->assertStatus(200)->json();
+        $this->assertSame('2026-05-08', collect($lista)->firstWhere('id', $periodo->id)['fecha_entrega_boletines']);
+
+        foreach (['mañana', '2026-02-30', '08/05/2026', 20260508] as $mala) {
+            $this->withToken($token)->putJson($ruta, ['periodo_id' => $periodo->id, 'fecha' => $mala])
+                ->assertStatus(422);
+        }
+        $this->assertSame('2026-05-08', (string) $leer(), 'Una fecha mala no pisa la buena.');
+
+        foreach ([null, ''] as $vacia) {
+            $this->withToken($token)->putJson($ruta, ['periodo_id' => $periodo->id, 'fecha' => $vacia])
+                ->assertStatus(200);
+            $this->assertNull($leer());
+        }
+
+        $this->withToken($this->tokenDe($this->usuarioDeTipo('Acudiente')->username))
+            ->putJson($ruta, ['periodo_id' => $periodo->id, 'fecha' => '2026-05-08'])
+            ->assertStatus(403);
+        $this->assertNull($leer());
+    }
+
+    /**
      * `periodos/update/{id}` sigue rota, y da igual lo que se le mande.
      *
      * Escribe `$periodo->year`, y `periodos` **no tiene columna `year`** —tiene

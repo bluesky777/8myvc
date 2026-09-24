@@ -598,6 +598,7 @@
     "PUT api/perfiles/reset-password/{id}": "App\\Http\\Controllers\\Perfiles\\PerfilesController@putResetPassword",
     "PUT api/perfiles/restore/{id}": "App\\Http\\Controllers\\Perfiles\\PerfilesController@putRestore",
     "PUT api/perfiles/update/{id}": "App\\Http\\Controllers\\Perfiles\\PerfilesController@putUpdate",
+    "PUT api/periodos/cambiar-fecha-entrega-boletines": "App\\Http\\Controllers\\PeriodosController@putCambiarFechaEntregaBoletines",
     "PUT api/periodos/cambiar-fecha-fin": "App\\Http\\Controllers\\PeriodosController@putCambiarFechaFin",
     "PUT api/periodos/cambiar-fecha-inicio": "App\\Http\\Controllers\\PeriodosController@putCambiarFechaInicio",
     "PUT api/periodos/copiar": "App\\Http\\Controllers\\PeriodosController@putCopiar",

@@ -412,6 +412,33 @@ class ElPortalDeLaFamiliaTest extends CasoDeContrato
     }
 
     /**
+     * **Las esperas del tablero son minutos ENTEROS.** `diffInMinutes` de Carbon 3 da
+     * float, y la máxima salía como `67.93232834999999` en la pared del rector.
+     */
+    public function test_las_esperas_del_tablero_son_minutos_enteros(): void
+    {
+        [$alumno] = $this->dosAlumnos();
+        $uno = $this->unPaso('Recepción', 1);
+        $this->unPaso('Documentos', 2);
+
+        $this->withToken($this->tokenLlano())->putJson('/api/estaciones/1/marcar',
+            ['alumno_id' => $alumno, 'resultado' => 'cumple'])->assertStatus(200);
+
+        // Llegó a la 2 hace 7 min y 33 s: con float sale 7.55.
+        $hace = now('America/Bogota')->subSeconds(453)->toDateTimeString();
+        DB::update('UPDATE requisitos_alumno SET cerrado_at=?, updated_at=? WHERE alumno_id=? AND requisito_id=?',
+            [$hace, $hace, $alumno, $uno]);
+
+        $r = $this->withToken($this->tokenLlano())->getJson('/api/estaciones/tablero')->assertStatus(200);
+        $dos = collect($r->json('estaciones'))->firstWhere('nro', 2);
+
+        $this->assertIsInt($dos['espera_maxima_min']);
+        $this->assertIsInt($dos['espera_media_min']);
+        $this->assertSame(8, $dos['espera_maxima_min']);
+        $this->assertIsInt($r->json('tapon.espera_media_min'));
+    }
+
+    /**
      * **A QUIEN LE DEVUELVEN UN PASO SIGUE ESTANDO EN EL PATIO**, y el tablero tiene
      * que verlo.
      *

@@ -87,6 +87,34 @@ class PeriodosController extends Controller {
 	}
 
 	/**
+	 * **El día en que se entregan los boletines del periodo** (migración
+	 * `2026_09_24_700000_la_fecha_de_entrega_de_boletines`). Misma forma que sus dos
+	 * hermanas de arriba, con dos diferencias: `fecha` vacía o `null` **borra** la fecha
+	 * —«sin fecha» es un valor, no un error—, y lo que no es una fecha `AAAA-MM-DD` real
+	 * sale con 422 en vez de guardarse. `Carbon::parse` de arriba aceptaría «mañana».
+	 */
+	public function putCambiarFechaEntregaBoletines()
+	{
+		$periodo = Periodo::findOrFail(Request::input('periodo_id'));
+		$fecha   = Request::input('fecha');
+
+		if ($fecha === null || $fecha === '') {
+			$fecha = null;
+		} else {
+			$leida = is_string($fecha) ? \DateTime::createFromFormat('!Y-m-d', $fecha) : false;
+			if (! $leida || $leida->format('Y-m-d') !== $fecha) {
+				abort(422, 'La fecha de entrega de boletines tiene que ser una fecha (AAAA-MM-DD) o ir vacía.');
+			}
+		}
+
+		$periodo->fecha_entrega_boletines	=	$fecha;
+		$periodo->updated_by 				= 	$this->user->user_id;
+		$periodo->save();
+
+		return 'Cambiado';
+	}
+
+	/**
 	 * Abrir y cerrar el periodo — y, desde el 20 sep 2026, **aplicar la decisión del
 	 * colegio sobre las casillas que nadie calificó**.
 	 *
