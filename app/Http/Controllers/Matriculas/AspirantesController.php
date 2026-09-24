@@ -183,7 +183,8 @@ class AspirantesController extends Controller
         $documentos = DB::select('SELECT d.id, d.requisito_id, d.estado, d.archivo, d.nombre_original,
                 d.motivo_devolucion, d.devuelto_original, d.recibido_at, d.created_at AS enviado_at,
                 r.requisito, r.orden AS estacion,
-                p.nombres AS recibido_por_nombres, p.apellidos AS recibido_por_apellidos
+                p.nombres AS recibido_por_nombres, p.apellidos AS recibido_por_apellidos,
+                u.username AS recibido_por_usuario
             FROM documentos_admision d
             INNER JOIN requisitos_matricula r ON r.id=d.requisito_id AND r.deleted_at IS NULL
             LEFT JOIN users u ON u.id=d.recibido_por AND u.deleted_at IS NULL
@@ -191,6 +192,9 @@ class AspirantesController extends Controller
             -- existen y la segunda está vacía (0 filas contra 47, medido). Escrito al
             -- revés, «recibido por» saldría en blanco en los diecisiete sin fallar.
             LEFT JOIN profesores p ON p.user_id=u.id AND p.deleted_at IS NULL
+            -- **Y el `username` de respaldo**, como las estaciones desde el 24 sep: quien
+            -- recibe en ventanilla es secretaría, que no tiene ficha en `profesores`, y sin
+            -- él «recibido por» salía vacío justo para quien más recibe.
             WHERE d.aspirante_id=? AND d.deleted_at IS NULL
             ORDER BY r.orden, r.id, d.id', [(int) $aspirante->id]);
 

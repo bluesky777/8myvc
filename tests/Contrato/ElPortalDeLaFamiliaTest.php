@@ -756,6 +756,24 @@ class ElPortalDeLaFamiliaTest extends CasoDeContrato
             'Se contestó 422 y aun así se anotó el paso que no es un papel.');
     }
 
+    /**
+     * **«Recibido por» no sale vacío cuando recibe secretaría.** Quien recibe en
+     * ventanilla no tiene ficha en `profesores`; la ficha cae al `username`, igual que
+     * las estaciones.
+     */
+    public function test_recibido_por_lleva_la_cuenta_si_no_hay_ficha_de_profesor(): void
+    {
+        [$aspirante, $documento] = $this->unAspiranteConDocumento();
+
+        $this->withToken($this->tokenAdmin())->putJson(self::ASPIRANTES.'/'.$aspirante.'/documento/'.$documento,
+            ['estado' => 'RECIBIDO'])->assertStatus(200);
+
+        $r = $this->withToken($this->tokenAdmin())->getJson(self::ASPIRANTES.'/'.$aspirante)->assertStatus(200);
+
+        $this->assertNotEmpty($r->json('documentos.0.recibido_por_usuario'),
+            'Recibió alguien sin ficha de profesor y la ficha no dice quién.');
+    }
+
     /** Sin pagar no se llena: es el pecado que la prematrícula pública comete hoy. */
     public function test_un_formulario_sin_pagar_no_se_puede_llenar(): void
     {
