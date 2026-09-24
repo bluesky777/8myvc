@@ -1017,7 +1017,7 @@ class PendientesController extends Controller
                 .($porPeriodo ? 'Se cuenta por periodo.' : 'Se cuenta en todo el año.'),
             'filas' => array_map(fn ($a) => $this->filaDeAlumno(
                 $a, $a->abrev_grupo ?: $a->nombre_grupo, $faltan[(int) $a->alumno_id].' tardanzas', true
-            ), array_slice($alumnos, 0, self::TOPE_DE_FILAS)),
+            ) + ['destino' => $this->alDisciplina($a)], array_slice($alumnos, 0, self::TOPE_DE_FILAS)),
             'total_filas' => $n,
             'destino' => ['ruta' => '/disciplina', 'etiqueta' => 'Ir a disciplina'],
             'primero_para' => [],
@@ -1094,7 +1094,7 @@ class PendientesController extends Controller
                 .(int) $conf->cant_ft2_to_ft3.'** de tipo 2 dan una de tipo 3.',
             'filas' => array_map(fn ($a) => $this->filaDeAlumno(
                 $a, $a->abrev_grupo ?: $a->nombre_grupo, $faltan[(int) $a->alumno_id], true
-            ), array_slice($alumnos, 0, self::TOPE_DE_FILAS)),
+            ) + ['destino' => $this->alDisciplina($a)], array_slice($alumnos, 0, self::TOPE_DE_FILAS)),
             'total_filas' => $n,
             'destino' => ['ruta' => '/disciplina', 'etiqueta' => 'Ir a disciplina'],
             'primero_para' => [],
@@ -1286,7 +1286,7 @@ class PendientesController extends Controller
 
         return DB::select(
             'SELECT al.id AS alumno_id, al.nombres, al.apellidos, i.nombre AS foto,
-                    g.nombre AS nombre_grupo, g.abrev AS abrev_grupo
+                    g.id AS grupo_id, g.nombre AS nombre_grupo, g.abrev AS abrev_grupo
                FROM matriculas m
                INNER JOIN grupos g ON g.id = m.grupo_id AND g.year_id = ? AND g.deleted_at IS NULL
                INNER JOIN alumnos al ON al.id = m.alumno_id AND al.deleted_at IS NULL
@@ -1541,6 +1541,12 @@ class PendientesController extends Controller
             'destino' => ['ruta' => '/colegio/'.$year->id.'/ficha', 'etiqueta' => 'Completar la ficha'],
             'primero_para' => ['Secretario'],
         ];
+    }
+
+    /** El «Ver» de una fila de disciplina: el grupo del alumno abierto y él resaltado. */
+    private function alDisciplina(object $a): array
+    {
+        return ['ruta' => '/disciplina', 'query' => ['grupo' => (int) $a->grupo_id, 'alumno' => (int) $a->alumno_id], 'etiqueta' => 'Ver'];
     }
 
     /** `29.99` → `29,99`; `30` → `30`. Como `rotuloDeNota` del front. */
