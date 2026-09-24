@@ -1049,6 +1049,10 @@ class YearsController extends Controller {
 			$year->nombre_colegio            = Request::input('nombre_colegio', $year->nombre_colegio);
 			$year->abrev_colegio             = Request::input('abrev_colegio', $year->abrev_colegio);
 			$year->year                      = Request::input('year', $year->year);
+			// Los nombrados de antes, para olvidar su contexto si cambian: el cargo trae su rol
+			// (`Role::rolesDelNombramiento`) y el rol viaja dentro del contexto.
+			$cargosDeAntes = [$year->secretario_id, $year->tesorero_id];
+
 			$year->rector_id                 = Request::input('rector_id', $year->rector_id);
 			$year->secretario_id             = Request::input('secretario_id', $year->secretario_id);
 			$year->tesorero_id               = Request::input('tesorero_id', $year->tesorero_id);
@@ -1082,6 +1086,10 @@ class YearsController extends Controller {
 			$year->updated_by                = $user->user_id;
 
 			$year->save();
+
+			if ($cargosDeAntes !== [$year->secretario_id, $year->tesorero_id]) {
+				$this->olvidarContextoDeLosCargos(array_merge($cargosDeAntes, [$year->secretario_id, $year->tesorero_id]));
+			}
 			
 			
 			// El ingreso sale del token (fase 2 de 18-auditoria.md). El `[0]` que
@@ -2364,5 +2372,25 @@ class YearsController extends Controller {
 	{
 		$years = Year::onlyTrashed()->get();
 		return $years;
+	}
+
+	/**
+	 * Con la caché de contexto encendida (`rendimiento.contexto.segundos`), el que deja de ser
+	 * secretario o tesorero conservaría el rol hasta que caducara. Se olvida el de los nombrados de
+	 * antes y de ahora, que son `profesores.id`.
+	 *
+	 * @param  array<int|string|null>  $profesorIds
+	 */
+	private function olvidarContextoDeLosCargos(array $profesorIds): void
+	{
+		$ids = array_values(array_unique(array_filter(array_map('intval', $profesorIds))));
+		if ($ids === []) {
+			return;
+		}
+
+		$userIds = DB::table('profesores')->whereIn('id', $ids)->whereNotNull('user_id')->pluck('user_id');
+		foreach (User::whereIn('id', $userIds)->get() as $usuario) {
+			\App\Services\ContextoDeUsuario::olvidar($usuario);
+		}
 	}
 }

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Periodo;
+use App\Models\Role;
 use App\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -401,6 +402,19 @@ class ContextoDeUsuario
             FROM roles r
             INNER JOIN role_user rs ON r.id=rs.role_id
             WHERE rs.user_id=?', [$usuario->user_id]);
+
+        // Los del nombramiento del año (secretario, tesorero), con la fila entera del rol como
+        // los demás: el front decide el menú por `roles[].name`. Ver `Role::rolesDelNombramiento`.
+        $yaTiene = array_column($roles, 'name');
+        $delCargo = array_column(Role::rolesDelNombramiento((int) $usuario->user_id), 'role_id');
+        if ($delCargo !== []) {
+            $marcasCargo = implode(',', array_fill(0, count($delCargo), '?'));
+            foreach (DB::select('SELECT r.* FROM roles r WHERE r.id IN ('.$marcasCargo.')', $delCargo) as $rol) {
+                if (! in_array($rol->name, $yaTiene, true)) {
+                    $roles[] = $rol;
+                }
+            }
+        }
 
         $usuario->roles = $roles;
 

@@ -93,7 +93,56 @@ class Role extends Model
 		$roles = DB::select($consulta, array(
 			':user_id'		=> $user_id,
 		));
+
+		// Los que da el NOMBRAMIENTO del año, sin fila en `role_user`. Van detrás y sin repetir:
+		// quien ya tenía el rol a mano lo sigue teniendo una vez.
+		$nombres = array_column($roles, 'name');
+		foreach (self::rolesDelNombramiento((int) $user_id) as $rol) {
+			if (! in_array($rol->name, $nombres, true)) {
+				$roles[] = $rol;
+			}
+		}
+
 		return $roles;
+	}
+
+	/**
+	 * LOS CARGOS DEL AÑO TRAEN SU ROL. Pedido por Joseth el 24 sep 2026: quien quede nombrado
+	 * secretario o tesorero en la ficha del colegio —`years.secretario_id`, `years.tesorero_id`—
+	 * puede hacer lo de ese cargo aunque su usuario sea de docente, y sin perder lo de docente. En
+	 * los colegios pequeños el rector suele ser también secretario y tesorero, y el sistema lo deja.
+	 *
+	 * **No se escribe en `role_user`**: el rol dura lo que dura el nombramiento. Si mañana nombran a
+	 * otro, el anterior deja de tenerlo en su petición siguiente, sin que nadie se acuerde de
+	 * quitárselo.
+	 *
+	 * Mira el año `actual` del colegio, que es el del nombramiento vigente, y no el año que el
+	 * usuario tenga elegido para consultar. Los dos `*_id` son de `profesores`, no de `users`
+	 * (ver `Autoriza::puedeResolverColillas`), así que se cruza por `profesores.user_id`.
+	 *
+	 * @return list<object{role_id: int, name: string}>
+	 */
+	public static function rolesDelNombramiento(int $user_id): array
+	{
+		if ($user_id <= 0) {
+			return [];
+		}
+
+		return DB::select(
+			"SELECT DISTINCT r.id AS role_id, r.name
+			   FROM years y
+			   INNER JOIN profesores p ON p.user_id = ? AND p.deleted_at IS NULL
+			   INNER JOIN roles r ON r.deleted_at IS NULL
+			        AND ((r.name = 'Secretario' AND y.secretario_id = p.id)
+			          OR (r.name = 'Tesorero' AND y.tesorero_id = p.id))
+			  WHERE y.actual = 1 AND y.deleted_at IS NULL
+			  ORDER BY r.id",
+			[$user_id]
+		);
+	}
+
+	public static function isTesorero($user_id) {
+		return Role::hasRole($user_id, 'Tesorero');
 	}
 
 	/**

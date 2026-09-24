@@ -775,6 +775,13 @@ class Autoriza
             return true;
         }
 
+        // El rol Tesorero: dado a mano, o por el nombramiento del año actual
+        // (`Role::rolesDelNombramiento`, 24 sep 2026). La comprobación de abajo se
+        // queda para el año que se esté consultando, que puede no ser el actual.
+        if (Role::isTesorero($user->user_id ?? 0)) {
+            return true;
+        }
+
         $persona = $user->persona_id ?? null;
 
         if ($persona === null) {

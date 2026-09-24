@@ -154,6 +154,7 @@ class PendientesController extends Controller
             ($super || array_intersect(['Admin', 'Coord académico'], $roles) !== []) ? $this->gruposSinTitular($year) : null,
             ($super || array_intersect(['Admin', 'Coord académico'], $roles) !== []) ? $this->asignaturasSinDocente($year) : null,
             ($super || in_array('Admin', $roles, true)) ? $this->escalaIncompleta($year) : null,
+            ($super || array_intersect(['Admin', 'Rector'], $roles) !== []) ? $this->sinSecretarioOTesorero($year) : null,
             Autoriza::puedeEditarPlantillaNotas($user) ? $this->plantillaQueNoSuma($year) : null,
             $secretaria ? $this->fichaIncompleta($year) : null,
         ]);
@@ -1298,6 +1299,40 @@ class PendientesController extends Controller
     }
 
     /* ── 14. Configuración del año ──────────────────────────────────────────────────── */
+
+    /**
+     * Pedido por Joseth el 24 sep 2026. El cargo trae su rol (`Role::rolesDelNombramiento`): sin
+     * nombrado, nadie aprueba las colillas como tesorero y el secretario de la ficha firma en blanco.
+     * Puede ser la misma persona para los dos, y en los colegios pequeños suele ser el rector.
+     */
+    private function sinSecretarioOTesorero(object $year): ?array
+    {
+        $faltan = array_keys(array_filter([
+            'secretario' => $year->secretario_id === null,
+            'tesorero' => $year->tesorero_id === null,
+        ]));
+
+        if ($faltan === []) {
+            return null;
+        }
+
+        return [
+            'tipo' => 'sin_secretario_tesorero',
+            'clave' => 'sin_secretario_tesorero:y='.$year->id.':'.implode(',', $faltan),
+            'insistencia' => self::POSPONIBLE,
+            'urgencia' => 60,
+            'icono' => 'solution',
+            'titular' => count($faltan) === 2
+                ? 'No hay secretario ni tesorero nombrados este año'
+                : 'No hay '.$faltan[0].' nombrado este año',
+            'detalle' => 'Puede ser un docente o un directivo, incluso el rector, y una misma persona puede ser secretario y tesorero. '
+                .'Quien quede nombrado puede hacer lo de ese cargo con su mismo usuario, sin perder lo que ya hacía.',
+            'filas' => array_map(static fn ($c) => ['texto' => ucfirst($c), 'nota' => 'sin nombrar', 'aviso' => false], $faltan),
+            'total_filas' => count($faltan),
+            'destino' => ['ruta' => '/colegio/'.$year->id.'/ficha', 'etiqueta' => count($faltan) === 2 ? 'Nombrarlos' : 'Nombrarlo'],
+            'primero_para' => ['Rector'],
+        ];
+    }
 
     /** Un año nuevo nace con los grupos sin titular a propósito (`YearsController:518`). */
     private function gruposSinTitular(object $year): ?array
