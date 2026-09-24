@@ -122,9 +122,10 @@ final class CierreDeLoNoCalificado
     public const SALIDAS_QUE_SE_CONGELAN = [self::CERO, self::FUERA];
 
     /**
-     * Qué eligió el rector de ese año. **Ante la duda, `cero`.**
+     * Qué eligió el rector de ese año. **Ante la duda, `fuera`** (desde el 24 sep 2026,
+     * `2026_09_24_900000`: cerrar no escribe ceros que nadie pidió).
      *
-     * El defecto no es prudencia genérica: `cero` **es el comportamiento de hoy**, así
+     * Antes el defecto era `cero` porque era el comportamiento de entonces, así
      * que un año que no conteste —porque no existe, porque la columna todavía no está
      * desplegada en ese colegio— se comporta como se comportaba ayer. Es el mismo
      * criterio de `RepartoDeLaNota::modoDelAnio`, y por la misma razón.
@@ -132,7 +133,7 @@ final class CierreDeLoNoCalificado
     public static function elegidoPorElAnio($yearId): string
     {
         if (! is_numeric($yearId) || (int) $yearId <= 0) {
-            return self::CERO;
+            return self::FUERA;
         }
 
         $fila = DB::selectOne(
@@ -142,7 +143,7 @@ final class CierreDeLoNoCalificado
 
         $valor = $fila->cierre_sin_calificar ?? null;
 
-        return in_array($valor, self::SALIDAS, true) ? (string) $valor : self::CERO;
+        return in_array($valor, self::SALIDAS, true) ? (string) $valor : self::FUERA;
     }
 
     /**
@@ -154,7 +155,7 @@ final class CierreDeLoNoCalificado
     public static function elegidoParaElPeriodo($periodoId): string
     {
         if (! is_numeric($periodoId) || (int) $periodoId <= 0) {
-            return self::CERO;
+            return self::FUERA;
         }
 
         $fila = DB::selectOne(

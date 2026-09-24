@@ -96,23 +96,20 @@ class ElCierreYLoNoCalificadoTest extends CasoDeContrato
     // ── Lo que hay hoy, antes de que nadie elija nada ────────────────────────
 
     /**
-     * **Los años nacen en `cero` y los periodos sin marca**, que es el comportamiento
-     * de hoy en los dieciséis colegios.
-     *
-     * El valor de fábrica **no es lo mismo que la decisión**: un interruptor nuevo nace
-     * con un valor en los dieciséis a la vez y ese valor no lo eligió ningún rector, lo
-     * eligió quien escribió la migración. Si naciera en `fuera`, desplegar cambiaría el
-     * cierre de los dieciséis sin que nadie lo hubiera pedido.
+     * **Los años nacen en `fuera` y los periodos sin marca.** Nacían en `cero` hasta el
+     * 24 sep 2026: Joseth pidió `fuera` en los dieciséis después de que en quibdo un
+     * cierre pusiera a 0 las casillas que los docentes habían vaciado
+     * (`2026_09_24_900000_el_cierre_deja_fuera_por_defecto`).
      */
     #[Test]
-    public function todos_los_anios_nacen_en_cero_y_ningun_periodo_trae_marca(): void
+    public function todos_los_anios_nacen_en_fuera_y_ningun_periodo_trae_marca(): void
     {
         $anios = DB::table('years')->whereNull('deleted_at')->count();
 
         $this->assertGreaterThan(0, $anios, 'El seed no tiene años: este caso no mediría nada.');
 
         $this->assertSame(0, DB::table('years')->whereNull('deleted_at')
-            ->where('cierre_sin_calificar', '!=', CierreDeLoNoCalificado::CERO)->count(),
+            ->where('cierre_sin_calificar', '!=', CierreDeLoNoCalificado::FUERA)->count(),
             'Algún año nace con una decisión que no tomó nadie, y son '.$anios.' años.');
 
         $periodos = DB::table('periodos')->whereNull('deleted_at')->count();
@@ -211,6 +208,31 @@ class ElCierreYLoNoCalificadoTest extends CasoDeContrato
         $this->assertSame(self::ACUMULADA, round((float) $despues->parcial, 2),
             'La parcial y la definitiva siguen diciendo cosas distintas en un periodo '
             .'cerrado: la familia veria un numero y el boletin otro.');
+    }
+
+    /**
+     * **`cero` sin el «sí» de quien cierra no escribe ceros**: el periodo queda `fuera`.
+     */
+    #[Test]
+    public function cerrar_con_cero_sin_confirmar_no_escribe_ceros_y_queda_fuera(): void
+    {
+        $ctx = $this->laPlanillaDelLienzo();
+
+        $this->elegir($ctx['year'], CierreDeLoNoCalificado::CERO);
+        $this->assertSame(3, $this->casillasVacias($ctx));
+
+        $this->cerrar($ctx['periodo'], false, false)->assertStatus(200);
+
+        $this->assertSame(3, $this->casillasVacias($ctx),
+            'Se cerro sin confirmar los ceros y las casillas vacias pasaron a 0. Es lo que '
+            .'paso en quibdo el 24 sep 2026: 3.094 casillas que los docentes habian vaciado.');
+
+        $this->assertSame(CierreDeLoNoCalificado::FUERA,
+            DB::table('periodos')->where('id', $ctx['periodo'])->value('cierre_sin_calificar'),
+            'Sin ceros escritos el periodo tiene que quedar marcado `fuera`: con `cero` la '
+            .'definitiva de un periodo cerrado no normaliza y las vacias contarian como 0.');
+
+        $this->assertSame(self::PARCIAL, round((float) $this->filaDe($ctx, $ctx['alumno'])->nota, 2));
     }
 
     /**
@@ -825,11 +847,19 @@ class ElCierreYLoNoCalificadoTest extends CasoDeContrato
             ->assertStatus(200);
     }
 
-    /** Cierra —o reabre— el periodo por la ruta de verdad, que es donde se aplica. */
-    private function cerrar(int $periodoId, bool $abrir = false)
+    /**
+     * Cierra —o reabre— el periodo por la ruta de verdad, que es donde se aplica. Por
+     * defecto con el «sí» a los ceros, que es lo que estos casos modelan: un rector que
+     * eligió `cero` y lo confirmó al cerrar.
+     */
+    private function cerrar(int $periodoId, bool $abrir = false, bool $ponerCeros = true)
     {
         return $this->withToken($this->tokenDelSuperusuario())
-            ->putJson(self::RUTA_CERRAR, ['periodo_id' => $periodoId, 'pueden' => $abrir ? 1 : 0]);
+            ->putJson(self::RUTA_CERRAR, [
+                'periodo_id' => $periodoId,
+                'pueden' => $abrir ? 1 : 0,
+                'poner_ceros' => $ponerCeros ? 1 : 0,
+            ]);
     }
 
     private function tokenDelSuperusuario(): string

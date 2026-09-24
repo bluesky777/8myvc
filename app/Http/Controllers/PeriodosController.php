@@ -218,6 +218,16 @@ class PeriodosController extends Controller {
 			$salida = CierreDeLoNoCalificado::CERO;
 		}
 
+		// **Los ceros sólo con el sí explícito de quien cierra** (`poner_ceros: 1`). Sin él,
+		// cerrar deja las vacías como están y fuera de la cuenta. El 24 sep 2026 en quibdo
+		// dos cierres desde la app vieja --que no pregunta nada-- pusieron a 0 3.094
+		// casillas que los docentes habían vaciado a propósito.
+		if ($salida === CierreDeLoNoCalificado::CERO
+			&& (int) Request::input('poner_ceros') !== 1
+			&& CierreDeLoNoCalificado::cuantasSinCalificar((int) $periodo->id) > 0) {
+			$salida = CierreDeLoNoCalificado::FUERA;
+		}
+
 		$periodo->profes_pueden_editar_notas	=	Request::input('pueden');
 
 		if ($salida !== null) {
@@ -367,7 +377,8 @@ class PeriodosController extends Controller {
 
 		$frases = [
 			CierreDeLoNoCalificado::CERO => $abierto
-				? 'Al cerrar, lo que no se haya calificado pasará a cero.'
+				? 'Al cerrar se preguntará si lo que no se haya calificado pasa a cero; '
+					.'si no se confirma, queda fuera de la cuenta.'
 				: 'Al cerrar, lo que no se había calificado pasó a cero.',
 			CierreDeLoNoCalificado::FUERA => $abierto
 				? 'Al cerrar, lo que no se haya calificado quedará fuera de la cuenta: '
