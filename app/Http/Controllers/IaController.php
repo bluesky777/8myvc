@@ -77,7 +77,8 @@ class IaController extends Controller
          * fallo por una función que es un botón. El espera es corto por lo mismo.
          */
         try {
-            $respuesta = Http::withToken($secreto)->timeout(5)->acceptJson()->get(rtrim($url, '/') . '/gasto');
+            $respuesta = Http::withToken($secreto)->timeout(5)->acceptJson()
+                ->get(rtrim($url, '/') . '/gasto', ['usuario' => $this->quienPide()]);
         } catch (\Throwable $fallo) {
             error_log('[ia] el proxy no contestó al estado: ' . $fallo->getMessage());
 
@@ -88,10 +89,14 @@ class IaController extends Controller
             return ['disponible' => false];
         }
 
+        // Desde el 24 sep 2026 el proxy decide si ESTE usuario la tiene —colegio activo y su rol
+        // marcado en el tablero— y cuántos usos le quedan. Un proxy de antes no manda
+        // `disponible`: contestar bien ya era estar disponible.
         return [
-            'disponible' => true,
+            'disponible' => (bool) ($respuesta->json('disponible') ?? true),
             'gastado' => $respuesta->json('gastado'),
             'tope' => $respuesta->json('tope'),
+            'quedan' => $respuesta->json('quedan'),
         ];
     }
 
@@ -182,6 +187,25 @@ class IaController extends Controller
      * @param  array<string, mixed>  $cuerpo
      * @return array<string, mixed>
      */
+    /**
+     * QUIÉN PIDE, para el proxy: el tablero de Joseth reparte la IA por rol y cuenta los usos por
+     * usuario. Van los nombres de `roles.name`, que son los mismos en los dieciséis colegios.
+     */
+    private function quienPide(): array
+    {
+        $nombre = trim(($this->user->nombres ?? '') . ' ' . ($this->user->apellidos ?? ''));
+
+        return [
+            'id' => (string) ($this->user->user_id ?? ''),
+            'nombre' => $nombre !== '' ? $nombre : (string) ($this->user->username ?? ''),
+            'roles' => array_values(array_map(
+                static fn ($rol) => (string) (is_array($rol) ? ($rol['name'] ?? '') : ($rol->name ?? '')),
+                (array) ($this->user->roles ?? []),
+            )),
+            'superusuario' => (bool) ($this->user->is_superuser ?? false),
+        ];
+    }
+
     private function alProxy(string $ruta, array $cuerpo): array
     {
         $url = (string) config('services.ia.url');
@@ -205,19 +229,20 @@ class IaController extends Controller
         $respuesta = Http::withToken($secreto)
             ->timeout(90)
             ->acceptJson()
-            ->post(rtrim($url, '/') . '/' . $ruta, $cuerpo);
+            ->post(rtrim($url, '/') . '/' . $ruta, $cuerpo + ['usuario' => $this->quienPide()]);
 
         if ($respuesta->failed()) {
             /*
-             * El 429 del proxy es «este colegio llegó a su tope del mes» y se pasa
-             * tal cual: es la única respuesta de fallo que el coordinador puede
-             * entender y sobre la que puede hacer algo. Las demás se resumen.
+             * El 403 (colegio apagado, rol sin marcar en el tablero) y el 429 (tope del
+             * colegio, o usos del usuario agotados) traen una frase escrita para quien
+             * la lee, y se pasan tal cual. Las demás se resumen.
              */
-            $motivo = $respuesta->status() === 429
-                ? ($respuesta->json('error') ?? 'Este colegio llegó a su tope del mes.')
+            $conFrase = in_array($respuesta->status(), [403, 429], true);
+            $motivo = $conFrase
+                ? ($respuesta->json('error') ?? 'La ayuda de IA no está disponible.')
                 : 'La IA no contestó. Vuelve a intentarlo en un momento.';
 
-            abort($respuesta->status() === 429 ? 429 : 502, $motivo);
+            abort($conFrase ? $respuesta->status() : 502, $motivo);
         }
 
         return (array) $respuesta->json();
