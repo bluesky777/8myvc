@@ -77,7 +77,28 @@ done
 printf '%-18s %s\n' lalvirtual.edu.co "$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 https://lalvirtual.edu.co/)"
 ```
 
-## 5. Avisar a las otras sesiones
+## 5. Bajar los respaldos al Mac, siempre que hubo migraciones
+
+Los respaldos que hace `desplegar.sh` antes de migrar **se quedan en los servidores**. En
+cuanto la comprobación del paso 4 sale bien, y sin preguntar:
+
+```bash
+tools/bajar-respaldos-del-despliegue.sh           # los de hoy; otra fecha: ... 2026-09-24
+```
+
+Los deja en `~/DESARROLLOS/respaldos-myvc/antes-de-migrar/<fecha>/` y pasa `gzip -t` a cada
+uno. Dile a Joseth en una línea cuántos son, cuánto pesan y si alguno salió corrupto. Si el
+guion sale con 1, eso es lo primero que se cuenta. (No es `bajar-respaldos.sh`, que trae
+los volcados diarios del cron.)
+
+**Si el inventario del final dice «Hay más de 4. Se podrían borrar: …»**, pregúntale con
+`AskUserQuestion` qué fechas se borran: las candidatas con lo que pesan, y la opción de no
+borrar ninguna. Por cada una que elija, `tools/bajar-respaldos-del-despliegue.sh --borrar
+FECHA`. **Nunca se borran la más reciente ni la más cercana a hace un mes**: ésa es la que
+sirve para comparar en una emergencia. El guion no las propone y `--borrar` se niega a
+tocarlas. No hay que buscarle la vuelta.
+
+## 6. Avisar a las otras sesiones
 
 Si la tanda llevaba cambios en `routes/api.php`, en notificaciones o en el modelo de
 datos, avisa por `SendMessage` a las sesiones vivas de 8myvc y de Flutter: su código de
