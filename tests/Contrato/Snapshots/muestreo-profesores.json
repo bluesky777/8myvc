@@ -12,6 +12,7 @@
         "estado_civil": "null|string",
         "facebook": "null",
         "fecha_nac": "null|string",
+        "ficha_editada_en": "string",
         "foto_id": "int|null",
         "foto_nombre": "string",
         "id": "int",

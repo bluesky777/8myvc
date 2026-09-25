@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
+use App\Support\FichaEditada;
 
 use App\User;
 use App\Models\Matricula;
@@ -36,6 +37,7 @@ class BuscarController extends Controller {
 		$consulta = $this->consulta_ini.' WHERE a.nombres LIKE ?';
 
 		$res = DB::select($consulta, [$user->year_id, '%'.$texto_a_buscar.'%']);
+		FichaEditada::poner('alumno', $res, 'alumno_id');
 
 		return $res;
 	}
@@ -54,6 +56,7 @@ class BuscarController extends Controller {
 		$consulta = $this->consulta_ini.' WHERE a.apellidos LIKE ?';
 
 		$res = DB::select($consulta, [$user->year_id, '%'.$texto_a_buscar.'%']);
+		FichaEditada::poner('alumno', $res, 'alumno_id');
 
 		return $res;
 	}

@@ -12,6 +12,7 @@ use Carbon\Carbon;
 use App\Events\MatriculasEvent;
 use \Log;
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
+use App\Support\FichaEditada;
 
 
 class PrematriculasController extends Controller {
@@ -137,6 +138,8 @@ class PrematriculasController extends Controller {
 									':year_id'		=> $year_ant_id, 
 									':grado_id'		=> $grado_ant_id, 
 									':grupo_id3'	=> $grupo_actual['id'] ]);
+
+		FichaEditada::poner('alumno', $res, 'alumno_id');
 
 		return $res;
 

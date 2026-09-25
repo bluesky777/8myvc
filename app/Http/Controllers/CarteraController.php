@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
+use App\Support\FichaEditada;
 
 use App\User;
 use App\Models\Matricula;
@@ -42,6 +43,7 @@ class CarteraController extends Controller {
 
 
 		$res = DB::select($consulta, [ ':year_id'	=> $year_id ]);
+		FichaEditada::poner('alumno', $res, 'alumno_id');
 
 		return $res;
 	}
@@ -86,6 +88,7 @@ class CarteraController extends Controller {
 
 
 		$res = DB::select($consulta, [ ':grupo_id'	=> $grupo_actual['id'] ]);
+		FichaEditada::poner('alumno', $res, 'alumno_id');
 
 		return $res;
 

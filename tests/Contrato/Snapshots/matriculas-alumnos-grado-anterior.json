@@ -10,6 +10,7 @@
         "fecha_matricula": "string",
         "fecha_nac": "string",
         "fecha_retiro": "null|string",
+        "ficha_editada_en": "string",
         "foto_id": "null",
         "foto_nombre": "string",
         "grupo_id": "int",

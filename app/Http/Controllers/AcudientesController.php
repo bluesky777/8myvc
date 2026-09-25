@@ -6,6 +6,7 @@ use App\Http\Controllers\Alumnos\GuardarAlumno;
 use App\Http\Controllers\Alumnos\OperacionesAlumnos;
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Models\Acudiente;
+use App\Support\FichaEditada;
 use App\Models\Ausencia;
 use App\Models\DefinicionComportamiento;
 use App\Models\Matricula;
@@ -174,6 +175,8 @@ where id in (
 
         }
 
+        FichaEditada::poner('acudiente', $acudientes, 'id');
+
         return ['acudientes' => $acudientes];
     }
 
@@ -203,6 +206,8 @@ where id in (
 
         $acudientes = DB::select($consulta, [$alumno_id]);
 
+        FichaEditada::poner('acudiente', $acudientes, 'id');
+
         return ['acudientes' => $acudientes];
     }
 
@@ -226,6 +231,8 @@ where id in (
 					Order by ac.id';
 
         $acudientes = DB::select($consulta, []);
+
+        FichaEditada::poner('acudiente', $acudientes, 'id');
 
         return ['acudientes' => $acudientes];
     }

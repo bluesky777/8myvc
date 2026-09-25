@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Http\Controllers\Controller;
 use App\Services\Auditoria;
 use App\Support\Autoriza;
+use App\Support\FichaEditada;
 use App\Support\Reloj;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -243,23 +244,27 @@ class AuditoriaController extends Controller
     }
 
     /**
-     * Lo que se le ha editado a la ficha de un alumno —él, su matrícula, su cuenta y sus
-     * acudientes—, sin sus notas ni sus faltas. Es el diálogo de la columna Historial de
-     * Alumnos: esa rejilla pinta datos de las cinco tablas y cualquiera puede cambiar.
+     * Lo editado en la FICHA de una persona —alumno, acudiente, profesor o la cuenta—:
+     * todo lo que pinta su fila en las rejillas, aunque sean varias tablas. Qué entra en
+     * cada una lo dice `FichaEditada`. Es el diálogo de las columnas Historial.
      */
-    public function getFichaAlumno(int $id): JsonResponse
+    public function getFicha(string $tipo, int $id): JsonResponse
     {
+        if (! in_array($tipo, FichaEditada::TIPOS, true)) {
+            return response()->json(['message' => 'Ese tipo de ficha no existe'], 404);
+        }
+
         Autoriza::exigir(
             Autoriza::puedeVerAuditoria($this->user),
-            'No tiene permiso para ver la auditoría de un alumno'
+            'No tiene permiso para ver la auditoría'
         );
 
-        $entidades = Auditoria::FICHA_DE_ALUMNO;
-        $marcas = implode(',', array_fill(0, count($entidades), '?'));
-        [$acciones, $hayMas] = $this->lineas('a.alumno_id = ? AND a.entidad IN ('.$marcas.')', [$id, ...$entidades], self::ORDEN);
+        [$donde, $parametros] = FichaEditada::condicion($tipo, $id);
+        [$acciones, $hayMas] = $this->lineas('('.$donde.')', $parametros, self::ORDEN);
 
         return response()->json([
-            'alumno_id' => $id,
+            'tipo' => $tipo,
+            'id' => $id,
             'acciones' => $acciones,
             'hay_mas' => $hayMas,
         ]);

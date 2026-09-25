@@ -3,6 +3,7 @@
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Request;
+use App\Support\FichaEditada;
 
 use App\User;
 use App\Models\Year;
@@ -598,6 +599,7 @@ class GruposController extends Controller {
 					where a.deleted_at is null order by apellidos, nombres';
 
 		$list = DB::select($consulta, array(':grupo_id'=>$grupo_id));
+		FichaEditada::poner('alumno', $list, 'alumno_id');
 		
 		return $list;
 	}

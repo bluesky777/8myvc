@@ -5,6 +5,7 @@
         "ciudad_nac": "null|string",
         "email": "null|string",
         "fecha_nac": "null|string",
+        "ficha_editada_en": "null|string",
         "foto_id": "int|null",
         "foto_nombre": "string",
         "grupo_id": "string",

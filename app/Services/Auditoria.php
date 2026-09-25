@@ -210,6 +210,9 @@ final class Auditoria
         'usuario' => 'users',
         'matricula' => 'matriculas',
         'parentesco' => 'parentescos',
+        // Desde el 25 sep 2026, por la columna Historial de Docentes (`Support\AuditarModelo`).
+        'profesor' => 'profesores',
+        'contrato' => 'contratos',
         'piar' => 'piars_alumnos',
         'antecedente' => 'antecedentes',
         'registro_enfermeria' => 'registros_enfermeria',

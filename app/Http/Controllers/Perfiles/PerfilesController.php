@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Str;
+use App\Support\FichaEditada;
+use App\Support\AuditarModelo;
 
 class PerfilesController extends Controller
 {
@@ -301,7 +303,7 @@ class PerfilesController extends Controller
         }
 
         $perfil->username = $nombre;
-        $perfil->save();
+        AuditarModelo::guardar($perfil, 'usuario');
 
         return $perfil;
     }
@@ -521,7 +523,7 @@ class PerfilesController extends Controller
 
         $perfil->password = Hash::make($clave);
 
-        $perfil->save();
+        AuditarModelo::guardar($perfil, 'usuario');
 
         // Devolvía la contraseña recién puesta. El front la ignora.
         return 'Password cambiado';
@@ -569,7 +571,7 @@ class PerfilesController extends Controller
 
         $perfil->password = Hash::make($clave);
 
-        $perfil->save();
+        AuditarModelo::guardar($perfil, 'usuario');
 
         // Devolvía la contraseña nueva dentro del cuerpo. El front no la lee —enseña
         // un aviso fijo— y una contraseña en una respuesta acaba en los registros de
@@ -873,6 +875,7 @@ class PerfilesController extends Controller
         $users_acuds = DB::select($cons);
 
         $users = array_merge($users, $users_acuds); /**/
+        FichaEditada::poner('usuario', $users, 'user_id');
 
         foreach ($users as $usuario) {
 

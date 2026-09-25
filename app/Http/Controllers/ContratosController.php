@@ -4,6 +4,7 @@
 
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
+use App\Support\AuditarModelo;
 
 use App\Support\Autoriza;
 use App\User;
@@ -90,7 +91,7 @@ class ContratosController extends Controller {
 		$contrato = new Contrato;
 		$contrato->profesor_id	=	Request::input('profesor_id');
 		$contrato->year_id		=	$user->year_id;
-		$contrato->save();
+		AuditarModelo::guardar($contrato, 'contrato');
 
 
 		$consulta = 'SELECT p.id as profesor_id, p.nombres, p.apellidos, p.sexo, p.foto_id, p.tipo_doc,
@@ -162,6 +163,7 @@ class ContratosController extends Controller {
 		Autoriza::exigirEscrituraEnElAnio($user, $existe->year_id, 'Ese contrato');
 
 		$contr = Contrato::destroy($id);
+		AuditarModelo::borrado('contrato', (int) $id);
 		return $contr;
 	}
 

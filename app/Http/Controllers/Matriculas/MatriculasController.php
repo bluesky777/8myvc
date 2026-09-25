@@ -14,6 +14,7 @@ use App\Events\MatriculasEvent;
 use \Log;
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Support\Autoriza;
+use App\Support\FichaEditada;
 use App\Support\NotasAlCambiarDeGrupo;
 
 class MatriculasController extends Controller {
@@ -312,6 +313,8 @@ class MatriculasController extends Controller {
 									':grado_id'		=> $grado_ant_id, 
 									':grupo_id3'	=> $grupo_actual['id'] ]);
 
+		FichaEditada::poner('alumno', $res, 'alumno_id');
+
 		return $res;
 
 	}
@@ -483,57 +486,12 @@ class MatriculasController extends Controller {
 		
 		$result['AlumnosSinMatricula'] = DB::select($consulta, [ ':year_id' => $year_ant_id, ':grado_id' => $grado_ant_id, ':grupo_id'	=> $grupo_actual['id'] ]);
 
-		$this->ponerFichaEditadaEn($result['AlumnosActuales']);
-		$this->ponerFichaEditadaEn($result['AlumnosDesertRetir']);
-		$this->ponerFichaEditadaEn($result['AlumnosSinMatricula']);
+		FichaEditada::poner('alumno', $result['AlumnosActuales'], 'alumno_id');
+		FichaEditada::poner('alumno', $result['AlumnosDesertRetir'], 'alumno_id');
+		FichaEditada::poner('alumno', $result['AlumnosSinMatricula'], 'alumno_id');
 
 		return $result;
 
-	}
-
-	/**
-	 * `ficha_editada_en`: la última vez que se tocó CUALQUIER dato que la rejilla de Alumnos
-	 * pinta de esa fila. Es la mayor de tres fechas: `alumnos.updated_at`, el `updated_at` de
-	 * la matrícula de la fila, y la última línea de auditoría de la ficha
-	 * (`Auditoria::FICHA_DE_ALUMNO`: cuenta, acudientes, parentescos…).
-	 *
-	 * `users.updated_at` NO entra: lo mueve cambiar de año (`years/useractive`), que no es
-	 * editar al alumno. Lo de su cuenta llega por la auditoría.
-	 *
-	 * Tres consultas por lista y no una subconsulta por fila en la SQL compartida: ésa la
-	 * usan 13 sitios que no piden esta fecha.
-	 */
-	private function ponerFichaEditadaEn(array $filas): void
-	{
-		if (count($filas) === 0) {
-			return;
-		}
-
-		$alumnos = array_values(array_unique(array_map(fn ($f) => (int) $f->alumno_id, $filas)));
-		$matriculas = array_values(array_unique(array_map(fn ($f) => (int) $f->matricula_id, $filas)));
-		$entidades = Auditoria::FICHA_DE_ALUMNO;
-		$marcas = fn (array $l) => implode(',', array_fill(0, count($l), '?'));
-
-		$deAlumno = collect(DB::select('SELECT id, updated_at FROM alumnos WHERE id IN ('.$marcas($alumnos).')', $alumnos))
-			->pluck('updated_at', 'id');
-		$deMatricula = collect(DB::select('SELECT id, updated_at FROM matriculas WHERE id IN ('.$marcas($matriculas).')', $matriculas))
-			->pluck('updated_at', 'id');
-		$deAuditoria = collect(DB::select(
-			'SELECT alumno_id, MAX(ocurrido_en) as ultima FROM auditoria
-			  WHERE alumno_id IN ('.$marcas($alumnos).') AND entidad IN ('.$marcas($entidades).')
-			  GROUP BY alumno_id',
-			[...$alumnos, ...$entidades]
-		))->pluck('ultima', 'alumno_id');
-
-		foreach ($filas as $fila) {
-			$fechas = array_filter([
-				$deAlumno[$fila->alumno_id] ?? null,
-				$deMatricula[$fila->matricula_id] ?? null,
-				// `ocurrido_en` trae milésimas; se cortan para que las tres se escriban igual.
-				isset($deAuditoria[$fila->alumno_id]) ? substr($deAuditoria[$fila->alumno_id], 0, 19) : null,
-			]);
-			$fila->ficha_editada_en = count($fechas) ? max($fechas) : null;
-		}
 	}
 
 	public function putToggleNuevo()

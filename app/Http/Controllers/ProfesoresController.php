@@ -14,6 +14,8 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Request;
+use App\Support\FichaEditada;
+use App\Support\AuditarModelo;
 
 class ProfesoresController extends Controller
 {
@@ -85,6 +87,7 @@ class ProfesoresController extends Controller
 				order by p.nombres, p.apellidos';
 
         $profesores = DB::select($consulta, [':year_id' => $this->user->year_id]);
+        FichaEditada::poner('profesor', $profesores, 'id');
 
         return $profesores;
     }
@@ -468,7 +471,7 @@ class ProfesoresController extends Controller
                     }
                 }
 
-                $profesor->save();
+                AuditarModelo::guardar($profesor, 'profesor');
 
                 // **`Request::input('username')` en la condición era siempre cierto**, y
                 // eso escondía las dos escrituras de abajo: `sanarInputUser()` acaba de
@@ -532,11 +535,11 @@ class ProfesoresController extends Controller
                         $usuario->password = Hash::make(Request::input('nuevo_password'));
                     }
 
-                    $usuario->save();
+                    AuditarModelo::guardar($usuario, 'usuario');
 
                     $profesor->user_id = $usuario->id;
 
-                    $profesor->save();
+                    AuditarModelo::guardar($profesor, 'profesor');
 
                     // El correo de la FICHA llega también a la CUENTA, que es el único
                     // que lee la recuperación de contraseña (`LoginController:240-266`).
@@ -571,11 +574,11 @@ class ProfesoresController extends Controller
                     $usuario->email = CorreoDeLaCuenta::oNada(Request::input('email2'));
                     $usuario->is_superuser = Autoriza::concederSuperusuario($this->user, Request::input('is_superuser'));
                     $usuario->is_active = Request::input('is_active', 1);
-                    $usuario->save();
+                    AuditarModelo::guardar($usuario, 'usuario');
 
                     $profesor->user_id = $usuario->id;
 
-                    $profesor->save();
+                    AuditarModelo::guardar($profesor, 'profesor');
 
                     $profesor->user = $usuario;
                 }

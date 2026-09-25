@@ -2,6 +2,7 @@
     "AlumnosActuales": [
         {
             "alumno_id": "int",
+            "alumno_updated_at": "string",
             "apellidos": "string",
             "barrio": "null|string",
             "celular": "null|string",
@@ -25,6 +26,7 @@
             "fecha_matricula": "string",
             "fecha_nac": "string",
             "fecha_retiro": "null|string",
+            "ficha_editada_en": "string",
             "foto_id": "null",
             "foto_nombre": "string",
             "grupo_id": "int",
@@ -122,6 +124,7 @@
             "fecha_matricula": "string",
             "fecha_nac": "string",
             "fecha_retiro": "string",
+            "ficha_editada_en": "string",
             "foto_id": "null",
             "foto_nombre": "string",
             "grupo_id": "int",

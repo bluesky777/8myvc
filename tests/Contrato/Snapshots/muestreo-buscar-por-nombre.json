@@ -8,6 +8,7 @@
         "deleted_at": "null",
         "deleted_by": "null",
         "estado": "string",
+        "ficha_editada_en": "string",
         "foto_id": "null",
         "foto_nombre": "string",
         "no_matricula": "null|string",
