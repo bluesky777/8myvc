@@ -255,6 +255,14 @@ final class Auditoria
      * No se añade un accesor público a `App\User` porque ese fichero es de la
      * fase 2 —la que ata la sesión al token— y aquí no se toca lo de otra fase.
      */
+    /**
+     * Las entidades cuyos datos pinta la rejilla de Alumnos: la ficha, su matrícula
+     * (estado, promovido, nuevo…), su cuenta y sus acudientes. Es lo que cuenta como
+     * «editar el alumno» para la columna Historial y su diálogo; las notas y las
+     * faltas del alumno no entran, que tienen su propio historial.
+     */
+    public const FICHA_DE_ALUMNO = ['alumno', 'matricula', 'usuario', 'acudiente', 'parentesco'];
+
     public const CLAVE_DEL_CONTEXTO = 'usuario.contexto';
 
     /** @var array<string, mixed> La fila que se va a escribir. */

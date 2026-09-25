@@ -243,6 +243,29 @@ class AuditoriaController extends Controller
     }
 
     /**
+     * Lo que se le ha editado a la ficha de un alumno —él, su matrícula, su cuenta y sus
+     * acudientes—, sin sus notas ni sus faltas. Es el diálogo de la columna Historial de
+     * Alumnos: esa rejilla pinta datos de las cinco tablas y cualquiera puede cambiar.
+     */
+    public function getFichaAlumno(int $id): JsonResponse
+    {
+        Autoriza::exigir(
+            Autoriza::puedeVerAuditoria($this->user),
+            'No tiene permiso para ver la auditoría de un alumno'
+        );
+
+        $entidades = Auditoria::FICHA_DE_ALUMNO;
+        $marcas = implode(',', array_fill(0, count($entidades), '?'));
+        [$acciones, $hayMas] = $this->lineas('a.alumno_id = ? AND a.entidad IN ('.$marcas.')', [$id, ...$entidades], self::ORDEN);
+
+        return response()->json([
+            'alumno_id' => $id,
+            'acciones' => $acciones,
+            'hay_mas' => $hayMas,
+        ]);
+    }
+
+    /**
      * Las líneas de auditoría que cumplen una condición, con las columnas que pinta
      * la pantalla y en un solo sitio.
      *
