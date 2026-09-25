@@ -136,4 +136,62 @@ class OtrosColegiosTest extends CasoDeContrato
             ['file' => new UploadedFile($ruta, 'boletin.pdf', null, null, true)], $h)
             ->assertStatus(422);
     }
+
+    /*
+     * NIVEL 2 (24 sep 2026): la definitiva escrita a mano, convertida POR TRAMOS a la escala de
+     * aquí, y el año sale en el certificado de todos los años con la misma tupla que los cursados.
+     */
+    public function test_las_notas_se_convierten_por_tramos_y_salen_en_el_certificado(): void
+    {
+        $destino = \App\Support\NotaDeOtroColegio::destino();
+        if ($destino === null) {
+            $this->markTestSkipped('El año actual del seed no tiene escala de valoración.');
+        }
+
+        $alumno = $this->alumnoId();
+        $h = $this->conToken($this->tokenDe($this->usuarioDeTipo('Usuario')->username));
+        $ano = $this->postJson("/api/otros-colegios/alumno/{$alumno}",
+            ['year' => 2019, 'colegio_nombre' => 'Colegio de Prueba', 'grado_texto' => 'Quinto'], $h)->json('id');
+
+        $this->olvidarControladores();
+        $this->putJson("/api/otros-colegios/{$ano}/notas", [
+            'escala' => ['min' => 1, 'max' => 5, 'aprueba' => 3],
+            'notas' => [
+                ['asignatura_texto' => 'Matemáticas', 'intensidad' => 5, 'nota_original' => '3,0'],
+                ['asignatura_texto' => 'Inglés', 'intensidad' => 2, 'nota_original' => '5'],
+                ['asignatura_texto' => 'Artística', 'nota_original' => 'S'],
+                ['asignatura_texto' => 'Religión', 'nota_original' => 'no sé'],
+                ['asignatura_texto' => '', 'nota_original' => '4'],
+            ],
+        ], $h)->assertStatus(200)->assertJson(['guardadas' => 4]);
+
+        $this->olvidarControladores();
+        $notas = collect($this->getJson("/api/otros-colegios/{$ano}/notas", $h)->json('notas'))
+            ->keyBy('asignatura_texto');
+
+        // Lo que allá aprobaba --justo la mínima--, aquí aprueba justo con la mínima.
+        $this->assertEquals($destino['aprueba'], (float) $notas['Matemáticas']['nota']);
+        $this->assertEquals($destino['max'], (float) $notas['Inglés']['nota']);
+        $this->assertSame('3,0', $notas['Matemáticas']['nota_original']);
+        $this->assertNotNull($notas['Artística']['nota'], 'Una «S» vale el punto medio de Superior.');
+        $this->assertNull($notas['Religión']['nota'], 'Lo que no se entiende no se inventa.');
+
+        $this->olvidarControladores();
+        $certificados = $this->getJson("/api/otros-colegios/alumno/{$alumno}/certificados", $h)->assertStatus(200)->json();
+        $este = collect($certificados)->first(fn ($c) => (int) $c[1]['year'] === 2019);
+        $this->assertNotNull($este, 'El año con notas tiene que salir en el certificado.');
+        $this->assertSame('Colegio de Prueba', $este[4]['colegio_nombre']);
+        $this->assertSame([], $este[1]['periodos'], 'Sólo la definitiva: sin columnas de periodo.');
+    }
+
+    public function test_un_ano_solo_con_documento_no_sale_en_el_certificado(): void
+    {
+        $alumno = $this->alumnoId();
+        $h = $this->conToken($this->tokenDe($this->usuarioDeTipo('Usuario')->username));
+        $this->postJson("/api/otros-colegios/alumno/{$alumno}", ['year' => 2018, 'colegio_nombre' => 'Otro'], $h);
+
+        $this->olvidarControladores();
+        $certificados = $this->getJson("/api/otros-colegios/alumno/{$alumno}/certificados", $h)->json();
+        $this->assertNull(collect($certificados)->first(fn ($c) => (int) $c[1]['year'] === 2018));
+    }
 }

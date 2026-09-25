@@ -310,8 +310,13 @@ Route::delete('piars-alumnos/document/{alumno_id}', [PiarsAlumnosController::cla
 // alumnos, dentro de cada método. Ver la cabecera de `OtrosColegiosController`.
 Route::get('otros-colegios/documentos/{id}', [OtrosColegiosController::class, 'getDocumento'])->middleware('auth.personal');
 Route::delete('otros-colegios/documentos/{id}', [OtrosColegiosController::class, 'deleteDocumento'])->middleware('auth.personal');
+Route::get('otros-colegios/grados', [OtrosColegiosController::class, 'getGrados'])->middleware('auth.personal');
+Route::get('otros-colegios/materias-del-grado/{grado_id}', [OtrosColegiosController::class, 'getMateriasDelGrado'])->middleware('auth.personal');
+Route::get('otros-colegios/alumno/{alumno_id}/certificados', [OtrosColegiosController::class, 'getCertificadosDeAlumno'])->middleware('auth.personal');
 Route::get('otros-colegios/alumno/{alumno_id}', [OtrosColegiosController::class, 'getDeAlumno'])->middleware('auth.personal');
 Route::post('otros-colegios/alumno/{alumno_id}', [OtrosColegiosController::class, 'postCrear'])->middleware('auth.personal');
 Route::put('otros-colegios/{id}', [OtrosColegiosController::class, 'putActualizar'])->middleware('auth.personal');
 Route::delete('otros-colegios/{id}', [OtrosColegiosController::class, 'deleteAno'])->middleware('auth.personal');
+Route::get('otros-colegios/{id}/notas', [OtrosColegiosController::class, 'getNotas'])->middleware('auth.personal');
+Route::put('otros-colegios/{id}/notas', [OtrosColegiosController::class, 'putNotas'])->middleware('auth.personal');
 Route::post('otros-colegios/{id}/documento', [OtrosColegiosController::class, 'postSubirDocumento'])->middleware('auth.personal');

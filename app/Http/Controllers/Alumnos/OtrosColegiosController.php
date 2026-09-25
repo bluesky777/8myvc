@@ -4,7 +4,10 @@ namespace App\Http\Controllers\Alumnos;
 
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Http\Controllers\Controller;
+use App\Models\EscalaDeValoracion;
+use App\Models\Year;
 use App\Support\Autoriza;
+use App\Support\NotaDeOtroColegio;
 use App\Support\SafeUpload;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -196,6 +199,226 @@ class OtrosColegiosController extends Controller
         }
 
         return ['id' => (int) $id];
+    }
+
+    /*
+     * ─────────────────────────── NIVEL 2: LAS NOTAS, ESCRITAS A MANO ───────────────────────────
+     *
+     * Sólo la definitiva de cada asignatura (decisión de Joseth, 24 sep 2026), con la escala del
+     * otro colegio para convertirla por tramos (`NotaDeOtroColegio`). Se guarda también la nota
+     * como venía. Tabla en la migración `2026_09_24_995000_las_notas_de_otros_colegios`.
+     */
+
+    /** Las notas de un año, su escala de origen y la de destino, para convertir en pantalla. */
+    public function getNotas($id)
+    {
+        $this->exigirPermiso();
+        $ano = $this->anoOFallar($id);
+
+        return [
+            'escala' => $ano->escala_min === null ? null : [
+                'min' => (float) $ano->escala_min, 'max' => (float) $ano->escala_max, 'aprueba' => (float) $ano->escala_aprueba,
+            ],
+            'grado_id' => $ano->grado_id,
+            'destino' => NotaDeOtroColegio::destino(),
+            'notas' => DB::select('SELECT id, materia_id, area_texto, asignatura_texto, intensidad, nota_original, nota, desempenio
+                FROM notas_externas WHERE ano_externo_id = ? AND deleted_at IS NULL ORDER BY orden, id', [$id]),
+        ];
+    }
+
+    /**
+     * Guarda TODAS las notas del año de una vez: las que había se retiran (borrado suave) y entran
+     * las que vienen. Es una tabla que se escribe entera desde un formulario, no celda a celda.
+     */
+    public function putNotas($id)
+    {
+        $this->exigirPermiso();
+        $this->anoOFallar($id);
+
+        $escala = (array) Request::input('escala', []);
+        $origen = ['min' => (float) ($escala['min'] ?? 0), 'max' => (float) ($escala['max'] ?? 0), 'aprueba' => (float) ($escala['aprueba'] ?? 0)];
+
+        if ($origen['max'] <= $origen['min']) {
+            abort(422, 'La escala del otro colegio no cuadra: la máxima tiene que ser mayor que la mínima.');
+        }
+
+        $destino = NotaDeOtroColegio::destino();
+        if ($destino === null) {
+            abort(422, 'Este colegio no tiene escala de valoración en el año actual: no hay a qué convertir.');
+        }
+
+        $filas = [];
+        foreach ((array) Request::input('notas', []) as $orden => $n) {
+            $asignatura = trim((string) ($n['asignatura_texto'] ?? ''));
+            $original = trim((string) ($n['nota_original'] ?? ''));
+            if ($asignatura === '' || $original === '') { continue; }
+
+            $convertida = NotaDeOtroColegio::convertir($original, $origen, $destino);
+            $filas[] = [
+                'ano_externo_id' => (int) $id,
+                'materia_id' => ! empty($n['materia_id']) ? (int) $n['materia_id'] : null,
+                'area_texto' => ($a = trim((string) ($n['area_texto'] ?? ''))) === '' ? null : mb_substr($a, 0, 160),
+                'asignatura_texto' => mb_substr($asignatura, 0, 160),
+                'intensidad' => is_numeric($n['intensidad'] ?? null) ? max(0, min(255, (int) $n['intensidad'])) : null,
+                'nota_original' => mb_substr($original, 0, 12),
+                'nota' => $convertida['nota'],
+                'desempenio' => $convertida['desempenio'],
+                'orden' => (int) $orden,
+                'created_by' => $this->user->user_id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        DB::transaction(function () use ($id, $origen, $filas) {
+            DB::table('notas_externas')->where('ano_externo_id', $id)->whereNull('deleted_at')->update(['deleted_at' => now()]);
+            if ($filas) { DB::table('notas_externas')->insert($filas); }
+
+            $grado = Request::input('grado_id');
+            DB::table('anos_externos')->where('id', $id)->update([
+                'escala_min' => $origen['min'], 'escala_max' => $origen['max'], 'escala_aprueba' => $origen['aprueba'],
+                'grado_id' => $grado ? (int) $grado : DB::raw('grado_id'),
+                'updated_by' => $this->user->user_id, 'updated_at' => now(),
+            ]);
+        });
+
+        return ['guardadas' => count($filas)];
+    }
+
+    /** Los grados del colegio, para elegir de cuál se toman las asignaturas. */
+    public function getGrados()
+    {
+        $this->exigirPermiso();
+
+        return DB::select('SELECT g.id, g.nombre, n.nombre AS nivel FROM grados g
+            LEFT JOIN niveles_educativos n ON n.id = g.nivel_educativo_id
+            WHERE g.deleted_at IS NULL ORDER BY g.orden, g.id');
+    }
+
+    /**
+     * Las asignaturas que tiene HOY ese grado aquí --las del año actual--, con su área y su IH. Es
+     * el punto de partida de la tabla: se escriben las notas encima, y lo que el otro colegio no
+     * tenía se borra.
+     */
+    public function getMateriasDelGrado($grado_id)
+    {
+        $this->exigirPermiso();
+
+        return DB::select('SELECT m.id AS materia_id, m.materia, ar.nombre AS area, MAX(a.creditos) AS creditos
+            FROM asignaturas a
+            INNER JOIN grupos g ON g.id = a.grupo_id AND g.deleted_at IS NULL AND g.grado_id = ?
+            INNER JOIN years y ON y.id = g.year_id AND y.actual = 1
+            INNER JOIN materias m ON m.id = a.materia_id AND m.deleted_at IS NULL
+            LEFT JOIN areas ar ON ar.id = m.area_id AND ar.deleted_at IS NULL
+            WHERE a.deleted_at IS NULL
+            GROUP BY m.id, m.materia, ar.nombre, ar.orden, m.orden
+            ORDER BY ar.orden, m.orden, m.materia', [$grado_id]);
+    }
+
+    /**
+     * LOS AÑOS DE FUERA PARA EL CERTIFICADO DE TODOS LOS AÑOS, con la misma tupla que
+     * `bolfinales/detailed-notas-year` --[grupo, year, alumnos, escalas]--, para que el componente
+     * del certificado los pinte sin saber de dónde vienen. Más `externo`, con lo que cambia: dónde se
+     * cursó, libro y folio, y la escala de origen.
+     *
+     * Sólo los años CON NOTAS: uno que sólo tiene el documento no es un certificado.
+     *
+     * **Permiso: el de ver certificados** (`auth.personal`, en la ruta), no el de editar alumnos:
+     * quien imprime el certificado de un alumno tiene que ver todos sus años. Aquí no sale ningún
+     * documento, sólo las notas.
+     */
+    public function getCertificadosDeAlumno($alumno_id)
+    {
+        $anos = DB::select('SELECT ae.*, g.nombre AS grado_nombre, n.nombre AS nivel
+            FROM anos_externos ae
+            LEFT JOIN grados g ON g.id = ae.grado_id
+            LEFT JOIN niveles_educativos n ON n.id = g.nivel_educativo_id
+            WHERE ae.alumno_id = ? AND ae.deleted_at IS NULL
+              AND EXISTS (SELECT 1 FROM notas_externas ne WHERE ne.ano_externo_id = ae.id AND ne.deleted_at IS NULL)
+            ORDER BY ae.year', [$alumno_id]);
+
+        if (! $anos) { return []; }
+
+        $alumno = DB::selectOne('SELECT a.id AS alumno_id, a.nombres, a.apellidos, a.documento, a.no_matricula,
+                t.abrev AS tipo_doc_abrev
+            FROM alumnos a LEFT JOIN tipos_documentos t ON t.id = a.tipo_doc AND t.deleted_at IS NULL
+            WHERE a.id = ?', [$alumno_id]);
+
+        $actual = DB::selectOne('SELECT id FROM years WHERE actual = 1 AND deleted_at IS NULL ORDER BY id DESC LIMIT 1');
+        $destino = NotaDeOtroColegio::destino();
+        $escalas = $destino['bandas'] ?? [];
+
+        $certificados = [];
+        foreach ($anos as $ano) {
+            $notas = DB::select('SELECT * FROM notas_externas WHERE ano_externo_id = ? AND deleted_at IS NULL ORDER BY orden, id', [$ano->id]);
+
+            $year = $actual ? Year::datos($actual->id) : (object) [];
+            $year->year = (int) $ano->year;
+            $year->periodos = [];
+
+            $certificados[] = [
+                ['nombre_grupo' => $ano->grado_texto ?: $ano->grado_nombre, 'nivel_educativo' => $ano->nivel],
+                $year,
+                [$this->alumnoDelCertificado($alumno, $notas, $escalas, $ano)],
+                $escalas,
+                [
+                    'propio' => (bool) $ano->propio,
+                    'colegio_nombre' => $ano->colegio_nombre,
+                    'colegio_municipio' => $ano->colegio_municipio,
+                    'libro' => $ano->libro,
+                    'folio' => $ano->folio,
+                    'escala' => $ano->escala_min === null ? null
+                        : ['min' => (float) $ano->escala_min, 'max' => (float) $ano->escala_max, 'aprueba' => (float) $ano->escala_aprueba],
+                ],
+            ];
+        }
+
+        return $certificados;
+    }
+
+    /** El alumno con sus notas agrupadas por área, como lo trae `detailedNotasGrupo`. */
+    private function alumnoDelCertificado(?object $alumno, array $notas, array $escalas, object $ano): array
+    {
+        $areas = [];
+        foreach ($notas as $n) {
+            $clave = $n->area_texto ?: $n->asignatura_texto;
+            $areas[$clave] ??= ['area_nombre' => $clave, 'asignaturas' => []];
+            $areas[$clave]['asignaturas'][] = [
+                'materia' => $n->asignatura_texto,
+                'creditos' => $n->intensidad,
+                'promedio' => $n->nota === null ? null : (float) $n->nota,
+                'desempenio' => $n->desempenio,
+                'nota_original' => $n->nota_original,
+                'definitivas' => [],
+            ];
+        }
+
+        foreach ($areas as &$area) {
+            $conNota = array_filter($area['asignaturas'], fn ($a) => $a['promedio'] !== null);
+            $area['area_nota'] = $conNota ? round(array_sum(array_column($conNota, 'promedio')) / count($conNota)) : null;
+            $area['area_desempenio'] = $area['area_nota'] === null ? null
+                : (EscalaDeValoracion::valoracion($area['area_nota'], $escalas)->desempenio ?: null);
+            $area['creditos'] = array_sum(array_map(fn ($a) => (int) $a['creditos'], $area['asignaturas']));
+        }
+        unset($area);
+
+        $todas = array_filter(array_map(fn ($n) => $n->nota, $notas), fn ($v) => $v !== null);
+        $promedio = $todas ? array_sum($todas) / count($todas) : null;
+
+        return [
+            'alumno_id' => (int) ($alumno->alumno_id ?? $ano->alumno_id),
+            'nombres' => $alumno->nombres ?? '',
+            'apellidos' => $alumno->apellidos ?? '',
+            'documento' => $alumno->documento ?? '',
+            'tipo_doc_abrev' => $alumno->tipo_doc_abrev ?? '',
+            'no_matricula' => $alumno->no_matricula ?? '',
+            'nro_folio' => $ano->folio,
+            'areas' => array_values($areas),
+            'total_creditos' => array_sum(array_map(fn ($n) => (int) $n->intensidad, $notas)),
+            'promedio' => $promedio,
+            'desempenio' => $promedio === null ? null : (EscalaDeValoracion::valoracion($promedio, $escalas)->desempenio ?: null),
+            'recuperaciones' => [],
+        ];
     }
 
     private function anoOFallar($id): object
