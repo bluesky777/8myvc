@@ -1241,13 +1241,11 @@ decisión se quedó esperando a alguien que no existía. La regla la disuelve: e
 marca el repaso, que ya tiene su propio criterio —el de la decisión 6, por dominio y en
 orden de reclamo—.
 
-> **`AlumnosActuales` no necesita `updated_at`, y está medido: no es trabajo pendiente.**
-> `4d8dd4c` lo dejó fuera porque sale de `Matricula::$consulta_asistentes_o_matriculados`,
-> compartida por 13 usos en 8 ficheros, y eso parecía una deuda. No lo es: la pantalla de
-> matrículas llama a `alumnosGradoAnterior` (`myvc_front/paginas/matriculas/matriculas.ts:324`),
-> que es la que **sí** lo lleva. `alumnosConGradoAnterior` existe en el front
-> (`datos/matriculas.ts:147`) y **no la llama nadie desde esa pantalla**. Comprobado por
-> `myvc-front-89` en el código el 22 sep.
+> **`AlumnosActuales` SÍ lleva `alumno_updated_at` desde el 25 sep.** La nota del 22 sep decía
+> que no hacía falta porque `alumnosConGradoAnterior` no la llamaba nadie; caducó cuando
+> `panel-alumnos.ts` pasó a usarla y el Historial de Alumnos salía «sin fecha» en todas las filas.
+> Añadido `a.updated_at as alumno_updated_at` a `Matricula::$consulta_asistentes_o_matriculados`
+> (y a su gemela del mismo fichero): una columna más con alias propio, no pisa nada de los 13 usos.
 >
 > Y la trampa, que es por lo que esto se anota en vez de dejarlo: **los dos nombres se
 > distinguen por la palabra «con»**, y las dos rutas «piden lo mismo y devuelven cosas
