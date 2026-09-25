@@ -144,6 +144,11 @@ class CentinelaDeLasTablasDelAnioNuevoTest extends TestCase
         // La bitácora. Copiarla sería firmar en el año nuevo escrituras que hizo
         // otra gente en el año viejo: no es que sobre, es que sería falsa.
         'auditoria' => 'la bitácora de lo que pasó ESE año; copiarla fabricaría historia que no ocurrió',
+        // Decidido por Joseth el 24 sep 2026: enero hereda el ESTADO de la foto, no sus filas.
+        // La foto guarda la plantilla por `id` y el año nuevo tiene ids nuevos; copiarla haría
+        // decir a la banda que cambió todo. `postStore` toma una foto NUEVA del año recién
+        // creado si el anterior estaba propagado (`fotoDeLaPlantillaHeredada`).
+        'plantilla_fotos' => 'se hereda el estado, no las filas: postStore toma una foto nueva si el año anterior estaba propagado (fotoDeLaPlantillaHeredada)',
 
         // Y es una decisión ya escrita **dos veces** en `postStore`: ni el titular
         // del grupo ni el docente de la asignatura se copian igual que los demás

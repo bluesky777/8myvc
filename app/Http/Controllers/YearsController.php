@@ -160,6 +160,12 @@ class YearsController extends Controller {
 			$year->rector_id                     = $pasado->rector_id;
 			$year->secretario_id                 = $pasado->secretario_id;
 			$year->tesorero_id                   = $pasado->tesorero_id;
+			// Los días que una prematrícula puede esperar: los decide el colegio y enero
+			// los hereda (decidido por Joseth el 24 sep 2026). Sin esto nacían en el 10
+			// del DEFAULT, con pinta de elegidos.
+			if (isset($pasado->dias_max_prematricula)) {
+				$year->dias_max_prematricula     = $pasado->dias_max_prematricula;
+			}
 			$year->coordinador_academico_id      = $pasado->coordinador_academico_id;
 			$year->coordinador_disciplinario_id  = $pasado->coordinador_disciplinario_id;
 			$year->capellan_id                   = $pasado->capellan_id;
@@ -602,6 +608,7 @@ class YearsController extends Controller {
 			$this->copiarElPlanDeArea($pasado, $year, $periodos, $user->user_id, $ahora);
 			$this->copiarLosJefesDeArea($pasado, $year, $user->user_id, $ahora);
 			$this->copiarLaPlantillaDelCompromiso($pasado, $year, $user->user_id, $ahora);
+			$this->fotoDeLaPlantillaHeredada($pasado, $year, $user->user_id);
 		}
 
 		return $year;
@@ -637,6 +644,27 @@ class YearsController extends Controller {
 	 * ausencia significa «los defectos de `PlantillaDelCompromiso`», no «un
 	 * documento en blanco». Es lo mismo que hace `config_formulario_inscripcion`.
 	 */
+	/**
+	 * `plantilla_fotos` EN EL AÑO NUEVO (decidido por Joseth el 24 sep 2026: enero la hereda).
+	 *
+	 * La foto no se copia fila a fila: guarda la plantilla **por `id`**, y el año nuevo tiene
+	 * la plantilla copiada con ids nuevos, así que la foto vieja haría decir a la banda que
+	 * cambió todo. Lo que se hereda es el ESTADO: si el año anterior estaba propagado y sin
+	 * cambios pendientes, el nuevo nace igual —con una foto de su propia plantilla recién
+	 * copiada—. Si el anterior no tenía foto o tenía cambios sin propagar, el nuevo nace sin
+	 * foto, que es «no se sabe» (`FotoDeLaPlantilla::cambios` devuelve `null`), no «todo al día».
+	 */
+	private function fotoDeLaPlantillaHeredada(Year $pasado, Year $year, int $user_id): void
+	{
+		$cambios = \App\Support\FotoDeLaPlantilla::cambios((int) $pasado->id);
+
+		if ($cambios === null || $cambios !== []) {
+			return;
+		}
+
+		\App\Support\FotoDeLaPlantilla::tomar((int) $year->id, $user_id);
+	}
+
 	private function copiarLaPlantillaDelCompromiso(Year $pasado, Year $year, int $user_id, Carbon $ahora): void
 	{
 		$config = DB::select('SELECT regla, corte, primaria_activa, primaria_materia_1_id, primaria_materia_2_id,'
