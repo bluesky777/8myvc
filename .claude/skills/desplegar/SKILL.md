@@ -120,11 +120,16 @@ llamar a rutas o columnas que sólo trae el `8myvc` nuevo.
 cd ~/DESARROLLOS/myvc_front
 git log --oneline origin/main..main       # lo que se va a subir; enséñaselo en una línea
 git push origin main
-gh workflow run desplegar-up.yml  --ref main
-gh workflow run desplegar-up2.yml --ref main
+gh workflow run desplegar-up.yml  --ref main -f simulacro=false
+gh workflow run desplegar-up2.yml --ref main -f simulacro=false
 gh run list -w desplegar-up2.yml -L 1     # y esperar a que los dos salgan `success`
 ```
 
+- **`-f simulacro=false` NO ES OPCIONAL.** El input `simulacro` nace en `true`: sin él, los dos
+  workflows construyen, verifican y salen en verde **sin publicar nada** en `myvc_dist`. Pasó el
+  25 sep 2026: dos `success` y el front de los colegios seguía en el build de la víspera. Se
+  comprueba en el resumen del run («Publicado en…» y no «Simulacro») y en `tools/censo.sh`: la
+  columna `up` tiene que cambiar de hash.
 - **Sólo commits**: el árbol lo comparten otras sesiones; nunca `git add -A` antes de empujar.
 - Los dos workflows construyen en GitHub y publican en `myvc_dist`; el servidor lo recoge. Se
   comprueba con `tools/censo.sh` (columnas `up` y `up2`): todos los colegios en el mismo hash.
