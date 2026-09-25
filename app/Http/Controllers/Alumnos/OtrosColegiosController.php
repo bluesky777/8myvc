@@ -52,7 +52,8 @@ class OtrosColegiosController extends Controller
     {
         $this->exigirPermiso();
 
-        $anos = DB::select('SELECT ae.*, g.nombre AS grado_nombre
+        $anos = DB::select('SELECT ae.*, g.nombre AS grado_nombre,
+                (SELECT COUNT(*) FROM notas_externas ne WHERE ne.ano_externo_id = ae.id AND ne.deleted_at IS NULL) AS notas
             FROM anos_externos ae
             LEFT JOIN grados g ON g.id = ae.grado_id
             WHERE ae.alumno_id = ? AND ae.deleted_at IS NULL
@@ -65,6 +66,7 @@ class OtrosColegiosController extends Controller
 
         foreach ($anos as $ano) {
             $ano->propio = (bool) $ano->propio;
+            $ano->notas = (int) $ano->notas;
             $ano->documentos = array_values(array_filter($documentos,
                 fn ($d) => (int) $d->ano_externo_id === (int) $ano->id));
         }

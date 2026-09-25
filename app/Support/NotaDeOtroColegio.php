@@ -42,8 +42,10 @@ final class NotaDeOtroColegio
         $year = DB::selectOne('SELECT id, nota_minima_aceptada FROM years WHERE actual = 1 AND deleted_at IS NULL ORDER BY id DESC LIMIT 1');
         if (! $year) { return null; }
 
+        // Sin ORDER BY a propósito: es la misma consulta de `detailedNotasGrupo`, así que la leyenda
+        // de escalas del certificado sale en el mismo orden en los años de fuera y en los de aquí.
         $bandas = DB::select('SELECT desempenio, porc_inicial, porc_final FROM escalas_de_valoracion
-            WHERE year_id = ? AND deleted_at IS NULL ORDER BY orden', [$year->id]);
+            WHERE year_id = ? AND deleted_at IS NULL', [$year->id]);
         if (! $bandas) { return null; }
 
         return [
