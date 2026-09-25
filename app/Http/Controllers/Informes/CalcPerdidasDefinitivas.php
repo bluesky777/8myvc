@@ -201,6 +201,83 @@ class CalcPerdidasDefinitivas {
 					where a.deleted_at is null and a.id=:alu5';
 	
 	
+	/**
+	 * **`hastaPeriodoConDefinitivas()` para un grupo entero, en una consulta** en vez de
+	 * una por alumno × asignatura (1.824 en `notas-actuales` de un grupo de 38;
+	 * docs/migracion/48). Devuelve, por `alumno_id|asignatura_id`, las mismas filas.
+	 *
+	 * Se arma con las MISMAS expresiones que las cuatro de arriba, rarezas incluidas,
+	 * porque la respuesta tiene que salir igual: la media se calcula en SQL con el mismo
+	 * `CAST((IFNULL..)/n AS DOUBLE)` —en PHP no daría el mismo flotante— y **los joins de
+	 * los periodos 2 a 4 siguen mirando `nf1.periodo_id`**, que es lo que hacen las
+	 * originales: sin definitiva del primer periodo, las demás salen nulas. No se
+	 * corrige aquí; esto sólo cambia cuántas veces se pregunta.
+	 *
+	 * @param list<int> $alumnoIds
+	 * @param list<int> $asignaturaIds
+	 * @return array<string, list<object>>
+	 */
+	public function delGrupo(array $alumnoIds, array $asignaturaIds, $periodo_a_calcular): array
+	{
+		$n = (int) $periodo_a_calcular;
+		if ($alumnoIds === [] || $asignaturaIds === [] || $n < 1 || $n > 4 || (string) $n !== (string) $periodo_a_calcular) {
+			return [];
+		}
+
+		$alumnos = implode(',', array_map('intval', $alumnoIds));
+		$asignaturas = implode(',', array_map('intval', $asignaturaIds));
+		$k = range(1, $n);
+
+		$definitiva = $n === 1
+			? 'CAST(IFNULL(nf1.nota, 0) AS DOUBLE)'
+			: 'CAST(('.implode(' + ', array_map(fn ($i) => $i === 1 ? 'IFNULL(nf1.nota, 0)' : 'IFNULL(nf'.$i.'.nota,0)', $k)).')/'.$n.' AS DOUBLE)';
+		$perdidasDelAnio = '('.implode(' + ', array_map(fn ($i) => 'IFNULL(cant_perdidas_'.$i.', 0)', $k)).')';
+		$columnas = implode(",\n", array_map(fn ($i) => 'CAST(nf'.$i.'.nota AS DOUBLE) as nota_final_per'.$i.', nf'.$i.'.id as nf_id_'.$i.', nf'.$i.'.recuperada as recuperada_'.$i.', nf'.$i.'.manual as manual_'.$i, $k));
+		$cantidades = implode(', ', array_map(fn ($i) => 'cant_perdidas_'.$i, $k));
+
+		$joins = '';
+		foreach ($k as $i) {
+			$joins .= ' left join notas_finales nf'.$i.' on nf'.$i.'.alumno_id=a.id and nf'.$i.'.asignatura_id=g.id and nf'.$i.'.periodo='.$i.' and nf1.periodo_id is not null';
+		}
+		foreach ($k as $i) {
+			$joins .= ' left join (
+				SELECT df1.alumno_id, df1.asignatura_id, count( df1.nota ) cant_perdidas_'.$i.'
+				FROM(
+					SELECT n.alumno_id, asi.id as asignatura_id, n.nota
+					FROM asignaturas asi
+					inner join unidades u on u.asignatura_id=asi.id and u.deleted_at is null
+					inner join subunidades s on s.unidad_id=u.id and s.deleted_at is null
+					inner join notas n on n.subunidad_id=s.id and n.deleted_at is null and n.nota<?
+					inner join periodos p1 on p1.numero='.$i.' and p1.id=u.periodo_id and p1.deleted_at is null
+					where asi.deleted_at is null and asi.id IN ('.$asignaturas.') and n.alumno_id IN ('.$alumnos.')
+				)df1
+				group by df1.alumno_id, df1.asignatura_id
+			)r'.$i.' ON r'.$i.'.alumno_id=a.id and r'.$i.'.asignatura_id=g.id';
+		}
+
+		$filas = DB::select(
+			'SELECT a.nombres, a.id, '.$definitiva.' as definitiva_year,
+				'.$perdidasDelAnio.' as cant_perdidas_year,
+				'.$columnas.',
+				'.$cantidades.',
+				g.id as asignatura_de_reparto
+			FROM alumnos a
+			inner join asignaturas g on g.id IN ('.$asignaturas.')
+			'.$joins.'
+			where a.deleted_at is null and a.id IN ('.$alumnos.')',
+			array_fill(0, $n, User::$nota_minima_aceptada)
+		);
+
+		$porCelda = [];
+		foreach ($filas as $fila) {
+			$clave = (int) $fila->id.'|'.(int) $fila->asignatura_de_reparto;
+			unset($fila->asignatura_de_reparto);
+			$porCelda[$clave][] = $fila;
+		}
+
+		return $porCelda;
+	}
+
 	public function hastaPeriodoConDefinitivas($alumno_id, $asignatura_id, $grupo_id, $periodo_a_calcular=4)
 	{
 		$periodos = [];

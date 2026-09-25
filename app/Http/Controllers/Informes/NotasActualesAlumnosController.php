@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 use App\Support\LaParcialYLaCobertura;
+use App\Support\LoDelGrupoDeUnaVez;
 use App\Support\RepartoDeLaNota;
 use App\Models\Grupo;
 use App\Models\Periodo;
@@ -48,6 +49,21 @@ class NotasActualesAlumnosController extends Controller {
 	 * entrega. Ahora el error sube.
 	 */
 	private $escalas_val;
+
+	/**
+	 * Lo del grupo pedido de una vez mientras se arma (docs/migracion/48): las faltas y
+	 * frases por periodo, y las notas perdidas por número de periodo. Vacío fuera de
+	 * `armarElGrupo()`, y entonces cada método pregunta como siempre.
+	 *
+	 * @var array<int, LoDelGrupoDeUnaVez>
+	 */
+	private array $loPorPeriodo = [];
+
+	/** @var array<string, array<string, list<object>>> */
+	private array $perdidasPorNumero = [];
+
+	/** @var array{alumnos: list<int>, asignaturas: list<int>}|null */
+	private ?array $delGrupo = null;
 
 	private function escalasVal()
 	{
@@ -106,6 +122,19 @@ class NotasActualesAlumnosController extends Controller {
 		$grupo->cantidad_alumnos = count($alumnos);
 
 		$response_alumnos = [];
+
+		$this->delGrupo = [
+			// Pidiendo hojas sueltas, sólo las suyas: el resto no se calcula aquí.
+			'alumnos' => is_array($requested_alumnos)
+				? array_values(array_unique(array_map(static fn ($r) => (int) $r['alumno_id'], $requested_alumnos)))
+				: array_map(static fn ($a) => (int) $a->alumno_id, array_values($alumnos)),
+			'asignaturas' => array_map('intval', DB::table('asignaturas')->where('grupo_id', $grupo_id)->pluck('id')->all()),
+		];
+		foreach (Periodo::hastaPeriodoN($user->year_id, $periodo_a_calcular) as $periodo) {
+			$this->loPorPeriodo[(int) $periodo->id] = new LoDelGrupoDeUnaVez(
+				$this->delGrupo['alumnos'], $this->delGrupo['asignaturas'], (int) $periodo->id, (int) $periodo->numero
+			);
+		}
 		
 
 		// **La guarda que a esta copia se le cayó.** Sus ocho hermanas —los tres
@@ -160,6 +189,10 @@ class NotasActualesAlumnosController extends Controller {
             
 		}
 
+
+		$this->loPorPeriodo = [];
+		$this->perdidasPorNumero = [];
+		$this->delGrupo = null;
 
 		return array($grupo, $year, $response_alumnos);
 	}
@@ -217,8 +250,13 @@ class NotasActualesAlumnosController extends Controller {
 			$asignatura->cobertura = LaParcialYLaCobertura::cobertura($medida['peso_evaluado'], $medida['peso_total']);
 			
 			if ($comport_and_frases) {
-				$asignatura->ausencias	= Ausencia::deAlumno($asignatura->asignatura_id, $alumno->alumno_id, $periodo_id);
-				$asignatura->frases		= FraseAsignatura::deAlumno($asignatura->asignatura_id, $alumno->alumno_id, $periodo_id);
+				$lo = $this->loPorPeriodo[(int) $periodo_id] ?? null;
+				$asignatura->ausencias	= $lo !== null
+					? $lo->ausencias((int) $alumno->alumno_id, (int) $asignatura->asignatura_id)
+					: Ausencia::deAlumno($asignatura->asignatura_id, $alumno->alumno_id, $periodo_id);
+				$asignatura->frases		= $lo !== null
+					? $lo->frases((int) $alumno->alumno_id, (int) $asignatura->asignatura_id)
+					: FraseAsignatura::deAlumno($asignatura->asignatura_id, $alumno->alumno_id, $periodo_id);
 			}
 			
 
@@ -289,6 +327,21 @@ class NotasActualesAlumnosController extends Controller {
 	}
 
 
+	/** `hastaPeriodoConDefinitivas()`, del grupo precargado si lo hay. */
+	private function perdidasDeLaCelda($alumno_id, $asignatura_id, $grupo_id, $numero): array
+	{
+		if ($this->delGrupo === null || ! in_array((int) $alumno_id, $this->delGrupo['alumnos'], true)) {
+			return (new CalcPerdidasDefinitivas())->hastaPeriodoConDefinitivas($alumno_id, $asignatura_id, $grupo_id, $numero);
+		}
+
+		$clave = (string) $numero;
+		$this->perdidasPorNumero[$clave] ??= (new CalcPerdidasDefinitivas())->delGrupo(
+			$this->delGrupo['alumnos'], $this->delGrupo['asignaturas'], $numero
+		);
+
+		return $this->perdidasPorNumero[$clave][(int) $alumno_id.'|'.(int) $asignatura_id] ?? [];
+	}
+
 	public function asignaturasPerdidasDeAlumno(&$alumno, $grupo_id)
 	{
 		//$asignaturas	= Grupo::detailed_materias_notas_finales($alumno->alumno_id, $grupo_id, $this->user->year_id);
@@ -301,8 +354,7 @@ class NotasActualesAlumnosController extends Controller {
 
 		foreach ($alumno->asignaturas as $keyAsig => $asignatura) {
 			
-			$calcPerdidas = new CalcPerdidasDefinitivas();
-			$periodos = $calcPerdidas->hastaPeriodoConDefinitivas($alumno->alumno_id, $asignatura->asignatura_id, $grupo_id, $alumno->numero);
+			$periodos = $this->perdidasDeLaCelda($alumno->alumno_id, $asignatura->asignatura_id, $grupo_id, $alumno->numero);
 			if(count($periodos)>0){
 				
 				if ($this->user->si_recupera_materia_recup_indicador){
