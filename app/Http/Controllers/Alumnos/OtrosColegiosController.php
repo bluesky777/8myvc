@@ -8,6 +8,7 @@ use App\Models\EscalaDeValoracion;
 use App\Models\Year;
 use App\Support\Autoriza;
 use App\Support\NotaDeOtroColegio;
+use App\Support\Reloj;
 use App\Support\SafeUpload;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -81,7 +82,7 @@ class OtrosColegiosController extends Controller
         $datos = $this->datosDelAno();
         $datos['alumno_id'] = (int) $alumno_id;
         $datos['created_by'] = $this->user->user_id;
-        $datos['created_at'] = $datos['updated_at'] = now();
+        $datos['created_at'] = $datos['updated_at'] = Reloj::ahora();
 
         $id = DB::table('anos_externos')->insertGetId($datos);
 
@@ -95,7 +96,7 @@ class OtrosColegiosController extends Controller
 
         $datos = $this->datosDelAno();
         $datos['updated_by'] = $this->user->user_id;
-        $datos['updated_at'] = now();
+        $datos['updated_at'] = Reloj::ahora();
 
         DB::table('anos_externos')->where('id', $id)->update($datos);
 
@@ -108,9 +109,9 @@ class OtrosColegiosController extends Controller
         $this->exigirPermiso();
         $this->anoOFallar($id);
 
-        DB::table('anos_externos')->where('id', $id)->update(['deleted_at' => now()]);
+        DB::table('anos_externos')->where('id', $id)->update(['deleted_at' => Reloj::ahora()]);
         DB::table('documentos_externos')->where('ano_externo_id', $id)->whereNull('deleted_at')
-            ->update(['deleted_at' => now()]);
+            ->update(['deleted_at' => Reloj::ahora()]);
 
         return ['id' => (int) $id];
     }
@@ -143,7 +144,8 @@ class OtrosColegiosController extends Controller
         $extension = strtolower((string) pathinfo($validado, PATHINFO_EXTENSION));
         $archivo = Str::random(40).'.'.$extension;
         $bytes = (int) $file->getSize();
-        $original = mb_substr((string) $file->getClientOriginalName(), 0, 200);
+        // El nombre del cliente, saneado por `SafeUpload` (lo exige `GuardsDestructivosTest`).
+        $original = mb_substr((string) SafeUpload::nombreParaGuardar($file), 0, 200);
 
         $file->move($carpeta, $archivo);
 
@@ -155,8 +157,8 @@ class OtrosColegiosController extends Controller
             'tipo' => $tipo,
             'bytes' => $bytes,
             'created_by' => $this->user->user_id,
-            'created_at' => now(),
-            'updated_at' => now(),
+            'created_at' => Reloj::ahora(),
+            'updated_at' => Reloj::ahora(),
         ]);
 
         return ['id' => $documento];
@@ -194,7 +196,7 @@ class OtrosColegiosController extends Controller
         $this->exigirPermiso();
 
         $cambiadas = DB::table('documentos_externos')->where('id', $id)->whereNull('deleted_at')
-            ->update(['deleted_at' => now()]);
+            ->update(['deleted_at' => Reloj::ahora()]);
 
         if (! $cambiadas) {
             abort(404, 'Ese documento no existe o ya estaba borrado.');
@@ -267,20 +269,20 @@ class OtrosColegiosController extends Controller
                 'desempenio' => $convertida['desempenio'],
                 'orden' => (int) $orden,
                 'created_by' => $this->user->user_id,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'created_at' => Reloj::ahora(),
+                'updated_at' => Reloj::ahora(),
             ];
         }
 
         DB::transaction(function () use ($id, $origen, $filas) {
-            DB::table('notas_externas')->where('ano_externo_id', $id)->whereNull('deleted_at')->update(['deleted_at' => now()]);
+            DB::table('notas_externas')->where('ano_externo_id', $id)->whereNull('deleted_at')->update(['deleted_at' => Reloj::ahora()]);
             if ($filas) { DB::table('notas_externas')->insert($filas); }
 
             $grado = Request::input('grado_id');
             DB::table('anos_externos')->where('id', $id)->update([
                 'escala_min' => $origen['min'], 'escala_max' => $origen['max'], 'escala_aprueba' => $origen['aprueba'],
                 'grado_id' => $grado ? (int) $grado : DB::raw('grado_id'),
-                'updated_by' => $this->user->user_id, 'updated_at' => now(),
+                'updated_by' => $this->user->user_id, 'updated_at' => Reloj::ahora(),
             ]);
         });
 

@@ -128,7 +128,8 @@ class Role extends Model
 			return [];
 		}
 
-		return DB::select(
+		/** @var list<object{role_id: int, name: string}> $roles */
+		$roles = DB::select(
 			"SELECT DISTINCT r.id AS role_id, r.name
 			   FROM years y
 			   INNER JOIN profesores p ON p.user_id = ? AND p.deleted_at IS NULL
@@ -139,6 +140,8 @@ class Role extends Model
 			  ORDER BY r.id",
 			[$user_id]
 		);
+
+		return $roles;
 	}
 
 	public static function isTesorero($user_id) {

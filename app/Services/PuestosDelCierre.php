@@ -157,6 +157,7 @@ class PuestosDelCierre
             $porAlumno[(int) $fila->alumno_id] = $fila;
         }
 
+        /** @var array<int, object{puesto: int|null, congelado_at: string}> $porAlumno */
         return $porAlumno;
     }
 

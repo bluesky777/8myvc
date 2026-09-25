@@ -187,7 +187,6 @@ class FirmaDelTitularTest extends CasoDeContrato
         DB::table('role_user')->where('user_id', $u->id)->delete();
         DB::table('users')->where('id', $u->id)->update(['is_superuser' => 0]);
 
-
         return [$u, (int) $grupo->id];
     }
 

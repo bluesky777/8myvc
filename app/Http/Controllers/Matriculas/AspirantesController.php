@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Matriculas;
 
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Http\Controllers\Controller;
+use App\Models\Role;
 use App\Services\Auditoria;
 use App\Support\Autoriza;
 use Carbon\Carbon;
@@ -527,7 +528,7 @@ class AspirantesController extends Controller
         }
 
         foreach (['Psicólogo', 'Admin', 'Rector', 'Secretario', 'Coord académico', 'Coord disciplinario'] as $rol) {
-            if (\App\Models\Role::hasRole($quien, $rol)) {
+            if (Role::hasRole($quien, $rol)) {
                 return true;
             }
         }

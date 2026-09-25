@@ -206,7 +206,7 @@ class CierresAsignaturaController extends Controller
             'mensaje' => $hasta === null
                 ? $this->nombre($asignatura).' queda abierta hasta que la vuelvas a cerrar.'
                 : $this->nombre($asignatura).' queda abierta hasta el '
-                    .$hasta->locale('es')->translatedFormat('j \d\e F \a \l\a\s H:i').'.',
+                    .$hasta->settings(['locale' => 'es'])->translatedFormat('j \d\e F \a \l\a\s H:i').'.',
         ];
     }
 

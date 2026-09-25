@@ -380,7 +380,7 @@ class CierrePorAsignaturaTest extends CasoDeContrato
         $this->assertTrue($cerradaEnElTablero['puede_reabrir'],
             'Con el periodo abierto el docente reabre la suya (24 sep 2026).');
         $profesores = array_unique(array_column($suyo->json('asignaturas'), 'profesor_id'));
-        $this->assertSame([$e->profesor_id], array_values($profesores));
+        $this->assertSame([(int) $e->profesor_id], array_map('intval', array_values($profesores)));
         $this->assertSame(1, $suyo->json('resumen.cerradas'));
 
         $todo = $this->withToken($this->tokenDeCoordinacion())

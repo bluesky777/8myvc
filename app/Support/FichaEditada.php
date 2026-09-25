@@ -44,6 +44,7 @@ final class FichaEditada
         switch ($tipo) {
             case 'alumno':
                 $entidades = Auditoria::FICHA_DE_ALUMNO;
+
                 return ['a.alumno_id = ? AND a.entidad IN ('.self::marcas($entidades).')', [$id, ...$entidades]];
             case 'acudiente':
                 return ["(a.entidad = 'acudiente' AND a.entidad_id = ?)
@@ -72,6 +73,7 @@ final class FichaEditada
             foreach ($filas as $fila) {
                 $fila->{self::CAMPO} = null;
             }
+
             return;
         }
 

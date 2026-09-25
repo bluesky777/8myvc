@@ -128,7 +128,7 @@ class NotasActualesAlumnosController extends Controller {
 			'alumnos' => is_array($requested_alumnos)
 				? array_values(array_unique(array_map(static fn ($r) => (int) $r['alumno_id'], $requested_alumnos)))
 				: array_map(static fn ($a) => (int) $a->alumno_id, array_values($alumnos)),
-			'asignaturas' => array_map('intval', DB::table('asignaturas')->where('grupo_id', $grupo_id)->pluck('id')->all()),
+			'asignaturas' => array_values(array_map('intval', DB::table('asignaturas')->where('grupo_id', $grupo_id)->pluck('id')->all())),
 		];
 		foreach (Periodo::hastaPeriodoN($user->year_id, $periodo_a_calcular) as $periodo) {
 			$this->loPorPeriodo[(int) $periodo->id] = new LoDelGrupoDeUnaVez(

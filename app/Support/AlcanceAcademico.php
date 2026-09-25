@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * LO QUE UNA REJILLA ACADÉMICA ENSEÑA DE UN ALUMNO, COMO HISTORIAL. La planilla de una
@@ -103,7 +104,7 @@ final class AlcanceAcademico
             return true;
         }
 
-        return $vistas[$tabla] ??= \Illuminate\Support\Facades\Schema::hasTable($tabla);
+        return $vistas[$tabla] ??= Schema::hasTable($tabla);
     }
 
     /** Los filtros de contexto que se aceptan, y su columna en `auditoria`. */

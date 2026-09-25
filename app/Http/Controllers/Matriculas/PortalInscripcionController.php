@@ -560,8 +560,8 @@ class PortalInscripcionController extends Controller
      */
     private function gradosDelColegio(): array
     {
-        return array_map(fn ($fila) => ['id' => (int) $fila->id, 'nombre' => (string) $fila->nombre],
-            DB::select('SELECT id, nombre FROM grados WHERE deleted_at IS NULL ORDER BY orden, id'));
+        return array_values(array_map(fn ($fila) => ['id' => (int) $fila->id, 'nombre' => (string) $fila->nombre],
+            DB::select('SELECT id, nombre FROM grados WHERE deleted_at IS NULL ORDER BY orden, id')));
     }
 
     /** Lo que la familia puede ver de su propio formulario. */

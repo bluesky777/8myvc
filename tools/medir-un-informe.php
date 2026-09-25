@@ -26,6 +26,7 @@ if (getenv("TOKEN")) { $tok = getenv("TOKEN"); } else { [$l] = pedir('POST', '/a
 $tok = json_decode($l->getContent(), true)['el_token'] ?? null;
 if (!$tok) { echo "login: ".$l->getStatusCode()." ".substr($l->getContent(),0,200)."\n"; exit(1); }
 if (getenv("SOLO_LOGIN")) { echo $tok; exit(0); } }
+$pf = []; $c = '';
 for ($i = 0; $i < $pasadas; $i++) {
   DB::getEventDispatcher()->forget(Illuminate\Database\Events\QueryExecuted::class);
   [$resp, $n, $ms, $pf] = pedir($m, $uri, $cuerpo, $tok);

@@ -6,16 +6,16 @@ use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Models\Profesor;
 use App\Models\Role;
 use App\Models\Year;
+use App\Support\AuditarModelo;
 use App\Support\Autoriza;
 use App\Support\CamposQueVinieron;
 use App\Support\CorreoDeLaCuenta;
+use App\Support\FichaEditada;
 use App\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Request;
-use App\Support\FichaEditada;
-use App\Support\AuditarModelo;
 
 class ProfesoresController extends Controller
 {

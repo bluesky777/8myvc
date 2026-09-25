@@ -57,7 +57,7 @@ class FotoDeLaPlantilla
     /** `15 de septiembre`. `created_at` se escribe con `Reloj`, así que ya es hora de Bogotá. */
     public static function cuando(object $foto): string
     {
-        return Reloj::desdeTexto($foto->created_at)->locale('es')->isoFormat('D [de] MMMM');
+        return Reloj::desdeTexto($foto->created_at)->settings(['locale' => 'es'])->isoFormat('D [de] MMMM');
     }
 
     /**

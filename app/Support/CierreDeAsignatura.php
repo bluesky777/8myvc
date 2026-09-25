@@ -51,6 +51,7 @@ use Illuminate\Support\Facades\DB;
 class CierreDeAsignatura
 {
     public const CERRADA = 'cerrada';
+
     public const REABIERTA = 'reabierta';
 
     public static function ahora(): Carbon
@@ -231,7 +232,7 @@ class CierreDeAsignatura
      */
     public static function faltantesPorIndicador(int $periodoId, int $asignaturaId): array
     {
-        return array_map(fn ($f) => [
+        return array_values(array_map(fn ($f) => [
             'unidad' => (string) $f->unidad,
             'subunidad' => (string) $f->subunidad,
             'faltan' => (int) $f->faltan,
@@ -245,7 +246,7 @@ class CierreDeAsignatura
               GROUP BY u.id, u.orden, u.definicion, s.id, s.orden, s.definicion
               ORDER BY u.orden, u.id, s.orden, s.id',
             [$periodoId, $asignaturaId]
-        ));
+        )));
     }
 
     /** @return array<int> */

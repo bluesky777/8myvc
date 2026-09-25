@@ -35,18 +35,22 @@ final class NotaDeOtroColegio
      * La escala de destino: la del año `actual` de este colegio. Un año de otro colegio puede no
      * existir en `years`, así que se usa la escala con la que hoy se certifica.
      *
-     * @return array{min: float, max: float, aprueba: float, bandas: array}|null  null sin escala.
+     * @return array{min: float, max: float, aprueba: float, bandas: array}|null null sin escala.
      */
     public static function destino(): ?array
     {
         $year = DB::selectOne('SELECT id, nota_minima_aceptada FROM years WHERE actual = 1 AND deleted_at IS NULL ORDER BY id DESC LIMIT 1');
-        if (! $year) { return null; }
+        if (! $year) {
+            return null;
+        }
 
         // Sin ORDER BY a propósito: es la misma consulta de `detailedNotasGrupo`, así que la leyenda
         // de escalas del certificado sale en el mismo orden en los años de fuera y en los de aquí.
         $bandas = DB::select('SELECT desempenio, porc_inicial, porc_final FROM escalas_de_valoracion
             WHERE year_id = ? AND deleted_at IS NULL', [$year->id]);
-        if (! $bandas) { return null; }
+        if (! $bandas) {
+            return null;
+        }
 
         return [
             'min' => (float) min(array_map(fn ($b) => $b->porc_inicial, $bandas)),
@@ -100,7 +104,9 @@ final class NotaDeOtroColegio
     {
         $clave = self::llano($texto);
         $buscado = self::LETRAS[$clave] ?? null;
-        if ($buscado === null) { return null; }
+        if ($buscado === null) {
+            return null;
+        }
 
         foreach ($destino['bandas'] as $banda) {
             if (self::llano((string) $banda->desempenio) === $buscado) {

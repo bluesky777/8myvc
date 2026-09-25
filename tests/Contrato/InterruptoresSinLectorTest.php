@@ -41,7 +41,7 @@ class InterruptoresSinLectorTest extends CasoDeContrato
      */
     private const SIN_LECTOR = [
         'can_upload' => 'ws_actividades — casilla «puede subir archivos» del examen, en editarActividad.html',
-        'deriva_de_tardanzas' => 'dis_procesos — formulario del proceso disciplinario',
+        // `deriva_de_tardanzas` salió el 25 sep 2026: la lee `PendientesController`.
     ];
 
     /**

@@ -348,7 +348,6 @@ Route::put('actas-evaluacion/detalle', [ActasEvaluacionController::class, 'putDe
 // son lecturas, y el texto del acta es configuración del año lectivo.
 Route::put('actas-evaluacion/cambiar-descripcion', [ActasEvaluacionController::class, 'putGuardarTextoActa'])->middleware('auth.personal');
 
-
 // InformesRecientesController
 //
 // **Familia nueva (18 sep 2026)**, autorizada por Joseth con el precio delante.

@@ -341,7 +341,7 @@ class PendientesController extends Controller
             default => "Faltan {$dias} días para entregar los boletines del Periodo {$numero}",
         };
 
-        $fecha = Carbon::parse($periodo->fecha_entrega_boletines)->locale('es')->isoFormat('dddd D [de] MMMM');
+        $fecha = Carbon::parse($periodo->fecha_entrega_boletines)->settings(['locale' => 'es'])->isoFormat('dddd D [de] MMMM');
         $fechaFrase = $dias < 0 ? "La entrega fue el **{$fecha}**." : "La entrega es el **{$fecha}**.";
 
         if ($alcance['todas']) {
@@ -734,7 +734,7 @@ class PendientesController extends Controller
             'detalle' => 'No sale en los boletines hasta que alguien la apruebe.',
             'filas' => array_map(fn ($f) => [
                 'texto' => trim($f->nombres.' '.$f->apellidos),
-                'nota' => 'desde el '.Carbon::parse($f->created_at)->locale('es')->translatedFormat('j M'),
+                'nota' => 'desde el '.Carbon::parse($f->created_at)->settings(['locale' => 'es'])->translatedFormat('j M'),
                 'aviso' => false,
                 'foto' => $f->foto,
                 'nombres' => $f->nombres,
@@ -888,7 +888,7 @@ class PendientesController extends Controller
             'icono' => 'swap',
             'titular' => 'El periodo actual sigue siendo el '.$actual->numero,
             'detalle' => 'Según las fechas, el colegio está en el **Periodo '.$deHoy->numero.'** desde el **'
-                .$desde->locale('es')->isoFormat('D [de] MMMM').'**. Quien ingresa queda en el periodo actual.',
+                .$desde->settings(['locale' => 'es'])->isoFormat('D [de] MMMM').'**. Quien ingresa queda en el periodo actual.',
             'filas' => [],
             'total_filas' => 0,
             'destino' => ['ruta' => '/colegio/'.$year->id.'/periodos', 'etiqueta' => 'Cambiar el periodo actual'],
@@ -1285,7 +1285,7 @@ class PendientesController extends Controller
             return [];
         }
 
-        return DB::select(
+        return array_values(DB::select(
             'SELECT al.id AS alumno_id, al.nombres, al.apellidos, i.nombre AS foto,
                     g.id AS grupo_id, g.nombre AS nombre_grupo, g.abrev AS abrev_grupo
                FROM matriculas m
@@ -1295,7 +1295,7 @@ class PendientesController extends Controller
               WHERE m.deleted_at IS NULL AND '.self::MATRICULADO.'
                 AND al.id IN ('.implode(',', array_fill(0, count($ids), '?')).')',
             array_merge([$yearId], $ids)
-        );
+        ));
     }
 
     /* ── 14. Configuración del año ──────────────────────────────────────────────────── */

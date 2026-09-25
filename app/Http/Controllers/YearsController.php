@@ -2001,7 +2001,7 @@ class YearsController extends Controller {
 
 		$year = Year::findOrFail((int) $year_id);
 
-		$year->profes_pueden_cambiar_definitivas = (int) $pueden;
+		$year->profes_pueden_cambiar_definitivas = (bool) $pueden;
 		$year->updated_by = $user->user_id;
 		AuditarFila::cambio('year_config', 'years', (int) $year->id, fn () => $year->save(), (int) $year->id,
 			(int) $pueden ? 'Dejó a los docentes cambiar definitivas a mano' : 'Quitó a los docentes el cambiar definitivas a mano');

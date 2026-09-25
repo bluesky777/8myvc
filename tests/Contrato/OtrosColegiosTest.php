@@ -2,6 +2,7 @@
 
 namespace Tests\Contrato;
 
+use App\Support\NotaDeOtroColegio;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -143,7 +144,7 @@ class OtrosColegiosTest extends CasoDeContrato
      */
     public function test_las_notas_se_convierten_por_tramos_y_salen_en_el_certificado(): void
     {
-        $destino = \App\Support\NotaDeOtroColegio::destino();
+        $destino = NotaDeOtroColegio::destino();
         if ($destino === null) {
             $this->markTestSkipped('El año actual del seed no tiene escala de valoración.');
         }

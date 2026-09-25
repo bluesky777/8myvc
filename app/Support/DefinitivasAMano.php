@@ -106,10 +106,10 @@ class DefinitivasAMano
             return isset($user->year_id) ? [(int) $user->year_id] : [];
         }
 
-        return array_map('intval', DB::table('periodos')
+        return array_values(array_map('intval', DB::table('periodos')
             ->whereIn('id', $ids)
             ->distinct()
             ->pluck('year_id')
-            ->all());
+            ->all()));
     }
 }

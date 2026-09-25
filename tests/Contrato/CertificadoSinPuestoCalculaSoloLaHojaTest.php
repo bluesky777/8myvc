@@ -2,6 +2,7 @@
 
 namespace Tests\Contrato;
 
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -57,7 +58,7 @@ class CertificadoSinPuestoCalculaSoloLaHojaTest extends CasoDeContrato
         $r = $this->withToken($token)->putJson('/api/bolfinales/detailed-notas-year/'.$grupoId, $cuerpo);
         $r->assertStatus(200);
 
-        DB::getEventDispatcher()->forget(\Illuminate\Database\Events\QueryExecuted::class);
+        DB::getEventDispatcher()->forget(QueryExecuted::class);
 
         return [$r->json(), $consultas];
     }

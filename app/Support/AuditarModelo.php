@@ -36,6 +36,7 @@ final class AuditarModelo
 
         if ($nuevo) {
             Auditoria::registrar()->crear($entidad, (int) $modelo->getKey())->deAlumno($alumnoId)->guardar();
+
             return;
         }
 

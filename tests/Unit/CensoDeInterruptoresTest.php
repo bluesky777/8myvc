@@ -44,8 +44,8 @@ class CensoDeInterruptoresTest extends TestCase
     private const CENSO = [
         'columnas tinyint(1) distintas' => 157,
         'ni se nombran' => 64,
-        'no deciden nada' => 29,
-        'alguien decide con ellas' => 64,
+        'no deciden nada' => 28, // 29 → 28 el 25 sep 2026: deriva_de_tardanzas la lee PendientesController
+        'alguien decide con ellas' => 65,
     ];
 
     /*
@@ -226,8 +226,11 @@ class CensoDeInterruptoresTest extends TestCase
      * > dentro de la lista de parámetros— vale más que remedir con ella**, y no se
      * > hace aquí porque tocar el criterio mueve los tres montones a la vez y eso
      * > es una medición entera, no el arreglo de un CI. Queda dicho y fechado.
+     *
+     * > **93 → 92 el 25 sep 2026**: `dis_procesos.deriva_de_tardanzas` empezó a leerse en
+     * > `PendientesController` —la misma que `InterruptoresSinLectorTest` tenía anotada—.
      */
-    private const SIN_LECTOR_EN_EL_BACKEND = 93;
+    private const SIN_LECTOR_EN_EL_BACKEND = 92;
 
     /** Las `tinyint(1)` del volcado, con las tablas donde están. Igual que la herramienta. */
     private function columnasBooleanas(): array

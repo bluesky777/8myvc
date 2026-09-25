@@ -28,8 +28,8 @@ final class LoDelGrupoDeUnaVez
     private array $frases = [];
 
     /**
-     * @param list<int> $alumnoIds
-     * @param list<int> $asignaturaIds
+     * @param  list<int>  $alumnoIds
+     * @param  list<int>  $asignaturaIds
      */
     public function __construct(array $alumnoIds, array $asignaturaIds, int $periodoId, int $hastaElPeriodo)
     {
@@ -88,7 +88,7 @@ final class LoDelGrupoDeUnaVez
     }
 
     /**
-     * @param list<object> $filas
+     * @param  list<object>  $filas
      * @return array<string, list<object>>
      */
     private static function repartir(array $filas, string $columnaDeAsignatura = 'asignatura_id'): array

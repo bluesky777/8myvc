@@ -9,17 +9,17 @@ use App\Models\Grado;
 use App\Models\Grupo;
 use App\Models\ImageModel;
 use App\Models\Profesor;
+use App\Support\AuditarModelo;
 use App\Support\Autoriza;
 use App\Support\CamposQueVinieron;
 use App\Support\ClaveNueva;
 use App\Support\CorreoDeLaCuenta;
+use App\Support\FichaEditada;
 use App\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Str;
-use App\Support\FichaEditada;
-use App\Support\AuditarModelo;
 
 class PerfilesController extends Controller
 {

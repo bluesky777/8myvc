@@ -162,7 +162,8 @@ final class RepartoDeLaNota
      * Se anida sin pisar a quien la encendió antes, y un `throw` la apaga igual.
      *
      * @template T
-     * @param callable(): T $armar
+     *
+     * @param  callable(): T  $armar
      * @return T
      */
     public static function recordandoElReparto(callable $armar)
