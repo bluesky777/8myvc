@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 use App\Support\LaParcialYLaCobertura;
+use App\Support\LoDelGrupoDeUnaVez;
 use App\Support\RepartoDeLaNota;
 use App\Models\Grupo;
 use App\Models\Periodo;
@@ -52,6 +53,9 @@ class BoletinesController extends Controller {
 	 */
 	private $escalas_val;
 	private $year;
+
+	/** Las definitivas, faltas y frases del grupo, mientras se arma (doc 48 §P3b). */
+	private ?LoDelGrupoDeUnaVez $loDelGrupo = null;
 
 	private function escalasVal()
 	{
@@ -267,6 +271,13 @@ class BoletinesController extends Controller {
 		$response_alumnos = [];
 		
 
+		$this->loDelGrupo = new LoDelGrupoDeUnaVez(
+			array_map(static fn ($a) => (int) $a->alumno_id, array_values($alumnos)),
+			array_map('intval', DB::table('asignaturas')->where('grupo_id', $grupo_id)->pluck('id')->all()),
+			(int) $user->periodo_id,
+			(int) $this->user->numero_periodo,
+		);
+
 		foreach ($alumnos as $alumno) {
 			// Todas las materias con sus unidades y subunides
 			$this->allNotasAlumno($alumno, $grupo_id, $user->periodo_id, true);
@@ -304,6 +315,8 @@ class BoletinesController extends Controller {
 		 * del año: quien fue independiente en el segundo cuenta con normalidad en el
 		 * tercero.
 		 */
+		$this->loDelGrupo = null;
+
 		BoletinIndependiente::ponerPuestos($alumnos, [(int) $user->periodo_id], (int) $user->year_id);
 
 		foreach ($alumnos as $alumno) {
@@ -346,7 +359,9 @@ class BoletinesController extends Controller {
 			// `null` mientras no se haya nivelado. Es la tabla «Periodo 1 · 2 · 3 · 4» del
 			// papel, así que aquí es donde el acudiente ve el antes y el después de un
 			// periodo cerrado, que es la novedad académica del art. 16 del 1290.
-			$asignaturas[$i]->notas_finales 		= DB::select('SELECT periodo, CAST(nota AS DOUBLE) AS nota, CAST(nota_original AS DOUBLE) AS nota_original, nivelada_at, manual, recuperada FROM notas_finales WHERE alumno_id=? and asignatura_id=? and periodo<=? order by periodo asc', [$alumno->alumno_id, $asignaturas[$i]->asignatura_id, $this->user->numero_periodo]);
+			$asignaturas[$i]->notas_finales 		= $this->loDelGrupo !== null
+				? $this->loDelGrupo->definitivas((int) $alumno->alumno_id, (int) $asignaturas[$i]->asignatura_id)
+				: DB::select('SELECT periodo, CAST(nota AS DOUBLE) AS nota, CAST(nota_original AS DOUBLE) AS nota_original, nivelada_at, manual, recuperada FROM notas_finales WHERE alumno_id=? and asignatura_id=? and periodo<=? order by periodo asc', [$alumno->alumno_id, $asignaturas[$i]->asignatura_id, $this->user->numero_periodo]);
 			$asignaturas[$i]->nota_faltante 		= 0;
 			$asignaturas[$i]->nota_definitiva_anio 	= 0;
 
@@ -420,8 +435,13 @@ class BoletinesController extends Controller {
 			$asignaturas[$i]->cobertura = LaParcialYLaCobertura::cobertura($medida['peso_evaluado'], $medida['peso_total']);
 			
 			if ($comport_and_frases) {
-				$asignaturas[$i]->ausencias		= Ausencia::deAlumno($asignaturas[$i]->asignatura_id, $alumno->alumno_id, $periodo_id);
-				$asignaturas[$i]->frases		= FraseAsignatura::deAlumno($asignaturas[$i]->asignatura_id, $alumno->alumno_id, $periodo_id);
+				if ($this->loDelGrupo !== null) {
+					$asignaturas[$i]->ausencias	= $this->loDelGrupo->ausencias((int) $alumno->alumno_id, (int) $asignaturas[$i]->asignatura_id);
+					$asignaturas[$i]->frases		= $this->loDelGrupo->frases((int) $alumno->alumno_id, (int) $asignaturas[$i]->asignatura_id);
+				} else {
+					$asignaturas[$i]->ausencias	= Ausencia::deAlumno($asignaturas[$i]->asignatura_id, $alumno->alumno_id, $periodo_id);
+					$asignaturas[$i]->frases		= FraseAsignatura::deAlumno($asignaturas[$i]->asignatura_id, $alumno->alumno_id, $periodo_id);
+				}
 			}
 
 			$sumatoria_asignaturas += $asignaturas[$i]->nota_asignatura; // Para sacar promedio del periodo
