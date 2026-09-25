@@ -55,6 +55,8 @@ Route::delete('certificados/destroy/{id}', [ConfigCertificadosController::class,
 // pide `can_view_auditoria`.
 Route::get('auditoria/alumno/{id}', [AuditoriaController::class, 'getAlumno'])->middleware('auth.personal');
 Route::get('auditoria/ficha/{tipo}/{id}', [AuditoriaController::class, 'getFicha'])->middleware('auth.personal');
+Route::put('auditoria/alcance/fechas', [AuditoriaController::class, 'putAlcanceFechas'])->middleware('auth.personal');
+Route::put('auditoria/alcance/lineas', [AuditoriaController::class, 'putAlcanceLineas'])->middleware('auth.personal');
 Route::get('auditoria/entidad/{tipo}/{id}', [AuditoriaController::class, 'getEntidad'])->middleware('auth.personal');
 Route::get('auditoria/ingresos', [AuditoriaController::class, 'getIngresos'])->middleware('auth.personal');
 Route::get('auditoria/ingresos/{id}', [AuditoriaController::class, 'getIngreso'])->middleware('auth.personal');

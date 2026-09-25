@@ -1077,6 +1077,8 @@ class DefinitivasPeriodosController extends Controller {
 			$consulta 	= 'UPDATE notas_finales SET recuperada=?, updated_by=?, updated_at=? WHERE id=?';
 			DB::update($consulta, [ $recu, $user->user_id, $now, Request::input('nf_id') ]);
 		}
+		$this->auditarFila('editar', 'nota_final', 'notas_finales', (int) Request::input('nf_id'),
+			$recu ? 'Marcó la definitiva como recuperada' : 'Quitó la marca de recuperada', $recu ? 1 : 0);
 		
 		return 'Cambiada';
 	}
@@ -1095,6 +1097,7 @@ class DefinitivasPeriodosController extends Controller {
 			return abort(403, 'No tienes privilegios.');
 		}
 		
+		$this->auditarFila('borrar', 'recuperacion_final', 'recuperacion_final', (int) Request::input('rf_id'), 'Eliminó la recuperación del año');
 		$consulta 	= 'DELETE FROM recuperacion_final WHERE id=?';
 		DB::update($consulta, [ Request::input('rf_id') ]);
 
@@ -1164,6 +1167,7 @@ class DefinitivasPeriodosController extends Controller {
 		if ($manual){
 			$consulta 	= 'UPDATE notas_finales SET manual=?, updated_by=?, updated_at=? WHERE id=?';
 			DB::update($consulta, [ $manual, $user->user_id, $now, $nf_id ]);
+			$this->auditarFila('editar', 'nota_final', 'notas_finales', (int) $nf_id, 'Marcó la definitiva como manual', 1);
 
 			return [ 'message' => 'Cambiada', 'manual' => true, 'definitiva' => null ];
 		}
@@ -1178,6 +1182,7 @@ class DefinitivasPeriodosController extends Controller {
 
 		$consulta 	= 'UPDATE notas_finales SET manual=?, recuperada=?, updated_by=?, updated_at=? WHERE id=?';
 		DB::update($consulta, [ $manual, false, $user->user_id, $now, $nf_id ]);
+		$this->auditarFila('editar', 'nota_final', 'notas_finales', (int) $nf_id, 'Quitó la marca de manual', 0);
 
 		$definitiva = null;
 
@@ -1205,10 +1210,33 @@ class DefinitivasPeriodosController extends Controller {
 		$user 	= User::fromToken();
 		User::pueden_modificar_definitivas($user, PeriodoDeLaFila::deNotaFinal($id));
 		DefinitivasAMano::exigir($user, PeriodoDeLaFila::deNotaFinal($id));
+		$this->auditarFila('borrar', 'nota_final', 'notas_finales', (int) $id, 'Eliminó la definitiva');
 		$consulta 	= 'DELETE FROM notas_finales WHERE id=?';
 		DB::delete($consulta, [$id]);
 
 		return 'Eliminada';
+	}
+
+	/**
+	 * Una línea de auditoría sobre una fila de `notas_finales` o `recuperacion_final`, con
+	 * su alumno, asignatura y periodo leídos de la fila. Para los interruptores M/R y los
+	 * borrados, que hasta el 25 sep 2026 no dejaban rastro y la columna Historial de la
+	 * planilla no los veía. Se llama ANTES de un borrado, que después no hay fila que leer.
+	 */
+	private function auditarFila(string $accion, string $entidad, string $tabla, int $id, string $resumen, $valor = null): void
+	{
+		$periodo = $tabla === 'notas_finales' ? 'periodo_id' : 'NULL AS periodo_id';
+		$fila = DB::selectOne("SELECT alumno_id, asignatura_id, {$periodo} FROM {$tabla} WHERE id = ?", [$id]);
+		if (! $fila) {
+			return;
+		}
+
+		$linea = Auditoria::registrar();
+		$linea = $accion === 'borrar' ? $linea->borrar($entidad, $id) : $linea->editar($entidad, $id)->a($valor);
+		$linea->deAlumno((int) $fila->alumno_id)
+			->en(asignatura: (int) $fila->asignatura_id, periodo: $fila->periodo_id ? (int) $fila->periodo_id : null)
+			->resumen($resumen)
+			->guardar();
 	}
 
 

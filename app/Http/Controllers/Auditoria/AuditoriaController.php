@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Http\Controllers\Controller;
 use App\Services\Auditoria;
 use App\Support\Autoriza;
+use App\Support\AlcanceAcademico;
 use App\Support\FichaEditada;
 use App\Support\Reloj;
 use Illuminate\Http\JsonResponse;
@@ -268,6 +269,56 @@ class AuditoriaController extends Controller
             'acciones' => $acciones,
             'hay_mas' => $hayMas,
         ]);
+    }
+
+    /**
+     * Las columnas Historial de las pantallas académicas (planilla, asistencias,
+     * comportamiento…): lo que ESA tabla enseña de cada alumno. Ver `AlcanceAcademico`.
+     *
+     * `PUT auditoria/alcance/fechas` → `{fechas: {alumno_id: fecha}}` para toda la rejilla;
+     * `PUT auditoria/alcance/lineas` → las líneas de un alumno, con la forma de las demás.
+     */
+    public function putAlcanceFechas(Request $peticion): JsonResponse
+    {
+        [$entidades, $filtros] = $this->alcance($peticion);
+        $alumnos = array_values(array_filter(array_map('intval', (array) $peticion->input('alumnos', []))));
+
+        return response()->json(['fechas' => (object) AlcanceAcademico::fechas($entidades, $alumnos, $filtros)]);
+    }
+
+    public function putAlcanceLineas(Request $peticion): JsonResponse
+    {
+        [$entidades, $filtros] = $this->alcance($peticion);
+        $alumno = (int) $peticion->input('alumno_id');
+        if ($alumno <= 0) {
+            return response()->json(['message' => 'Falta el alumno'], 422);
+        }
+
+        [$sub, $parametros] = AlcanceAcademico::lineas($entidades, [$alumno], $filtros);
+        [$acciones, $hayMas] = $this->lineas("a.id IN (SELECT x.id FROM ($sub) x)", $parametros, self::ORDEN);
+
+        return response()->json(['alumno_id' => $alumno, 'acciones' => $acciones, 'hay_mas' => $hayMas]);
+    }
+
+    /** @return array{0: string[], 1: array<string, int>} */
+    private function alcance(Request $peticion): array
+    {
+        Autoriza::exigir(
+            Autoriza::puedeVerAuditoria($this->user),
+            'No tiene permiso para ver la auditoría'
+        );
+
+        $entidades = array_values(array_intersect((array) $peticion->input('entidades', []), AlcanceAcademico::entidades()));
+        abort_if(! $entidades, 422, 'Ninguna entidad del alcance');
+
+        $filtros = [];
+        foreach (['asignatura_id', 'periodo_id', 'year', 'year_id'] as $clave) {
+            if ($peticion->filled($clave)) {
+                $filtros[$clave] = (int) $peticion->input($clave);
+            }
+        }
+
+        return [$entidades, $filtros];
     }
 
     /**
