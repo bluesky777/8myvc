@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Models\Rubrica;
+use App\Services\Auditoria;
 use App\Support\NombreDelAlumno;
 use App\Support\Reloj;
 use App\User;
@@ -1090,6 +1091,10 @@ class RubricasController extends Controller
     {
         $ahora = Reloj::ahoraTexto();
         $usuario = (int) $this->user->user_id;
+        $antes = collect(DB::select(
+            'SELECT criterio_id, nivel_id, comentario FROM rubrica_valoraciones WHERE nota_id = ? AND momento = ?',
+            [$notaId, $momento]
+        ))->keyBy('criterio_id');
 
         foreach ($marcas as $m) {
             if ($m['nivel_id'] === null) {
@@ -1109,6 +1114,49 @@ class RubricasController extends Controller
                 [$notaId, $m['criterio_id'], $m['nivel_id'], $momento, $m['comentario'], $usuario, $usuario, $ahora, $ahora]
             );
         }
+
+        $this->auditarMarcas($notaId, $momento, $marcas, $antes->all());
+    }
+
+    /**
+     * UNA línea de auditoría por nota y llamada, con los criterios que cambiaron —no una
+     * por marca: un lote de un grupo son cientos—. Si no cambió nada, no escribe. La nota
+     * va de `entidad_id` y el alumno, la asignatura y el periodo salen de ella, que es lo
+     * que busca la columna Historial de la planilla y de la parrilla.
+     *
+     * @param  list<array{criterio_id: int, nivel_id: ?int, comentario: ?string}>  $marcas
+     * @param  array<int, object>  $antes
+     */
+    private function auditarMarcas(int $notaId, string $momento, array $marcas, array $antes): void
+    {
+        $cambios = [];
+        foreach ($marcas as $m) {
+            $previa = $antes[$m['criterio_id']] ?? null;
+            $nivelAntes = $previa ? (int) $previa->nivel_id : null;
+            $comentarioAntes = $previa->comentario ?? null;
+            if ($nivelAntes !== $m['nivel_id'] || ($m['nivel_id'] !== null && $comentarioAntes !== $m['comentario'])) {
+                $cambios[$m['criterio_id']] = $m['nivel_id'];
+            }
+        }
+        if (! $cambios) {
+            return;
+        }
+
+        $nota = DB::selectOne(
+            'SELECT n.alumno_id, u.asignatura_id, u.periodo_id FROM notas n
+               JOIN subunidades s ON s.id = n.subunidad_id
+               JOIN unidades u ON u.id = s.unidad_id
+              WHERE n.id = ?',
+            [$notaId]
+        );
+
+        Auditoria::registrar()
+            ->editar('rubrica_valoracion', $notaId)
+            ->deAlumno($nota ? (int) $nota->alumno_id : null)
+            ->en(asignatura: $nota ? (int) $nota->asignatura_id : null, periodo: $nota ? (int) $nota->periodo_id : null)
+            ->a($cambios)
+            ->resumen('Calificó con rúbrica ('.$momento.'): '.count($cambios).' criterio'.(count($cambios) === 1 ? '' : 's'))
+            ->guardar();
     }
 
     /**

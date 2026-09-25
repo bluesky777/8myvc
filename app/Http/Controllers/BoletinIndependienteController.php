@@ -220,6 +220,15 @@ class BoletinIndependienteController extends Controller
                 [$alumnoId, $periodoId, $aplica ? 1 : 0, $this->user->user_id, $ahora, $ahora]
             );
 
+            $fila = DB::selectOne('SELECT id FROM bol_ind_periodos WHERE alumno_id = ? AND periodo_id = ?', [$alumnoId, $periodoId]);
+            Auditoria::registrar()
+                ->editar('bol_ind_periodo', $fila ? (int) $fila->id : null)
+                ->deAlumno((int) $alumnoId)
+                ->en(periodo: (int) $periodoId)
+                ->a($aplica ? 1 : 0)
+                ->resumen($aplica ? 'Le puso boletín independiente' : 'Le quitó el boletín independiente')
+                ->guardar();
+
             // **Lo que acabamos de escribir invalida lo que el servicio cacheó, y sin
             // esto la MISMA petición sigue contestando con lo de antes.**
             //
@@ -1633,6 +1642,15 @@ class BoletinIndependienteController extends Controller
         foreach ($resultados as $fila) {
             if ($fila['resultado'] === 'copiado') {
                 DefinitivasDeAsignatura::recalcular($asignaturaId, $periodoId, $this->user->user_id, $fila['alumno_id']);
+
+                // Una línea por alumno, no una por nota copiada: la columna Historial del
+                // boletín independiente la encuentra por alumno, asignatura y periodo.
+                Auditoria::registrar()
+                    ->crear('unidad')
+                    ->deAlumno((int) $fila['alumno_id'])
+                    ->en(asignatura: (int) $asignaturaId, periodo: (int) $periodoId)
+                    ->resumen('Le copió las unidades'.($conNotas ? ' y las notas' : '').' del boletín independiente')
+                    ->guardar();
             }
         }
 

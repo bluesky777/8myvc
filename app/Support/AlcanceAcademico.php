@@ -62,7 +62,49 @@ final class AlcanceAcademico
             'sql' => 'SELECT t.id, t.alumno_id FROM dis_libro_rojo t WHERE t.alumno_id IN ({A})',
             'filtros' => ['year_id' => 't.year_id'],
         ],
+        // Las marcas de una rúbrica se auditan UNA línea por nota y llamada, con la nota
+        // como `entidad_id` (`RubricasController::escribirMarcas`): por eso sus filas
+        // son las de `notas`, no las de `rubrica_valoraciones`.
+        'rubrica_valoracion' => [
+            'sql' => 'SELECT n.id, n.alumno_id FROM notas n
+                        JOIN subunidades s ON s.id = n.subunidad_id
+                        JOIN unidades u ON u.id = s.unidad_id
+                       WHERE n.alumno_id IN ({A})',
+            'filtros' => ['asignatura_id' => 'u.asignatura_id', 'periodo_id' => 'u.periodo_id', 'subunidad_id' => 'n.subunidad_id'],
+            'tabla' => 'rubrica_valoraciones',
+        ],
+        'bol_ind_periodo' => [
+            'sql' => 'SELECT t.id, t.alumno_id FROM bol_ind_periodos t WHERE t.alumno_id IN ({A})',
+            'filtros' => ['periodo_id' => 't.periodo_id'],
+        ],
+        // Las unidades propias de un alumno: las del boletín independiente.
+        'unidad' => [
+            'sql' => 'SELECT t.id, t.alumno_id FROM unidades t WHERE t.alumno_id IN ({A})',
+            'filtros' => ['asignatura_id' => 't.asignatura_id', 'periodo_id' => 't.periodo_id'],
+        ],
+        'piar' => [
+            'sql' => 'SELECT t.id, t.alumno_id FROM piars_alumnos t WHERE t.alumno_id IN ({A})',
+            'filtros' => ['year_id' => 't.year_id'],
+            'tabla' => 'piars_alumnos',
+        ],
     ];
+
+    /**
+     * Si la tabla de una entidad existe en ESTE colegio. `piars_alumnos` está en el
+     * esquema pero no en todas las bases (la copia de La Hermosa no la tiene, 25 sep
+     * 2026): una consulta a una tabla que falta tumbaría la columna entera por una
+     * entidad que ese colegio ni usa.
+     */
+    private static function hayTabla(array $def): bool
+    {
+        static $vistas = [];
+        $tabla = $def['tabla'] ?? null;
+        if ($tabla === null) {
+            return true;
+        }
+
+        return $vistas[$tabla] ??= \Illuminate\Support\Facades\Schema::hasTable($tabla);
+    }
 
     /** Los filtros de contexto que se aceptan, y su columna en `auditoria`. */
     private const CONTEXTO = ['asignatura_id' => 'asignatura_id', 'periodo_id' => 'periodo_id', 'year_id' => 'year_id'];
@@ -90,7 +132,7 @@ final class AlcanceAcademico
 
         foreach ($entidades as $entidad) {
             $def = self::ENTIDADES[$entidad] ?? null;
-            if (! $def) {
+            if (! $def || ! self::hayTabla($def)) {
                 continue;
             }
 

@@ -219,6 +219,10 @@ final class Auditoria
         'grupo' => 'grupos',
         'area' => 'areas',
         'materia' => 'materias',
+        // Desde el 25 sep 2026, por las columnas Historial académicas. `rubrica_valoracion`
+        // lleva la NOTA como id: una línea por nota y llamada, no una por marca.
+        'rubrica_valoracion' => 'rubrica_valoraciones',
+        'bol_ind_periodo' => 'bol_ind_periodos',
         'piar' => 'piars_alumnos',
         'antecedente' => 'antecedentes',
         'registro_enfermeria' => 'registros_enfermeria',

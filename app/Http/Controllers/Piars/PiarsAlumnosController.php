@@ -142,8 +142,11 @@ class PiarsAlumnosController extends Controller {
 		 * cuándo; el contenido anterior es el hueco conocido de esta línea y se cierra
 		 * el día que la pantalla del PIAR pida ver versiones.
 		 */
+		$delPiar = DB::selectOne('SELECT alumno_id, year_id FROM piars_alumnos WHERE id = ?', [$id]);
 		Auditoria::registrar()
 			->editar('piar', (int) $id)
+			->deAlumno($delPiar ? (int) $delPiar->alumno_id : null)
+			->en(year: $delPiar ? (int) $delPiar->year_id : null)
 			->resumen('Editó el campo '.$field.' del PIAR')
 			->guardar();
 
