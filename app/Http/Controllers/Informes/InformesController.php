@@ -67,11 +67,13 @@ class InformesController extends Controller {
 		$periodos 	= DB::select($consulta, [$user->year_id]);
 		
 		
+		// **Estos `$grupos` pisan los de arriba y son los que se devuelven**: sin `ORDER BY`
+		// salían por `id` y el desplegable de Informes ponía Jardín detrás de Quinto.
 		if ($user->tipo == 'Profesor') {
-			$consulta 	= 'SELECT *, id as grupo_id FROM grupos WHERE titular_id=? and deleted_at is null and year_id=?';
+			$consulta 	= 'SELECT *, id as grupo_id FROM grupos WHERE titular_id=? and deleted_at is null and year_id=? ORDER BY orden, id';
 			$grupos 	= DB::select($consulta, [ $user->persona_id, $user->year_id ]);	
 		}else{
-			$consulta 	= 'SELECT *, id as grupo_id FROM grupos WHERE deleted_at is null and year_id=?';
+			$consulta 	= 'SELECT *, id as grupo_id FROM grupos WHERE deleted_at is null and year_id=? ORDER BY orden, id';
 			$grupos 	= DB::select($consulta, [ $user->year_id ]);	
 		}
 		
