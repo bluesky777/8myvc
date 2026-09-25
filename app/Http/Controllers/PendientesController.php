@@ -1661,7 +1661,10 @@ class PendientesController extends Controller
         // Lo que lee la tarjeta flotante del alumno en el front (`comunes/ficha`).
         $id = (int) ($a->alumno_id ?? $a->id ?? 0);
         if ($id !== 0) {
-            $fila += ['alumno_id' => $id, 'foto_nombre' => $a->foto ?? null, 'nombre_grupo' => $grupo];
+            $fila += [
+                'alumno_id' => $id, 'foto_nombre' => $a->foto ?? null,
+                'nombre_grupo' => $a->nombre_grupo ?? $grupo, 'abrev_grupo' => $a->abrev_grupo ?? null,
+            ];
         }
 
         $destino ??= $a === null ? null : $this->alaFicha($a);
