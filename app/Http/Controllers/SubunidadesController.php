@@ -10,6 +10,7 @@ use App\Services\DefinitivasDeAsignatura;
 use App\Support\AsignaturaDeLaFila;
 use App\Support\CandadoDeLaPlantilla;
 use App\Support\PeriodoDeLaFila;
+use App\Support\Reloj;
 use App\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -213,6 +214,13 @@ class SubunidadesController extends Controller
                 $subunidad->save();
 
             }
+        }
+
+        // **Mover una subunidad de unidad cambia lo que pesa**: pasa a multiplicarse
+        // por el porcentaje de la otra. No recalculaba (censo del 25 sep 2026), y el
+        // sello sí lo veía, así que el tablero lo marcaba y nadie lo arreglaba.
+        foreach (array_unique([(int) $unidad1_id, (int) $unidad2_id]) as $unidadId) {
+            DefinitivasDeAsignatura::recalcularPorUnidad($unidadId, $user->user_id);
         }
 
         return 'Ordenado correctamente';
@@ -441,9 +449,13 @@ class SubunidadesController extends Controller
         // Las dos salieron del mismo inventario. Ver 05 §47.
         User::pueden_editar_notas($user, PeriodoDeLaFila::deSubunidad($id), AsignaturaDeLaFila::deSubunidad($id));
 
-        $consulta = 'UPDATE subunidades SET deleted_at=NULL WHERE id=?';
+        // **Con `updated_at`**: sin él, quitar el `deleted_at` BAJA el sello y la
+        // definitiva que no incluye esta subunidad se daba por al día.
+        $consulta = 'UPDATE subunidades SET deleted_at=NULL, updated_at=? WHERE id=?';
 
-        DB::update($consulta, [$id]);
+        DB::update($consulta, [Reloj::ahora(), $id]);
+
+        DefinitivasDeAsignatura::recalcularPorSubunidad((int) $id, $user->user_id);
 
         return 'Retaurada';
     }

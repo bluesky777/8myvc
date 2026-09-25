@@ -1,6 +1,7 @@
 <?php namespace App\Http\Controllers;
 
 use App\Services\Auditoria;
+use App\Services\DefinitivasDeAsignatura;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -221,6 +222,15 @@ class DetallesController extends Controller {
 						inner join asignaturas a on a.id=u.asignatura_id and a.grupo_id=:grupo_id
 						where n.alumno_id=:alumno_id';
 		$eliminados = DB::delete($consulta, [':periodo_id' => $periodo_id, ':grupo_id' => $grupo_id, ':alumno_id' => $alumno_id]);
+
+		// **Borrado físico: el sello no se entera**, así que la definitiva que se hizo
+		// con estas notas se quedaba puesta y dada por buena. Sólo su fila: a los
+		// compañeros no les cambia nada.
+		if ($eliminados > 0 && $periodo_id) {
+			foreach ($asignaturasDelGrupo as $asignaturaId) {
+				DefinitivasDeAsignatura::recalcular($asignaturaId, (int) $periodo_id, $user->user_id, (int) $alumno_id);
+			}
+		}
 
 		return $eliminados;
 	}

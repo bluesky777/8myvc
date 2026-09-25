@@ -105,6 +105,13 @@ class InformesController extends Controller {
 	 * Es lo que el tablero de Informes pinta como «Notas finales desactualizadas» y
 	 * lo que decide si salen los botones «Calcular definitivas per N».
 	 *
+	 * > **Desde el 25 sep 2026 lo mide `diferenciasDelGrupo()`**, que compara el valor
+	 * > guardado con el calculado, y no `estadoDelGrupo()`, que compara fechas. En la
+	 * > copia de `lal` el sello marcaba 1.068 definitivas y ninguna estaba atrasada por
+	 * > una escritura; el porqué, en el docblock de `diferenciasDelGrupo()`. Lo de abajo
+	 * > es la historia del sello y se conserva: explica por qué el detector de fechas
+	 * > sigue sirviendo para decidir si recalcular, y no para dar la alarma.
+	 *
 	 * ## Desde el 17 sep 2026 lo mide `estadoDelGrupo()`, y antes NO medía esto
 	 *
 	 * Hasta esa fecha era una consulta propia:
@@ -174,7 +181,7 @@ class InformesController extends Controller {
 			$desactualizados = [];
 
 			foreach ($grupos as $grupo) {
-				$estado 	= DefinitivasDeAsignatura::estadoDelGrupo((int) $grupo->id, (int) $periodo->id);
+				$estado 	= DefinitivasDeAsignatura::diferenciasDelGrupo((int) $grupo->id, (int) $periodo->id);
 
 				$faltan 	= array_sum(array_column($estado, 'faltan'));
 				$atrasadas 	= array_sum(array_column($estado, 'atrasadas'));

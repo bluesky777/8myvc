@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Support\CierreDeLoNoCalificado;
 use App\Support\Reloj;
 use App\Support\RepartoDeLaNota;
+use App\Support\SellaConElReloj;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -1160,6 +1161,172 @@ class DefinitivasDeAsignatura
                 'desactualizada' => $faltan > 0 || $atrasadas > 0,
             ];
         }, $filas);
+    }
+
+    /**
+     * Qué definitivas del grupo **valen otra cosa** que la que saldría de calcularlas
+     * ahora. Es lo que pinta el tablero de Informes, y no `estadoDelGrupo()`.
+     *
+     * ## Por qué el aviso compara el VALOR y no el sello
+     *
+     * El sello contesta *«¿pudo cambiar algo desde que se escribió?»*, que es la
+     * pregunta correcta para decidir si **recalcular** —un sí de más cuesta un
+     * recálculo— y la equivocada para decidir si **dar la alarma**, que si sale de
+     * más se queda puesta y enseña al colegio a no mirarla. Medido el 25 sep 2026
+     * sobre la copia de `lal` del 24: el sello marcaba **1.068** definitivas en 20
+     * grupo-periodo, y recalculándolas **ninguna** había quedado atrás por una
+     * escritura. Venían de cuatro sitios, los cuatro del sello y ninguno de la nota:
+     *
+     * - **el sello es por asignatura y el recálculo por alumno**: `notas/update`
+     *   recalcula al alumno de la casilla, y a sus compañeros los marcaba la nota de
+     *   otro — 428 de 428 en el periodo 3;
+     * - **el empate cuenta como atrasado**: la nota y su recálculo caen en el mismo
+     *   segundo — 143;
+     * - **filas de antes del 21 sep en otro reloj** ({@see SellaConElReloj}):
+     *   en `lal`, cuyo MySQL va en hora de Nueva York, cuatro horas justas;
+     * - **una matrícula nueva** marca todas las asignaturas del grupo, incluida la
+     *   que no tiene una sola nota que el botón pueda reescribir.
+     *
+     * Y al revés, lo que el sello **no puede ver**: de las 76 definitivas que sí
+     * valían otra cosa —el cambio de fórmula del 22–24 sep, lo no calificado fuera
+     * de la cuenta— **38 estaban en asignaturas que el tablero no marcaba**, porque
+     * cambiar la regla no mueve ningún `updated_at`. Comparando el valor salen las 76
+     * y sólo ellas, y **no depende de ningún reloj**.
+     *
+     * ## Qué cuenta, con los criterios del botón que la acompaña
+     *
+     * El aviso va al lado de «Calcular definitivas perN» (`putCalcularGrupoPeriodo`),
+     * así que **sólo cuenta lo que ese botón quita**, o sería el aviso de Zaragoza
+     * otra vez (21 sep):
+     *
+     * - `faltan`: matriculado (`MATR`/`ASIS`) sin fila **y con alguna casilla** en
+     *   esa asignatura —el botón sale de un `INNER JOIN notas`—;
+     * - `atrasadas`: fila automática cuyo valor difiere del calculado en más de lo
+     *   que cabe en `DECIMAL(7,4)`. `manual` y `recuperada` no se miran: nadie las
+     *   recalcula;
+     * - sólo **boletines montados**: sin unidades en el periodo `recalcular()` no
+     *   escribe nada, y la definitiva que haya ahí no se compara con un 0 inventado.
+     *
+     * Cuesta un `calcular()` por asignatura: **~1,4 ms**, medido sobre la misma copia
+     * (756 en 1,06 s). Es el precio de que la lista diga la verdad en una pantalla que
+     * se abre pocas veces.
+     *
+     * @return array<int, array{asignatura_id:int, alumnos:int, faltan:int,
+     *     atrasadas:int, desactualizada:bool}>
+     */
+    public static function diferenciasDelGrupo(int $grupoId, int $periodoId): array
+    {
+        $matriculados = [];
+        foreach (DB::select(
+            'SELECT DISTINCT alumno_id FROM matriculas
+              WHERE grupo_id = ? AND deleted_at IS NULL AND estado IN ("MATR", "ASIS")',
+            [$grupoId]
+        ) as $fila) {
+            $matriculados[(int) $fila->alumno_id] = true;
+        }
+
+        // La fila que miran todos los lectores es la de `id` menor, igual que en
+        // `recalcular()` y en `estadoDelGrupo()`; los duplicados son de la fase 2.
+        $guardadas = [];
+        foreach (DB::select(
+            'SELECT nf.asignatura_id, nf.alumno_id, nf.nota, nf.manual, nf.recuperada
+               FROM notas_finales nf
+               INNER JOIN (
+                    SELECT MIN(nf2.id) AS id
+                      FROM notas_finales nf2
+                      INNER JOIN asignaturas aa ON aa.id = nf2.asignatura_id
+                     WHERE aa.grupo_id = ? AND nf2.periodo_id = ?
+                     GROUP BY nf2.alumno_id, nf2.asignatura_id
+               ) primera ON primera.id = nf.id',
+            [$grupoId, $periodoId]
+        ) as $fila) {
+            $guardadas[(int) $fila->asignatura_id][(int) $fila->alumno_id] = $fila;
+        }
+
+        $montados = [];
+        foreach (DB::select(
+            'SELECT DISTINCT u.asignatura_id, u.alumno_id
+               FROM unidades u
+               INNER JOIN asignaturas a ON a.id = u.asignatura_id
+              WHERE a.grupo_id = ? AND u.periodo_id = ? AND u.deleted_at IS NULL',
+            [$grupoId, $periodoId]
+        ) as $fila) {
+            $montados[(int) $fila->asignatura_id][$fila->alumno_id === null ? 'grupo' : (string) (int) $fila->alumno_id] = true;
+        }
+
+        $resultado = [];
+        foreach (DB::select(
+            'SELECT id FROM asignaturas WHERE grupo_id = ? AND deleted_at IS NULL ORDER BY id',
+            [$grupoId]
+        ) as $asignatura) {
+            $asignaturaId = (int) $asignatura->id;
+            $faltan = 0;
+            $atrasadas = 0;
+
+            if (isset($montados[$asignaturaId])) {
+                foreach (self::calcular($asignaturaId, $periodoId) as $fila) {
+                    $alumnoId = (int) $fila->alumno_id;
+                    $boletin = $fila->dueno === null ? 'grupo' : (string) (int) $fila->dueno;
+
+                    if (! isset($montados[$asignaturaId][$boletin]) || ! isset($matriculados[$alumnoId])) {
+                        continue;
+                    }
+
+                    $guardada = $guardadas[$asignaturaId][$alumnoId] ?? null;
+
+                    if ($guardada === null) {
+                        if ((int) $fila->notas > 0) {
+                            $faltan++;
+                        }
+
+                        continue;
+                    }
+
+                    if ($guardada->manual || $guardada->recuperada) {
+                        continue;
+                    }
+
+                    if (self::valeOtraCosa((float) $guardada->nota, (float) $fila->nota)) {
+                        $atrasadas++;
+                    }
+                }
+            }
+
+            $resultado[] = [
+                'asignatura_id' => $asignaturaId,
+                'alumnos' => count($matriculados),
+                'faltan' => $faltan,
+                'atrasadas' => $atrasadas,
+                'desactualizada' => $faltan > 0 || $atrasadas > 0,
+            ];
+        }
+
+        return $resultado;
+    }
+
+    /**
+     * Si la guardada es **otro número** que la calculada, y no la misma escrita con
+     * otra regla de redondeo.
+     *
+     * Las dos salen de un `DECIMAL(7,4)`, así que la mitad de su último decimal separa
+     * «otro número» de «el mismo leído como float». **Salvo la guardada entera**: hasta
+     * `912830a` (30 ago 2026, y en cada colegio hasta que se le desplegó) la definitiva
+     * se guardaba redondeada a unidades, y un 46 escrito así cuando la cuenta da 46,275
+     * **es la misma definitiva**, no una atrasada. Sin esta excepción el tablero marcaba
+     * todo periodo calculado antes y no vuelto a calcular —en
+     * la base de tests, un grupo entero del periodo 1—, que es un aviso que el botón sí
+     * apaga pero que no dice nada verdadero. Se da por buena cuando redondeando la
+     * calculada sale ella; si no sale, sí vale otra cosa.
+     */
+    private static function valeOtraCosa(float $guardada, float $calculada): bool
+    {
+        if (abs($guardada - $calculada) < 0.00005) {
+            return false;
+        }
+
+        $entera = abs($guardada - round($guardada)) < 0.00005;
+
+        return ! ($entera && abs(round($calculada) - $guardada) < 0.00005);
     }
 
     /**

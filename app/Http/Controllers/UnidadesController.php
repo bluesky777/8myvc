@@ -12,6 +12,7 @@ use App\Support\AlcanceDeLaPlantilla;
 use App\Support\AsignaturaDeLaFila;
 use App\Support\CandadoDeLaPlantilla;
 use App\Support\PeriodoDeLaFila;
+use App\Support\Reloj;
 use App\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -622,9 +623,13 @@ class UnidadesController extends Controller
         // esto. Ver 05 §47.
         User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad($id), AsignaturaDeLaFila::deUnidad($id));
 
-        $consulta = 'UPDATE unidades SET deleted_at=NULL WHERE id=?';
+        // **Con `updated_at`**: sin él, quitar el `deleted_at` BAJA el sello y la
+        // definitiva que no incluye esta unidad se daba por al día.
+        $consulta = 'UPDATE unidades SET deleted_at=NULL, updated_at=? WHERE id=?';
 
-        DB::update($consulta, [$id]);
+        DB::update($consulta, [Reloj::ahora(), $id]);
+
+        DefinitivasDeAsignatura::recalcularPorUnidad((int) $id, $user->user_id);
 
         return 'Retaurada';
     }

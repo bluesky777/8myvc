@@ -241,6 +241,13 @@ class PeriodosController extends Controller {
 			$quedaAbierto ? 'Abrió el periodo para que los docentes editen notas' : 'Cerró el periodo a los docentes');
 
 		if ($salida === null) {
+			// **Reabrir un periodo cerrado en `cero` cambia la fórmula**: abierto,
+			// la definitiva vuelve a dividir por lo evaluado (`normalizaLaDefinitiva`),
+			// y con unidades que no suman 100 eso es otro número. Censo del 25 sep 2026.
+			if ($quedaAbierto && ! $estado['abierto'] && $estado['congelado'] === CierreDeLoNoCalificado::CERO) {
+				DefinitivasDeAsignatura::rehacerElPeriodo((int) $periodo->id, $this->user->user_id);
+			}
+
 			return 'Cambiado';
 		}
 
@@ -249,14 +256,20 @@ class PeriodosController extends Controller {
 				(int) $periodo->id, $this->user->user_id
 			);
 
-			// **Y la definitiva no se mueve ni un decimal al hacer esto**, que es lo
-			// que hay que saber antes de asustarse por el número: la definitiva no
-			// normaliza, así que `SUM(peso × NULL)` y `SUM(peso × 0)` son el mismo
-			// número. Lo que cambia —y es el punto entero— es que a partir de ahora la
-			// cobertura del periodo es del 100 %, la parcial coincide con lo que
-			// imprime el boletín y el semáforo deja de estar gris. *En un periodo
-			// cerrado, lo que ve la familia y lo que dice el papel vuelven a ser el
-			// mismo número.*
+			// **Y la definitiva SÍ se mueve, desde el 22 sep 2026.** Aquí decía que no,
+			// porque la definitiva no normalizaba y `SUM(peso × NULL)` y `SUM(peso × 0)`
+			// eran el mismo número. Desde que abierto se divide por lo evaluado, cerrar
+			// en `cero` cambia la fórmula —deja de dividir— y la definitiva guardada es
+			// la de la fórmula de antes, sin que ningún `updated_at` lo diga. Se rehace
+			// como en la rama `fuera`.
+			DefinitivasDeAsignatura::rehacerElPeriodo(
+				(int) $periodo->id, $this->user->user_id
+			);
+
+			// Lo que cambia además es que a partir de ahora la cobertura del periodo es
+			// del 100 %, la parcial coincide con lo que imprime el boletín y el semáforo
+			// deja de estar gris. *En un periodo cerrado, lo que ve la familia y lo que
+			// dice el papel vuelven a ser el mismo número.*
 			return 'Periodo cerrado. '.$puestas
 				.' casillas sin calificar pasaron a cero.';
 		}

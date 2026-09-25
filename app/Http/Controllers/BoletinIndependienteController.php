@@ -276,6 +276,20 @@ class BoletinIndependienteController extends Controller
             }
         });
 
+        // **Marcar o desmarcar cambia de qué boletín sale su definitiva** —el suyo o
+        // el del grupo—, así que la que tenía se hizo con otras unidades. No
+        // recalculaba (censo del 25 sep 2026). Sólo su fila en cada asignatura.
+        foreach (DB::select(
+            'SELECT a.id
+               FROM asignaturas a
+               INNER JOIN matriculas m ON m.grupo_id = a.grupo_id AND m.deleted_at IS NULL
+               INNER JOIN grupos g ON g.id = a.grupo_id AND g.deleted_at IS NULL AND g.year_id = ?
+              WHERE m.alumno_id = ? AND a.deleted_at IS NULL',
+            [$periodo->year_id, $alumnoId]
+        ) as $asignatura) {
+            DefinitivasDeAsignatura::recalcular((int) $asignatura->id, (int) $periodoId, $this->user->user_id, (int) $alumnoId);
+        }
+
         /*
          * **La línea de auditoría va FUERA de la transacción y sólo al marcar.**
          *
