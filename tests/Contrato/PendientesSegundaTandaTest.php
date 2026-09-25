@@ -226,7 +226,11 @@ class PendientesSegundaTandaTest extends CasoDeContrato
         $fila = collect($p['filas'])->firstWhere('destino.query.alumno', (int) $a->alumno_id);
         $this->assertNotNull($fila, 'El alumno no está entre las filas.');
         $this->assertSame('3 tardanzas', $fila['nota']);
-        $this->assertSame(['grupo' => (int) $a->grupo_id, 'alumno' => (int) $a->alumno_id], $fila['destino']['query']);
+        // `periodo` sólo va si el colegio cuenta por periodo: depende de la configuración de la base.
+        $this->assertSame(
+            ['grupo' => (int) $a->grupo_id, 'alumno' => (int) $a->alumno_id, 'abrir' => 'tardanzas'],
+            array_diff_key($fila['destino']['query'], ['periodo' => 0])
+        );
 
         $this->assertArrayNotHasKey('tardanzas_sin_situacion', $this->mios($this->tokenCon('Secretario')));
 
@@ -263,6 +267,7 @@ class PendientesSegundaTandaTest extends CasoDeContrato
         $p = $this->mios($coord)['situaciones_sin_escalar'] ?? null;
         $this->assertNotNull($p);
         $this->assertStringStartsWith('2 ', $p['filas'][0]['nota']);
+        $this->assertSame('tipo1', $p['filas'][0]['destino']['query']['abrir']);
 
         $t2 = DB::table('dis_procesos')->insertGetId(['alumno_id' => $a->alumno_id, 'year_id' => $this->anio(), 'periodo_id' => $periodo, 'tipo_situacion' => 2, 'deriva_de_tipos1' => 1]);
         DB::table('dis_procesos')->whereIn('id', $ids)->update(['become_id' => $t2]);

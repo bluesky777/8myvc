@@ -964,13 +964,16 @@ class PendientesController extends Controller
         $filtro = '';
         $datos = [(int) $year->id];
 
+        $periodo = null;
+
         if ($porPeriodo) {
-            $actual = DB::selectOne('SELECT id FROM periodos WHERE year_id = ? AND actual = 1 AND deleted_at IS NULL', [(int) $year->id]);
+            $actual = DB::selectOne('SELECT id, numero FROM periodos WHERE year_id = ? AND actual = 1 AND deleted_at IS NULL', [(int) $year->id]);
             if ($actual === null) {
                 return null;
             }
             $filtro = ' AND p.id = ?';
             $datos[] = (int) $actual->id;
+            $periodo = (int) $actual->numero;
         }
 
         $cuentas = DB::select(
@@ -1018,7 +1021,7 @@ class PendientesController extends Controller
                 .($porPeriodo ? 'Se cuenta por periodo.' : 'Se cuenta en todo el año.'),
             'filas' => array_map(fn ($a) => $this->filaDeAlumno(
                 $a, $a->abrev_grupo ?: $a->nombre_grupo, $faltan[(int) $a->alumno_id].' tardanzas', true
-            ) + ['destino' => $this->alDisciplina($a)], array_slice($alumnos, 0, self::TOPE_DE_FILAS)),
+            ) + ['destino' => $this->alDisciplina($a, 'tardanzas', $periodo)], array_slice($alumnos, 0, self::TOPE_DE_FILAS)),
             'total_filas' => $n,
             'destino' => ['ruta' => '/disciplina', 'etiqueta' => 'Ir a disciplina'],
             'primero_para' => [],
@@ -1043,17 +1046,21 @@ class PendientesController extends Controller
         $filtro = '';
         $datos = [(int) $year->id];
 
+        $periodo = null;
+
         if ((int) $conf->reinicia_por_periodo === 1) {
-            $actual = DB::selectOne('SELECT id FROM periodos WHERE year_id = ? AND actual = 1 AND deleted_at IS NULL', [(int) $year->id]);
+            $actual = DB::selectOne('SELECT id, numero FROM periodos WHERE year_id = ? AND actual = 1 AND deleted_at IS NULL', [(int) $year->id]);
             if ($actual === null) {
                 return null;
             }
             $filtro = ' AND d.periodo_id = ?';
             $datos[] = (int) $actual->id;
+            $periodo = (int) $actual->numero;
         }
 
         $nombre = static fn (int $tipo) => mb_strtolower((string) ($conf->{'falta_tipo'.$tipo.'_displayname'} ?: 'situación tipo '.$tipo));
         $faltan = [];
+        $deTipo = [];
 
         foreach ([1 => (int) $conf->cant_ft1_to_ft2, 2 => (int) $conf->cant_ft2_to_ft3] as $tipo => $umbral) {
             if ($umbral <= 0) {
@@ -1070,6 +1077,7 @@ class PendientesController extends Controller
                 $plural = mb_strtolower((string) ($conf->{'faltas_tipo'.$tipo.'_displayname'} ?: 'situaciones tipo '.$tipo));
                 $una = ($conf->{'genero_falta_t'.($tipo + 1)} ?? 'F') === 'M' ? 'un' : 'una';
                 $faltan[(int) $f->alumno_id] = $f->n.' '.$plural.' → falta '.$una.' '.$nombre($tipo + 1);
+                $deTipo[(int) $f->alumno_id] = $tipo;
             }
         }
 
@@ -1095,7 +1103,7 @@ class PendientesController extends Controller
                 .(int) $conf->cant_ft2_to_ft3.'** de tipo 2 dan una de tipo 3.',
             'filas' => array_map(fn ($a) => $this->filaDeAlumno(
                 $a, $a->abrev_grupo ?: $a->nombre_grupo, $faltan[(int) $a->alumno_id], true
-            ) + ['destino' => $this->alDisciplina($a)], array_slice($alumnos, 0, self::TOPE_DE_FILAS)),
+            ) + ['destino' => $this->alDisciplina($a, 'tipo'.$deTipo[(int) $a->alumno_id], $periodo)], array_slice($alumnos, 0, self::TOPE_DE_FILAS)),
             'total_filas' => $n,
             'destino' => ['ruta' => '/disciplina', 'etiqueta' => 'Ir a disciplina'],
             'primero_para' => [],
@@ -1578,10 +1586,21 @@ class PendientesController extends Controller
         ];
     }
 
-    /** El «Ver» de una fila de disciplina: el grupo del alumno abierto y él resaltado. */
-    private function alDisciplina(object $a): array
+    /**
+     * El «Ver» de una fila de disciplina: el grupo del alumno abierto, él resaltado y desplegado
+     * el contador del que habla la fila (`abrir`: `tardanzas`, `tipo1`, `tipo2`). `periodo` es el
+     * número del periodo cuando el colegio cuenta por periodo; sin él, se despliega en todos los
+     * periodos donde el contador tiene algo.
+     */
+    private function alDisciplina(object $a, string $abrir, ?int $periodo): array
     {
-        return ['ruta' => '/disciplina', 'query' => ['grupo' => (int) $a->grupo_id, 'alumno' => (int) $a->alumno_id], 'etiqueta' => 'Ver'];
+        $query = ['grupo' => (int) $a->grupo_id, 'alumno' => (int) $a->alumno_id, 'abrir' => $abrir];
+
+        if ($periodo !== null) {
+            $query['periodo'] = $periodo;
+        }
+
+        return ['ruta' => '/disciplina', 'query' => $query, 'etiqueta' => 'Ver'];
     }
 
     /** `29.99` → `29,99`; `30` → `30`. Como `rotuloDeNota` del front. */
