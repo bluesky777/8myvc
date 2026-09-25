@@ -130,6 +130,15 @@ gh run list -w desplegar-up2.yml -L 1     # y esperar a que los dos salgan `succ
   25 sep 2026: dos `success` y el front de los colegios seguía en el build de la víspera. Se
   comprueba en el resumen del run («Publicado en…» y no «Simulacro») y en `tools/censo.sh`: la
   columna `up` tiene que cambiar de hash.
+- **Y EL SEGUNDO SALTO: nadie lo trae solo.** El workflow publica en `myvc_dist`/`myvc_dist2`,
+  pero los colegios no tienen cron que lo recoja (visto el 25 sep 2026: up2 publicado y el
+  censo seguía en el hash viejo). Hay que hacer el `pull` en las dos cuentas:
+  ```bash
+  ssh -p 7822 -i ~/.ssh/cpanel micolev1@70.32.23.72 'export GIT_TERMINAL_PROMPT=0; for s in /home/micolev1/*.micolevirtual.com; do [ -d "$s/up2/.git" ] && { git -C "$s/up2" pull -q --ff-only || echo "REVISAR: $s"; }; done'
+  ssh -p 7822 -i ~/.ssh/cpanel micolevi@lalvirtual.edu.co 'GIT_TERMINAL_PROMPT=0 git -C ~/public_html/up2 pull -q --ff-only'
+  ```
+  (lo mismo con `up` si su workflow publicó; «sin cambios respecto a la última publicación» en
+  el log quiere decir que no hay nada que traer). Y después `tools/censo.sh`.
 - **Sólo commits**: el árbol lo comparten otras sesiones; nunca `git add -A` antes de empujar.
 - Los dos workflows construyen en GitHub y publican en `myvc_dist`; el servidor lo recoge. Se
   comprueba con `tools/censo.sh` (columnas `up` y `up2`): todos los colegios en el mismo hash.
