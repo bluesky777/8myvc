@@ -2,6 +2,7 @@
 
 
 use Illuminate\Support\Facades\DB;
+use App\Support\AuditarModelo;
 use Illuminate\Support\Facades\Request;
 use App\Support\FichaEditada;
 
@@ -765,7 +766,7 @@ class GruposController extends Controller {
 			// `2026_09_07_100000_grupos_con_ih`. Un grupo recién creado no la tiene, igual
 			// que no tiene `cupo`.
 			$grupo->ih			=	Request::input('ih');
-			$grupo->save();
+			AuditarModelo::guardar($grupo, 'grupo');
 			
 			return $grupo;
 		} catch (\Exception $e) {
@@ -858,7 +859,7 @@ class GruposController extends Controller {
 			$grupo->ih			=	Request::input('ih', $grupo->ih);
 			$grupo->updated_by	=	$user->user_id;
 
-			$grupo->save();
+			AuditarModelo::guardar($grupo, 'grupo');
 
 			return $grupo;
 		} catch (\Exception $e) {
@@ -902,6 +903,7 @@ class GruposController extends Controller {
 		$grupo->deleted_by = $user->user_id;
 		$grupo->save();
 		$grupo->delete();
+		AuditarModelo::borrado('grupo', (int) $grupo->id);
 
 		return $grupo;
 	}

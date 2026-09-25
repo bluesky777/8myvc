@@ -1,6 +1,7 @@
 <?php namespace App\Http\Controllers;
 
 use Illuminate\Support\Facades\Request;
+use App\Support\AuditarModelo;
 use Illuminate\Support\Facades\DB;
 
 use App\Support\CamposQueVinieron;
@@ -52,7 +53,7 @@ class MateriasController extends Controller {
 				// la §47 y éste salió al contarlos. Ver 05 §52.
 				$materia 			= Materia::findOrFail((int)$key);
 				$materia->orden 	= (int)$value;
-				$materia->save();
+				AuditarModelo::guardar($materia, 'materia');
 			}
 		}
 		
@@ -67,7 +68,7 @@ class MateriasController extends Controller {
 					$materia 			= Materia::findOrFail((int)$key);
 					$materia->orden 	= (int)$value;
 					$materia->area_id 	= $partTo['area_id'];
-					$materia->save();
+					AuditarModelo::guardar($materia, 'materia');
 				}
 			}
 		}
@@ -89,7 +90,7 @@ class MateriasController extends Controller {
 		$materia->materia	=	Request::input('materia');
 		$materia->alias		=	Request::input('alias');
 		$materia->area_id	=	Request::input('area');
-		$materia->save();
+		AuditarModelo::guardar($materia, 'materia');
 
 		return $materia;
 
@@ -137,7 +138,7 @@ class MateriasController extends Controller {
 			$materia->area_id = Request::input('area');
 		}
 
-		$materia->save();
+		AuditarModelo::guardar($materia, 'materia');
 		return $materia;
 	}
 
@@ -156,6 +157,7 @@ class MateriasController extends Controller {
 		CatalogoEnUso::exigirQueNadieApunte('asignaturas', 'materia_id', $materia->id, 'asignaturas');
 
 		$materia->delete();
+		AuditarModelo::borrado('materia', (int) $materia->id);
 
 		return $materia;
 	}

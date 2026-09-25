@@ -2,6 +2,7 @@
 
 
 use App\Services\Auditoria;
+use App\Support\AuditarModelo;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Request;
 
@@ -173,7 +174,7 @@ class AsignaturasController extends Controller {
 		$asignatura->profesor_id	=	Request::input('profesor_id');
 		$asignatura->creditos		=	Request::input('creditos');
 		$asignatura->orden			=	Request::input('orden');
-		$asignatura->save();
+		AuditarModelo::guardar($asignatura, 'asignatura');
 
 		return $asignatura;
 	}
@@ -217,6 +218,11 @@ class AsignaturasController extends Controller {
 
 		$consulta 	= 'UPDATE asignaturas SET '.ColumnaSegura::exigir('asignaturas', $dia).'=:valor, updated_by=:modificador, updated_at=:fecha WHERE id=:asignatura_id';
 		DB::update($consulta, [$valor, $user->user_id, $now, $asignatura_id]);
+		Auditoria::registrar()
+			->editar('asignatura', (int) $asignatura_id)
+			->a($valor)
+			->resumen('Cambió '.$dia.' en asignaturas')
+			->guardar();
 		
 		return 'Cambiado';
 	}
@@ -288,7 +294,7 @@ class AsignaturasController extends Controller {
 			}
 		}
 
-		$asignatura->save();
+		AuditarModelo::guardar($asignatura, 'asignatura');
 		return $asignatura;
 	}
 
@@ -566,6 +572,7 @@ class AsignaturasController extends Controller {
 	{
 		$asignatura = Asignatura::findOrFail($id);
 		$asignatura->delete();
+		AuditarModelo::borrado('asignatura', (int) $asignatura->id);
 
 		return $asignatura;
 	}

@@ -213,6 +213,12 @@ final class Auditoria
         // Desde el 25 sep 2026, por la columna Historial de Docentes (`Support\AuditarModelo`).
         'profesor' => 'profesores',
         'contrato' => 'contratos',
+        // Desde el 25 sep 2026, por la columna Historial de las rejillas de Referencias.
+        'nivel' => 'niveles_educativos',
+        'grado' => 'grados',
+        'grupo' => 'grupos',
+        'area' => 'areas',
+        'materia' => 'materias',
         'piar' => 'piars_alumnos',
         'antecedente' => 'antecedentes',
         'registro_enfermeria' => 'registros_enfermeria',

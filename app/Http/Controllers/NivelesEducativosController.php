@@ -1,6 +1,7 @@
 <?php namespace App\Http\Controllers;
 
 use Illuminate\Support\Facades\Request;
+use App\Support\AuditarModelo;
 use Illuminate\Support\Facades\DB;
 
 use App\Support\CamposQueVinieron;
@@ -23,7 +24,7 @@ class NivelesEducativosController extends Controller {
 			$nivel->nombre	=	Request::input('nombre');
 			$nivel->abrev	=	Request::input('abrev');
 			$nivel->orden	=	Request::input('orden');
-			$nivel->save();
+			AuditarModelo::guardar($nivel, 'nivel');
 
 			return $nivel;
 		} catch (\Exception $e) {
@@ -59,7 +60,7 @@ class NivelesEducativosController extends Controller {
 			if ($vinieron->trae('abrev'))  { $nivel->abrev  = Request::input('abrev'); }
 			if ($vinieron->trae('orden'))  { $nivel->orden  = Request::input('orden'); }
 
-			$nivel->save();
+			AuditarModelo::guardar($nivel, 'nivel');
 			return $nivel;
 		} catch (\Exception $e) {
 			abort(422, 'Datos incorrectos');
@@ -71,6 +72,7 @@ class NivelesEducativosController extends Controller {
 	{
 		$nivel = NivelEducativo::findOrFail($id);
 		$nivel->delete();
+		AuditarModelo::borrado('nivel', (int) $nivel->id);
 
 		return $nivel;
 	}

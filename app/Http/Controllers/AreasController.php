@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Area;
+use App\Support\AuditarModelo;
 use App\Services\Auditoria;
 use App\Support\Autoriza;
 use App\Support\CamposQueVinieron;
@@ -26,7 +27,7 @@ class AreasController extends Controller
             $area->nombre = Request::input('nombre');
             $area->alias = Request::input('alias');
             $area->orden = Request::input('orden');
-            $area->save();
+            AuditarModelo::guardar($area, 'area');
 
             return $area;
         } catch (\Exception $e) {
@@ -49,7 +50,7 @@ class AreasController extends Controller
                 // la §47 y éste salió al contarlos. Ver 05 §52.
                 $area = Area::findOrFail((int) $key);
                 $area->orden = (int) $value;
-                $area->save();
+                AuditarModelo::guardar($area, 'area');
             }
         }
 
@@ -99,7 +100,7 @@ class AreasController extends Controller
             $area->orden = Request::input('orden');
         }
 
-        $area->save();
+        AuditarModelo::guardar($area, 'area');
 
     }
 
@@ -122,6 +123,7 @@ class AreasController extends Controller
         CatalogoEnUso::exigirQueNadieApunte('materias', 'area_id', $areas->id, 'materias');
 
         $areas->delete();
+		AuditarModelo::borrado('area', (int) $areas->id);
 
         return $areas;
     }

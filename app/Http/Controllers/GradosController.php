@@ -1,6 +1,7 @@
 <?php namespace App\Http\Controllers;
 
 use Illuminate\Support\Facades\Request;
+use App\Support\AuditarModelo;
 use Illuminate\Support\Facades\DB;
 
 use App\Support\CamposQueVinieron;
@@ -35,7 +36,7 @@ class GradosController extends Controller {
 			$grado->abrev		=	Request::input('abrev');
 			$grado->orden		=	Request::input('orden');
 			$grado->nivel_educativo_id =	Request::input('nivel')['id'];
-			$grado->save();
+			AuditarModelo::guardar($grado, 'grado');
 			
 			return $grado;
 		} catch (\Exception $e) {
@@ -97,7 +98,7 @@ class GradosController extends Controller {
 				$grado->nivel_educativo_id = Request::input('nivel.id');
 			}
 
-			$grado->save();
+			AuditarModelo::guardar($grado, 'grado');
 			return 'Cambiado';
 		} catch (\Exception $e) {
 			abort(422, 'Datos incorrectos');
@@ -128,6 +129,7 @@ class GradosController extends Controller {
 		CatalogoEnUso::exigirQueNadieApunte('grupos', 'grado_id', $grado->id, 'grupos');
 
 		$grado->delete();
+		AuditarModelo::borrado('grado', (int) $grado->id);
 
 		return 'Eliminado';
 	}
