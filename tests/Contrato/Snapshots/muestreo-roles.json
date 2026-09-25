@@ -4,8 +4,8 @@
         "created_by": "null",
         "deleted_at": "null",
         "deleted_by": "null",
-        "description": "null|string",
-        "display_name": "null|string",
+        "description": "null",
+        "display_name": "null",
         "id": "int",
         "name": "string",
         "perms": [
