@@ -30,7 +30,7 @@ final class AlcanceAcademico
                         JOIN subunidades s ON s.id = n.subunidad_id
                         JOIN unidades u ON u.id = s.unidad_id
                        WHERE n.alumno_id IN ({A})',
-            'filtros' => ['asignatura_id' => 'u.asignatura_id', 'periodo_id' => 'u.periodo_id'],
+            'filtros' => ['asignatura_id' => 'u.asignatura_id', 'periodo_id' => 'u.periodo_id', 'subunidad_id' => 'n.subunidad_id'],
         ],
         'nota_final' => [
             'sql' => 'SELECT t.id, t.alumno_id FROM notas_finales t WHERE t.alumno_id IN ({A})',
@@ -79,7 +79,7 @@ final class AlcanceAcademico
      *
      * @param  string[]  $entidades
      * @param  int[]  $alumnos
-     * @param  array<string, int|null>  $filtros  asignatura_id, periodo_id, year, year_id
+     * @param  array<string, int|null>  $filtros  asignatura_id, periodo_id, subunidad_id, year, year_id
      * @return array{0: string, 1: array<int, mixed>}
      */
     public static function lineas(array $entidades, array $alumnos, array $filtros): array
@@ -118,8 +118,11 @@ final class AlcanceAcademico
                     $conFiltro = true;
                 }
             }
-            // Sin ningún filtro que la línea pueda cumplir, la vía 2 traería todo el alumno.
-            if ($conFiltro || count(array_intersect_key($filtros, $def['filtros'])) === 0) {
+            // La vía 2 sólo si la línea puede comprobar TODOS los filtros de esta entidad: con uno
+            // que no lleva (`subunidad_id`, `year`), traería filas de fuera del alcance.
+            $aplicables = array_intersect_key($filtros, $def['filtros']);
+            $comprobables = array_intersect_key($aplicables, self::CONTEXTO);
+            if (count($aplicables) === count($comprobables) && ($conFiltro || count($aplicables) === 0)) {
                 $partes[] = $porLinea;
                 array_push($parametros, ...$pLinea);
             }

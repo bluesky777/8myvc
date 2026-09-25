@@ -312,7 +312,7 @@ class AuditoriaController extends Controller
         abort_if(! $entidades, 422, 'Ninguna entidad del alcance');
 
         $filtros = [];
-        foreach (['asignatura_id', 'periodo_id', 'year', 'year_id'] as $clave) {
+        foreach (['asignatura_id', 'periodo_id', 'subunidad_id', 'year', 'year_id'] as $clave) {
             if ($peticion->filled($clave)) {
                 $filtros[$clave] = (int) $peticion->input($clave);
             }
