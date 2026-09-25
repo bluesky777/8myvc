@@ -82,6 +82,18 @@ class FusionDeAlumnosTest extends CasoDeContrato
     {
         [$destino, $origen] = $this->dosAlumnos();
 
+        // Las dos fichas del seed tienen definitivas en las mismas asignaturas, así que todas
+        // las del origen chocan y se borran: sin una que viaje de verdad, la marca de abajo
+        // pasaría sin mirar nada. Se fabrica una en una asignatura que el destino no tiene.
+        $viaja = (int) DB::table('notas_finales')->insertGetId([
+            'alumno_id' => $origen,
+            'asignatura_id' => DB::table('asignaturas')->whereNotIn('id',
+                DB::table('notas_finales')->where('alumno_id', $destino)->select('asignatura_id'))->value('id'),
+            'periodo_id' => DB::table('notas_finales')->where('alumno_id', $destino)->value('periodo_id'),
+            'nota' => 3.21,
+            'manual' => 0,
+        ]);
+
         $notasAntes = DB::table('notas_finales')->where('alumno_id', $origen)->count()
                      + DB::table('notas_finales')->where('alumno_id', $destino)->count();
         $matriAntes = DB::table('matriculas')->where('alumno_id', $origen)->count()
@@ -90,6 +102,8 @@ class FusionDeAlumnosTest extends CasoDeContrato
         $revision = $this->withToken($this->token())->putJson(self::REVISAR, [
             'origen_id' => $origen, 'destino_id' => $destino,
         ])->json();
+
+        $propias = DB::table('notas_finales')->where('alumno_id', $destino)->pluck('manual', 'id')->all();
 
         $r = $this->withToken($this->token())->putJson(self::FUSIONAR, [
             'origen_id' => $origen, 'destino_id' => $destino,
@@ -105,6 +119,12 @@ class FusionDeAlumnosTest extends CasoDeContrato
             DB::table('notas_finales')->where('alumno_id', $destino)->count(),
             'Se perdieron o se duplicaron definitivas al unir.');
         $this->assertSame(0, DB::table('notas_finales')->where('alumno_id', $origen)->count());
+
+        // Las que viajan llegan como manuales; las del destino no viajan y no se tocan.
+        $this->assertSame(1, (int) DB::table('notas_finales')->where('id', $viaja)->value('manual'),
+            'Una definitiva copiada del origen llegó como automática: el primer recálculo la pisa.');
+        $this->assertEquals($propias, DB::table('notas_finales')->whereIn('id', array_keys($propias))
+            ->pluck('manual', 'id')->all(), 'Se cambió la marca de una definitiva que no viajaba.');
 
         $this->assertSame($matriAntes, DB::table('matriculas')->where('alumno_id', $destino)->count());
 
@@ -161,6 +181,7 @@ class FusionDeAlumnosTest extends CasoDeContrato
 
         $this->assertCount(1, $queda, 'Quedaron dos definitivas para la misma asignatura y periodo.');
         $this->assertEquals(1.23, (float) $queda[0]->nota, 'Ganó la nota que no se eligió.');
+        $this->assertSame(1, (int) $queda[0]->manual, 'La elegida viajó y llegó como automática.');
     }
 
     /** Y sin decisión gana la del destino, que es el superviviente. */
