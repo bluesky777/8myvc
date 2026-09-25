@@ -634,6 +634,7 @@ class PendientesController extends Controller
             "Matriculados en **{$year->year}** sin ningún acudiente asignado.",
             ['ruta' => '/acudientes', 'etiqueta' => 'Ir a acudientes'],
             ['ruta' => '/alumnos', 'etiqueta' => 'Ir a alumnos'],
+            'acudientes',
         );
     }
 
@@ -1020,8 +1021,9 @@ class PendientesController extends Controller
             'detalle' => 'Así está configurado en Disciplina: **'.$umbral.' tardanzas de entrada** = una '.$situacion.'. '
                 .($porPeriodo ? 'Se cuenta por periodo.' : 'Se cuenta en todo el año.'),
             'filas' => array_map(fn ($a) => $this->filaDeAlumno(
-                $a, $a->abrev_grupo ?: $a->nombre_grupo, $faltan[(int) $a->alumno_id].' tardanzas', true
-            ) + ['destino' => $this->alDisciplina($a, 'tardanzas', $periodo)], array_slice($alumnos, 0, self::TOPE_DE_FILAS)),
+                $a, $a->abrev_grupo ?: $a->nombre_grupo, $faltan[(int) $a->alumno_id].' tardanzas', true,
+                $this->alDisciplina($a, 'tardanzas', $periodo)
+            ), array_slice($alumnos, 0, self::TOPE_DE_FILAS)),
             'total_filas' => $n,
             'destino' => ['ruta' => '/disciplina', 'etiqueta' => 'Ir a disciplina'],
             'primero_para' => [],
@@ -1102,8 +1104,9 @@ class PendientesController extends Controller
             'detalle' => 'Así está configurado en Disciplina: **'.(int) $conf->cant_ft1_to_ft2.'** de tipo 1 dan una de tipo 2, y **'
                 .(int) $conf->cant_ft2_to_ft3.'** de tipo 2 dan una de tipo 3.',
             'filas' => array_map(fn ($a) => $this->filaDeAlumno(
-                $a, $a->abrev_grupo ?: $a->nombre_grupo, $faltan[(int) $a->alumno_id], true
-            ) + ['destino' => $this->alDisciplina($a, 'tipo'.$deTipo[(int) $a->alumno_id], $periodo)], array_slice($alumnos, 0, self::TOPE_DE_FILAS)),
+                $a, $a->abrev_grupo ?: $a->nombre_grupo, $faltan[(int) $a->alumno_id], true,
+                $this->alDisciplina($a, 'tipo'.$deTipo[(int) $a->alumno_id], $periodo)
+            ), array_slice($alumnos, 0, self::TOPE_DE_FILAS)),
             'total_filas' => $n,
             'destino' => ['ruta' => '/disciplina', 'etiqueta' => 'Ir a disciplina'],
             'primero_para' => [],
@@ -1175,7 +1178,8 @@ class PendientesController extends Controller
             'detalle' => 'Ya va el **Periodo '.$actual->numero.'** y '.($n === 1 ? 'lleva' : 'llevan').' más de **'.$dias.' días** en ese estado: o se '.($n === 1 ? 'matricula o se retira.' : 'matriculan o se retiran.'),
             'filas' => array_map(fn ($a) => $this->filaDeAlumno($a, $a->abrev_grupo ?: $a->nombre_grupo, $a->nota, false), array_slice($viejas, 0, self::TOPE_DE_FILAS)),
             'total_filas' => $n,
-            'destino' => ['ruta' => '/matriculas', 'etiqueta' => 'Ir a matrículas'],
+            // `/alumnos` y no `/matriculas`: ésta no pinta a los PREM como prematriculados.
+            'destino' => ['ruta' => '/alumnos', 'etiqueta' => 'Ir a alumnos'],
             'primero_para' => ['Secretario'],
         ];
     }
@@ -1219,7 +1223,7 @@ class PendientesController extends Controller
             'icono' => 'idcard',
             'titular' => $this->plural($n, 'estudiante no tiene', 'estudiantes no tienen').' documento o correo',
             'detalle' => "Matriculados en **{$year->year}**. Sin correo en su cuenta no pueden recuperar la contraseña.",
-            'filas' => array_map(fn ($a) => $this->filaDeAlumno($a, $a->abrev_grupo ?: $a->nombre_grupo, $this->queFalta($a), false), array_slice($alumnos, 0, self::TOPE_DE_FILAS)),
+            'filas' => array_map(fn ($a) => $this->filaDeAlumno($a, $a->abrev_grupo ?: $a->nombre_grupo, $this->queFalta($a), false, $this->alaFicha($a, 'datos')), array_slice($alumnos, 0, self::TOPE_DE_FILAS)),
             'total_filas' => $n,
             'destino' => ['ruta' => '/alumnos', 'etiqueta' => 'Ir a alumnos'],
             'primero_para' => ['Secretario'],
@@ -1613,7 +1617,7 @@ class PendientesController extends Controller
 
     private function pendienteDeAlumnos(
         int $yearId, string $tipo, int $urgencia, string $icono, array $alumnos, array $titular,
-        string $detalle, array $destino, ?array $alterno
+        string $detalle, array $destino, ?array $alterno, ?string $pestana = null
     ): ?array {
         $cuantos = count($alumnos);
 
@@ -1630,7 +1634,7 @@ class PendientesController extends Controller
             'titular' => $this->plural($cuantos, $titular[0], $titular[1]),
             'detalle' => $detalle,
             'filas' => array_map(fn ($a) => $this->filaDeAlumno(
-                $a, $a->abrev_grupo ?: $a->nombre_grupo, null, false
+                $a, $a->abrev_grupo ?: $a->nombre_grupo, null, false, $this->alaFicha($a, $pestana)
             ), array_slice($alumnos, 0, self::TOPE_DE_FILAS)),
             'total_filas' => $cuantos,
             'destino' => $destino,
@@ -1639,9 +1643,13 @@ class PendientesController extends Controller
         ];
     }
 
-    private function filaDeAlumno(?object $a, string $grupo, ?string $nota, bool $aviso): array
+    /**
+     * Toda fila de alumno lleva su «Ver»: el `$destino` que se le pase o, sin él, la ficha del
+     * alumno. El botón de la tarjeta sigue llevando a la pantalla de todos.
+     */
+    private function filaDeAlumno(?object $a, string $grupo, ?string $nota, bool $aviso, ?array $destino = null): array
     {
-        return [
+        $fila = [
             'texto' => trim(($a->nombres ?? '').' '.($a->apellidos ?? '')).' · '.$grupo,
             'nota' => $nota,
             'aviso' => $aviso,
@@ -1649,6 +1657,26 @@ class PendientesController extends Controller
             'nombres' => $a->nombres ?? null,
             'apellidos' => $a->apellidos ?? null,
         ];
+
+        $destino ??= $a === null ? null : $this->alaFicha($a);
+
+        return $destino === null ? $fila : $fila + ['destino' => $destino];
+    }
+
+    /**
+     * La ficha del alumno, abierta en `$pestana` (`matriculas`, `datos`, `acudientes`…; ver
+     * `pestanaInicial` en `paginas/persona/persona.ts`). Sin pestaña abre en la primera.
+     * El id viene como `alumno_id` en las consultas de pendientes y como `id` en `fotosDeAlumnos`.
+     */
+    private function alaFicha(object $a, ?string $pestana = null): ?array
+    {
+        $id = (int) ($a->alumno_id ?? $a->id ?? 0);
+
+        if ($id === 0) {
+            return null;
+        }
+
+        return ['ruta' => '/persona/'.$id.'/alumno', 'query' => $pestana === null ? [] : ['pestana' => $pestana], 'etiqueta' => 'Ver'];
     }
 
     /** @return array<int, object> Una consulta para todas las fotos que se van a pintar. */
