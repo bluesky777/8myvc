@@ -1,10 +1,14 @@
 # 48 — Los informes pesados: certificados y boletines
 
 24 sep 2026. Encargo de Joseth: analizar y rehacer los endpoints que tardan en
-cargar, empezando por certificados y boletines. **Hecho: P1 (8myvc `c668b44`, el
-boletín final y `promovidos/calcular-grupo`) y P2a (myvc_front `ae0c6f1d`, el
-certificado de todos los años de uno en uno).** Pendiente de decidir: P2b, P2c, P3
-y P4.
+cargar, empezando por certificados y boletines. **Hecho:** P1 (8myvc `c668b44`: el boletín final y `promovidos/calcular-grupo`),
+P2a (myvc_front `ae0c6f1d`: el certificado de todos los años, de uno en uno),
+P3a (8myvc `1c4209c`: boletín de periodo, 9.172 → 5.145 consultas, sha1 igual en
+19 casos) y P2b (8myvc `2bd1741` + myvc_front `7bf20c4d`: con `sin_puesto` o el año
+sin puesto, un certificado de un alumno pasa de 922 a 39 consultas; la hoja,
+idéntica salvo `puesto`). **Sin desplegar.** Quedan P2c, P3b y P4: con lo anterior
+dentro, P2c sólo gana en el boletín final de UN alumno con puesto (~0,5 s hoy) y
+P3b en el de periodo (~2 s en quibdo, ~0,6 s en simon).
 
 Por qué importa: los 16 colegios viven en 2 cuentas de cPanel con 50 Entry
 Processes cada una (`02-plan-rendimiento.md:726-745`). Lo que tumba la cuenta no
