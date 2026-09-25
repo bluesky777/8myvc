@@ -659,13 +659,18 @@ class NotasController extends Controller
             // es la distinción que `$bit_per` tenía calculada arriba y nunca usó.
             $alumnoDeLaLinea = $nota->alumno_id === null ? null : (int) $nota->alumno_id;
 
-            Auditoria::registrar()
-                ->editar('nota', (int) $id)
-                ->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
-                ->en(periodo: $periodoDeLaNota)
-                ->de($bit_old)
-                ->a($bit_new)
-                ->guardar();
+            // Sin línea si la nota no cambió: un guardado con el mismo valor (la planilla
+            // reenvía la celda) no es una edición, y pintaba una segunda línea «35 → 35»
+            // justo después de la nivelación (25 sep 2026).
+            if (! self::mismaNota($bit_old, $bit_new)) {
+                Auditoria::registrar()
+                    ->editar('nota', (int) $id)
+                    ->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+                    ->en(periodo: $periodoDeLaNota)
+                    ->de($bit_old)
+                    ->a($bit_new)
+                    ->guardar();
+            }
 
         } catch (\Exception $e) {
             abort(422, 'No se pudo guardar la nota');
@@ -989,13 +994,16 @@ class NotasController extends Controller
                 // pregunta que la tabla contesta es «quién tocó ESTA nota».
                 $alumnoDeLaLinea = $fila['destino']->alumno_id === null ? null : (int) $fila['destino']->alumno_id;
 
-                Auditoria::registrar()
-                    ->editar('nota', (int) $fila['id'])
-                    ->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
-                    ->en(periodo: (int) $fila['destino']->periodo_id)
-                    ->de($fila['destino']->nota)
-                    ->a($fila['valor'])
-                    ->guardar();
+                // Sin línea si la nota no cambió: ver `mismaNota`.
+                if (! self::mismaNota($fila['destino']->nota, $fila['valor'])) {
+                    Auditoria::registrar()
+                        ->editar('nota', (int) $fila['id'])
+                        ->deAlumno($alumnoDeLaLinea, NombreDelAlumno::de($alumnoDeLaLinea))
+                        ->en(periodo: (int) $fila['destino']->periodo_id)
+                        ->de($fila['destino']->nota)
+                        ->a($fila['valor'])
+                        ->guardar();
+                }
 
                 $hechas++;
             }
@@ -1844,5 +1852,21 @@ class NotasController extends Controller
         }
 
         return $respuesta;
+    }
+
+    /**
+     * Si dos valores de nota son la misma nota: `35`, `'35'` y `35.0` sí; `null` sólo con
+     * `null`. Un guardado que no cambia nada no deja línea de auditoría.
+     */
+    private static function mismaNota(mixed $antes, mixed $despues): bool
+    {
+        $vacio = fn ($v) => $v === null || $v === '';
+        if ($vacio($antes) || $vacio($despues)) {
+            return $vacio($antes) && $vacio($despues);
+        }
+
+        return is_numeric($antes) && is_numeric($despues)
+            ? (float) $antes === (float) $despues
+            : (string) $antes === (string) $despues;
     }
 }
