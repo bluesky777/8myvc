@@ -269,25 +269,23 @@ class PromovidosController extends Controller {
 			// Qué respuestas llevan las columnas nuevas a propósito y cuáles están
 			// congeladas está en la §3.4 de docs/migracion/22-nivelaciones.md; ésta
 			// está congelada.
+			// **Las faltas se cuentan en la celda, no en todo el colegio** (24 sep 2026). Esto
+			// eran dos `LEFT JOIN` contra `ausencias` agrupada entera, y se ejecuta una vez por
+			// alumno x asignatura: en un colegio con 52 mil ausencias, 84 ms cada una y 24 s el
+			// boletín de un grupo. Correlacionadas usan los índices de `ausencias` y devuelven
+			// lo mismo --el `LEFT JOIN` nunca daba 0, daba NULL--. Medido y con la huella del
+			// JSON igual en 17 grupos: docs/migracion/48-los-informes-pesados.md §P1.
 			$consulta = 'SELECT nf.id, nf.alumno_id, nf.asignatura_id, nf.periodo_id, nf.periodo, nf.recuperada,
 							nf.manual, nf.updated_by, nf.created_at, nf.updated_at,
-							CAST(nf.nota AS DOUBLE) AS nota, CAST(nf.nota AS DOUBLE) as DefMateria, aus.cantidad_ausencia, tar.cantidad_tardanza
+							CAST(nf.nota AS DOUBLE) AS nota, CAST(nf.nota AS DOUBLE) as DefMateria,
+							(SELECT NULLIF(COUNT(au.id), 0) FROM ausencias au
+								WHERE au.alumno_id=nf.alumno_id AND au.asignatura_id=nf.asignatura_id AND au.periodo_id=nf.periodo_id
+								AND au.deleted_at is null AND au.cantidad_ausencia > 0) AS cantidad_ausencia,
+							(SELECT NULLIF(COUNT(au.id), 0) FROM ausencias au
+								WHERE au.alumno_id=nf.alumno_id AND au.asignatura_id=nf.asignatura_id AND au.periodo_id=nf.periodo_id
+								AND au.deleted_at is null AND au.cantidad_tardanza > 0) AS cantidad_tardanza
 						FROM notas_finales nf
 						INNER JOIN periodos p on p.year_id=:year_id and p.id=nf.periodo_id and p.deleted_at is null
-						left join (
-								select count(au.id) as cantidad_ausencia, au.alumno_id, au.periodo_id, au.asignatura_id
-								from ausencias au 
-								where au.deleted_at is null and au.cantidad_ausencia > 0
-								group by au.alumno_id, au.periodo_id, au.asignatura_id
-								
-								)as aus on aus.alumno_id=nf.alumno_id and aus.asignatura_id=nf.asignatura_id and aus.periodo_id=nf.periodo_id
-						left join (
-								select count(au.id) as cantidad_tardanza, au.alumno_id, au.periodo_id, au.asignatura_id
-								from ausencias au 
-								where au.deleted_at is null and au.cantidad_tardanza > 0
-								group by au.alumno_id, au.periodo_id, au.asignatura_id
-									
-						)as tar on tar.alumno_id=nf.alumno_id and tar.asignatura_id=nf.asignatura_id and tar.periodo_id=nf.periodo_id
 						WHERE nf.alumno_id=:alumno_id and nf.asignatura_id=:asignatura_id
 						ORDER BY nf.periodo';
 					
