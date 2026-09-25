@@ -8,6 +8,42 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+> ## ✅ EL TABLERO DE DEFINITIVAS DICE LA VERDAD, Y SEIS CAMINOS MÁS RECALCULAN (25 sep 2026)
+>
+> **Lo reportó Joseth en `lalvirtual.edu.co`**: muchos grupos en «Notas finales
+> desactualizadas». Medido sobre la copia del 24 sep (`lal_copia_0924` en el docker):
+> `estadoDelGrupo()` marcaba **1.068** definitivas en 20 grupo-periodo y, recalculándolas,
+> **ninguna** estaba atrasada por una escritura — sello por asignatura contra recálculo por
+> alumno (428 de 428 en el periodo 3), empates del mismo segundo (143), filas de antes del
+> 21 sep en otro reloj (el MySQL de `lal` va en hora de Nueva York: 4 h justas) y una
+> matrícula nueva que marca al grupo entero. Y al revés: de las que **sí** valían otra cosa
+> —el cambio de fórmula del 22–24 sep— la mitad estaba en asignaturas sin marcar.
+>
+> - **El tablero pasa a `DefinitivasDeAsignatura::diferenciasDelGrupo()`**: compara el valor
+>   guardado con `calcular()`. En `lal` marca **57 en 4 grupo-periodo**, y pulsar el botón de
+>   cada uno los deja en **0** (medido sobre la copia, en transacción). Cuesta ~1 s el
+>   tablero entero de `lal` (antes 0,47 s). `estadoDelGrupo()` se queda para decidir si
+>   recalcular (`ponerAlDiaUnInforme`), donde un sí de más sólo cuesta tiempo. **Una
+>   guardada entera que sale de redondear la cuenta no cuenta** (es la regla de antes de
+>   `912830a`); sin eso, la base de tests marcaba un grupo entero del periodo 1 de 2025.
+> - **Recalculan ahora**: restaurar unidad y subunidad (y sellan `updated_at`), mover
+>   subunidades entre unidades, `detalles/eliminar-notas-periodo`, marcar/desmarcar el
+>   boletín independiente, **cerrar en `cero`** (la guardada se quedaba en la parcial) y
+>   reabrir un periodo cerrado en `cero`.
+> - **Lo que NO se tocó, a propósito**: `alumnos/fusionar` —la pantalla deja elegir qué
+>   definitiva gana y recalcular pisaría esa elección; es decisión de Joseth— y las
+>   escrituras que no cambian el valor (matrículas, casillas vacías sembradas, orden).
+> - **Espera decisión de Joseth**: esas 57 de `lal` —y las de los demás colegios— son
+>   datos del cambio de fórmula; el botón las arregla, **incluidas las de periodos cerrados
+>   e impresos** (en `lal`, 1 del periodo 1).
+> - **La suite entera no se corrió**: el mapa de `tests-que-tocan.py` no existe. Las 71
+>   clases del dominio: **831 verdes y 1 rojo**, el snapshot `muestreo-informes-datos`, que
+>   cambia a propósito (el tablero lista ahora el periodo 1 de 2025 de la base de tests, con
+>   `created_at` NULL) y se regeneró.
+>
+> Tests: `LosCaminosQueRecalculanTest` (9) y uno nuevo en `ElCierreYLoNoCalificadoTest`;
+> los seis de caminos, **rojos con el código viejo**.
+
 > ## ✅ UN AVISO DE NOTAS POR ALUMNO Y PASADA, CON LA ASIGNATURA EN `datos` (23 sep 2026)
 >
 > **Decidido por Joseth hoy, pedido por la app** (`myvc_flutter/docs/backend-pendiente.md`

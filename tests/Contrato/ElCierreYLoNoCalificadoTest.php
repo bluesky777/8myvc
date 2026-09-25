@@ -280,6 +280,40 @@ class ElCierreYLoNoCalificadoTest extends CasoDeContrato
     }
 
     /**
+     * **Cerrar con `cero` reescribe la definitiva GUARDADA, y reabrir la devuelve.**
+     *
+     * El test de arriba de `cero` mira `calcular()`, o sea la fórmula; éste mira
+     * `notas_finales`, que es lo que imprime el boletín. Hasta el 25 sep 2026 la rama
+     * `cero` escribía los ceros y no recalculaba —su comentario decía que la
+     * definitiva no se movía, cierto antes del 22 sep—, así que la tabla se quedaba
+     * con la parcial y el cálculo daba la acumulada. Con el periodo cerrado nadie la
+     * reescribe después: `ponerAlDiaUnInforme` no escribe en periodos cerrados.
+     */
+    #[Test]
+    public function cerrar_con_cero_reescribe_la_guardada_y_reabrir_la_devuelve(): void
+    {
+        $ctx = $this->laPlanillaDelLienzo();
+
+        DefinitivasDeAsignatura::recalcular($ctx['asignatura'], $ctx['periodo']);
+        $this->assertSame(self::PARCIAL, round((float) $this->definitivaGuardada($ctx), 2));
+
+        $this->elegir($ctx['year'], CierreDeLoNoCalificado::CERO);
+        $this->cerrar($ctx['periodo'])->assertStatus(200);
+
+        $this->assertSame(self::ACUMULADA, round((float) $this->definitivaGuardada($ctx), 2),
+            'Se cerro con «pasa a cero», el calculo da la acumulada y la tabla se quedo con '
+            .'la parcial: el boletin imprimiria la nota de antes del cierre.');
+
+        $this->cerrar($ctx['periodo'], true)->assertStatus(200);
+
+        $this->assertSame(
+            round((float) $this->filaDe($ctx, $ctx['alumno'])->nota, 2),
+            round((float) $this->definitivaGuardada($ctx), 2),
+            'Se reabrio un periodo cerrado en «cero» y la tabla no siguio al calculo: '
+            .'abierto vuelve a dividir por lo evaluado.');
+    }
+
+    /**
      * **`bloquear`: 422, el periodo sigue abierto y no se escribió nada.**
      *
      * Se mira **la fila y las casillas**, no el código HTTP: un 422 después de haber
