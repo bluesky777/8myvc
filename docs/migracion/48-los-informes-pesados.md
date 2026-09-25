@@ -1,9 +1,10 @@
 # 48 — Los informes pesados: certificados y boletines
 
 24 sep 2026. Encargo de Joseth: analizar y rehacer los endpoints que tardan en
-cargar, empezando por certificados y boletines. **Esto es la propuesta; nada de
-esto está en `main` salvo este documento y el medidor.** El prototipo de P1 vive en
-la rama `sesion/rend` (`.worktrees/rend`).
+cargar, empezando por certificados y boletines. **Hecho: P1 (8myvc `c668b44`, el
+boletín final y `promovidos/calcular-grupo`) y P2a (myvc_front `ae0c6f1d`, el
+certificado de todos los años de uno en uno).** Pendiente de decidir: P2b, P2c, P3
+y P4.
 
 Por qué importa: los 16 colegios viven en 2 cuentas de cPanel con 50 Entry
 Processes cada una (`02-plan-rendimiento.md:726-745`). Lo que tumba la cuenta no
