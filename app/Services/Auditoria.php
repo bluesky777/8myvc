@@ -223,6 +223,15 @@ final class Auditoria
         // lleva la NOTA como id: una línea por nota y llamada, no una por marca.
         'rubrica_valoracion' => 'rubrica_valoraciones',
         'bol_ind_periodo' => 'bol_ind_periodos',
+        // Desde el 25 sep 2026, por el historial del Plan de evaluación y de la
+        // configuración del año (`auditoria/anio/{year_id}`, `Support\AuditarFila`).
+        'unidad_plantilla' => 'unidades_por_defecto',
+        'subunidad_plantilla' => 'subunidades_por_defecto',
+        'escala' => 'escalas_de_valoracion',
+        'periodo' => 'periodos',
+        'config_certificado' => 'config_certificados',
+        'config_compromiso' => 'config_compromiso',
+        'compromiso_bloque' => 'compromiso_bloques',
         'piar' => 'piars_alumnos',
         'antecedente' => 'antecedentes',
         'registro_enfermeria' => 'registros_enfermeria',

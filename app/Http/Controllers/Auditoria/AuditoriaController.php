@@ -322,6 +322,68 @@ class AuditoriaController extends Controller
     }
 
     /**
+     * EL HISTORIAL DE UN AÑO: lo que se cambió del Plan de evaluación (`ambito=plan`) o de
+     * la configuración del año (`ambito=config`). Cada línea sale con su `seccion` en
+     * palabras —la pestaña de la pantalla donde se hizo—, que es por lo que la pantalla
+     * filtra. Las escrituras las apunta `Support\AuditarFila` con su antes y su después.
+     *
+     * `year_config` se reparte por la ruta que la escribió: el modelo y el reparto son
+     * del plan; la ficha, los certificados y los ajustes, de la configuración. Y sólo con
+     * `entidad_id` = el año: `BolfinalesController` usa la misma entidad con otro id.
+     */
+    public function getAnio(Request $peticion, int $yearId): JsonResponse
+    {
+        Autoriza::exigir(
+            Autoriza::puedeVerAuditoria($this->user),
+            'No tiene permiso para ver la auditoría'
+        );
+
+        $ambito = $peticion->query('ambito') === 'config' ? 'config' : 'plan';
+        $modelo = "a.ruta LIKE 'PUT years/modelo-evaluacion%'";
+
+        if ($ambito === 'plan') {
+            $donde = "a.year_id = ? AND (
+                a.entidad IN ('unidad_plantilla', 'subunidad_plantilla', 'desempeno', 'escala')
+                OR (a.entidad = 'unidad' AND a.ruta LIKE 'PUT plantilla-notas/%')
+                OR (a.entidad = 'year_config' AND a.entidad_id = ? AND {$modelo}))";
+        } else {
+            $donde = "a.year_id = ? AND (
+                a.entidad IN ('periodo', 'config_certificado', 'config_compromiso', 'compromiso_bloque')
+                OR (a.entidad = 'year_config' AND a.entidad_id = ? AND NOT {$modelo}))";
+        }
+
+        [$acciones, $hayMas] = $this->lineas($donde, [$yearId, $yearId], self::ORDEN);
+
+        foreach ($acciones as $a) {
+            $a->seccion = self::seccionDe($a);
+        }
+
+        return response()->json(['year_id' => $yearId, 'ambito' => $ambito, 'acciones' => $acciones, 'hay_mas' => $hayMas]);
+    }
+
+    /** La pestaña de la pantalla a la que pertenece una línea del historial del año. */
+    private static function seccionDe(object $a): string
+    {
+        $ruta = (string) ($a->ruta ?? '');
+
+        return match ($a->entidad) {
+            'unidad', 'unidad_plantilla', 'subunidad_plantilla' => 'Plantilla',
+            'desempeno' => 'Competencias',
+            'escala' => 'Escalas',
+            'periodo' => 'Periodos',
+            'config_certificado' => 'Certificados',
+            'config_compromiso', 'compromiso_bloque' => 'Compromiso',
+            'year_config' => match (true) {
+                str_contains($ruta, 'modelo-evaluacion') => 'Modelo y reparto',
+                str_contains($ruta, 'guardar-cambios') => 'Ficha',
+                str_contains($ruta, 'certificado') => 'Certificados',
+                default => 'Ajustes',
+            },
+            default => 'Otros',
+        };
+    }
+
+    /**
      * Las líneas de auditoría que cumplen una condición, con las columnas que pinta
      * la pantalla y en un solo sitio.
      *

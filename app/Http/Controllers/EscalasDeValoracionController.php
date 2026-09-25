@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use App\User;
 use App\Models\EscalaDeValoracion;
 use App\Support\Autoriza;
+use App\Support\AuditarFila;
 
 
 class EscalasDeValoracionController extends Controller {
@@ -64,6 +65,7 @@ class EscalasDeValoracionController extends Controller {
 
 		$consulta 	= 'SELECT * FROM escalas_de_valoracion WHERE year_id=? and deleted_at is null order by id desc';
 		$escala 	= DB::select($consulta, [$user->year_id])[0];
+		AuditarFila::creada('escala', 'escalas_de_valoracion', (int) $escala->id, (int) $user->year_id, 'Creó una banda de la escala de valoración');
 
 
 		return (array)$escala;
@@ -144,7 +146,7 @@ class EscalasDeValoracionController extends Controller {
 		// no si el valor es cierto. Hay un test para cada uno de los dos.
 		$consulta 	= 'UPDATE escalas_de_valoracion SET porc_inicial=:ini, porc_final=:fin, desempenio=:desemp, descripcion=:descripcion, icono_adolescente=:adolesc, icono_infantil=:infantil, orden=:orden, perdido=:perdido, valoracion=:valoracion, updated_at=:updated_at
 						WHERE id=:id';
-		$escalas 	= DB::update($consulta, [
+		$escalas 	= AuditarFila::cambio('escala', 'escalas_de_valoracion', (int) $actual->id, fn () => DB::update($consulta, [
 			':ini' 			=> $request->input('porc_inicial', $actual->porc_inicial),
 			':fin' 			=> $request->input('porc_final', $actual->porc_final),
 			':desemp' 		=> $request->input('desempenio', $actual->desempenio),
@@ -156,7 +158,7 @@ class EscalasDeValoracionController extends Controller {
 			':valoracion' 	=> $request->input('valoracion', $actual->valoracion),
 			'updated_at' 	=> $now,
 			':id' 			=> $request->id,
-		]);
+		]), (int) $actual->year_id);
 
 		return 'Guardado';
 
@@ -223,7 +225,7 @@ class EscalasDeValoracionController extends Controller {
 		$this->avisarDeLoQueArrastra($escala, $request);
 
 		$consulta 	= 'UPDATE escalas_de_valoracion SET deleted_at=?  WHERE `id`=?';
-		$escalas 	= DB::update($consulta, [ $now, $id ]);
+		$escalas 	= AuditarFila::cambio('escala', 'escalas_de_valoracion', (int) $escala->id, fn () => DB::update($consulta, [ $now, $id ]), (int) $escala->year_id, 'Borró una banda de la escala de valoración');
 
 		return 'En papelera';
 	}

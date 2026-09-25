@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Services\Auditoria;
 use App\Support\Autoriza;
+use App\Support\AuditarFila;
 use App\Support\CatalogoDelMen;
 use App\Support\Reloj;
 use Illuminate\Support\Facades\DB;
@@ -279,6 +280,7 @@ class DesempenosController extends Controller
             'created_at' => Reloj::ahoraTexto(),
             'updated_at' => Reloj::ahoraTexto(),
         ]);
+        AuditarFila::creada('desempeno', 'desempenos_por_defecto', $id, $yearId, 'Añadió un desempeño al plan de área');
 
         return $this->filaDelCatalogo($id);
     }
@@ -329,7 +331,7 @@ class DesempenosController extends Controller
         );
         $this->exigirEscrituraDelPlan($materiaId, $gradoId, $periodoId);
 
-        DB::table('desempenos_por_defecto')->where('id', $fila->id)->update([
+        AuditarFila::cambio('desempeno', 'desempenos_por_defecto', (int) $fila->id, fn () => DB::table('desempenos_por_defecto')->where('id', $fila->id)->update([
             'materia_id' => $materiaId,
             'grado_id' => $gradoId,
             'periodo_id' => $periodoId,
@@ -340,7 +342,7 @@ class DesempenosController extends Controller
                 : (int) $fila->orden,
             'updated_by' => (int) $this->user->user_id,
             'updated_at' => Reloj::ahoraTexto(),
-        ]);
+        ]), $yearId);
 
         return $this->filaDelCatalogo((int) $fila->id);
     }
@@ -368,11 +370,11 @@ class DesempenosController extends Controller
 
         $ahora = Reloj::ahoraTexto();
 
-        DB::table('desempenos_por_defecto')->where('id', $fila->id)->update([
+        AuditarFila::cambio('desempeno', 'desempenos_por_defecto', (int) $fila->id, fn () => DB::table('desempenos_por_defecto')->where('id', $fila->id)->update([
             'deleted_at' => $ahora,
             'deleted_by' => (int) $this->user->user_id,
             'updated_at' => $ahora,
-        ]);
+        ]), (int) $this->user->year_id, 'Borró un desempeño del plan de área');
 
         return ['id' => (int) $fila->id];
     }
@@ -413,6 +415,10 @@ class DesempenosController extends Controller
                 'updated_at' => Reloj::ahoraTexto(),
             ]);
         }
+
+        // Una línea por reordenación, no una por fila.
+        Auditoria::registrar()->editar('desempeno')->en(year: $yearId)
+            ->resumen('Reordenó '.count($pedidos).' desempeños del plan de área')->guardar();
 
         return ['reordenados' => count($pedidos)];
     }

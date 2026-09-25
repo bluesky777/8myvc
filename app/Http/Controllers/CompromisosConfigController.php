@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
+use App\Services\Auditoria;
+use App\Support\AuditarFila;
 use App\Support\Autoriza;
 use App\Support\PlantillaDelCompromiso;
 use App\Support\Reloj;
@@ -233,7 +235,9 @@ class CompromisosConfigController extends Controller
         // `created_by` se manda en el `VALUES` y **no se toca en el `UPDATE`**: quien
         // configuró esto por primera vez —o el enero que lo heredó— no cambia porque
         // alguien corrija hoy una errata del subtítulo.
-        DB::insert('INSERT INTO config_compromiso
+        $existente = DB::selectOne('SELECT id FROM config_compromiso WHERE year_id=?', [$year_id]);
+
+        $escribir = fn () => DB::insert('INSERT INTO config_compromiso
                 (year_id, regla, corte, primaria_activa, primaria_materia_1_id, primaria_materia_2_id,
                  plazo_label, plazo_dias, dias_reclamacion, titulo, subtitulo,
                  muestra_escudo, muestra_foto, muestra_resolucion, col_periodos, col_falta, firmantes,
@@ -266,6 +270,16 @@ class CompromisosConfigController extends Controller
                 $valores['firma_digital'], $valores['pide_segunda_firma'],
                 $user->user_id, $user->user_id, $ahora, $ahora,
             ]);
+
+        if ($existente) {
+            AuditarFila::cambio('config_compromiso', 'config_compromiso', (int) $existente->id, $escribir,
+                $year_id, 'Cambió la configuración del compromiso académico');
+        } else {
+            $escribir();
+            $nuevo = DB::selectOne('SELECT id FROM config_compromiso WHERE year_id=?', [$year_id]);
+            AuditarFila::creada('config_compromiso', 'config_compromiso', (int) $nuevo->id,
+                $year_id, 'Configuró el compromiso académico');
+        }
 
         return 'Guardado';
     }
@@ -309,6 +323,7 @@ class CompromisosConfigController extends Controller
         $bloques = $this->bloquesValidados();
 
         $ahora = Reloj::ahoraTexto();
+        $antes = $this->bloquesParaAuditar($year_id);
 
         DB::transaction(function () use ($bloques, $year_id, $user, $ahora) {
             foreach ($bloques as $bloque) {
@@ -330,7 +345,36 @@ class CompromisosConfigController extends Controller
             }
         });
 
+        // Una sola línea por guardado, con sólo los bloques que cambiaron.
+        $despues = $this->bloquesParaAuditar($year_id);
+        $cambiados = array_keys(array_filter($despues, fn ($b, $clave) => ($antes[$clave] ?? null) != $b, ARRAY_FILTER_USE_BOTH));
+
+        if ($cambiados) {
+            Auditoria::registrar()
+                ->editar('compromiso_bloque')
+                ->en(year: $year_id)
+                ->de(array_intersect_key($antes, array_flip($cambiados)))
+                ->a(array_intersect_key($despues, array_flip($cambiados)))
+                ->resumen('Cambió '.count($cambiados).' de '.count($despues).' textos del compromiso académico')
+                ->guardar();
+        }
+
         return 'Guardado';
+    }
+
+    /**
+     * Los bloques del año por clave, sin sellos, para comparar antes y después.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private function bloquesParaAuditar(int $year_id): array
+    {
+        $salida = [];
+        foreach (DB::select('SELECT clave, orden, activo, titulo, cuerpo FROM compromiso_bloques WHERE year_id=?', [$year_id]) as $fila) {
+            $salida[$fila->clave] = (array) $fila;
+        }
+
+        return $salida;
     }
 
     /**

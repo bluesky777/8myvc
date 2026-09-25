@@ -70,6 +70,7 @@
         "GET api/aspirantes",
         "GET api/aspirantes/{id}",
         "GET api/auditoria/alumno/{id}",
+        "GET api/auditoria/anio/{year_id}",
         "GET api/auditoria/entidad/{tipo}/{id}",
         "GET api/auditoria/ficha/{tipo}/{id}",
         "GET api/auditoria/ingresos",

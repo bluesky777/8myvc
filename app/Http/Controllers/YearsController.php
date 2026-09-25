@@ -8,6 +8,7 @@ use App\User;
 use App\Models\Year;
 use App\Services\Auditoria;
 use App\Support\Autoriza;
+use App\Support\AuditarFila;
 use App\Services\BoletinIndependiente;
 use App\Services\DefinitivasDeAsignatura;
 use App\Support\RepartoDeLaNota;
@@ -1113,7 +1114,9 @@ class YearsController extends Controller {
 			$year->compromiso_familiar_label = $compromiso_familiar;
 			$year->updated_by                = $user->user_id;
 
-			$year->save();
+			// Hasta aquí el modelo sólo se rellenó en memoria: la base aún tiene el
+			// año de antes, y `AuditarFila` lo lee para el «de».
+			AuditarFila::cambio('year_config', 'years', (int) $year->id, fn () => $year->save(), (int) $year->id);
 
 			if ($cargosDeAntes !== [$year->secretario_id, $year->tesorero_id]) {
 				$this->olvidarContextoDeLosCargos(array_merge($cargosDeAntes, [$year->secretario_id, $year->tesorero_id]));
@@ -1164,16 +1167,8 @@ class YearsController extends Controller {
 			// que recibe `bitacoras`, y aquí sí cabe entera —`valor_nuevo` es
 			// `json`— mientras que allí va a un `varchar`.
 			//
-			// **Sin `de()`, y eso es una ausencia con motivo**: la fila vieja ya se
-			// perdió doce líneas más arriba, cuando el modelo se fue rellenando
-			// campo a campo con `Request::input(..., $year->…)`. Recuperarla exige
-			// releer el año antes de tocarlo, y eso es un cambio de forma del
-			// método que no es de este lote; queda anotado en aud-4 §5.
-			Auditoria::registrar()
-				->editar('year_config', (int) $year->id)
-				->en(year: (int) $year->id)
-				->a((string) $year)
-				->guardar();
+			// Desde el 25 sep 2026 la línea la deja `AuditarFila` al guardar, con el
+			// antes y el después de las columnas que cambiaron (antes iba sin `de()`).
 
 			return $year;
 		} catch (\Exception $e) {
@@ -1662,10 +1657,6 @@ class YearsController extends Controller {
 		$year_id 	= 	Request::input('year_id');
 		$actual 	= 	(bool) Request::input('can');
 
-		if ($actual) {
-			Year::where('actual', true)->update(['actual'=>false]);
-		}
-
 		$year = Year::findOrFail($year_id);
 		// Era `= 1` a secas, o sea que destildar la casilla marcaba el año como
 		// actual y devolvía «Ahora NO es año actual». De ahí salen los años con
@@ -1674,8 +1665,15 @@ class YearsController extends Controller {
 		// Lo que se rompe con eso está en Services\Login::ponerEnElPeriodoActual,
 		// que se queda con el PRIMERO de los años actuales y no tiene ORDER BY.
 		// Ver docs/migracion/05-codigo-muerto-y-roto.md §28.
-		$year->actual = $actual ? 1 : 0;
-		$year->save();
+		// Una línea sólo por el año que se toca, no por los que se apagan. El
+		// apagado va dentro para que el «antes» sea el de verdad.
+		AuditarFila::cambio('year_config', 'years', (int) $year->id, function () use ($year, $actual) {
+			if ($actual) {
+				Year::where('actual', true)->where('id', '!=', $year->id)->update(['actual'=>false]);
+			}
+			$year->actual = $actual ? 1 : 0;
+			$year->save();
+		}, (int) $year->id, $actual ? 'Marcó el año como actual' : 'Quitó el año como actual');
 
 		if ($actual) { return 'Ahora es año actual.';
 		} else { return 'Ahora NO es año actual';}
@@ -1689,7 +1687,8 @@ class YearsController extends Controller {
 
 		$year = Year::findOrFail($year_id);
 		$year->alumnos_can_see_notas = $can;
-		$year->save();
+		AuditarFila::cambio('year_config', 'years', (int) $year->id, fn () => $year->save(), (int) $year->id,
+			$can ? 'Dejó a los alumnos ver sus notas' : 'Quitó a los alumnos el ver sus notas');
 
 		if ($can) { return 'Ahora pueden ver sus notas.';
 		} else { return 'Ahora NO pueden ver sus notas';}
@@ -1704,7 +1703,8 @@ class YearsController extends Controller {
 
 		$year = Year::findOrFail($year_id);
 		$year->profes_can_edit_alumnos = $can;
-		$year->save();
+		AuditarFila::cambio('year_config', 'years', (int) $year->id, fn () => $year->save(), (int) $year->id,
+			$can ? 'Dejó a los docentes editar alumnos' : 'Quitó a los docentes el editar alumnos');
 
 		if ($can) { return 'Ahora docentes pueden editar alumnos.';
 		} else { return 'Ahora docentes NO pueden editar alumnos';}
@@ -1718,7 +1718,8 @@ class YearsController extends Controller {
 
 		$year = Year::findOrFail($year_id);
 		$year->mostrar_puesto_boletin = $can;
-		$year->save();
+		AuditarFila::cambio('year_config', 'years', (int) $year->id, fn () => $year->save(), (int) $year->id,
+			$can ? 'Activó los puestos en el boletín' : 'Desactivó los puestos en el boletín');
 
 		if ($can) { return 'Ahora se mostrarán los puestos en el boletín.';
 		}else{ return 'Ahora NO se mostrarán los puestos en el boletín';}
@@ -1733,7 +1734,8 @@ class YearsController extends Controller {
 
 		$year = Year::findOrFail($year_id);
 		$year->mostrar_nota_comport_boletin = $can;
-		$year->save();
+		AuditarFila::cambio('year_config', 'years', (int) $year->id, fn () => $year->save(), (int) $year->id,
+			$can ? 'Activó la nota de comportamiento en el boletín' : 'Desactivó la nota de comportamiento en el boletín');
 
 		if ($can) { return 'Ahora se mostrará la nota de comportamiento en el boletín.';
 		} else { return 'Ahora NO se mostrarán la nota de comportamiento en el boletín';}
@@ -1765,7 +1767,8 @@ class YearsController extends Controller {
 
 		$year = Year::findOrFail($year_id);
 		$year->year_pasado_en_bol = $can;
-		$year->save();
+		AuditarFila::cambio('year_config', 'years', (int) $year->id, fn () => $year->save(), (int) $year->id,
+			$can ? 'Activó los indicadores perdidos del año pasado en el boletín' : 'Desactivó los indicadores perdidos del año pasado en el boletín');
 
 		if ($can) { return 'Ahora se mostrarán indicadores perdidos del año pasado en el boletín.';
 		}else{ return 'Ahora NO se mostrarán indicadores perdidos del año pasado en el boletín';}
@@ -1780,7 +1783,8 @@ class YearsController extends Controller {
 
 		$year = Year::findOrFail($year_id);
 		$year->solo_escalas_valorativas = $can;
-		$year->save();
+		AuditarFila::cambio('year_config', 'years', (int) $year->id, fn () => $year->save(), (int) $year->id,
+			$can ? 'Activó el boletín sólo cualitativo' : 'Desactivó el boletín sólo cualitativo');
 
 		if ($can) {
 			return 'Ahora se mostrarán SOLO cualitativo.';
@@ -1842,7 +1846,8 @@ class YearsController extends Controller {
 		$year = Year::findOrFail($year_id);
 		$year->mostrar_nota_numerica_boletin = $can;
 		$year->updated_by = $user->user_id;
-		$year->save();
+		AuditarFila::cambio('year_config', 'years', (int) $year->id, fn () => $year->save(), (int) $year->id,
+			$can ? 'Activó la nota numérica en el boletín' : 'Desactivó la nota numérica en el boletín');
 
 		// Devuelve el valor y no una frase suelta: la pantalla de configuración pinta
 		// este interruptor al lado de `solo_escalas_valorativas`, que es el otro que
@@ -1947,7 +1952,8 @@ class YearsController extends Controller {
 
 		$year->cierre_sin_calificar = $valor;
 		$year->updated_by = $user->user_id;
-		$year->save();
+		AuditarFila::cambio('year_config', 'years', (int) $year->id, fn () => $year->save(), (int) $year->id,
+			"Cambió qué pasa al cerrar con lo no calificado: {$valor}");
 
 		return [
 			'year_id' => (int) $year->id,
@@ -1997,7 +2003,8 @@ class YearsController extends Controller {
 
 		$year->profes_pueden_cambiar_definitivas = (int) $pueden;
 		$year->updated_by = $user->user_id;
-		$year->save();
+		AuditarFila::cambio('year_config', 'years', (int) $year->id, fn () => $year->save(), (int) $year->id,
+			(int) $pueden ? 'Dejó a los docentes cambiar definitivas a mano' : 'Quitó a los docentes el cambiar definitivas a mano');
 
 		return [
 			'year_id' => (int) $year->id,
@@ -2074,7 +2081,8 @@ class YearsController extends Controller {
 		$year = Year::findOrFail($year_id);
 		$year->prematr_nuevos = $can;
 		$year->updated_by = $user->user_id;
-		$year->save();
+		AuditarFila::cambio('year_config', 'years', (int) $year->id, fn () => $year->save(), (int) $year->id,
+			$can ? 'Activó la prematrícula de nuevos' : 'Desactivó la prematrícula de nuevos');
 
 		if ($can) { return 'Prematrícula ABIERTA para estudiantes nuevos.';
 		} else { return 'Prematrícula CERRADA para estudiantes nuevos.';}
@@ -2097,7 +2105,8 @@ class YearsController extends Controller {
 		$year = Year::findOrFail($year_id);
 		$year->prematr_antiguos = $can;
 		$year->updated_by = $user->user_id;
-		$year->save();
+		AuditarFila::cambio('year_config', 'years', (int) $year->id, fn () => $year->save(), (int) $year->id,
+			$can ? 'Activó la prematrícula de antiguos' : 'Desactivó la prematrícula de antiguos');
 
 		if ($can) { return 'Prematrícula ABIERTA para los alumnos que ya están.';
 		} else { return 'Prematrícula CERRADA para los alumnos que ya están.';}
@@ -2315,7 +2324,8 @@ class YearsController extends Controller {
 
 		$year = Year::findOrFail($year_id);
 		$year->si_recupera_materia_recup_indicador = $can;
-		$year->save();
+		AuditarFila::cambio('year_config', 'years', (int) $year->id, fn () => $year->save(), (int) $year->id,
+			$can ? 'Activó ignorar las notas perdidas si gana la materia' : 'Desactivó ignorar las notas perdidas si gana la materia');
 
 		if ($can) { return 'Ahora se ignorarán las notas perdidas si gana la materia.';
 		} else { return 'Ahora NO se ignorarán las notas perdidas si gana la materia';}
@@ -2339,10 +2349,11 @@ class YearsController extends Controller {
 		// No cambia nada de lo que hoy calcula nadie —para todos los lectores ese
 		// año ya no estaba—: pone en la fila lo que todos ya deducían.
 		// Ver docs/migracion/05-codigo-muerto-y-roto.md §28.
-		$year->actual = 0;
-		$year->save();
-
-		$year->delete();
+		AuditarFila::cambio('year_config', 'years', (int) $year->id, function () use ($year) {
+			$year->actual = 0;
+			$year->save();
+			$year->delete();
+		}, (int) $year->id, 'Mandó el año a la papelera');
 
 		return $year;
 	}

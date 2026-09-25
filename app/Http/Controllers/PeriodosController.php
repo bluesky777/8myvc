@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\DB;
 use App\Services\BoletinIndependiente;
 use App\Services\DefinitivasDeAsignatura;
 use App\Support\CierreDeLoNoCalificado;
+use App\Support\AuditarFila;
 use Illuminate\Support\Facades\Request;
 use Carbon\Carbon;
 
@@ -38,6 +39,7 @@ class PeriodosController extends Controller {
 		$periodo->fecha_plazo					=	Request::input('fecha_plazo');
 
 		$periodo->save();
+		AuditarFila::creada('periodo', 'periodos', (int) $periodo->id, (int) $year_id, 'Creó el periodo '.$periodo->numero);
 
 		return $periodo;
 		
@@ -60,7 +62,7 @@ class PeriodosController extends Controller {
 		$periodo->fecha_plazo		=	Request::input('fecha_plazo');
 		$periodo->updated_by 		= 	$this->user->user_id;
 
-		$periodo->save();
+		AuditarFila::cambio('periodo', 'periodos', (int) $periodo->id, fn () => $periodo->save(), (int) $periodo->year_id, 'Cambió los datos del periodo');
 
 		return $periodo;
 	}
@@ -70,7 +72,7 @@ class PeriodosController extends Controller {
 		$periodo = Periodo::findOrFail(Request::input('periodo_id'));
 		$periodo->fecha_inicio	=	Carbon::parse(Request::input('fecha'));
 		$periodo->updated_by 	= 	$this->user->user_id;
-		$periodo->save();
+		AuditarFila::cambio('periodo', 'periodos', (int) $periodo->id, fn () => $periodo->save(), (int) $periodo->year_id, 'Cambió la fecha de inicio del periodo');
 
 		return 'Cambiado';
 	}
@@ -80,7 +82,7 @@ class PeriodosController extends Controller {
 		$periodo = Periodo::findOrFail(Request::input('periodo_id'));
 		$periodo->fecha_fin		=	Carbon::parse(Request::input('fecha'));
 		$periodo->updated_by 	= 	$this->user->user_id;
-		$periodo->save();
+		AuditarFila::cambio('periodo', 'periodos', (int) $periodo->id, fn () => $periodo->save(), (int) $periodo->year_id, 'Cambió la fecha de fin del periodo');
 
 		return 'Cambiado';
 	}
@@ -108,7 +110,8 @@ class PeriodosController extends Controller {
 
 		$periodo->fecha_entrega_boletines	=	$fecha;
 		$periodo->updated_by 				= 	$this->user->user_id;
-		$periodo->save();
+		AuditarFila::cambio('periodo', 'periodos', (int) $periodo->id, fn () => $periodo->save(), (int) $periodo->year_id,
+			$fecha === null ? 'Quitó la fecha de entrega de boletines' : 'Cambió la fecha de entrega de boletines');
 
 		return 'Cambiado';
 	}
@@ -234,7 +237,8 @@ class PeriodosController extends Controller {
 		}
 
 		$periodo->updated_by 					=	$this->user->user_id;
-		$periodo->save();
+		AuditarFila::cambio('periodo', 'periodos', (int) $periodo->id, fn () => $periodo->save(), (int) $periodo->year_id,
+			$quedaAbierto ? 'Abrió el periodo para que los docentes editen notas' : 'Cerró el periodo a los docentes');
 
 		if ($salida === null) {
 			return 'Cambiado';
@@ -387,7 +391,8 @@ class PeriodosController extends Controller {
 		$periodo = Periodo::findOrFail(Request::input('periodo_id'));
 		$periodo->profes_pueden_nivelar	=	Request::input('pueden');
 		$periodo->updated_by 			= 	$this->user->user_id;
-		$periodo->save();
+		AuditarFila::cambio('periodo', 'periodos', (int) $periodo->id, fn () => $periodo->save(), (int) $periodo->year_id,
+			(int) Request::input('pueden') === 1 ? 'Dejó a los docentes nivelar en el periodo' : 'Quitó a los docentes el nivelar en el periodo');
 
 		return 'Cambiado';
 	}
@@ -423,20 +428,23 @@ class PeriodosController extends Controller {
 	{
 		$periodoACambiar = Periodo::findOrFail($periodo_id);
 		
-		$periodos = Periodo::where('year_id', $periodoACambiar->year_id)->get();
+		// Una línea sólo por el periodo que pasa a actual.
+		AuditarFila::cambio('periodo', 'periodos', (int) $periodoACambiar->id, function () use ($periodoACambiar) {
+			$periodos = Periodo::where('year_id', $periodoACambiar->year_id)->get();
 
-		foreach ($periodos as $periodo) {
-			
-			if ($periodo->id != $periodoACambiar->id) {
-				$periodo->actual = 0;
-				$periodo->save();
+			foreach ($periodos as $periodo) {
+				
+				if ($periodo->id != $periodoACambiar->id) {
+					$periodo->actual = 0;
+					$periodo->save();
+				}
+				
 			}
-			
-		}
 
-		$periodoACambiar->actual 		= 1;
-		$periodoACambiar->updated_by 	= $this->user->user_id;
-		$periodoACambiar->save();
+			$periodoACambiar->actual 		= 1;
+			$periodoACambiar->updated_by 	= $this->user->user_id;
+			$periodoACambiar->save();
+		}, (int) $periodoACambiar->year_id, 'Marcó el periodo como actual');
 
 		return $periodoACambiar;
 	}
@@ -724,9 +732,11 @@ class PeriodosController extends Controller {
 	public function deleteDestroy($periodo_id)
 	{
 		$periodo = Periodo::findOrFail($periodo_id);
-		$periodo->deleted_by 	= $this->user->user_id;
-		$periodo->save();
-		$periodo->delete();
+		AuditarFila::cambio('periodo', 'periodos', (int) $periodo->id, function () use ($periodo) {
+			$periodo->deleted_by 	= $this->user->user_id;
+			$periodo->save();
+			$periodo->delete();
+		}, (int) $periodo->year_id, 'Borró el periodo '.$periodo->numero);
 
 		return $periodo;
 	}

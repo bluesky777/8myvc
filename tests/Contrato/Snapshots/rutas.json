@@ -725,5 +725,6 @@
     "PUT api/years/toggle-prematricula-antiguos": "App\\Http\\Controllers\\YearsController@putTogglePrematriculaAntiguos",
     "PUT api/years/toggle-prematricula-nuevos": "App\\Http\\Controllers\\YearsController@putTogglePrematriculaNuevos",
     "PUT api/years/toggle-solo-valorativas": "App\\Http\\Controllers\\YearsController@putToggleSoloValorativas",
-    "PUT api/years/useractive/{year_id}": "App\\Http\\Controllers\\YearsController@putUseractive"
+    "PUT api/years/useractive/{year_id}": "App\\Http\\Controllers\\YearsController@putUseractive",
+    "GET api/auditoria/anio/{year_id}": "App\\Http\\Controllers\\Auditoria\\AuditoriaController@getAnio"
 }

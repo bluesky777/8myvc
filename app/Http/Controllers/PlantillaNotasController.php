@@ -8,6 +8,7 @@ use App\Support\FotoDeLaPlantilla;
 use App\Support\CierreDeAsignatura;
 use App\Support\AlcanceDeLaPlantilla;
 use App\Support\Autoriza;
+use App\Support\AuditarFila;
 use App\Support\Reloj;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Request;
@@ -158,6 +159,7 @@ class PlantillaNotasController extends Controller
             'created_at' => Reloj::ahoraTexto(),
             'updated_at' => Reloj::ahoraTexto(),
         ]);
+        AuditarFila::creada('unidad_plantilla', 'unidades_por_defecto', $id, $yearId, 'Creó una unidad de la plantilla');
 
         return $this->unidadConSuReparto($id);
     }
@@ -182,7 +184,7 @@ class PlantillaNotasController extends Controller
 
         $unidad = $this->unidadDelAnio($id);
 
-        DB::table('unidades_por_defecto')->where('id', $unidad->id)->update([
+        AuditarFila::cambio('unidad_plantilla', 'unidades_por_defecto', (int) $unidad->id, fn () => DB::table('unidades_por_defecto')->where('id', $unidad->id)->update([
             'definicion' => $this->texto('definicion', $unidad->definicion),
             'porcentaje' => $this->porcentaje('porcentaje', (int) $unidad->porcentaje),
             'obligatoria' => $this->booleano('obligatoria', (int) $unidad->obligatoria),
@@ -199,7 +201,7 @@ class PlantillaNotasController extends Controller
             ),
             'updated_by' => (int) $this->user->user_id,
             'updated_at' => Reloj::ahoraTexto(),
-        ]);
+        ]), (int) $this->user->year_id);
 
         return $this->unidadConSuReparto((int) $unidad->id);
     }
@@ -235,11 +237,12 @@ class PlantillaNotasController extends Controller
                 'updated_at' => $ahora,
             ]);
 
-        DB::table('unidades_por_defecto')->where('id', $unidad->id)->update([
+        // Una línea por la unidad; sus subunidades caen con ella.
+        AuditarFila::cambio('unidad_plantilla', 'unidades_por_defecto', (int) $unidad->id, fn () => DB::table('unidades_por_defecto')->where('id', $unidad->id)->update([
             'deleted_at' => $ahora,
             'deleted_by' => (int) $this->user->user_id,
             'updated_at' => $ahora,
-        ]);
+        ]), (int) $this->user->year_id, 'Borró una unidad de la plantilla'.($subunidades ? " y sus {$subunidades} subunidades" : ''));
 
         return [
             'id' => (int) $unidad->id,
@@ -274,6 +277,7 @@ class PlantillaNotasController extends Controller
             'created_at' => Reloj::ahoraTexto(),
             'updated_at' => Reloj::ahoraTexto(),
         ]);
+        AuditarFila::creada('subunidad_plantilla', 'subunidades_por_defecto', $id, (int) $this->user->year_id, 'Creó una subunidad de la plantilla');
 
         return $this->unidadConSuReparto((int) $unidad->id) + ['subunidad_id' => $id];
     }
@@ -292,7 +296,7 @@ class PlantillaNotasController extends Controller
 
         $subunidad = $this->subunidadDelAnio($id);
 
-        DB::table('subunidades_por_defecto')->where('id', $subunidad->id)->update([
+        AuditarFila::cambio('subunidad_plantilla', 'subunidades_por_defecto', (int) $subunidad->id, fn () => DB::table('subunidades_por_defecto')->where('id', $subunidad->id)->update([
             'definicion' => $this->texto('definicion', $subunidad->definicion),
             'porcentaje' => $this->porcentaje('porcentaje', (int) $subunidad->porcentaje),
             'nota_default' => Request::has('nota_default')
@@ -306,7 +310,7 @@ class PlantillaNotasController extends Controller
                 : $subunidad->orden,
             'updated_by' => (int) $this->user->user_id,
             'updated_at' => Reloj::ahoraTexto(),
-        ]);
+        ]), (int) $this->user->year_id);
 
         return $this->unidadConSuReparto((int) $subunidad->unidad_defec_id)
             + ['subunidad_id' => (int) $subunidad->id];
@@ -327,11 +331,11 @@ class PlantillaNotasController extends Controller
         $subunidad = $this->subunidadDelAnio($id);
         $ahora = Reloj::ahoraTexto();
 
-        DB::table('subunidades_por_defecto')->where('id', $subunidad->id)->update([
+        AuditarFila::cambio('subunidad_plantilla', 'subunidades_por_defecto', (int) $subunidad->id, fn () => DB::table('subunidades_por_defecto')->where('id', $subunidad->id)->update([
             'deleted_at' => $ahora,
             'deleted_by' => (int) $this->user->user_id,
             'updated_at' => $ahora,
-        ]);
+        ]), (int) $this->user->year_id, 'Borró una subunidad de la plantilla');
 
         return ['id' => (int) $subunidad->id];
     }
@@ -407,6 +411,16 @@ class PlantillaNotasController extends Controller
                     'subunidades de la unidad '.$unidad->id
                 );
             }
+        }
+
+        // Una línea por reordenación, no una por fila.
+        if ($movidasUnidades) {
+            Auditoria::registrar()->editar('unidad_plantilla')->en(year: $yearId)
+                ->resumen("Reordenó las {$movidasUnidades} unidades de la plantilla")->guardar();
+        }
+        if ($movidasSubunidades) {
+            Auditoria::registrar()->editar('subunidad_plantilla')->en(year: $yearId)
+                ->resumen("Reordenó {$movidasSubunidades} subunidades de la plantilla")->guardar();
         }
 
         return [

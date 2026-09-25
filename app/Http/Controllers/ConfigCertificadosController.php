@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 use App\User;
 use App\Models\ConfigCertificado;
 use App\Models\Year;
+use App\Support\AuditarFila;
 
 class ConfigCertificadosController extends Controller {
 
@@ -47,6 +48,8 @@ class ConfigCertificadosController extends Controller {
 		$certif->piepagina_solo_ultima_pagina = Request::input('piepagina_solo_ultima_pagina', 0);
 		$certif->created_by = $user->user_id;
 		$certif->save();
+		// Es del colegio, no de un año: va al año de la sesión.
+		AuditarFila::creada('config_certificado', 'config_certificados', (int) $certif->id, (int) $user->year_id, 'Creó una configuración de certificado');
 
 
 		return $certif;
@@ -84,7 +87,7 @@ class ConfigCertificadosController extends Controller {
 		$certif->piepagina_margin_left 	= Request::input('piepagina_margin_left');
 		$certif->piepagina_solo_ultima_pagina = Request::input('piepagina_solo_ultima_pagina', 0);
 		$certif->created_by = $user->user_id;
-		$certif->save();
+		AuditarFila::cambio('config_certificado', 'config_certificados', (int) $certif->id, fn () => $certif->save(), (int) $user->year_id, 'Cambió una configuración de certificado');
 
 
 		return $certif;
@@ -99,7 +102,7 @@ class ConfigCertificadosController extends Controller {
 		$year = Year::findOrFail(Request::input('year_id'));
 
 		$year->config_certificado_estudio_id = Request::input('config_certificado_estudio_id');
-		$year->save();
+		AuditarFila::cambio('year_config', 'years', (int) $year->id, fn () => $year->save(), (int) $year->id, 'Cambió el certificado de estudio del año');
 
 		return 'Cambiado';
 	}
@@ -214,7 +217,7 @@ class ConfigCertificadosController extends Controller {
 			abort(422, 'No se mandó ningún texto que cambiar.');
 		}
 
-		$year->save();
+		AuditarFila::cambio('year_config', 'years', (int) $year->id, fn () => $year->save(), (int) $year->id, 'Cambió los textos del certificado del año');
 
 		return 'Cambiado';
 	}
@@ -225,6 +228,7 @@ class ConfigCertificadosController extends Controller {
 		$user = User::fromToken();
 
 		$certif = ConfigCertificado::findOrFail($id);
+		AuditarFila::borrada('config_certificado', 'config_certificados', (int) $certif->id, (int) $user->year_id, 'Borró una configuración de certificado');
 		$certif->delete();
 		return $certif;
 	}
