@@ -512,7 +512,12 @@ class BolfinalesController extends Controller {
 			&& ((int) ($year->mostrar_puesto_boletin ?? 1) !== 1
 				|| filter_var(Request::input('sin_puesto', false), FILTER_VALIDATE_BOOLEAN));
 
-		foreach ($sinPuesto ? $response_alumnos : $alumnos as $alumno) {
+		// **Y con puesto, al resto le basta su promedio** (§P2c): pidiendo hojas sueltas se
+		// calcula entero sólo a los pedidos, y a los demás, más abajo, sólo lo que el puesto
+		// lee de ellos -- `promediosParaElPuesto()`.
+		$soloLasHojas = is_array($requested_alumnos);
+
+		foreach ($soloLasHojas ? $response_alumnos : $alumnos as $alumno) {
 
 			// Todas las materias con sus unidades y subunides
 			$this->definitivasMateriasXPeriodo($alumno, $grupo_id, $user->year_id, $year->periodos, $periodo_a_calcular, $user->si_recupera_materia_recup_indicador, $perdidasPorDefinitiva );
@@ -641,6 +646,10 @@ class BolfinalesController extends Controller {
 				$alumno->puesto = null;
 			}
 		} else {
+			if ($soloLasHojas) {
+				$this->promediosParaElPuesto($alumnos, $response_alumnos, $grupo_id, (int) $user->year_id, $year->periodos, $periodo_a_calcular);
+			}
+
 			BoletinIndependiente::ponerPuestos(
 				$alumnos,
 				array_map(static fn ($periodo) => (int) $periodo->id, $year->periodos),
@@ -659,6 +668,69 @@ class BolfinalesController extends Controller {
 	/**
 	 * @param  array<int, array<int, array<int, int>>>|null  $perdidasPorDefinitiva  ver perdidasPorDefinitivaDelGrupo()
 	 */
+	/**
+	 * El `promedio` de los alumnos que no se imprimen, que es lo único que el puesto lee
+	 * de ellos (`Nota::puestoAlumno` y `losQueCuentanParaElPuesto`: `alumno_id` y
+	 * `promedio`). Docs/migracion/48 §P2c.
+	 *
+	 * **Es la cuenta de `definitivasMateriasXPeriodo()` y en su mismo orden**, porque el
+	 * puesto compara flotantes y un empate que se rompe por sumar en otro orden cambia
+	 * un puesto: las asignaturas de `Grupo::detailed_materias()`, cada una con sus
+	 * definitivas del año por `periodo`, rellenadas con ceros hasta los periodos que
+	 * se promedian, y la media de las medias. Dos consultas en vez de una por alumno y
+	 * asignatura, más las de comportamiento y áreas que el puesto no mira.
+	 */
+	private function promediosParaElPuesto(array $alumnos, array $hojas, $grupo_id, int $year_id, array $periodos, $per_calcular): void
+	{
+		$impresos = [];
+		foreach ($hojas as $hoja) {
+			$impresos[(int) $hoja->alumno_id] = true;
+		}
+
+		$resto = array_values(array_filter($alumnos, static fn ($a) => ! isset($impresos[(int) $a->alumno_id])));
+		if ($resto === []) {
+			return;
+		}
+
+		$asignaturas = Grupo::detailed_materias($grupo_id);
+		$porCelda = [];
+
+		if ($asignaturas !== []) {
+			$alumnoIds = array_map(static fn ($a) => (int) $a->alumno_id, $resto);
+			$asignaturaIds = array_map(static fn ($a) => (int) $a->asignatura_id, $asignaturas);
+
+			$filas = DB::select(
+				'SELECT nf.alumno_id, nf.asignatura_id, CAST(nf.nota AS DOUBLE) as DefMateria
+				   FROM notas_finales nf
+				   INNER JOIN periodos p on p.year_id=? and p.id=nf.periodo_id '.($per_calcular ? 'and nf.periodo<=?' : '').' and p.deleted_at is null
+				  WHERE nf.alumno_id IN ('.implode(',', array_fill(0, count($alumnoIds), '?')).')
+				    AND nf.asignatura_id IN ('.implode(',', array_fill(0, count($asignaturaIds), '?')).')
+				  ORDER BY nf.alumno_id, nf.asignatura_id, nf.periodo, nf.id',
+				array_merge([$year_id], $per_calcular ? [$per_calcular] : [], $alumnoIds, $asignaturaIds)
+			);
+
+			foreach ($filas as $fila) {
+				$porCelda[(int) $fila->alumno_id.'|'.(int) $fila->asignatura_id][] = $fila;
+			}
+		}
+
+		foreach ($resto as $alumno) {
+			$alumno->promedio = 0;
+
+			foreach ($asignaturas as $asignatura) {
+				$definitivas = $porCelda[(int) $alumno->alumno_id.'|'.(int) $asignatura->asignatura_id] ?? [];
+				$suma_def = 0;
+				foreach ($definitivas as $definitiva) {
+					$suma_def += (float) $definitiva->DefMateria;
+				}
+				$cuantas = max(count($definitivas), count($periodos));
+				$alumno->promedio += $suma_def / $cuantas;
+			}
+
+			$alumno->promedio = count($asignaturas) > 0 ? $alumno->promedio / count($asignaturas) : 0;
+		}
+	}
+
 	public function definitivasMateriasXPeriodo(&$alumno, $grupo_id, $year_id, $periodos, $per_calcular=null, $si_recupera_materia_recup_indicador=false, $perdidasPorDefinitiva=null)
 	{
 		$deEsteAlumno = $perdidasPorDefinitiva[(int) $alumno->alumno_id] ?? [];
