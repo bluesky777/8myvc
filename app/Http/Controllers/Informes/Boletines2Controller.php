@@ -4,6 +4,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Informes\CalcPerdidasDefinitivas;
 use App\Support\PeriodoDelBoletin;
 use Illuminate\Support\Facades\Request;
+use App\Support\RepartoDeLaNota;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
@@ -147,7 +148,19 @@ class Boletines2Controller extends Controller {
 		return $boletines;
 	}
 
+	/**
+	 * El boletín del grupo, con el reparto de subunidades recordado mientras se arma:
+	 * sin eso se preguntaba 4.028 veces por grupo (docs/migracion/48 §P3a). Leer no
+	 * escribe `years`, así que no hay reparto que se quede viejo.
+	 */
 	public function detailedNotasGrupo($grupo_id, &$user, $requested_alumnos='', $periodo_a_calcular=10)
+	{
+		return RepartoDeLaNota::recordandoElReparto(function () use ($grupo_id, &$user, $requested_alumnos, $periodo_a_calcular) {
+			return $this->armarElGrupo($grupo_id, $user, $requested_alumnos, $periodo_a_calcular);
+		});
+	}
+
+	private function armarElGrupo($grupo_id, &$user, $requested_alumnos='', $periodo_a_calcular=10)
 	{
 		$grupo			= Grupo::datos($grupo_id);
 		$year			= Year::datos($user->year_id);

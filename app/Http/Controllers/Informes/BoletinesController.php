@@ -243,7 +243,19 @@ class BoletinesController extends Controller {
 		);
 	}
 
+	/**
+	 * El boletín del grupo, con el reparto de subunidades recordado mientras se arma:
+	 * sin eso se preguntaba 4.028 veces por grupo (docs/migracion/48 §P3a). Leer no
+	 * escribe `years`, así que no hay reparto que se quede viejo.
+	 */
 	public function detailedNotasGrupo($grupo_id, &$user, $requested_alumnos='', $periodo_a_calcular=10)
+	{
+		return RepartoDeLaNota::recordandoElReparto(function () use ($grupo_id, &$user, $requested_alumnos, $periodo_a_calcular) {
+			return $this->armarElGrupo($grupo_id, $user, $requested_alumnos, $periodo_a_calcular);
+		});
+	}
+
+	private function armarElGrupo($grupo_id, &$user, $requested_alumnos='', $periodo_a_calcular=10)
 	{
 		$grupo			= Grupo::datos($grupo_id);
 		$year			= Year::datos($user->year_id);

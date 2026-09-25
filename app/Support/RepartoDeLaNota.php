@@ -123,9 +123,10 @@ final class RepartoDeLaNota
      * entrega. Lo contrario —caer en `promedio` por no saber— cambiaría notas sin
      * que nadie lo hubiera pedido.
      *
-     * Sin caché: es una fila por clave primaria y estas consultas se montan una vez
-     * por petición. Una caché estática se llevaría por delante los tests, que
-     * cambian la columna dentro del mismo proceso.
+     * Sin caché por defecto: una caché estática se llevaría por delante los tests,
+     * que cambian la columna dentro del mismo proceso, y `YearsController` lee el
+     * reparto, lo cambia y recalcula el año **en la misma petición**. La única
+     * memoria es la de {@see recordandoElReparto()}, que se enciende a mano.
      */
     public static function modoDelAnio($yearId): string
     {
@@ -133,13 +134,47 @@ final class RepartoDeLaNota
             return self::PORCENTAJE;
         }
 
-        $fila = DB::selectOne('SELECT reparto_subunidades FROM years WHERE id = ?', [(int) $yearId]);
-
-        if ($fila === null || ! in_array($fila->reparto_subunidades, [self::PORCENTAJE, self::PROMEDIO], true)) {
-            return self::PORCENTAJE;
+        if (self::$memoria !== null && isset(self::$memoria[(int) $yearId])) {
+            return self::$memoria[(int) $yearId];
         }
 
-        return $fila->reparto_subunidades;
+        $fila = DB::selectOne('SELECT reparto_subunidades FROM years WHERE id = ?', [(int) $yearId]);
+
+        $modo = $fila === null || ! in_array($fila->reparto_subunidades, [self::PORCENTAJE, self::PROMEDIO], true)
+            ? self::PORCENTAJE
+            : $fila->reparto_subunidades;
+
+        if (self::$memoria !== null) {
+            self::$memoria[(int) $yearId] = $modo;
+        }
+
+        return $modo;
+    }
+
+    /** @var array<int, string>|null null = apagada, que es lo normal. */
+    private static ?array $memoria = null;
+
+    /**
+     * Ejecuta `$armar` recordando el reparto de cada año, y lo olvida al salir.
+     *
+     * **Sólo para lo que lee y no escribe `years`**: los boletines de periodo
+     * preguntaban lo mismo 4.028 veces en un grupo de 38 (docs/migracion/48 §P3a).
+     * Se anida sin pisar a quien la encendió antes, y un `throw` la apaga igual.
+     *
+     * @template T
+     * @param callable(): T $armar
+     * @return T
+     */
+    public static function recordandoElReparto(callable $armar)
+    {
+        $antes = self::$memoria;
+        self::$memoria = $antes ?? [];
+
+        try {
+            return $armar();
+        } finally {
+            self::$memoria = $antes;
+        }
     }
 
     /**
