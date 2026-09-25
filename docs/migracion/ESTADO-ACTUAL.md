@@ -33,6 +33,10 @@
 > - **Lo que NO se tocó, a propósito**: `alumnos/fusionar` —la pantalla deja elegir qué
 >   definitiva gana y recalcular pisaría esa elección; es decisión de Joseth— y las
 >   escrituras que no cambian el valor (matrículas, casillas vacías sembradas, orden).
+>   **Corregido el mismo día por Joseth:** fusionar no tiene que recalcular, tiene que
+>   copiar la definitiva **como manual**, igual que `NotasAlCambiarDeGrupo`. Hecho en
+>   `FusionDeAlumnos` (las del destino no se tocan); `FusionDeAlumnosTest`, dos rojos con el
+>   código viejo.
 > - **Espera decisión de Joseth**: esas 57 de `lal` —y las de los demás colegios— son
 >   datos del cambio de fórmula; el botón las arregla, **incluidas las de periodos cerrados
 >   e impresos** (en `lal`, 1 del periodo 1).

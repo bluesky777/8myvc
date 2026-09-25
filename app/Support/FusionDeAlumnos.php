@@ -190,6 +190,14 @@ class FusionDeAlumnos
             }
 
             // 3. Todo lo demás, tal cual.
+            // **La definitiva que viaja llega como manual** (Joseth, 25 sep 2026), igual que
+            // las que trae `NotasAlCambiarDeGrupo`. Es una copia de lo que valía en la otra
+            // ficha, no una cuenta sobre las notas de ésta —que tras unir pueden ser las de
+            // las dos—, y sin la marca el primer recálculo de la asignatura la pisaba, con
+            // la elección de la pantalla dentro. Las del destino no se tocan: no viajan.
+            DB::update('UPDATE notas_finales SET manual = 1, updated_by = ?, updated_at = ? WHERE alumno_id = ?',
+                [$quien, Reloj::ahora(), $origen]);
+
             foreach (self::tablasConAlumno() as $tabla) {
                 $movidas += DB::update("UPDATE `$tabla` SET alumno_id = ? WHERE alumno_id = ?", [$destino, $origen]);
             }
