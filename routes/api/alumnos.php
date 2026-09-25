@@ -3,6 +3,7 @@
 use App\Http\Controllers\AcudientesController;
 use App\Http\Controllers\Alumnos\FoliosController;
 use App\Http\Controllers\Alumnos\ImportarController;
+use App\Http\Controllers\Alumnos\OtrosColegiosController;
 use App\Http\Controllers\AlumnosController;
 use App\Http\Controllers\BuscarController;
 use App\Http\Controllers\CarteraController;
@@ -304,3 +305,13 @@ Route::post('piars-alumnos/document', [PiarsAlumnosController::class, 'postDocum
 Route::put('piars-alumnos/field', [PiarsAlumnosController::class, 'putField'])->middleware('auth.personal');
 Route::get('piars-alumnos/alumnos/{grupo_id}', [PiarsAlumnosController::class, 'getAlumnos'])->middleware('auth.personal');
 Route::delete('piars-alumnos/document/{alumno_id}', [PiarsAlumnosController::class, 'deleteDocument'])->middleware('auth.personal');
+
+// EL ARCHIVO DE OTROS COLEGIOS Y DE AÑOS ANTIGUOS (24 sep 2026). Quién puede: quien edita
+// alumnos, dentro de cada método. Ver la cabecera de `OtrosColegiosController`.
+Route::get('otros-colegios/documentos/{id}', [OtrosColegiosController::class, 'getDocumento'])->middleware('auth.personal');
+Route::delete('otros-colegios/documentos/{id}', [OtrosColegiosController::class, 'deleteDocumento'])->middleware('auth.personal');
+Route::get('otros-colegios/alumno/{alumno_id}', [OtrosColegiosController::class, 'getDeAlumno'])->middleware('auth.personal');
+Route::post('otros-colegios/alumno/{alumno_id}', [OtrosColegiosController::class, 'postCrear'])->middleware('auth.personal');
+Route::put('otros-colegios/{id}', [OtrosColegiosController::class, 'putActualizar'])->middleware('auth.personal');
+Route::delete('otros-colegios/{id}', [OtrosColegiosController::class, 'deleteAno'])->middleware('auth.personal');
+Route::post('otros-colegios/{id}/documento', [OtrosColegiosController::class, 'postSubirDocumento'])->middleware('auth.personal');
