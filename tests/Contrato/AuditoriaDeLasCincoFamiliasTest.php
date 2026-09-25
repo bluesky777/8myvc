@@ -451,8 +451,11 @@ class AuditoriaDeLasCincoFamiliasTest extends CasoDeContrato
             'tiene claves foráneas: la línea se tiene que poder leer aunque el alumno '.
             'ya no exista (18 §2.4).');
 
-        $this->assertStringContainsString($esperado, (string) $deLaFalta[0]->resumen,
-            'El nombre está en su columna pero la frase de serie no lo usa.');
+        // Y la frase de serie ya NO lo repite (25 sep 2026): el nombre vive en
+        // `alumno_nombre` y el actor en `actor_nombre`, y copiarlos también en `resumen`
+        // era guardarlos dos veces en cada línea. El diálogo los pinta de sus columnas.
+        $this->assertStringNotContainsString($esperado, (string) $deLaFalta[0]->resumen,
+            'La frase de serie volvió a copiar el nombre del alumno, que ya está en su columna.');
     }
 
     /**

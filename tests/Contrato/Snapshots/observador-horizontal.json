@@ -31,6 +31,7 @@
                     }
                 ],
                 "alumno_id": "int",
+                "alumno_updated_at": "string",
                 "apellidos": "string",
                 "barrio": "null|string",
                 "celular": "null|string",

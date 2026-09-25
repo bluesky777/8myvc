@@ -347,7 +347,58 @@ class AuditoriaController extends Controller
             $parametros
         );
 
+        $this->ponerDetalle($filas);
+
         return $this->recortadas($filas);
+    }
+
+    /**
+     * `detalle`: DE QUÉ habla la línea, en palabras —el indicador de una nota, el periodo
+     * de una definitiva—. Se busca al leer y no se guarda: la línea sólo lleva el id, y
+     * escribir el nombre del indicador en cada una de las miles de notas sería repetirlo
+     * en la base (pedido por Joseth el 25 sep 2026, con el mismo argumento con que se
+     * quitaron los nombres del resumen). Si la fila ya no existe, `detalle` es null.
+     *
+     * @param  array<int, object>  $filas
+     */
+    private function ponerDetalle(array $filas): void
+    {
+        $ids = fn (array $entidades) => array_values(array_unique(array_map(
+            fn ($f) => (int) $f->entidad_id,
+            array_filter($filas, fn ($f) => in_array($f->entidad, $entidades, true) && $f->entidad_id)
+        )));
+        $marcas = fn (array $l) => implode(',', array_fill(0, count($l), '?'));
+
+        $deNota = [];
+        if ($l = $ids(['nota', 'rubrica_valoracion'])) {
+            foreach (DB::select(
+                'SELECT n.id, s.definicion AS sub, u.definicion AS uni, p.numero
+                   FROM notas n
+                   JOIN subunidades s ON s.id = n.subunidad_id
+                   JOIN unidades u ON u.id = s.unidad_id
+                   LEFT JOIN periodos p ON p.id = u.periodo_id
+                  WHERE n.id IN ('.$marcas($l).')', $l) as $f) {
+                $deNota[(int) $f->id] = trim(($f->sub ?: $f->uni ?: 'Indicador sin nombre').($f->numero ? ' · P'.$f->numero : ''));
+            }
+        }
+
+        $deDefinitiva = [];
+        if ($l = $ids(['nota_final'])) {
+            foreach (DB::select(
+                'SELECT nf.id, p.numero FROM notas_finales nf LEFT JOIN periodos p ON p.id = nf.periodo_id
+                  WHERE nf.id IN ('.$marcas($l).')', $l) as $f) {
+                $deDefinitiva[(int) $f->id] = 'Definitiva'.($f->numero ? ' del periodo '.$f->numero : '');
+            }
+        }
+
+        foreach ($filas as $fila) {
+            $id = (int) $fila->entidad_id;
+            $fila->detalle = match ($fila->entidad) {
+                'nota', 'rubrica_valoracion' => $deNota[$id] ?? null,
+                'nota_final' => $deDefinitiva[$id] ?? null,
+                default => null,
+            };
+        }
     }
 
     /**

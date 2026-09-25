@@ -694,18 +694,20 @@ final class Auditoria
             self::QUITAR_NIVELACION => 'quitó la nivelación de',
         ][$this->fila['accion']] ?? $this->fila['accion'];
 
-        $quien = $this->fila['actor_nombre']
-            ?? ($this->fila['actor_tipo'] === 'sistema' ? 'El sistema' : null)
-            ?? ($this->fila['actor_intentado'] !== null ? 'Alguien como «'.$this->fila['actor_intentado'].'»' : 'Alguien');
-
-        $frase = $quien.' '.$verbo.' '.str_replace('_', ' ', (string) $this->fila['entidad']);
+        // SIN NOMBRES desde el 25 sep 2026. Antes era «Fulana editó nota 88.412 de
+        // Mengano», y los dos nombres ya viven en `actor_nombre` y `alumno_nombre`: el
+        // diálogo los pinta en «Quién» y en su cabecera, así que la frase los repetía en
+        // pantalla y en cada fila de la base. Las líneas viejas no se tocan; el front
+        // les quita los nombres al pintarlas.
+        $frase = mb_strtoupper(mb_substr($verbo, 0, 1)).mb_substr($verbo, 1).' '.str_replace('_', ' ', (string) $this->fila['entidad']);
 
         if ($this->fila['entidad_id'] !== null) {
             $frase .= ' '.$this->fila['entidad_id'];
         }
 
-        if ($this->fila['alumno_nombre'] !== null) {
-            $frase .= ' de '.$this->fila['alumno_nombre'];
+        // El usuario que se intentó sin sesión no está en `actor_nombre`: ése sí se queda.
+        if ($this->fila['actor_nombre'] === null && $this->fila['actor_intentado'] !== null) {
+            $frase .= ' (como «'.$this->fila['actor_intentado'].'»)';
         }
 
         return $this->recortar($frase, 255) ?? $frase;
