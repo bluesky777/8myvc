@@ -1,6 +1,6 @@
 ---
 name: desplegar
-description: Desplegar el backend 8myvc a los colegios de producción (las dos cuentas de cPanel). Úsalo cuando Joseth diga «despliega», «deploy», «pon al día los colegios», «sube esto a producción» o pregunte si los colegios están al día. Conduce la tanda entera - el plan, las preguntas, el despliegue y la comprobación - con tools/desplegar.sh y tools/censo.sh.
+description: Desplegar a los colegios de producción - el backend 8myvc (las dos cuentas de cPanel) y el front (up y up2, por las Actions de myvc_front). Úsalo cuando Joseth diga «despliega», «deploy», «pon al día los colegios», «sube esto a producción» o pregunte si los colegios están al día. Conduce la tanda entera - el plan, las preguntas, el despliegue y la comprobación - con tools/desplegar.sh y tools/censo.sh.
 ---
 
 # Desplegar a los colegios
@@ -57,6 +57,19 @@ El guion respalda antes de migrar donde hay migraciones, se para en seco si la t
 toca `composer.lock` o el árbol está sucio, y **si un `migrate` falla detiene la tanda
 entera** e imprime el camino de vuelta. Queda registro en `despliegues.log`.
 
+**Cuánto tarda** (medido el 24 sep 2026, 18 destinos, 46 commits, 6 migraciones nuevas):
+
+    plan (tools/desplegar.sh)          ~30 s
+    --ejecutar, respaldo + pull +      185 s  (unos 10 s por colegio; lal y maranatha,
+      migrate de los 18                        las bases grandes, unos 20 s)
+    censo + curl de los 18             ~30 s
+    bajar respaldos al Mac             lo largo: ~1 min por respaldo de 8–40 MB, así que
+                                       media hora o más para una tanda completa
+
+Cada colegio da 500 como mucho durante sus ~10 s (entre su `pull` y su `migrate`, menos aún), no durante los tres minutos. Si `ssh` contesta
+«Connection closed» o «Connection reset» al empezar, es el servidor limitando conexiones
+seguidas: se repite en un minuto y entra.
+
 Si se detiene: **no improvises un arreglo**. Enseña el estado —ese colegio tiene código
 nuevo y base vieja, da 500—, el `git reset --hard` y el respaldo que el propio guion
 imprime, y pregunta antes de tocar nada.
@@ -98,7 +111,28 @@ FECHA`. **Nunca se borran la más reciente ni la más cercana a hace un mes**: �
 sirve para comparar en una emergencia. El guion no las propone y `--borrar` se niega a
 tocarlas. No hay que buscarle la vuelta.
 
-## 6. Avisar a las otras sesiones
+## 6. El front: empujar `main` y lanzar up y up2 — **en la misma tanda, pedido por Joseth el 24 sep 2026**
+
+«Despliega» es el backend **y** el front. Va **después** del backend, porque el front nuevo puede
+llamar a rutas o columnas que sólo trae el `8myvc` nuevo.
+
+```bash
+cd ~/DESARROLLOS/myvc_front
+git log --oneline origin/main..main       # lo que se va a subir; enséñaselo en una línea
+git push origin main
+gh workflow run desplegar-up.yml  --ref main
+gh workflow run desplegar-up2.yml --ref main
+gh run list -w desplegar-up2.yml -L 1     # y esperar a que los dos salgan `success`
+```
+
+- **Sólo commits**: el árbol lo comparten otras sesiones; nunca `git add -A` antes de empujar.
+- Los dos workflows construyen en GitHub y publican en `myvc_dist`; el servidor lo recoge. Se
+  comprueba con `tools/censo.sh` (columnas `up` y `up2`): todos los colegios en el mismo hash.
+- El workflow `build` sale en rojo y **no es de esto**: es el CI de la app vieja.
+- Medido el 24 sep: el `gh workflow run` lo aceptó el clasificador cuando Joseth lo pidió en
+  el mensaje; antes lo había bloqueado. Si lo bloquea, se le da la orden y la lanza él.
+
+## 7. Avisar a las otras sesiones
 
 Si la tanda llevaba cambios en `routes/api.php`, en notificaciones o en el modelo de
 datos, avisa por `SendMessage` a las sesiones vivas de 8myvc y de Flutter: su código de

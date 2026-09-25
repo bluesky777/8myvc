@@ -17,3 +17,22 @@ micolev1	HECHO	lal	5a7f957b	0db94dce	7 migracion(es), respaldo /home/micolev1/re
 micolev1	HECHO	maranathaarauca	5a7f957b	0db94dce	7 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_arauca_maranatha_db-2026-09-24-134936-0db94dce.sql.gz
 micolev1	HECHO	semillitasdedios	5a7f957b	0db94dce	7 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_semillitas-2026-09-24-134947-0db94dce.sql.gz
 micolevi	HECHO	public_html	5a7f957b	0db94dce	7 migracion(es), respaldo /home/micolevi/respaldos/antes-de-migrar/micolevi_lalvirtual-2026-09-24-134953-0db94dce.sql.gz
+== 2026-09-24 22:37:03 -0500 · 18 desplegado(s), 0 sin desplegar
+micolev1	HECHO	amiguitosdejesus	67197afb	5a7f957b	6 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_amiguitosdejesus-2026-09-24-233400-5a7f957b.sql.gz
+micolev1	HECHO	bethelexplora	67197afb	5a7f957b	6 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_bethel_arauquita_db-2026-09-24-233404-5a7f957b.sql.gz
+micolev1	HECHO	cads-itagui	67197afb	5a7f957b	6 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_cads_itagui_db-2026-09-24-233413-5a7f957b.sql.gz
+micolev1	HECHO	casb-medellin	67197afb	5a7f957b	6 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_simonbolivar_medellin-2026-09-24-233421-5a7f957b.sql.gz
+micolev1	HECHO	caz-zaragoza	67197afb	5a7f957b	6 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_caz_zaragoza_db-2026-09-24-233433-5a7f957b.sql.gz
+micolev1	HECHO	coabsaravena	67197afb	5a7f957b	6 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_coab_saravena_db-2026-09-24-233439-5a7f957b.sql.gz
+micolev1	HECHO	coal	67197afb	5a7f957b	6 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_coal_bucara-2026-09-24-233457-5a7f957b.sql.gz
+micolev1	HECHO	colbosque	67197afb	5a7f957b	6 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_colbosque_tame-2026-09-24-233510-5a7f957b.sql.gz
+micolev1	HECHO	coljordan	67197afb	5a7f957b	6 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_coljordan_db-2026-09-24-233513-5a7f957b.sql.gz
+micolev1	HECHO	comad-san-andres	67197afb	5a7f957b	6 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_comad_san_andres_db-2026-09-24-233520-5a7f957b.sql.gz
+micolev1	HECHO	demo	67197afb	5a7f957b	6 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_demo_db-2026-09-24-233526-5a7f957b.sql.gz
+micolev1	HECHO	eal	67197afb	5a7f957b	6 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_la_hermosa-2026-09-24-233531-5a7f957b.sql.gz
+micolev1	HECHO	fortul	67197afb	5a7f957b	6 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_fortul_adventista_db-2026-09-24-233535-5a7f957b.sql.gz
+micolev1	HECHO	inseaq	67197afb	5a7f957b	6 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_quibdo_db-2026-09-24-233541-5a7f957b.sql.gz
+micolev1	HECHO	lal	67197afb	5a7f957b	6 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_lal_db-2026-09-24-233602-5a7f957b.sql.gz
+micolev1	HECHO	maranathaarauca	67197afb	5a7f957b	6 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_arauca_maranatha_db-2026-09-24-233625-5a7f957b.sql.gz
+micolev1	HECHO	semillitasdedios	67197afb	5a7f957b	6 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_semillitas-2026-09-24-233638-5a7f957b.sql.gz
+micolevi	HECHO	public_html	67197afb	5a7f957b	6 migracion(es), respaldo /home/micolevi/respaldos/antes-de-migrar/micolevi_lalvirtual-2026-09-24-233645-5a7f957b.sql.gz
