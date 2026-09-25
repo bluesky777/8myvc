@@ -1,14 +1,22 @@
 # 48 — Los informes pesados: certificados y boletines
 
 24 sep 2026. Encargo de Joseth: analizar y rehacer los endpoints que tardan en
-cargar, empezando por certificados y boletines. **Hecho:** P1 (8myvc `c668b44`: el boletín final y `promovidos/calcular-grupo`),
-P2a (myvc_front `ae0c6f1d`: el certificado de todos los años, de uno en uno),
-P3a (8myvc `1c4209c`: boletín de periodo, 9.172 → 5.145 consultas, sha1 igual en
-19 casos) y P2b (8myvc `2bd1741` + myvc_front `7bf20c4d`: con `sin_puesto` o el año
-sin puesto, un certificado de un alumno pasa de 922 a 39 consultas; la hoja,
-idéntica salvo `puesto`). **Sin desplegar.** Quedan P2c, P3b y P4: con lo anterior
-dentro, P2c sólo gana en el boletín final de UN alumno con puesto (~0,5 s hoy) y
-P3b en el de periodo (~2 s en quibdo, ~0,6 s en simon).
+cargar, empezando por certificados y boletines. **Hecho, sin desplegar:**
+
+| | Commit | Antes → después (consultas) |
+|---|---|---|
+| P1 — faltas contadas en la celda | 8myvc `c668b44` | boletín final simon: 24–32 s → 0,6–0,8 s |
+| P2a — certificado de todos los años, de uno en uno | front `ae0c6f1d` | 8 procesos a la vez → 1 |
+| P3a — reparto recordado mientras se arma | 8myvc `1c4209c` | boletín de periodo 9.172 → 5.145 |
+| P2b — `sin_puesto` / año sin puesto | 8myvc `2bd1741`, front `7bf20c4d` | certificado de un alumno 922 → 39 |
+| P3b — subunidades no repetidas + precarga por grupo | 8myvc `279bd84`, `8e9bde0` | boletín de periodo 5.145 → 1.121 |
+| P2c — con puesto, al resto sólo el promedio | 8myvc `584f69d` | boletín final de una hoja 855 → 43 |
+
+Todas con el JSON idéntico por sha1 antes y después (P2b: idéntico salvo `puesto`,
+que va a `null` en una hoja que no lo imprime). **De paso:** `notas-actuales-alumnos`
+hacía 30.222 consultas y 11 s en un grupo de 38; con P3a y P3b, 9.475 y 5,6 s. Lo que
+le queda son las cuatro consultas de `definitiva_year` por alumno × asignatura, y
+es el siguiente candidato. Queda P4.
 
 Por qué importa: los 16 colegios viven en 2 cuentas de cPanel con 50 Entry
 Processes cada una (`02-plan-rendimiento.md:726-745`). Lo que tumba la cuenta no
