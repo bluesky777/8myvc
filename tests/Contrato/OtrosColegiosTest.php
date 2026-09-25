@@ -66,7 +66,7 @@ class OtrosColegiosTest extends CasoDeContrato
         $this->olvidarControladores();
         $bajada = $this->get("/api/otros-colegios/documentos/{$documento}", $h)->assertStatus(200);
         $this->assertInstanceOf(BinaryFileResponse::class, $bajada->baseResponse);
-        $this->assertSame('image/jpeg', $bajada->headers->get('Content-Type'));
+        $this->assertSame('application/octet-stream', $bajada->headers->get('Content-Type'));
 
         // Y el fichero NO está en `public/`: sólo sale por la ruta, con token.
         $this->assertStringStartsWith(storage_path('app/archivo-alumnos/'),

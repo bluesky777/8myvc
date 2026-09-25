@@ -174,8 +174,12 @@ class OtrosColegiosController extends Controller
             abort(404, 'El documento está registrado pero el fichero no está en el servidor.');
         }
 
+        // `octet-stream` y no el tipo real: el front ya lo sabe (viene en la lista) y arma el `Blob`
+        // con él. Un `image/*` aquí hacía que el nginx del docker --h5bp, `map $sent_http_content_type
+        // $cors`-- añadiera SU `Access-Control-Allow-Origin` al de Laravel, y dos cabeceras iguales el
+        // navegador las rechaza: la foto no se abría y el PDF sí. Medido el 24 sep 2026.
         return response()->file($ruta, [
-            'Content-Type' => $documento->tipo,
+            'Content-Type' => 'application/octet-stream',
             'Content-Disposition' => 'inline; filename="'.addcslashes($documento->nombre_original, '"\\').'"',
         ]);
     }
