@@ -82,7 +82,6 @@
         "GET api/censo/{id}/votantes",
         "GET api/certificados",
         "GET api/certificados-estudio/certificado-alumno/{grupo_id}",
-        "GET api/certificados-estudio/certificado-grupo/{grupo_id}",
         "GET api/cierres-asignatura/asignatura/{asignatura_id}/{periodo_id}",
         "GET api/cierres-asignatura/periodo/{periodo_id}",
         "GET api/colillas-inscripcion/pendientes",

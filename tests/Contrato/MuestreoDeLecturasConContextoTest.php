@@ -225,7 +225,12 @@ class MuestreoDeLecturasConContextoTest extends CasoDeContrato
      */
     public function test_los_certificados_de_estudio_siguen_sin_su_vista(): void
     {
-        foreach (['certificado-alumno', 'certificado-grupo'] as $cual) {
+        // `certificado-grupo` se borró el 24 sep 2026 (ver `CertificadosEstudioController`):
+        // ahora no existe, que es distinto de fallar.
+        $this->withToken($this->token)->get('/api/certificados-estudio/certificado-grupo/'.$this->grupo->id)
+            ->assertStatus(404);
+
+        foreach (['certificado-alumno'] as $cual) {
             $r = $this->withToken($this->token)->get('/api/certificados-estudio/'.$cual.'/'.$this->grupo->id);
 
             $r->assertStatus(500);

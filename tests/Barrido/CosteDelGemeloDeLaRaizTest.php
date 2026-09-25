@@ -65,7 +65,6 @@ class CosteDelGemeloDeLaRaizTest extends CasoDeContrato
      * una cifra de otro día que no se puede restar de nada.
      */
     private const RUTAS = [
-        ['GET',  '/api/certificados-estudio/certificado-grupo/%d',   500, 'gemelo de la raíz — grupo'],
         ['GET',  '/api/certificados-estudio/certificado-alumno/%d',  500, 'gemelo de la raíz — alumno'],
         ['PUT',  '/api/bolfinales/detailed-notas-year-group/%d',     200, 'el YA arreglado (referencia)'],
     ];

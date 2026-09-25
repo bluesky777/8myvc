@@ -347,7 +347,6 @@ Route::put('actas-evaluacion/cambiar-descripcion', [ActasEvaluacionController::c
 
 // CertificadosEstudioController
 Route::get('certificados-estudio/certificado-alumno/{grupo_id}', [CertificadosEstudioController::class, 'getCertificadoAlumno'])->middleware('auth.personal');
-Route::get('certificados-estudio/certificado-grupo/{grupo_id}', [CertificadosEstudioController::class, 'getCertificadoGrupo'])->middleware('auth.personal');
 
 // InformesRecientesController
 //
