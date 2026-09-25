@@ -2,7 +2,6 @@
 
 namespace Tests\Contrato;
 
-use App\Http\Controllers\BolfinalesController;
 use App\Services\BoletinIndependiente;
 use App\User;
 use Illuminate\Support\Facades\DB;
@@ -54,11 +53,6 @@ class PerdidasDelGrupoAcotadasTest extends CasoDeContrato
 
     /** @var array{grupo: object, asignatura: int, p1: int, p2: int, a: int, b: int} */
     private array $escenario;
-
-    public function test_bolfinales_cuenta_solo_las_unidades_del_boletin_de_cada_alumno(): void
-    {
-        $this->comprobarLosCuatro(BolfinalesController::class);
-    }
 
     public function test_informes_bolfinales_cuenta_solo_las_unidades_de_cada_boletin(): void
     {

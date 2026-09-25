@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\Auditoria\AuditoriaController;
-use App\Http\Controllers\CertificadosEstudioController;
 use App\Http\Controllers\ConfigCertificadosController;
 use App\Http\Controllers\Historiales\HistorialesController;
 use App\Http\Controllers\Informes\ActasEvaluacionController;
@@ -345,8 +344,6 @@ Route::put('actas-evaluacion/detalle', [ActasEvaluacionController::class, 'putDe
 // son lecturas, y el texto del acta es configuración del año lectivo.
 Route::put('actas-evaluacion/cambiar-descripcion', [ActasEvaluacionController::class, 'putGuardarTextoActa'])->middleware('auth.personal');
 
-// CertificadosEstudioController
-Route::get('certificados-estudio/certificado-alumno/{grupo_id}', [CertificadosEstudioController::class, 'getCertificadoAlumno'])->middleware('auth.personal');
 
 // InformesRecientesController
 //

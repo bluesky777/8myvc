@@ -65,14 +65,11 @@ class BoletinFinalConsultaInvarianteTest extends CasoDeContrato
      * la de comportamiento no es cómo se escribe `periodos`: es que **la invariante
      * no une con nada**. Ése es el discriminador, y es el que faltaba.
      *
-     * No es una precaución teórica: el gemelo
-     * `app/Http/Controllers/BolfinalesController.php` tiene **las mismas tres
-     * consultas invariantes escritas con Eloquent** (líneas 67, 86 y 267, la última
-     * una vez por alumno × asignatura) **y es código vivo** — se alcanza por
-     * `GET certificados-estudio/certificado-grupo/{grupo_id}` →
-     * `new BolfinalesController` → `->detailedNotasGrupo(...)`. Con la primera
-     * versión del predicado, este test daría verde sobre ese camino con el problema
-     * entero dentro.
+     * No era una precaución teórica: el gemelo de la raíz,
+     * `app/Http/Controllers/BolfinalesController.php`, tenía **las mismas tres
+     * consultas invariantes escritas con Eloquent**. Se borró el 24 sep 2026 junto
+     * con los dos certificados que lo alcanzaban; la forma de Eloquent se sigue
+     * reconociendo por si vuelve a escribirse así.
      */
     private static function esDeLosPeriodosDelAnio(string $sql): bool
     {
@@ -102,8 +99,7 @@ class BoletinFinalConsultaInvarianteTest extends CasoDeContrato
 
         $this->assertTrue(self::esDeLosPeriodosDelAnio(
             'select * from `periodos` where `year_id` = ? and `periodos`.`deleted_at` is null'),
-            'Dejó de reconocer la forma de Eloquent, que es la que tiene el gemelo VIVO '
-            .'de `app/Http/Controllers/BolfinalesController.php`.');
+            'Dejó de reconocer la forma de Eloquent, que era la del gemelo de la raíz.');
 
         $this->assertFalse(self::esDeLosPeriodosDelAnio(
             'SELECT n.nota as nota_comportamiento, n.id, p.numero FROM periodos p '

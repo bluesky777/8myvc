@@ -101,7 +101,6 @@
     "GET api/censo/{id}/elegibles": "App\\Http\\Controllers\\VtCensoController@getElegibles",
     "GET api/censo/{id}/votantes": "App\\Http\\Controllers\\VtCensoController@getVotantes",
     "GET api/certificados": "App\\Http\\Controllers\\ConfigCertificadosController@getIndex",
-    "GET api/certificados-estudio/certificado-alumno/{grupo_id}": "App\\Http\\Controllers\\CertificadosEstudioController@getCertificadoAlumno",
     "GET api/cierres-asignatura/asignatura/{asignatura_id}/{periodo_id}": "App\\Http\\Controllers\\CierresAsignaturaController@getAsignatura",
     "GET api/cierres-asignatura/periodo/{periodo_id}": "App\\Http\\Controllers\\CierresAsignaturaController@getPeriodo",
     "GET api/ciudades": "App\\Http\\Controllers\\CiudadesController@getIndex",

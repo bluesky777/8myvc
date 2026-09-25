@@ -212,31 +212,18 @@ class MuestreoDeLecturasConContextoTest extends CasoDeContrato
     }
 
     /**
-     * Los dos certificados de estudio siguen sin su vista.
+     * Los dos certificados de estudio ya no existen.
      *
-     * `certificados.estudio` no está en el repo, así que las dos rutas fallan al
-     * renderizar. Ya estaba documentado en el §6.5 del inventario de código
-     * roto; queda aquí fijado porque son las ÚNICAS lecturas de este
-     * controlador, y sin esto es el último que no mira nadie.
-     *
-     * Son además el único consumidor del `BolfinalesController` duplicado de la
-     * raíz: el duplicado no está muerto, está vivo dentro de un camino que no
-     * llega.
+     * Daban 500 en toda llamada —la vista `certificados.estudio` no está en el repo
+     * y no hay paquete de PDF— y no los llamaba ninguna app. Se borraron el 24 sep
+     * 2026 a pedido de Joseth, con el `BolfinalesController` duplicado de la raíz,
+     * que sólo ellos alcanzaban. Queda fijado que no vuelvan: 404, no 500.
      */
-    public function test_los_certificados_de_estudio_siguen_sin_su_vista(): void
+    public function test_los_certificados_de_estudio_ya_no_existen(): void
     {
-        // `certificado-grupo` se borró el 24 sep 2026 (ver `CertificadosEstudioController`):
-        // ahora no existe, que es distinto de fallar.
-        $this->withToken($this->token)->get('/api/certificados-estudio/certificado-grupo/'.$this->grupo->id)
-            ->assertStatus(404);
-
-        foreach (['certificado-alumno'] as $cual) {
-            $r = $this->withToken($this->token)->get('/api/certificados-estudio/'.$cual.'/'.$this->grupo->id);
-
-            $r->assertStatus(500);
-
-            $this->assertStringContainsString('certificados.estudio', $r->getContent(),
-                "'{$cual}' falla, pero ya no por la vista que falta.");
+        foreach (['certificado-alumno', 'certificado-grupo'] as $cual) {
+            $this->withToken($this->token)->get('/api/certificados-estudio/'.$cual.'/'.$this->grupo->id)
+                ->assertStatus(404);
         }
     }
 

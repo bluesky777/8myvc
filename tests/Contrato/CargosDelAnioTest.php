@@ -79,7 +79,9 @@ class CargosDelAnioTest extends CasoDeContrato
         $p = $this->docente();
         $this->nombrar($p->id, $p->id);
 
-        $this->assertSame(['Profesor', 'Secretario', 'Tesorero'], $this->rolesDe($p->user_id));
+        // El orden de los del cargo sigue a `roles.id`, que cambia de base a base: no se fija.
+        $this->assertEqualsCanonicalizing(['Profesor', 'Secretario', 'Tesorero'], $this->rolesDe($p->user_id));
+        $this->assertSame('Profesor', $this->rolesDe($p->user_id)[0], 'Los de role_user van delante.');
         $this->assertTrue(Role::isSecretario($p->user_id));
         $this->assertTrue(Role::isTesorero($p->user_id));
     }
