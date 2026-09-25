@@ -85,6 +85,10 @@ final class AuditarFila
 
         $linea->en(year: $year ?? (isset($d['year_id']) ? (int) $d['year_id'] : (isset($a['year_id']) ? (int) $a['year_id'] : null)));
         if ($resumen !== null) {
+            // `{columna}` en el resumen se cambia por su valor —el de después, o el de antes si
+            // se borró—: «Creó el criterio «{definicion}»» se lee con el nombre del criterio.
+            $fila = ($despues ?? []) + ($antes ?? []);
+            $resumen = preg_replace_callback('/\{(\w+)\}/', fn ($m) => (string) ($fila[$m[1]] ?? ''), $resumen);
             $linea->resumen($resumen);
         }
         $linea->guardar();

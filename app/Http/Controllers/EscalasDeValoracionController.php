@@ -65,7 +65,7 @@ class EscalasDeValoracionController extends Controller {
 
 		$consulta 	= 'SELECT * FROM escalas_de_valoracion WHERE year_id=? and deleted_at is null order by id desc';
 		$escala 	= DB::select($consulta, [$user->year_id])[0];
-		AuditarFila::creada('escala', 'escalas_de_valoracion', (int) $escala->id, (int) $user->year_id, 'Creó una banda de la escala de valoración');
+		AuditarFila::creada('escala', 'escalas_de_valoracion', (int) $escala->id, (int) $user->year_id, 'Creó la banda «{desempenio}» de la escala');
 
 
 		return (array)$escala;
@@ -158,7 +158,7 @@ class EscalasDeValoracionController extends Controller {
 			':valoracion' 	=> $request->input('valoracion', $actual->valoracion),
 			'updated_at' 	=> $now,
 			':id' 			=> $request->id,
-		]), (int) $actual->year_id);
+		]), (int) $actual->year_id, 'Cambió la banda «{desempenio}» de la escala');
 
 		return 'Guardado';
 
@@ -225,7 +225,7 @@ class EscalasDeValoracionController extends Controller {
 		$this->avisarDeLoQueArrastra($escala, $request);
 
 		$consulta 	= 'UPDATE escalas_de_valoracion SET deleted_at=?  WHERE `id`=?';
-		$escalas 	= AuditarFila::cambio('escala', 'escalas_de_valoracion', (int) $escala->id, fn () => DB::update($consulta, [ $now, $id ]), (int) $escala->year_id, 'Borró una banda de la escala de valoración');
+		$escalas 	= AuditarFila::cambio('escala', 'escalas_de_valoracion', (int) $escala->id, fn () => DB::update($consulta, [ $now, $id ]), (int) $escala->year_id, 'Borró la banda «{desempenio}» de la escala');
 
 		return 'En papelera';
 	}

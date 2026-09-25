@@ -280,7 +280,7 @@ class DesempenosController extends Controller
             'created_at' => Reloj::ahoraTexto(),
             'updated_at' => Reloj::ahoraTexto(),
         ]);
-        AuditarFila::creada('desempeno', 'desempenos_por_defecto', $id, $yearId, 'Añadió un desempeño al plan de área');
+        AuditarFila::creada('desempeno', 'desempenos_por_defecto', $id, $yearId, 'Añadió el desempeño «{definicion}»');
 
         return $this->filaDelCatalogo($id);
     }
@@ -342,7 +342,7 @@ class DesempenosController extends Controller
                 : (int) $fila->orden,
             'updated_by' => (int) $this->user->user_id,
             'updated_at' => Reloj::ahoraTexto(),
-        ]), $yearId);
+        ]), $yearId, 'Cambió el desempeño «{definicion}»');
 
         return $this->filaDelCatalogo((int) $fila->id);
     }
@@ -374,7 +374,7 @@ class DesempenosController extends Controller
             'deleted_at' => $ahora,
             'deleted_by' => (int) $this->user->user_id,
             'updated_at' => $ahora,
-        ]), (int) $this->user->year_id, 'Borró un desempeño del plan de área');
+        ]), (int) $this->user->year_id, 'Borró el desempeño «{definicion}»');
 
         return ['id' => (int) $fila->id];
     }
