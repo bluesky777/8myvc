@@ -18,7 +18,6 @@ use App\Models\Alumno;
 use App\Models\Role;
 use App\Models\Matricula;
 use App\Models\Unidad;
-use App\Models\Subunidad;
 use App\Models\Ausencia;
 use App\Models\FraseAsignatura;
 use App\Models\Asignatura;
@@ -84,7 +83,18 @@ class NotasActualesAlumnosController extends Controller {
     
     
 
+	/**
+	 * Con el reparto de subunidades recordado mientras se arma, como el boletín de
+	 * periodo: sin eso se preguntaba 5.016 veces por grupo (docs/migracion/48 §P3a).
+	 */
 	public function detailedNotasGrupo($grupo_id, &$user, $requested_alumnos='', $periodo_a_calcular=4)
+	{
+		return RepartoDeLaNota::recordandoElReparto(function () use ($grupo_id, &$user, $requested_alumnos, $periodo_a_calcular) {
+			return $this->armarElGrupo($grupo_id, $user, $requested_alumnos, $periodo_a_calcular);
+		});
+	}
+
+	private function armarElGrupo($grupo_id, &$user, $requested_alumnos='', $periodo_a_calcular=4)
 	{
 		
 		$grupo			= Grupo::datos($grupo_id);
@@ -186,11 +196,7 @@ class NotasActualesAlumnosController extends Controller {
 		$alumno->ausencias_total = $ausencias_total;
 
 		foreach ($asignaturas as $asignatura) {
-			$asignatura->unidades = Unidad::deAsignaturaCalculada($alumno->alumno_id, $asignatura->asignatura_id, $periodo_id, 'sin_desempenio', $this->user->year_id);
-
-			foreach ($asignatura->unidades as $unidad) {
-				$unidad->subunidades = Subunidad::deUnidadCalculada($alumno->alumno_id, $unidad->unidad_id, $this->user->year_id);
-			}
+			$asignatura->unidades = Unidad::deAsignaturaCalculada($alumno->alumno_id, $asignatura->asignatura_id, $periodo_id, 'sin_desempenio', $this->user->year_id, conSubunidades: true);
 
 			// **LA PARCIAL Y LA COBERTURA** — Fase 2 del
 			// [43](../../../../docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md).

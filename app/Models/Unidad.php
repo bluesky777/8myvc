@@ -144,7 +144,14 @@ class Unidad extends Model {
 	}
 
 
-	public static function deAsignaturaCalculada($alumno_id, $asignatura_id, $periodo_id, $con_desempenio='sin_desempenio', $year_id=0, $nota_minima=70)
+	/**
+	 * Con `$conSubunidades` cada unidad sale con sus `subunidades`, **las mismas filas que
+	 * `Subunidad::deUnidadCalculada()`** y en el mismo orden: son las que este método ya
+	 * trae para calcular la nota, sin la columna `unidad_id` que sólo servía para
+	 * repartirlas. El boletín de periodo las tiraba y las volvía a pedir unidad por
+	 * unidad: 2.660 consultas en un grupo de 38 (docs/migracion/48 §P3b).
+	 */
+	public static function deAsignaturaCalculada($alumno_id, $asignatura_id, $periodo_id, $con_desempenio='sin_desempenio', $year_id=0, $nota_minima=70, bool $conSubunidades = false)
 	{
 		// **El modo sale del `$year_id` que este método YA recibía**, no de un
 		// parámetro nuevo. Con `$year_id=0` —el defecto— cae en `porcentaje`, que es
@@ -286,6 +293,15 @@ class Unidad extends Model {
 				foreach (self::columnasDeLaEscala() as $columna) {
 					$unidad->{$columna} = $banda?->{$columna};
 				}
+			}
+
+			if ($conSubunidades) {
+				$unidad->subunidades = array_map(static function ($fila) {
+					$sub = clone $fila;
+					unset($sub->unidad_id);
+
+					return $sub;
+				}, $porUnidad[(int) $unidad->unidad_id] ?? []);
 			}
 
 			$calculadas[] = $unidad;
