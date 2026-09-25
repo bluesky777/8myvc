@@ -502,7 +502,17 @@ class BolfinalesController extends Controller {
 
 		$grupo->cantidad_alumnos = count($alumnos);
 
-		foreach ($alumnos as $alumno) {
+		// **Sin puesto que poner, se calcula sólo a los que se imprimen** (docs/migracion/48
+		// §P2b). El bucle recorre el grupo entero únicamente porque el puesto de uno es su
+		// sitio entre todos; pedir UNA hoja costaba lo mismo que las 38. No hace falta
+		// cuando el año no pinta el puesto --la cabecera lo mira en `year.mostrar_puesto_boletin`,
+		// de esta misma respuesta-- o cuando quien pide dice que no lo imprime: los
+		// certificados mandan `sin_puesto`. Pidiendo el grupo entero no cambia nada.
+		$sinPuesto = is_array($requested_alumnos)
+			&& ((int) ($year->mostrar_puesto_boletin ?? 1) !== 1
+				|| filter_var(Request::input('sin_puesto', false), FILTER_VALIDATE_BOOLEAN));
+
+		foreach ($sinPuesto ? $response_alumnos : $alumnos as $alumno) {
 
 			// Todas las materias con sus unidades y subunides
 			$this->definitivasMateriasXPeriodo($alumno, $grupo_id, $user->year_id, $year->periodos, $periodo_a_calcular, $user->si_recupera_materia_recup_indicador, $perdidasPorDefinitiva );
@@ -626,11 +636,17 @@ class BolfinalesController extends Controller {
 		// y además **ya viene recortado por `periodo_a_calcular`** (`numero <= ?`), así
 		// que es literalmente el conjunto que este informe promedia. Es la forma que
 		// pide la regla de arriba, sin tener que recortarlo aquí otra vez.
-		BoletinIndependiente::ponerPuestos(
-			$alumnos,
-			array_map(static fn ($periodo) => (int) $periodo->id, $year->periodos),
-			(int) $user->year_id
-		);
+		if ($sinPuesto) {
+			foreach ($response_alumnos as $alumno) {
+				$alumno->puesto = null;
+			}
+		} else {
+			BoletinIndependiente::ponerPuestos(
+				$alumnos,
+				array_map(static fn ($periodo) => (int) $periodo->id, $year->periodos),
+				(int) $user->year_id
+			);
+		}
 
 		// **El filtrado que habia aqui vive ahora en `alumnosDeLaRespuesta()`, arriba.**
 		// No se duplico: se movio. Tenia que correr antes para poder contar las hojas, y
