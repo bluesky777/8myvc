@@ -309,6 +309,50 @@ class PendientesSegundaTandaTest extends CasoDeContrato
         $this->assertNotContains('asistente hace 20 días', array_column($filas, 'nota'));
     }
 
+    /**
+     * EL «VER» DE CADA FILA DE ALUMNO Y LO QUE LEE SU TARJETA FLOTANTE *(2026-09-25, pedido)*: el
+     * botón de la tarjeta lleva a la pantalla de todos y cada fila a la ficha de ese alumno, en la
+     * pestaña donde se resuelve. Los prematriculados van a `/alumnos`: `/matriculas` no los pinta.
+     */
+    public function test_cada_fila_de_alumno_lleva_a_su_ficha_y_trae_lo_de_la_tarjeta(): void
+    {
+        $a = $this->alumno();
+        $grupo = DB::selectOne('SELECT nombre, abrev FROM grupos WHERE id = ?', [$a->grupo_id]);
+        $secretaria = $this->tokenCon('Secretario');
+
+        DB::table('matriculas')->where('id', $a->matricula_id)->update([
+            'estado' => 'ASIS', 'estado_desde' => Reloj::ahora()->subDays(20)->toDateString(),
+        ]);
+        $this->periodoActual(2);
+
+        $p = $this->mios($secretaria)['prematricula_vieja'] ?? null;
+        $this->assertNotNull($p);
+        $this->assertSame('/alumnos', $p['destino']['ruta']);
+
+        $fila = collect($p['filas'])->firstWhere('alumno_id', (int) $a->alumno_id);
+        $this->assertNotNull($fila, 'El alumno no está entre las filas.');
+        $this->assertSame(['ruta' => '/persona/'.$a->alumno_id.'/alumno', 'query' => [], 'etiqueta' => 'Ver'], $fila['destino']);
+        $this->assertSame($grupo->nombre, $fila['nombre_grupo']);
+        $this->assertSame($grupo->abrev, $fila['abrev_grupo']);
+        $this->assertArrayHasKey('foto_nombre', $fila);
+
+        // Sin documento: a la pestaña «Datos», que es donde se escribe.
+        DB::table('matriculas')->where('id', $a->matricula_id)->update(['estado' => 'MATR']);
+        DB::table('alumnos')->where('id', $a->alumno_id)->update(['documento' => ' ']);
+        $filas = $this->mios($secretaria)['alumnos_sin_datos']['filas'] ?? [];
+        $fila = collect($filas)->firstWhere('alumno_id', (int) $a->alumno_id);
+        $this->assertNotNull($fila, 'El alumno sin documento no está entre las filas.');
+        $this->assertSame(['pestana' => 'datos'], $fila['destino']['query']);
+
+        // Sin acudiente: a la pestaña «Acudientes».
+        DB::table('parentescos')->where('alumno_id', $a->alumno_id)->delete();
+        $filas = $this->mios($secretaria)['acudientes']['filas'] ?? [];
+        $fila = collect($filas)->firstWhere('alumno_id', (int) $a->alumno_id);
+        $this->assertNotNull($fila, 'El alumno sin acudiente no está entre las filas.');
+        $this->assertSame('/persona/'.$a->alumno_id.'/alumno', $fila['destino']['ruta']);
+        $this->assertSame(['pestana' => 'acudientes'], $fila['destino']['query']);
+    }
+
     public function test_los_dias_de_prematricula_son_un_numero_de_1_a_365(): void
     {
         $super = $this->tokenDelSuper();
