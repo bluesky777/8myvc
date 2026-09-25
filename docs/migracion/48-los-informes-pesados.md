@@ -11,12 +11,12 @@ cargar, empezando por certificados y boletines. **Hecho, sin desplegar:**
 | P2b — `sin_puesto` / año sin puesto | 8myvc `2bd1741`, front `7bf20c4d` | certificado de un alumno 922 → 39 |
 | P3b — subunidades no repetidas + precarga por grupo | 8myvc `279bd84`, `8e9bde0` | boletín de periodo 5.145 → 1.121 |
 | P2c — con puesto, al resto sólo el promedio | 8myvc `584f69d` | boletín final de una hoja 855 → 43 |
+| notas-actuales — faltas, frases y perdidas por grupo | 8myvc `01ff4de` | grupo de 38: 30.222 → 4.021 |
 
 Todas con el JSON idéntico por sha1 antes y después (P2b: idéntico salvo `puesto`,
 que va a `null` en una hoja que no lo imprime). **De paso:** `notas-actuales-alumnos`
-hacía 30.222 consultas y 11 s en un grupo de 38; con P3a y P3b, 9.475 y 5,6 s. Lo que
-le queda son las cuatro consultas de `definitiva_year` por alumno × asignatura, y
-es el siguiente candidato. Queda P4.
+hacía 30.222 consultas y 11 s en un grupo de 38; ahora 4.021 y ~2,4 s. Queda P4, y
+los siguientes candidatos están en §El barrido.
 
 Por qué importa: los 16 colegios viven en 2 cuentas de cPanel con 50 Entry
 Processes cada una (`02-plan-rendimiento.md:726-745`). Lo que tumba la cuenta no
@@ -141,6 +141,48 @@ Todo lo de arriba se midió en el docker. `CONSULTAS_LENTAS_MS` existe
 (`app/Support/ConsultasLentas.php`) y está apagado en todos. Encenderlo una semana
 en el colegio con más ausencias diría si hay otra consulta como la de P1 que el
 docker no ve. Es un cambio de `.env`, lo decides tú.
+
+## El barrido: el resto de informes de app2
+
+24 sep 2026, `tools/medir-un-informe.php` contra `rend_quibdo` (grupo 223, periodo 3,
+profesor 66 con 20 asignaturas), una pasada por endpoint, sólo los que leen. Los
+de arriba ya no están.
+
+| Endpoint | Pantalla | Consultas | ms | Qué lo multiplica |
+|---|---|---:|---:|---|
+| `GET planillas/show-profesor/66` | `informes/planillas/planillas.ts` | **27.770** | 15.304 | una a `notas` por subunidad × alumno |
+| `GET planillas-ausencias/show-profesor/66` | `datos/planillas-ausencias.ts` | 27.770 | 12.012 | la misma respuesta (mismo sha1): un arreglo cubre las dos |
+| `PUT notas-perdidas/todos` | `notas-perdidas-todos.ts` | **14.192** | 14.149 | alumnos con sus notas, una por asignatura; 19 MB de respuesta |
+| `GET planillas/ver-ausencias` | `ver-ausencias.ts` | 2.733 | 1.712 | una por asignatura |
+| `PUT notas-perdidas/profesor-grupos` | `notas-perdidas-profesor.ts` | 2.255 | 1.582 | la de `todos`, para un profesor |
+| `GET observador/vertical-todos` | observador | 570 | 374 | acudientes uno por alumno; 11 MB |
+| `PUT acudientes/planillas-ausencias` | `planilla-acudientes.ts` | 569 | 310 | acudientes uno por alumno |
+| `PUT puestos/detailed-notas-year` | puestos del año | 202 | 1.217 | pocas, pero una forma se lleva 1,1 s |
+
+El resto (actas, listados, SIMAT, cumpleaños, observador de un grupo…) está por
+debajo de 210 consultas y 200 ms. **Los dos primeros son los candidatos**: un
+profesor que abre su planilla ocupa un proceso 12–15 s, más que el boletín final
+de antes de P1 en quibdo. No se midieron `comportamiento/observador-*`, que
+escriben filas al abrirse.
+
+## Preparar el despliegue
+
+**Nada de esto lleva migraciones**, y los dos lados se pueden desplegar en
+cualquier orden: el front manda `sin_puesto`, que un backend viejo ignora, y un
+backend nuevo sin el front nuevo calcula el puesto como siempre.
+
+- **Backend, los 16 colegios:** `c668b44` → `01ff4de` (P1, P3a, P2b, P3b, P2c y
+  notas-actuales). `tools/desplegar.sh` sin `--ejecutar` enseña el plan colegio a
+  colegio; debe decir *cero migraciones*.
+- **Front, `myvc_dist`:** el build de app2 con `ae0c6f1d` (años de uno en uno) y
+  `7bf20c4d` (`sin_puesto`).
+
+**Cómo saber en un colegio que bajó**, sin el medidor —que sólo corre en el
+docker—: abrir el boletín final de un grupo grande antes y después, y mirar en
+las herramientas de red del navegador el tiempo de `detailed-notas-year-group`.
+En el colegio con más ausencias (simonbolivar en las copias) es donde se nota:
+de 24–32 s a menos de 1 s. Si se enciende P4 en ese colegio, el registro de
+consultas lentas debería dejar de mostrar la de `notas_finales` con `ausencias`.
 
 ## Qué no se propone
 
