@@ -398,22 +398,10 @@ class ContextoDeUsuario
         //    Traeremos los roles y permisos
         // *************************************************
 
-        // Detrás de los de `role_user`, el que da el tipo (`Role::rolDelTipo`), en la misma
-        // consulta para no sumar una a cada petición.
-        $roles = DB::select("SELECT r.*
+        $roles = DB::select('SELECT r.*
             FROM roles r
             INNER JOIN role_user rs ON r.id=rs.role_id
-            WHERE rs.user_id=?
-            UNION ALL
-            SELECT r.* FROM (
-                SELECT r.* FROM roles r
-                WHERE r.name = ? AND r.name IN ('Profesor', 'Alumno', 'Acudiente')
-                    AND r.deleted_at IS NULL
-                    AND NOT EXISTS (SELECT 1 FROM role_user x
-                        INNER JOIN roles rx ON rx.id = x.role_id
-                        WHERE x.user_id = ? AND rx.name = r.name)
-                ORDER BY r.id LIMIT 1
-            ) r", [$usuario->user_id, (string) ($usuario->tipo ?? ''), $usuario->user_id]);
+            WHERE rs.user_id=?', [$usuario->user_id]);
 
         // Los del nombramiento del año (secretario, tesorero), con la fila entera del rol como
         // los demás: el front decide el menú por `roles[].name`. Ver `Role::rolesDelNombramiento`.

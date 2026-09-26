@@ -8,17 +8,6 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-> ## ✅ EL TIPO TRAE SU ROL (26 sep 2026)
->
-> Pedido por Joseth: un usuario de tipo `Profesor`, `Alumno` o `Acudiente` tiene el rol del mismo
-> nombre **sin fila en `role_user`**, y los roles asignados se suman (`Role::rolDelTipo`, junto a
-> los del nombramiento en `Role::rolesImplicitos`). Llega a los tres sitios que leen roles: el
-> contexto de la sesión (menú del front y `perms`), `Role::getUserRoles` (Autoriza) y la rejilla
-> de `perfiles/usuariosall`. `Usuario` no tiene rol con su nombre y no recibe ninguno.
-> **Lo que no cuadra con el reporte**: en el docker casi todos tienen fila — `simonbolivar` 53/53
-> docentes, `lal_copia_0924` 113/113; faltan 151 acudientes y 51 alumnos en `lal` y 2 docentes en
-> `la_hermosa`. Qué pantalla enseñaba «sin rol» **no se midió**. Test: `RolDelTipoTest`.
-
 > ## ✅ EL TABLERO DE DEFINITIVAS DICE LA VERDAD, Y SEIS CAMINOS MÁS RECALCULAN (25 sep 2026)
 >
 > **Lo reportó Joseth en `lalvirtual.edu.co`**: muchos grupos en «Notas finales
