@@ -172,6 +172,16 @@ class Subunidad extends Model {
 
 		$modo = RepartoDeLaNota::modoDelAnio($year_id);
 
+		if (self::$delGrupo !== null && is_numeric($year_id) && isset(self::$delGrupo['alumnos'][(int) $alumno_id])
+			&& (string) (int) $alumno_id === (string) $alumno_id) {
+			$clave = (int) $year_id.'|'.$modo.'|'.implode(',', array_map('intval', $unidad_ids));
+			self::$delGrupo['lotes'][$clave] ??= self::deLasUnidadesDelGrupo(
+				$unidad_ids, array_keys(self::$delGrupo['alumnos']), (int) $year_id, $modo
+			);
+
+			return self::$delGrupo['lotes'][$clave][(int) $alumno_id] ?? [];
+		}
+
 		$marcas = implode(',', array_fill(0, count($unidad_ids), '?'));
 
 		$consulta = 'SELECT s.unidad_id, n.id as nota_id, s.id as subunidad_id, s.definicion as definicion_subunidad, s.porcentaje as porcentaje_subunidad,
@@ -196,6 +206,82 @@ class Subunidad extends Model {
 		}
 
 		return $porUnidad;
+	}
+
+
+	/**
+	 * `null` = apagada, que es lo normal. Encendida, los alumnos del grupo que se está
+	 * armando y lo que ya se trajo de ellos, por unidades pedidas.
+	 *
+	 * @var array{alumnos: array<int, true>, lotes: array<string, array<int, array<int, list<object>>>>}|null
+	 */
+	private static ?array $delGrupo = null;
+
+	/**
+	 * Arma algo —un boletín de grupo— pidiendo las subunidades de
+	 * {@see deLasUnidadesCalculadas} **una vez por asignatura para todos los alumnos**, y
+	 * no una por alumno × asignatura: 456 consultas en un grupo de 38
+	 * (docs/migracion/48). Se enciende a mano, como `RepartoDeLaNota::recordandoElReparto`:
+	 * quien escribe notas en la misma petición no debe leer de aquí.
+	 *
+	 * @template T
+	 * @param  list<int>  $alumnoIds
+	 * @param  callable(): T  $armar
+	 * @return T
+	 */
+	public static function recordandoElGrupo(array $alumnoIds, callable $armar)
+	{
+		$antes = self::$delGrupo;
+		self::$delGrupo = ['alumnos' => array_fill_keys(array_map('intval', $alumnoIds), true), 'lotes' => []];
+
+		try {
+			return $armar();
+		} finally {
+			self::$delGrupo = $antes;
+		}
+	}
+
+	/**
+	 * La consulta de {@see deLasUnidadesCalculadas} para varios alumnos: el alumno sale de
+	 * una tabla de ids en vez del `?`, va delante en el `SELECT` para repartir y se quita
+	 * al volver. **Mismas columnas y mismo orden por alumno**; entre dos subunidades con
+	 * el mismo `orden` en la misma unidad el orden ya lo decidía MySQL, y la nota de la
+	 * unidad es una suma, así que no depende de él.
+	 *
+	 * @param  list<int>  $unidad_ids
+	 * @param  list<int>  $alumnoIds
+	 * @return array<int, array<int, list<object>>>  alumno_id => unidad_id => subunidades
+	 */
+	private static function deLasUnidadesDelGrupo(array $unidad_ids, array $alumnoIds, int $year_id, string $modo): array
+	{
+		$marcas = implode(',', array_fill(0, count($unidad_ids), '?'));
+		$alumnos = implode(' UNION ALL ', array_map(static fn ($id) => 'SELECT '.(int) $id.' AS id', $alumnoIds));
+
+		$consulta = 'SELECT al.id as alumno_de_reparto, s.unidad_id, n.id as nota_id, s.id as subunidad_id, s.definicion as definicion_subunidad, s.porcentaje as porcentaje_subunidad,
+						s.nota_default, s.orden as orden_subunidad, s.inicia_at, s.finaliza_at, '.RepartoDeLaNota::valorDeLaNota($modo).' as valor_nota, n.nota, e.desempenio,
+						n.nota_original, n.nota_nivelacion, n.nivelada_at, n.nivelacion_obs,
+						s.definicion, s.porcentaje, e.desempenio, IF(n.nota<?, "nota-perdida-bold", "") as clase_perdida, n.nota
+					FROM subunidades s
+					cross join ('.$alumnos.') al
+					left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and n.alumno_id=al.id
+					left join escalas_de_valoracion e ON e.porc_inicial<=n.nota and n.nota < e.porc_final + 1 and e.deleted_at is null and e.year_id=?
+					where s.unidad_id IN ('.$marcas.') and s.deleted_at is null
+					order by al.id, s.unidad_id, s.orden';
+
+		$filas = DB::select($consulta, array_merge(
+			[User::$nota_minima_aceptada, $year_id],
+			array_map('intval', $unidad_ids)
+		));
+
+		$porAlumno = [];
+
+		foreach ($filas as $fila) {
+			$alumno = (int) $fila->alumno_de_reparto;
+			unset($fila->alumno_de_reparto);
+			$porAlumno[$alumno][(int) $fila->unidad_id][] = $fila;
+		}
+
+		return $porAlumno;
 	}
 
 

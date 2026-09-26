@@ -4,6 +4,8 @@ use App\Http\Controllers\Controller;
 
 use App\Http\Controllers\Informes\CalcPerdidasDefinitivas;
 use App\Support\PeriodoDelBoletin;
+use App\Support\LoDelGrupoDeUnaVez;
+use App\Support\RepartoDeLaNota;
 
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
@@ -52,6 +54,18 @@ class Boletines3Controller extends Controller {
 	 * informe mudo se imprime y se entrega. Ahora el error sube.
 	 */
 	private $escalas_val;
+
+	/** Las faltas y frases del grupo, mientras se arma (doc 48 §P3b). */
+	private ?LoDelGrupoDeUnaVez $loDelGrupo = null;
+
+	/** @var array<int, true> Las asignaturas del grupo que `$loDelGrupo` trajo. */
+	private array $asignaturasDelGrupo = [];
+
+	/** @var array<int, true> Los alumnos que `$loDelGrupo` trajo. */
+	private array $alumnosDelGrupo = [];
+
+	/** @var array<string, list<object>>|null Las pérdidas del grupo por `alumno|asignatura`. */
+	private ?array $perdidasDelGrupo = null;
 
 	private function escalasVal()
 	{
@@ -149,7 +163,19 @@ class Boletines3Controller extends Controller {
 
 	}
 
+	/**
+	 * El boletín del grupo, con el reparto de subunidades recordado mientras se arma,
+	 * como en el formato 1: sin eso se preguntaba dos veces por alumno × asignatura, 912
+	 * veces en un grupo de 38 (docs/migracion/48 §P3a). Leer no escribe `years`.
+	 */
 	public function detailedNotasGrupo($grupo_id, &$user, $requested_alumnos='', $periodo_a_calcular=4)
+	{
+		return RepartoDeLaNota::recordandoElReparto(function () use ($grupo_id, &$user, $requested_alumnos, $periodo_a_calcular) {
+			return $this->armarElGrupo($grupo_id, $user, $requested_alumnos, $periodo_a_calcular);
+		});
+	}
+
+	private function armarElGrupo($grupo_id, &$user, $requested_alumnos='', $periodo_a_calcular=4)
 	{
 		
 		$grupo			= Grupo::datos($grupo_id);
@@ -162,24 +188,46 @@ class Boletines3Controller extends Controller {
 		$grupo->cantidad_alumnos = count($alumnos);
 
 		$response_alumnos = [];
-		
 
-		foreach ($alumnos as $alumno) {
+		// Las faltas y las frases se pedían por alumno × asignatura: 2 × 456 consultas
+		// en un grupo de 38. Son las de todos los que vienen, que son los que se calculan.
+		$asignaturaIds = array_map('intval', DB::table('asignaturas')->where('grupo_id', $grupo_id)->pluck('id')->all());
+		$alumnoIds = array_map(static fn ($a) => (int) $a->alumno_id, array_values($alumnos));
+		$this->asignaturasDelGrupo = array_fill_keys($asignaturaIds, true);
+		$this->alumnosDelGrupo = array_fill_keys($alumnoIds, true);
+		$this->loDelGrupo = new LoDelGrupoDeUnaVez(
+			$alumnoIds,
+			$asignaturaIds,
+			(int) $user->periodo_id,
+			(int) $this->user->numero_periodo,
+		);
 
-			// Todas las materias con sus unidades y subunides
-			$this->allNotasAlumno($alumno, $grupo_id, $user->periodo_id, true, $periodo_a_calcular);
+		// Las pérdidas del año, igual: una consulta por alumno × asignatura, la más
+		// cara del boletín (800 ms de 1,8 s en el grupo 223). `delGrupo` sólo entiende
+		// los periodos 1 a 4 escritos tal cual; con otra cosa se pregunta como siempre.
+		$this->perdidasDelGrupo = in_array((string) $periodo_a_calcular, ['1', '2', '3', '4'], true)
+			? (new CalcPerdidasDefinitivas())->delGrupo($alumnoIds, $asignaturaIds, $periodo_a_calcular)
+			: null;
 
-			
-			$this->asignaturasPerdidasDeAlumno($alumno, $grupo_id, $user->year_id, $periodo_a_calcular);
-			
-			if ($this->user->year_pasado_en_bol) {
-				if (!$alumno->nuevo && !$alumno->repitente) {
-					$this->datosYearPasado($alumno, $grupo_id, $user->year_id);
+		// Y las unidades con sus subunidades, una vez por asignatura para todo el grupo.
+		Unidad::recordandoElGrupo($alumnoIds, function () use ($alumnos, $grupo_id, &$user, $periodo_a_calcular) {
+			foreach ($alumnos as $alumno) {
+
+				// Todas las materias con sus unidades y subunides
+				$this->allNotasAlumno($alumno, $grupo_id, $user->periodo_id, true, $periodo_a_calcular);
+
+				
+				$this->asignaturasPerdidasDeAlumno($alumno, $grupo_id, $user->year_id, $periodo_a_calcular);
+				
+				if ($this->user->year_pasado_en_bol) {
+					if (!$alumno->nuevo && !$alumno->repitente) {
+						$this->datosYearPasado($alumno, $grupo_id, $user->year_id);
+					}
 				}
+				
+				unset($alumno->asignaturas);
 			}
-			
-			unset($alumno->asignaturas);
-		}
+		});
 
 
 		/*
@@ -204,6 +252,9 @@ class Boletines3Controller extends Controller {
 		 * del año: quien fue independiente en el segundo cuenta con normalidad en el
 		 * tercero.
 		 */
+		$this->loDelGrupo = null;
+		$this->perdidasDelGrupo = null;
+
 		BoletinIndependiente::ponerPuestos($alumnos, [(int) $user->periodo_id], (int) $user->year_id);
 
 		foreach ($alumnos as $alumno) {
@@ -255,8 +306,19 @@ class Boletines3Controller extends Controller {
 			
 			// SUMAR AUSENCIAS Y TARDANZAS
 			if ($comport_and_frases) {
-				$asignatura->ausencias	= Ausencia::deAlumno($asignatura->asignatura_id, $alumno->alumno_id, $periodo_id);
-				$asignatura->frases		= FraseAsignatura::deAlumno($asignatura->asignatura_id, $alumno->alumno_id, $periodo_id);
+				if ($asignatura->asignatura_id === null) {
+					// La asignatura sin definitiva sale de `detailed_materias_notas_finales`
+					// con el id en nulo (en simón, todo el grupo 102), y `asignatura_id=NULL`
+					// no casa ninguna fila: era una consulta por celda para traer nada.
+					$asignatura->ausencias	= [];
+					$asignatura->frases		= [];
+				} elseif ($this->delGrupoPrecargado($alumno, $asignatura, $periodo_id)) {
+					$asignatura->ausencias	= $this->loDelGrupo->ausencias((int) $alumno->alumno_id, (int) $asignatura->asignatura_id);
+					$asignatura->frases		= $this->loDelGrupo->frases((int) $alumno->alumno_id, (int) $asignatura->asignatura_id);
+				} else {
+					$asignatura->ausencias	= Ausencia::deAlumno($asignatura->asignatura_id, $alumno->alumno_id, $periodo_id);
+					$asignatura->frases		= FraseAsignatura::deAlumno($asignatura->asignatura_id, $alumno->alumno_id, $periodo_id);
+				}
 				
 				$cantAus = 0;
 				$cantTar = 0;
@@ -353,6 +415,19 @@ class Boletines3Controller extends Controller {
 	}
 
 
+	/**
+	 * Si la celda está en lo que se trajo para el grupo. Fuera de `armarElGrupo`, o con
+	 * una asignatura que no sea del grupo o un periodo que no sea el del usuario, se
+	 * pregunta como siempre.
+	 */
+	private function delGrupoPrecargado($alumno, $asignatura, $periodo_id): bool
+	{
+		return $this->loDelGrupo !== null
+			&& (int) $periodo_id === (int) $this->user->periodo_id
+			&& isset($this->asignaturasDelGrupo[(int) $asignatura->asignatura_id]);
+	}
+
+
 	public function asignaturasPerdidasDeAlumno(&$alumno, $grupo_id, $year_id, $periodo_a_calcular)
 	{
 		//$asignaturas	= Grupo::detailed_materias_notas_finales($alumno->alumno_id, $grupo_id, $this->user->year_id);
@@ -365,8 +440,18 @@ class Boletines3Controller extends Controller {
 
 		foreach ($alumno->asignaturas as $keyAsig => $asignatura) {
 			
-			$calcPerdidas = new CalcPerdidasDefinitivas();
-			$periodos = $calcPerdidas->hastaPeriodoConDefinitivas($alumno->alumno_id, $asignatura->asignatura_id, $grupo_id, $periodo_a_calcular);
+			if ($asignatura->asignatura_id === null) {
+				// Sin definitiva no hay nota que contar: la consulta de siempre devolvía
+				// una fila con `cant_perdidas_year` en 0, que el `if` de abajo descarta.
+				$periodos = [];
+			} elseif ($this->perdidasDelGrupo !== null
+				&& isset($this->alumnosDelGrupo[(int) $alumno->alumno_id])
+				&& isset($this->asignaturasDelGrupo[(int) $asignatura->asignatura_id])) {
+				$periodos = $this->perdidasDelGrupo[(int) $alumno->alumno_id.'|'.(int) $asignatura->asignatura_id] ?? [];
+			} else {
+				$calcPerdidas = new CalcPerdidasDefinitivas();
+				$periodos = $calcPerdidas->hastaPeriodoConDefinitivas($alumno->alumno_id, $asignatura->asignatura_id, $grupo_id, $periodo_a_calcular);
+			}
 			if(count($periodos)>0){
 				
 				if ($this->user->si_recupera_materia_recup_indicador){

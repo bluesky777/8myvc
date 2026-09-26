@@ -204,6 +204,14 @@ class BoletinPorCompetenciasController extends Controller
      *
      * @return array<int,\stdClass>
      */
+    /**
+     * Las faltas y las frases de todo el grupo, por alumno, mientras se arma: dos
+     * consultas en vez de dos por alumno (docs/migracion/48). `null` fuera del bucle.
+     *
+     * @var array{faltas: array<int,array<int,\stdClass>>, frases: array<int,array<int,list<\stdClass>>>}|null
+     */
+    private ?array $delGrupo = null;
+
     private function escalasVal(): array
     {
         if ($this->escalas_val === null) {
@@ -348,11 +356,20 @@ class BoletinPorCompetenciasController extends Controller
 
         $conteos = [];
 
+        $alumnoIds = array_map(static fn ($a) => (int) $a->alumno_id, array_values($alumnos));
+        $this->delGrupo = [
+            'alumnos' => array_fill_keys($alumnoIds, true),
+            'faltas' => $this->faltasDelGrupo($alumnoIds, $periodo_id),
+            'frases' => $this->frasesDelGrupo($alumnoIds, $grupo_id, $periodo_id),
+        ];
+
         foreach ($alumnos as $alumno) {
             $conteos[(int) $alumno->alumno_id] = $this->boletinDelAlumno(
                 $alumno, $grupo_id, $periodo_id, (bool) $grupo->caritas, $catalogo
             );
         }
+
+        $this->delGrupo = null;
 
         /*
          * El puesto lo decide el servicio, no un `foreach` — fase 6 del
@@ -463,8 +480,14 @@ class BoletinPorCompetenciasController extends Controller
         // Dos consultas por alumno para lo que los tres de siempre piden una por
         // asignatura. No es optimización de galería: la Fase 5 midió **1.061
         // consultas** en una petición de UN alumno del primero.
-        $faltas = $this->faltasPorAsignatura($alumno_id, $periodo_id);
-        $frases = $this->frasesDelAlumno($alumno_id, $grupo_id, $periodo_id);
+        // Y desde el 26 sep, dos por grupo: las trae `boletinDelGrupo` para todos.
+        if ($this->delGrupo !== null && isset($this->delGrupo['alumnos'][$alumno_id])) {
+            $faltas = $this->delGrupo['faltas'][$alumno_id] ?? [];
+            $frases = $this->delGrupo['frases'][$alumno_id] ?? [];
+        } else {
+            $faltas = $this->faltasPorAsignatura($alumno_id, $periodo_id);
+            $frases = $this->frasesDelAlumno($alumno_id, $grupo_id, $periodo_id);
+        }
 
         $conteo = [
             'asignaturas' => 0,
@@ -784,6 +807,74 @@ class BoletinPorCompetenciasController extends Controller
         }
 
         return $por_asignatura;
+    }
+
+    /**
+     * {@see frasesDelAlumno} de varios alumnos en una consulta, con las mismas filas y el
+     * mismo orden por alumno: el alumno va delante en el `ORDER BY` y se quita al repartir.
+     *
+     * @param  list<int>  $alumnoIds
+     * @return array<int,array<int,list<\stdClass>>> por `alumno_id` y `asignatura_id`
+     */
+    private function frasesDelGrupo(array $alumnoIds, int $grupo_id, int $periodo_id): array
+    {
+        if ($alumnoIds === []) {
+            return [];
+        }
+
+        $filas = DB::select(
+            'SELECT fa.alumno_id AS alumno_de_reparto, fa.id AS frase_asignatura_id, fa.asignatura_id,
+                    IFNULL(f.frase, fa.frase) AS texto
+               FROM frases_asignatura fa
+               INNER JOIN asignaturas a ON a.id = fa.asignatura_id AND a.deleted_at IS NULL AND a.grupo_id = ?
+               LEFT JOIN frases f ON f.id = fa.frase_id AND f.deleted_at IS NULL
+              WHERE fa.deleted_at IS NULL AND fa.alumno_id IN ('.implode(',', array_fill(0, count($alumnoIds), '?')).') AND fa.periodo_id = ?
+              ORDER BY fa.alumno_id, fa.asignatura_id, fa.id',
+            array_merge([$grupo_id], $alumnoIds, [$periodo_id])
+        );
+
+        $por_alumno = [];
+
+        foreach ($filas as $fila) {
+            $alumno = (int) $fila->alumno_de_reparto;
+            unset($fila->alumno_de_reparto);
+            $por_alumno[$alumno][(int) $fila->asignatura_id][] = $fila;
+        }
+
+        return $por_alumno;
+    }
+
+    /**
+     * {@see faltasPorAsignatura} de varios alumnos en una consulta.
+     *
+     * @param  list<int>  $alumnoIds
+     * @return array<int,array<int,\stdClass>> por `alumno_id` y `asignatura_id`
+     */
+    private function faltasDelGrupo(array $alumnoIds, int $periodo_id): array
+    {
+        if ($alumnoIds === []) {
+            return [];
+        }
+
+        $filas = DB::select(
+            'SELECT alumno_id, asignatura_id,
+                    SUM(CASE WHEN tipo = "ausencia" THEN cantidad_ausencia ELSE 0 END) AS total_ausencias,
+                    SUM(CASE WHEN tipo = "tardanza" THEN cantidad_tardanza ELSE 0 END) AS total_tardanzas
+               FROM ausencias
+              WHERE alumno_id IN ('.implode(',', array_fill(0, count($alumnoIds), '?')).') AND periodo_id = ? AND deleted_at IS NULL
+              GROUP BY alumno_id, asignatura_id',
+            array_merge($alumnoIds, [$periodo_id])
+        );
+
+        $por_alumno = [];
+
+        foreach ($filas as $fila) {
+            $alumno = (int) $fila->alumno_id;
+            unset($fila->alumno_id);
+            $por_alumno[$alumno][(int) $fila->asignatura_id] = $fila;
+        }
+
+        return $por_alumno;
     }
 
     /**
