@@ -87,6 +87,12 @@ final class LasUnidadesDelGrupo
 
         // El alumno sale de una lista de literales y no de `alumnos`: si la fila del
         // alumno faltara, el `LEFT JOIN` de antes le seguía dando sus subunidades vacías.
+        //
+        // Las notas van en una derivada y **el `LIMIT` enorme es a propósito**: impide que
+        // MySQL la funda con la de fuera. Fundida, cada (subunidad, alumno) buscaba por el
+        // índice de `subunidad_id` y descartaba las de los otros 37 —117 mil filas leídas,
+        // ~115 ms en quibdo 223—; materializada, lleva una clave (subunidad, alumno) y la
+        // consulta baja a ~40 ms. Mismas filas.
         $lista = implode(' UNION ALL ', array_map(fn ($id) => 'SELECT '.(int) $id.' AS id', array_keys($this->alumnos)));
 
         $filas = DB::select(
@@ -97,7 +103,13 @@ final class LasUnidadesDelGrupo
                     al.id as alumno_de_reparto
                FROM subunidades s
               inner join ('.$lista.') al
-              left join notas n ON n.subunidad_id=s.id and n.deleted_at is null and n.alumno_id=al.id
+              left join (
+                    SELECT id, subunidad_id, alumno_id, nota, nota_original, nota_nivelacion, nivelada_at, nivelacion_obs
+                      FROM notas
+                     WHERE deleted_at is null and alumno_id IN ('.implode(',', array_map('intval', array_keys($this->alumnos))).')
+                       and subunidad_id IN (SELECT id FROM subunidades WHERE unidad_id IN ('.implode(',', $unidadIds).'))
+                     LIMIT 18446744073709551615
+                ) n ON n.subunidad_id=s.id and n.alumno_id=al.id
               left join escalas_de_valoracion e ON e.porc_inicial<=n.nota and n.nota < e.porc_final + 1 and e.deleted_at is null and e.year_id=?
               where s.unidad_id IN ('.implode(',', array_fill(0, count($unidadIds), '?')).') and s.deleted_at is null
               order by al.id, s.unidad_id, s.orden',
