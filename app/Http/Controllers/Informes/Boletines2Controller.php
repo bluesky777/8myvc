@@ -198,7 +198,13 @@ class Boletines2Controller extends Controller {
 
 		$response_alumnos = [];
 
-		$alumnoIds = array_map(static fn ($a) => (int) $a->alumno_id, array_values($alumnos));
+		// Pidiendo hojas sueltas, del resto sólo hace falta el promedio, para el puesto.
+		// Las precargas son sólo de los que se imprimen; las asignaturas, de todos.
+		$todos = array_map(static fn ($a) => (int) $a->alumno_id, array_values($alumnos));
+		$alumnoIds = array_values(array_map(
+			static fn ($a) => (int) $a->alumno_id,
+			array_filter(array_values($alumnos), fn ($a) => $this->seImprime($a, $requested_alumnos))
+		));
 		$asignaturaIds = array_map('intval', DB::table('asignaturas')->where('grupo_id', $grupo_id)->pluck('id')->all());
 
 		$this->loDelGrupo = new LoDelGrupoDeUnaVez(
@@ -212,10 +218,15 @@ class Boletines2Controller extends Controller {
 		$this->materiasDelGrupo = [
 			'grupo' => (int) $grupo_id,
 			'periodo' => (int) $user->periodo_id,
-			'porAlumno' => Grupo::detailed_materias_notafinal_de_alumnos($alumnoIds, $grupo_id, $user->periodo_id, $this->user->year_id),
+			'porAlumno' => Grupo::detailed_materias_notafinal_de_alumnos($todos, $grupo_id, $user->periodo_id, $this->user->year_id),
 		];
 
 		foreach ($alumnos as $alumno) {
+			if (! $this->seImprime($alumno, $requested_alumnos)) {
+				$this->soloElPromedio($alumno, $grupo_id, $user->periodo_id);
+				continue;
+			}
+
 
 			// Todas las materias con sus unidades y subunides
 			$this->allNotasAlumno($alumno, $grupo_id, $user->periodo_id, true, $year->show_fortaleza_bol);
@@ -487,6 +498,41 @@ class Boletines2Controller extends Controller {
 		return $alumno;
 	}
 
+
+	/** El mismo filtro que arma la respuesta, al final de `armarElGrupo`. */
+	private function seImprime($alumno, $requested_alumnos): bool
+	{
+		if ($requested_alumnos == '') {
+			return true;
+		}
+
+		foreach ($requested_alumnos as $req_alumno) {
+			if ($req_alumno['alumno_id'] == $alumno->alumno_id) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Lo único que el boletín de hojas sueltas necesita de un alumno que no se imprime:
+	 * su `promedio`, que es contra lo que `ponerPuestos` cuenta el puesto de los que sí.
+	 * Es la cuenta de `allNotasAlumno`, sin las unidades, las faltas, el comportamiento
+	 * ni la disciplina, que no salen en la respuesta (en un alumno de un grupo de 38,
+	 * ~150 consultas menos).
+	 */
+	private function soloElPromedio($alumno, $grupo_id, $periodo_id): void
+	{
+		$asignaturas = $this->materiasDelAlumno((int) $alumno->alumno_id, $grupo_id, $periodo_id);
+		$sumatoria = 0;
+
+		foreach ($asignaturas as $asignatura) {
+			$sumatoria += $asignatura->nota_asignatura;
+		}
+
+		$alumno->promedio = count($asignaturas) == 0 ? 0 : $sumatoria / count($asignaturas);
+	}
 
 	/** `Grupo::detailed_materias_notafinal()`, del grupo precargado si el alumno está en él. */
 	private function materiasDelAlumno(int $alumno_id, $grupo_id, $periodo_id): array
