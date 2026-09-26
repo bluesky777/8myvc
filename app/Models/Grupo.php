@@ -350,6 +350,66 @@ class Grupo extends Model {
 		return $asignaturas;
 	}
 
+	/**
+	 * {@see detailed_materias_notafinal} para varios alumnos del grupo en una consulta, y
+	 * no en una por alumno (docs/migracion/48). Devuelve alumno_id => sus filas.
+	 *
+	 * **Es la de arriba con tres cambios y ni uno más**, copiada y no factorizada por lo
+	 * mismo que `Subunidad::deLasUnidadesCalculadas`: el alumno sale de una lista de
+	 * literales; las definitivas del periodo van en un `WITH` que no se funde (`LIMIT`
+	 * enorme), que es lo que le da a MySQL una clave (alumno, asignatura) en vez de leer
+	 * las ~100 de la asignatura por alumno; y el `order by` desempata por `a.id`, `n.id`
+	 * y `e.id`. La de arriba no desempata —dos asignaturas del mismo área con el mismo
+	 * `orden` son lo normal, hay una pareja en cada grupo medido— y MySQL las servía por
+	 * id, en todos los alumnos de los cuatro grupos comprobados. Aquí se escribe.
+	 *
+	 * @param  list<int>  $alumno_ids
+	 * @return array<int, list<object>>
+	 */
+	public static function detailed_materias_notafinal_de_alumnos(array $alumno_ids, $grupo_id, $periodo_id, $year_id): array
+	{
+		if ($alumno_ids === []) {
+			return [];
+		}
+
+		$ids = array_map('intval', $alumno_ids);
+		$lista = implode(' UNION ALL ', array_map(fn ($id) => 'SELECT '.$id.' AS id', $ids));
+
+		$consulta = 'WITH nf_del_grupo AS (
+				SELECT id, alumno_id, asignatura_id, periodo_id, nota, created_at, recuperada, manual, nota_original, nivelada_at
+				  FROM notas_finales
+				 WHERE alumno_id IN ('.implode(',', $ids).') and periodo_id = ?
+				 LIMIT 18446744073709551615
+			)
+			SELECT a.id as asignatura_id, a.grupo_id, a.profesor_id, a.creditos, ar.orden as orden_area, m.orden as orden_materia, a.orden,
+				m.materia, m.alias as alias_materia, m.area_id, ar.nombre as area_nombre, ar.alias as area_alias, a.materia_id, 
+				p.nombres as nombres_profesor, p.apellidos as apellidos_profesor,
+				p.foto_id, IFNULL(i.nombre, IF(p.sexo="F","default_female.png", "default_male.png")) as foto_nombre, i.nombre as foto_profesor, 
+				CAST(n.nota AS DOUBLE) as nota_asignatura, n.created_at, n.recuperada, n.manual, e.desempenio, n.id as nf_id,
+				CAST(n.nota_original AS DOUBLE) as nota_original_asignatura, n.nivelada_at as nivelada_at_asignatura,
+				al.id as alumno_de_reparto
+			FROM asignaturas a 
+			inner join ('.$lista.') al
+			inner join materias m on m.id=a.materia_id and m.deleted_at is null
+			left join areas ar on ar.id=m.area_id and ar.deleted_at is null
+			left join nf_del_grupo n on n.asignatura_id=a.id and n.alumno_id=al.id
+			inner join profesores p on p.id=a.profesor_id and p.deleted_at is null 
+			left join images i on p.foto_id=i.id and i.deleted_at is null
+			left join escalas_de_valoracion e ON e.porc_inicial<=ROUND(n.nota, 0) and ROUND(n.nota, 0) < e.porc_final + 1 and e.deleted_at is null and e.year_id=?
+			where a.grupo_id=? and a.deleted_at is null
+			order by al.id, ar.orden, m.orden, a.orden, a.id, n.id, e.id';
+
+		$porAlumno = array_fill_keys($ids, []);
+
+		foreach (DB::select($consulta, [$periodo_id, $year_id, $grupo_id]) as $fila) {
+			$alumno = (int) $fila->alumno_de_reparto;
+			unset($fila->alumno_de_reparto);
+			$porAlumno[$alumno][] = $fila;
+		}
+
+		return $porAlumno;
+	}
+
 	
 	
 	
