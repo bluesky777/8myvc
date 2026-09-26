@@ -15,6 +15,9 @@ use Carbon\Carbon;
 class MisActividadesController extends Controller {
 
 
+	// `a.modo is null` en todos los listados de aquí: las actividades NUEVAS (tareas,
+	// cuestionarios y encuestas, `act/*`) viven en la misma `ws_actividades` y esta app
+	// vieja no sabe pintar sus tipos. Contrato de actividades §2.11 (26 sep 2026).
 	public function putDatos()
 	{
 		$user = User::fromToken();
@@ -46,7 +49,7 @@ class MisActividadesController extends Controller {
 
 		for ($i=0; $i < $cant; $i++) { 
 			
-			$consulta 			= 'SELECT * FROM ws_actividades a WHERE a.asignatura_id=? and a.deleted_at is null and a.periodo_id=?';
+			$consulta 			= 'SELECT * FROM ws_actividades a WHERE a.asignatura_id=? and a.deleted_at is null and a.modo is null and a.periodo_id=?';
 			$actividades 		= DB::select($consulta, [ $mis_asignaturas[$i]->asignatura_id, $user->periodo_id ]);
 			$mis_asignaturas[$i]->actividades = $actividades;
 
