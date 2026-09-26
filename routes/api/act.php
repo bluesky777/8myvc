@@ -4,6 +4,7 @@ use App\Http\Controllers\Act\ActividadesController;
 use App\Http\Controllers\Act\AprobarYCerrarController;
 use App\Http\Controllers\Act\EditarConNotasController;
 use App\Http\Controllers\Act\EntregasController;
+use App\Http\Controllers\Act\IaController as ActIaController;
 use App\Http\Controllers\Act\PreguntasController;
 use App\Http\Controllers\Act\ResponderController;
 use App\Http\Controllers\Act\ResultadosController;
@@ -23,11 +24,14 @@ use Illuminate\Support\Facades\Route;
 | `App\Services\Act\Destinatarios`, no el tipo de usuario. Además, TODO lo del creador exige ser el
 | dueño (`created_by`), y eso lo mira el controlador.
 |
-| Tandas 1, 2 y 3. Faltan (en su tanda): recordar y calendario (5).
+| Tandas 1, 2, 3 y 4 (la IA: `ia/actividades/*`, aquí y no en `ia.php`, ver
+| `Act\IaController`). Faltan (en su tanda): recordar y calendario (5).
 |
 | Las rutas sin {parámetro} van antes que las que lo llevan.
 |
 */
+Route::post('ia/actividades/proponer', [ActIaController::class, 'postProponer'])->middleware('auth.personal');
+Route::post('ia/actividades/mejorar', [ActIaController::class, 'postMejorar'])->middleware('auth.personal');
 
 // ActividadesController: bandeja, catálogo, conteo, crear, guardar, leer, borrar, publicar.
 Route::get('act/bandeja', [ActividadesController::class, 'getBandeja']);

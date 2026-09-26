@@ -335,6 +335,8 @@
     "POST api/grados/store": "App\\Http\\Controllers\\GradosController@postStore",
     "POST api/grupos/store": "App\\Http\\Controllers\\GruposController@postStore",
     "POST api/horario/versiones": "App\\Http\\Controllers\\HorarioController@postVersiones",
+    "POST api/ia/actividades/mejorar": "App\\Http\\Controllers\\Act\\IaController@postMejorar",
+    "POST api/ia/actividades/proponer": "App\\Http\\Controllers\\Act\\IaController@postProponer",
     "POST api/ia/plantilla/proponer": "App\\Http\\Controllers\\IaController@postPlantilla",
     "POST api/ia/texto/revisar": "App\\Http\\Controllers\\IaController@postTexto",
     "POST api/importar/algo/{year}": "App\\Http\\Controllers\\Alumnos\\ImportarController@postAlgo",

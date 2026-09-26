@@ -249,6 +249,8 @@
         "POST api/grados/store",
         "POST api/grupos/store",
         "POST api/horario/versiones",
+        "POST api/ia/actividades/mejorar",
+        "POST api/ia/actividades/proponer",
         "POST api/ia/plantilla/proponer",
         "POST api/ia/texto/revisar",
         "POST api/importar/algo/{year}",
