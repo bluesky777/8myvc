@@ -74,3 +74,5 @@ micolev1	HECHO	lal	9cf96c8f	0ba4c51d	0 migracion(es), respaldo -
 micolev1	HECHO	maranathaarauca	9cf96c8f	0ba4c51d	0 migracion(es), respaldo -
 micolev1	HECHO	semillitasdedios	9cf96c8f	0ba4c51d	0 migracion(es), respaldo -
 micolevi	HECHO	public_html	9cf96c8f	0ba4c51d	0 migracion(es), respaldo -
+== 2026-09-25 18:51:35 -0500 · 1 desplegado(s), 0 sin desplegar (a mano, sólo LAL)
+micolevi	HECHO	public_html	9cf96c8f	086b5a8f	0 migracion(es), respaldo /home/micolevi/respaldos/antes-de-migrar/micolevi_lalvirtual-2026-09-25-185135-086b5a8f.sql.gz
