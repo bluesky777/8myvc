@@ -213,6 +213,11 @@ class CalcPerdidasDefinitivas {
 	 * originales: sin definitiva del primer periodo, las demás salen nulas. No se
 	 * corrige aquí; esto sólo cambia cuántas veces se pregunta.
 	 *
+	 * Las definitivas del grupo van en un `WITH` que no se funde (`LIMIT` enorme): sin
+	 * él, cada `nfK` buscaba por el índice de `asignatura_id` y leía las ~100 filas de la
+	 * asignatura por cada alumno × asignatura × periodo (116 → 18 ms en quibdo 223 p3).
+	 * Materializado, MySQL le pone una clave (alumno, asignatura, periodo).
+	 *
 	 * @param list<int> $alumnoIds
 	 * @param list<int> $asignaturaIds
 	 * @return array<string, list<object>>
@@ -237,7 +242,7 @@ class CalcPerdidasDefinitivas {
 
 		$joins = '';
 		foreach ($k as $i) {
-			$joins .= ' left join notas_finales nf'.$i.' on nf'.$i.'.alumno_id=a.id and nf'.$i.'.asignatura_id=g.id and nf'.$i.'.periodo='.$i.' and nf1.periodo_id is not null';
+			$joins .= ' left join nf_del_grupo nf'.$i.' on nf'.$i.'.alumno_id=a.id and nf'.$i.'.asignatura_id=g.id and nf'.$i.'.periodo='.$i.' and nf1.periodo_id is not null';
 		}
 		foreach ($k as $i) {
 			$joins .= ' left join (
@@ -256,7 +261,13 @@ class CalcPerdidasDefinitivas {
 		}
 
 		$filas = DB::select(
-			'SELECT a.nombres, a.id, '.$definitiva.' as definitiva_year,
+			'WITH nf_del_grupo AS (
+				SELECT id, alumno_id, asignatura_id, periodo, periodo_id, nota, recuperada, manual
+				  FROM notas_finales
+				 WHERE alumno_id IN ('.$alumnos.') and asignatura_id IN ('.$asignaturas.') and periodo <= '.$n.'
+				 LIMIT 18446744073709551615
+			)
+			SELECT a.nombres, a.id, '.$definitiva.' as definitiva_year,
 				'.$perdidasDelAnio.' as cant_perdidas_year,
 				'.$columnas.',
 				'.$cantidades.',
