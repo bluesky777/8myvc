@@ -62,6 +62,15 @@ class BoletinesController extends Controller {
 	private ?LasUnidadesDelGrupo $unidadesDelGrupo = null;
 
 	/**
+	 * Las asignaturas con su definitiva del periodo, de todo el grupo en una consulta
+	 * (doc 48). Cada alumno se lleva las suyas una vez: si volviera a pedirlas, van a la
+	 * base como antes y no comparte objetos con el primero.
+	 *
+	 * @var array{grupo: int, periodo: int, porAlumno: array<int, list<object>>}|null
+	 */
+	private ?array $materiasDelGrupo = null;
+
+	/**
 	 * Las asignaturas perdidas del grupo, en una consulta y no en una por alumno ×
 	 * asignatura (456 en un grupo de 38; doc 48). Se piden a la primera celda.
 	 *
@@ -294,6 +303,11 @@ class BoletinesController extends Controller {
 		);
 		$this->perdidasDelGrupo = ['alumnos' => $alumnoIds, 'asignaturas' => $asignaturaIds, 'porCelda' => null];
 		$this->unidadesDelGrupo = new LasUnidadesDelGrupo($alumnoIds, $asignaturaIds, (int) $user->periodo_id, (int) $this->user->year_id);
+		$this->materiasDelGrupo = [
+			'grupo' => (int) $grupo_id,
+			'periodo' => (int) $user->periodo_id,
+			'porAlumno' => Grupo::detailed_materias_notafinal_de_alumnos($alumnoIds, $grupo_id, $user->periodo_id, $this->user->year_id),
+		];
 
 		foreach ($alumnos as $alumno) {
 			// Todas las materias con sus unidades y subunides
@@ -335,6 +349,7 @@ class BoletinesController extends Controller {
 		$this->loDelGrupo = null;
 		$this->perdidasDelGrupo = null;
 		$this->unidadesDelGrupo = null;
+		$this->materiasDelGrupo = null;
 
 		BoletinIndependiente::ponerPuestos($alumnos, [(int) $user->periodo_id], (int) $user->year_id);
 
@@ -362,7 +377,7 @@ class BoletinesController extends Controller {
 
 	public function allNotasAlumno(&$alumno, $grupo_id, $periodo_id, $comport_and_frases=false)
 	{
-		$asignaturas			= Grupo::detailed_materias_notafinal($alumno->alumno_id, $grupo_id, $periodo_id, $this->user->year_id);
+		$asignaturas			= $this->materiasDelAlumno((int) $alumno->alumno_id, $grupo_id, $periodo_id);
 		$ausencias_total		= Ausencia::totalDeAlumno($alumno->alumno_id, $periodo_id);
 		$asignaturas_perdidas 	= [];
 	
@@ -575,6 +590,21 @@ class BoletinesController extends Controller {
 		return $alumno;
 	}
 
+
+	/** `Grupo::detailed_materias_notafinal()`, del grupo precargado si el alumno está en él. */
+	private function materiasDelAlumno(int $alumno_id, $grupo_id, $periodo_id): array
+	{
+		$delGrupo = $this->materiasDelGrupo;
+
+		if ($delGrupo !== null && $delGrupo['grupo'] === (int) $grupo_id && $delGrupo['periodo'] === (int) $periodo_id
+			&& array_key_exists($alumno_id, $delGrupo['porAlumno'])) {
+			unset($this->materiasDelGrupo['porAlumno'][$alumno_id]);
+
+			return $delGrupo['porAlumno'][$alumno_id];
+		}
+
+		return Grupo::detailed_materias_notafinal($alumno_id, $grupo_id, $periodo_id, $this->user->year_id);
+	}
 
 	/**
 	 * `hastaPeriodoConDefinitivas()`, del grupo precargado si la celda está en él.
