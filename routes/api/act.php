@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Act\ActividadesController;
+use App\Http\Controllers\Act\EditarConNotasController;
 use App\Http\Controllers\Act\EntregasController;
 use App\Http\Controllers\Act\PreguntasController;
 use App\Http\Controllers\Act\ResponderController;
@@ -21,9 +22,8 @@ use Illuminate\Support\Facades\Route;
 | `App\Services\Act\Destinatarios`, no el tipo de usuario. Además, TODO lo del creador exige ser el
 | dueño (`created_by`), y eso lo mira el controlador.
 |
-| Tanda 1. Faltan (en su tanda): logros, entregas del docente y calificar, impacto y
-| aplicar-cambios (2); aprobar, rechazar, cerrar, compartir, anonimato, duplicar (3); recordar y
-| calendario (5).
+| Tandas 1 y 2. Faltan (en su tanda): aprobar, rechazar, cerrar, compartir, anonimato, duplicar
+| (3); recordar y calendario (5).
 |
 | Las rutas sin {parámetro} van antes que las que lo llevan.
 |
@@ -32,6 +32,7 @@ use Illuminate\Support\Facades\Route;
 // ActividadesController: bandeja, catálogo, conteo, crear, guardar, leer, borrar, publicar.
 Route::get('act/bandeja', [ActividadesController::class, 'getBandeja']);
 Route::get('act/catalogo', [ActividadesController::class, 'getCatalogo'])->middleware('auth.personal');
+Route::get('act/logros', [ActividadesController::class, 'getLogros'])->middleware('auth.personal');
 Route::post('act/conteo', [ActividadesController::class, 'postConteo'])->middleware('auth.personal');
 Route::post('act/crear', [ActividadesController::class, 'postCrear'])->middleware('auth.personal');
 
@@ -65,3 +66,9 @@ Route::post('act/{id}/entregar', [EntregasController::class, 'postEntregar'])->w
 
 Route::get('act/{id}/resultados', [ResultadosController::class, 'getResultados'])->where('id', '[0-9]+')->middleware('auth.personal');
 Route::get('act/{id}/faltan', [ResultadosController::class, 'getFaltan'])->where('id', '[0-9]+')->middleware('auth.personal');
+
+// Tanda 2: las entregas del docente y calificar (§3.9), y editar con notas (§3.11).
+Route::get('act/{id}/entregas', [EntregasController::class, 'getEntregas'])->where('id', '[0-9]+')->middleware('auth.personal');
+Route::post('act/{id}/entregas/{alumnoId}/calificar', [EntregasController::class, 'postCalificar'])->where(['id' => '[0-9]+', 'alumnoId' => '[0-9]+'])->middleware('auth.personal');
+Route::post('act/{id}/impacto', [EditarConNotasController::class, 'postImpacto'])->where('id', '[0-9]+')->middleware('auth.personal');
+Route::post('act/{id}/aplicar-cambios', [EditarConNotasController::class, 'postAplicarCambios'])->where('id', '[0-9]+')->middleware('auth.personal');

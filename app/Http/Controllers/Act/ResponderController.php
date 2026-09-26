@@ -8,6 +8,7 @@ use App\Services\Act\Actividad;
 use App\Services\Act\Calificador;
 use App\Services\Act\Destinatarios;
 use App\Services\Act\Formas;
+use App\Services\Act\Planilla;
 use App\Services\Act\Recorrido;
 use App\Services\Act\Respuestas;
 use Illuminate\Support\Facades\DB;
@@ -139,8 +140,8 @@ class ResponderController extends Controller
      *
      * Vuelve a evaluar el recorrido (§2.5): descarta lo que se respondió en preguntas que no quedaron
      * visibles y exige las visibles obligatorias (422 `{mensaje, faltan}`). Hoja, respuestas y
-     * participación en una transacción. En el cuestionario, puntaje y nota en la hoja (la planilla
-     * es la tanda 2).
+     * participación en una transacción. En el cuestionario, puntaje y nota en la hoja y, si califica,
+     * en la planilla (`Planilla::alEnviar`).
      */
     public function postEnviar($id)
     {
@@ -182,6 +183,10 @@ class ResponderController extends Controller
                 ];
             }
 
+            // La nota vigente de ANTES de este envío: contra ella se juzga si la de la planilla
+            // estaba editada a mano (§2.8).
+            $vigenteAntes = $entrada['alumno_id'] !== null ? Planilla::calculadaDe($act, (int) $entrada['alumno_id']) : null;
+
             $borrador = Respuestas::hojasDe((int) $act->id, $entrada, false)[0] ?? null;
 
             if ($borrador) {
@@ -201,6 +206,12 @@ class ResponderController extends Controller
 
             $soloVisibles = array_intersect_key($respuestas, array_flip($visibles));
             Respuestas::escribir($hojaId, $porId, $soloVisibles, $marca);
+
+            // A la planilla (tanda 2), dentro de la misma transacción: si falla, no queda un envío
+            // sin su nota. No pisa una nota editada a mano.
+            if ($act->modo === 'cuestionario' && $entrada['alumno_id'] !== null) {
+                Planilla::alEnviar($act, $user, (int) $entrada['alumno_id'], $vigenteAntes);
+            }
 
             $verNota = $act->modo === 'cuestionario' && Respuestas::notaVisible($act);
 

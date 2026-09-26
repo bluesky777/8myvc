@@ -128,8 +128,11 @@ class Formas
             'rechazo_motivo' => $act->rechazo_motivo,
             'subunidad_id' => $subunidad ? (int) $subunidad->id : null,
             'hojas_n' => Actividad::hojasEnviadas($id),
-            // Notas en la planilla: llegan en la tanda 2, con la subunidad.
-            'tiene_notas' => $subunidad !== null,
+            // Si su indicador ya tiene alguna nota: decide si un cambio va por «Editar con notas».
+            'tiene_notas' => $subunidad !== null && DB::selectOne(
+                'SELECT 1 AS si FROM notas WHERE subunidad_id = ? AND nota IS NOT NULL AND deleted_at IS NULL LIMIT 1',
+                [(int) $subunidad->id]
+            ) !== null,
             'duplicada_de' => $act->duplicada_de === null ? null : (int) $act->duplicada_de,
             'preguntas' => self::preguntas($id),
         ];

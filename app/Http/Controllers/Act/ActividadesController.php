@@ -8,6 +8,7 @@ use App\Services\Act\Actividad;
 use App\Services\Act\Calificador;
 use App\Services\Act\Destinatarios;
 use App\Services\Act\Formas;
+use App\Services\Act\Planilla;
 use App\Services\Act\Recorrido;
 use App\Support\EscalaDeNotas;
 use App\Support\HtmlDelEditor;
@@ -23,8 +24,9 @@ use Illuminate\Support\Facades\Request;
  * `ACTIVIDADES-Y-ENCUESTAS.md`. Tareas, cuestionarios y encuestas en la misma `ws_actividades` que
  * el módulo viejo, distinguidas por `modo` (ver `App\Services\Act\Actividad`).
  *
- * En la tanda 1 no hay nota a la planilla: `califica: true` es 422 hasta la tanda 2, que es la que
- * crea la subunidad y escribe las notas por los caminos de siempre.
+ * La nota a la planilla (tanda 2, §2.8): una tarea o un cuestionario con `califica` elige el logro
+ * (`unidad_id`) y, si el año reparte por porcentaje, el peso; al publicar se crea el indicador por
+ * `App\Services\Act\Planilla`. `act/logros` da los logros con sus pesos para la barra de «Nueva».
  */
 class ActividadesController extends Controller
 {
@@ -166,6 +168,45 @@ class ActividadesController extends Controller
         ];
     }
 
+    /**
+     * `GET act/logros?asignatura_id=&periodo_id=` → `LogroAct[]` (§3.2, tanda 2). Los logros de una
+     * clase suya (o de cualquiera, si es directivo) en el periodo —por defecto el del token—, con sus
+     * indicadores y lo que suman, para la barra de «Nota a la planilla».
+     */
+    public function getLogros()
+    {
+        $user = $this->user;
+        $asignaturaId = Destinatarios::entero(Request::input('asignatura_id'));
+        $periodoId = Destinatarios::entero(Request::input('periodo_id')) ?? (int) $user->periodo_id;
+
+        if ($asignaturaId === null) {
+            abort(422, 'Falta la clase.');
+        }
+
+        $clase = DB::selectOne(
+            'SELECT a.id, a.profesor_id, g.year_id FROM asignaturas a
+              INNER JOIN grupos g ON g.id = a.grupo_id AND g.deleted_at IS NULL
+              WHERE a.id = ? AND a.deleted_at IS NULL',
+            [$asignaturaId]
+        );
+
+        if (! $clase) {
+            abort(404, 'Esa clase no existe.');
+        }
+
+        $esSuya = ($user->tipo ?? '') === 'Profesor' && (int) $clase->profesor_id === (int) $user->persona_id;
+
+        if (! $esSuya && ! Actividad::esDirectivo($user)) {
+            abort(403, 'Esa clase no es tuya.');
+        }
+
+        if (! DB::selectOne('SELECT id FROM periodos WHERE id = ? AND year_id = ? AND deleted_at IS NULL', [$periodoId, (int) $clase->year_id])) {
+            abort(422, 'Ese periodo no es del año de la clase.');
+        }
+
+        return Planilla::logros($asignaturaId, $periodoId);
+    }
+
     /** `POST act/conteo` → `ConteoAct`. No escribe nada: el front lo pide al mover el selector. */
     public function postConteo()
     {
@@ -231,7 +272,7 @@ class ActividadesController extends Controller
         $config['entrega'] = array_replace(['texto' => false, 'foto' => false, 'archivo' => false, 'enlace' => false], (array) $config['entrega']);
         $config['avisos'] = array_replace(['al_publicar' => true, 'recordar_horas_antes' => null, 'en_calendario' => true], (array) $config['avisos']);
 
-        [$columnas, $filas] = $this->configValida($config, $user, (int) $user->year_id);
+        [$columnas, $filas] = $this->configValida($config, $user, (int) $user->year_id, (int) $user->periodo_id);
         $ahora = Actividad::ahora();
 
         $id = DB::transaction(function () use ($columnas, $filas, $user, $ahora) {
@@ -270,7 +311,7 @@ class ActividadesController extends Controller
         $config['entrega'] = array_replace($antes['entrega'], (array) ($dada['entrega'] ?? []));
         $config['avisos'] = array_replace($antes['avisos'], (array) ($dada['avisos'] ?? []));
 
-        [$columnas, $filas] = $this->configValida($config, $user, (int) $act->year_id);
+        [$columnas, $filas] = $this->configValida($config, $user, (int) $act->year_id, (int) $act->periodo_id);
 
         $cambiaron = $this->camposQueCambian($act, $columnas, $filas);
         $estado = $act->estado;
@@ -285,6 +326,15 @@ class ActividadesController extends Controller
                     'campos' => array_values($prohibidos),
                 ], 409)->throwResponse();
             }
+        }
+
+        // La nota a la planilla se decide antes de publicar: el indicador ya se creó con ese logro
+        // y ese peso, y moverlo dejaría la subunidad colgada de otro sitio.
+        // (La nota máxima con hojas enviadas ya la corta el 409 de §2.9: va por «Editar con notas».)
+        $deLaNota = array_intersect($cambiaron, ['califica', 'unidad_id', 'peso']);
+
+        if ($deLaNota !== [] && in_array($act->estado, ['publicada', 'cerrada'], true)) {
+            abort(409, 'La nota a la planilla (logro y peso) se decide antes de publicar.');
         }
 
         $aQuien = array_intersect($cambiaron, ['alcance', 'responden', 'destinatarios', 'acudiente_por_hijo', 'asignatura_id', 'grupo_id']);
@@ -411,8 +461,22 @@ class ActividadesController extends Controller
             $problemas[] = 'No le llega a nadie: el alcance está vacío.';
         }
 
+        $reparto = Planilla::reparto($act);
+
         if ($act->califica) {
-            $problemas[] = 'La nota a la planilla llega en la próxima entrega.';
+            // Antes que los problemas: en un año cerrado no se crea el indicador, y eso es un 423,
+            // no una lista de cosas que arreglar.
+            Planilla::exigirAnioAbierto($act, $user);
+
+            if ($act->unidad_id === null) {
+                $problemas[] = 'Falta el logro al que va la nota.';
+            } elseif (! Planilla::unidadDe($act)) {
+                $problemas[] = 'El logro elegido ya no existe en esta clase y periodo.';
+            }
+
+            if ($reparto === RepartoDeLaNota::PORCENTAJE && $act->peso === null) {
+                $problemas[] = 'Falta el peso del indicador.';
+            }
         }
 
         if ($problemas !== []) {
@@ -421,10 +485,24 @@ class ActividadesController extends Controller
 
         [$requiere, $motivo] = Destinatarios::requiereAprobacion($act, $filas, $user);
 
-        DB::update(
-            'UPDATE ws_actividades SET estado = ?, requiere_aprobacion = ?, rechazo_motivo = NULL, updated_at = ? WHERE id = ?',
-            [$requiere ? 'por_aprobar' : 'publicada', $requiere ? 1 : 0, $ahora, (int) $act->id]
-        );
+        // «Reajustar los demás» sólo con el botón: cambia pesos de indicadores que ya existen.
+        $reajustar = Request::boolean('reajustar_demas');
+
+        // El estado y el indicador en una transacción: publicada sin su subunidad no existe.
+        $subunidadId = DB::transaction(function () use ($act, $user, $requiere, $ahora, $reajustar) {
+            DB::update(
+                'UPDATE ws_actividades SET estado = ?, requiere_aprobacion = ?, rechazo_motivo = NULL, updated_at = ? WHERE id = ?',
+                [$requiere ? 'por_aprobar' : 'publicada', $requiere ? 1 : 0, $ahora, (int) $act->id]
+            );
+
+            if (! $act->califica || $requiere) {
+                return null;
+            }
+
+            $ya = Planilla::subunidad((int) $act->id);
+
+            return $ya ? (int) $ya->id : Planilla::crearIndicador($act, $user, $reajustar);
+        });
 
         $act = Actividad::cargar($id);
 
@@ -432,7 +510,7 @@ class ActividadesController extends Controller
             'estado' => Actividad::estado($act),
             'requiere_aprobacion' => $requiere,
             'motivo_aprobacion' => $motivo,
-            'subunidad_id' => null,
+            'subunidad_id' => $subunidadId,
         ];
     }
 
@@ -450,7 +528,7 @@ class ActividadesController extends Controller
      *
      * @return array{0: array<string, mixed>, 1: list<array>}
      */
-    private function configValida(array $c, object $user, int $yearId): array
+    private function configValida(array $c, object $user, int $yearId, int $periodoId): array
     {
         $modo = $c['modo'];
         $alcance = (string) ($c['alcance'] ?? '');
@@ -473,8 +551,10 @@ class ActividadesController extends Controller
             abort(422, 'Las tareas y los cuestionarios son para una clase: los responden sus alumnos, con nombre.');
         }
 
-        if (! empty($c['califica'])) {
-            abort(422, 'La nota a la planilla llega en la próxima entrega.');
+        $califica = ! empty($c['califica']);
+
+        if ($califica && $modo === 'encuesta') {
+            abort(422, 'Una encuesta no lleva nota a la planilla.');
         }
 
         $titulo = trim((string) ($c['titulo'] ?? ''));
@@ -566,6 +646,26 @@ class ActividadesController extends Controller
         $entrega = (array) ($c['entrega'] ?? []);
         $esTarea = $modo === 'tarea';
 
+        // La nota a la planilla (§2.8). Al guardar se admite a medias —el front va rellenando— y lo
+        // que falta lo lista `publicar`; lo que llega sí tiene que ser válido.
+        $unidadId = $califica ? Destinatarios::entero($c['unidad_id'] ?? null) : null;
+        $peso = null;
+
+        if ($unidadId !== null && ! DB::selectOne(
+            'SELECT id FROM unidades WHERE id = ? AND asignatura_id = ? AND periodo_id = ? AND alumno_id IS NULL AND deleted_at IS NULL',
+            [$unidadId, (int) $asignaturaId, $periodoId]
+        )) {
+            abort(422, 'Ese logro no es de esta clase en este periodo.');
+        }
+
+        if ($califica && RepartoDeLaNota::modoDelPeriodo($periodoId) === RepartoDeLaNota::PORCENTAJE) {
+            $peso = Destinatarios::entero($c['peso'] ?? null);
+
+            if ($peso !== null && ($peso < 1 || $peso > 100)) {
+                abort(422, 'El peso del indicador va de 1 a 100.');
+            }
+        }
+
         return [[
             'modo' => $modo,
             'titulo' => $titulo,
@@ -583,9 +683,9 @@ class ActividadesController extends Controller
             'entrega_foto' => $esTarea && ! empty($entrega['foto']) ? 1 : 0,
             'entrega_archivo' => $esTarea && ! empty($entrega['archivo']) ? 1 : 0,
             'entrega_enlace' => $esTarea && ! empty($entrega['enlace']) ? 1 : 0,
-            'califica' => 0,
-            'unidad_id' => Destinatarios::entero($c['unidad_id'] ?? null),
-            'peso' => Destinatarios::entero($c['peso'] ?? null),
+            'califica' => $califica ? 1 : 0,
+            'unidad_id' => $unidadId,
+            'peso' => $peso,
             'nota_maxima' => $notaMaxima,
             'oportunidades' => $modo === 'cuestionario' ? $oportunidades : 1,
             'mostrar_correctas' => $mostrar,

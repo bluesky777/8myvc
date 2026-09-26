@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Services\Act\Actividad;
 use App\Services\Act\Destinatarios;
 use App\Services\Act\Formas;
+use App\Services\Act\Planilla;
 use App\Services\Act\Recorrido;
 use App\Services\Act\Respuestas;
 use App\Support\SafeUpload;
@@ -21,6 +22,10 @@ use Illuminate\Support\Facades\Request;
  * `public/`, sin tope y sin saber de qué actividad es. Aquí va en
  * `storage/app/actividades/{year_id}/{actividad_id}/`, fuera de `public/`, y sólo sale por
  * `GET act/archivos/{id}` con token y permiso — es trabajo de un menor.
+ *
+ * Tanda 2 (§3.9): las entregas que ve el docente, una fila por alumno, y calificar con comentario;
+ * la nota va a la planilla por `App\Services\Act\Planilla` sin pisar una editada a mano, salvo
+ * `forzar_planilla`.
  *
  * Topes (decididos por Joseth el 26 sep): **5 MB por fichero**, una foto y un archivo por entrega,
  * y la foto con el lado largo de 1600 px como mucho (el cliente ya la reduce a 1280). Por encima de
@@ -322,6 +327,146 @@ class EntregasController extends Controller
 
         return Formas::entrega(DB::selectOne('SELECT * FROM ws_entregas WHERE actividad_id = ? AND alumno_id = ?',
             [$act->id, $entrada['alumno_id']]));
+    }
+
+    // ------------------------------------------------------------------ §3.9 el docente
+
+    /**
+     * `GET act/{id}/entregas?grupo_id=` → `EntregasAct`: una fila por alumno destinatario, con o sin
+     * entrega, con la nota que tiene en la planilla y si está editada a mano. Dueño o directivo.
+     */
+    public function getEntregas($id)
+    {
+        $user = $this->user;
+        $act = Actividad::cargar($id);
+        Actividad::exigirDuenoODirectivo($act, $user);
+
+        if ($act->modo !== 'tarea') {
+            abort(422, 'Las entregas son de las tareas; lo demás se mira en resultados.');
+        }
+
+        $filtroGrupo = Destinatarios::entero(Request::input('grupo_id'));
+        $alumnos = array_values(array_filter(Destinatarios::resolver($act),
+            fn ($e) => $e['publico'] === 'alumno' && ($filtroGrupo === null || $e['grupo_id'] === $filtroGrupo)));
+
+        $entregas = [];
+
+        foreach (DB::select('SELECT * FROM ws_entregas WHERE actividad_id = ?', [$act->id]) as $e) {
+            $entregas[(int) $e->alumno_id] = $e;
+        }
+
+        $subunidad = Planilla::subunidad((int) $act->id);
+        $notas = $subunidad ? Planilla::notasDe((int) $subunidad->id) : [];
+        $grupos = Destinatarios::nombresDeGrupos(array_values(array_unique(array_filter(array_column($alumnos, 'grupo_id')))));
+
+        $filas = array_map(function ($e) use ($entregas, $subunidad, $notas, $grupos) {
+            $entrega = $entregas[$e['alumno_id']] ?? null;
+            $nota = $notas[$e['alumno_id']] ?? null;
+
+            $estado = match (true) {
+                $entrega === null || $entrega->entregada_at === null => $entrega && $entrega->nota !== null ? 'calificada' : 'sin_entregar',
+                $entrega->nota !== null => 'calificada',
+                (bool) $entrega->tarde => 'tarde',
+                default => 'entregada',
+            };
+
+            return [
+                'alumno' => Formas::personaDeEntrada($e),
+                'grupo' => $grupos[$e['grupo_id']] ?? '',
+                'estado' => $estado,
+                'entrega' => Formas::entrega($entrega),
+                'nota_planilla' => $nota && $nota->nota !== null ? (int) $nota->nota : null,
+                'editada_a_mano' => $subunidad !== null
+                    && Planilla::editada($nota, $subunidad, $entrega && $entrega->nota !== null ? (int) $entrega->nota : null),
+            ];
+        }, $alumnos);
+
+        $year = DB::selectOne('SELECT nota_minima_aceptada FROM years WHERE id = ?', [(int) $act->year_id]);
+
+        return [
+            'actividad' => Formas::enBandeja($act, $user),
+            'nota_maxima' => (int) ($act->nota_maxima ?? Actividad::maximoDeLaEscala((int) $act->year_id)),
+            'aprobatoria' => (int) ($year->nota_minima_aceptada ?? 0),
+            'filas' => $filas,
+        ];
+    }
+
+    /**
+     * `POST act/{id}/entregas/{alumnoId}/calificar` `{nota, comentario?, forzar_planilla?}` →
+     * `{entrega, planilla: 'escrita'|'no_tocada'|'sin_nota', nota_planilla}`. Dueño.
+     *
+     * La entrega y la planilla en una transacción. «Editada a mano» se juzga contra la nota que
+     * tenía la entrega ANTES de calificar: si la de la planilla no coincide con ella, el docente la
+     * cambió allí y no se pisa (`no_tocada`) salvo `forzar_planilla: true`. `sin_nota` = la tarea no
+     * califica, o no tiene indicador.
+     */
+    public function postCalificar($id, $alumnoId)
+    {
+        $user = $this->user;
+        $act = Actividad::cargar($id);
+        Actividad::exigirDueno($act, $user);
+
+        if ($act->modo !== 'tarea') {
+            abort(422, 'Sólo las tareas se califican a mano; el cuestionario se califica solo.');
+        }
+
+        Planilla::exigirAnioAbierto($act, $user);
+
+        $maxima = (int) ($act->nota_maxima ?? Actividad::maximoDeLaEscala((int) $act->year_id));
+        $nota = Request::input('nota');
+
+        if (! is_numeric($nota) || (int) $nota != $nota || (int) $nota < 0 || (int) $nota > $maxima) {
+            abort(422, "La nota es un entero de 0 a {$maxima}.");
+        }
+
+        $nota = (int) $nota;
+        // Sin `comentario` en el cuerpo se queda el que había: recalificar no borra lo escrito.
+        $comentario = Request::has('comentario') ? $this->opcional('comentario') : null;
+
+        if ($comentario !== null && mb_strlen($comentario) > 5000) {
+            abort(422, 'El comentario pasa de 5000 caracteres.');
+        }
+
+        $alumnoId = (int) $alumnoId;
+        $antes = DB::selectOne('SELECT * FROM ws_entregas WHERE actividad_id = ? AND alumno_id = ?', [$act->id, $alumnoId]);
+
+        if (! $antes || $antes->entregada_at === null) {
+            abort(409, 'Ese alumno no ha entregado la tarea.');
+        }
+
+        $forzar = Request::boolean('forzar_planilla');
+
+        $resultado = DB::transaction(function () use ($act, $user, $antes, $nota, $comentario, $forzar, $alumnoId) {
+            $ahora = Actividad::ahora();
+
+            DB::update(
+                'UPDATE ws_entregas SET nota = ?, comentario = ?, calificada_por = ?, calificada_at = ?, updated_at = ? WHERE id = ?',
+                [$nota, Request::has('comentario') ? $comentario : $antes->comentario, (int) $user->user_id, $ahora, $ahora, $antes->id]
+            );
+
+            $subunidad = $act->califica ? Planilla::subunidad((int) $act->id) : null;
+
+            if ($subunidad === null) {
+                return ['sin_nota', null];
+            }
+
+            $enPlanilla = Planilla::notasDe((int) $subunidad->id)[$alumnoId] ?? null;
+            $calculadaAntes = $antes->nota === null ? null : (int) $antes->nota;
+
+            if (! $forzar && Planilla::editada($enPlanilla, $subunidad, $calculadaAntes)) {
+                return ['no_tocada', (int) $enPlanilla->nota];
+            }
+
+            Planilla::escribir($subunidad, [$alumnoId => $nota], $user);
+
+            return ['escrita', $nota];
+        });
+
+        return [
+            'entrega' => Formas::entrega(DB::selectOne('SELECT * FROM ws_entregas WHERE id = ?', [$antes->id])),
+            'planilla' => $resultado[0],
+            'nota_planilla' => $resultado[1],
+        ];
     }
 
     /**
