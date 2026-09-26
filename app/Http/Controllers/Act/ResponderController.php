@@ -305,8 +305,12 @@ class ResponderController extends Controller
                 $publica = $p;
 
                 if ($verCorrectas) {
-                    $publica['opciones'] = array_map(function ($o) {
-                        unset($o['error_tipico']);
+                    // El error típico de un distractor sólo junto a la opción que marcó y falló:
+                    // es la retroalimentación de SU error, no la lista de errores de la pregunta.
+                    $marcadas = $mias[$p['id']]['opcion_ids'] ?? [];
+                    $publica['opciones'] = array_map(function ($o) use ($marcadas) {
+                        $fallo = ! $o['is_correct'] && in_array((int) ($o['id'] ?? 0), $marcadas, true);
+                        $o['error_tipico'] = $fallo ? ($o['error_tipico'] ?? null) : null;
 
                         return $o;
                     }, $publica['opciones']);
