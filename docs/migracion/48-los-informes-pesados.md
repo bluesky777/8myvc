@@ -192,23 +192,31 @@ sino repasar todos sus endpoints y hacerlos mucho más rápidos. Rama `perf/bole
 worktree `.worktrees/boletines`. Mismo método que arriba (§Cómo se midió): JSON
 comparado por sha1 contra `main` antes de cada commit.
 
-Línea base del 26 sep, con todo lo del 24 ya dentro (quibdo grupo 223 periodo 3,
-simon grupo 102):
+Estado al cerrar el 26 sep (rama `perf/boletines`, **sin empujar ni desplegar**).
+«Antes» es `b4bfe40` (main + P5); P5 aparte, abajo. ms: una pasada antes, la mejor de
+dos después, máquina sin otros agentes. Quibdo grupo 223 periodo 3, simon grupo 102.
 
 | Endpoint | Base | Consultas | ms | Respuesta | Estado |
 |---|---|---:|---:|---:|---|
-| `boletines3/detailed-notas-group` | quibdo | 3.433 | **48.673** | 2,2 MB | P5 hecho → 1.801 ms |
-| `boletines3/detailed-notas-group` | simon | 2.464 | **31.343** | 0,6 MB | P5 hecho → 892 ms |
-| `boletines/detailed-notas-group` (formato 1) | quibdo | 1.577 | 1.586 | **6,6 MB** | pendiente |
-| `boletines/detailed-notas-group` | simon | 1.094 | 1.064 | 1,0 MB | pendiente |
-| `boletines/detailed-notas` (un alumno) | quibdo | 1.728 | 1.468 | 180 KB | pendiente |
-| `boletines2/detailed-notas-group` | quibdo | 3.436 | 1.897 | **6,0 MB** | pendiente |
-| `boletines-competencias/detailed-notas-group` | quibdo | 1.074 | 428 | 365 KB | pendiente |
-| `bolfinales/detailed-notas-year-group` | quibdo | 855 | 492 | 2,3 MB | pendiente |
-| `bolfinales/detailed-notas-year-group` | simon | 922 | 559 | 1,7 MB | pendiente |
-| `bolfinales-preescolar/detailed-notas-year-group` (Transición, 208) | quibdo | 663 | 211 | 111 KB | pendiente |
-| `puestos/detailed-notas-year` | quibdo | 240 | 1.358 | 90 KB | pendiente |
-| `puestos/detailed-notas-periodo` | quibdo | 125 | 420 | 118 KB | pendiente |
+| `boletines/detailed-notas-group` (formato 1) | quibdo | 1.577 → **175** | 1.827 → 219 | 6,6 MB | hecho |
+| `boletines/detailed-notas-group` | simon | 1.094 → **194** | 1.088 → 147 | 1,0 MB | hecho |
+| `boletines/detailed-notas` (un alumno) | quibdo | 1.728 → **178** | 1.846 → 164 | 180 KB | hecho |
+| `boletines2/detailed-notas-group` | quibdo | 3.436 → **215** | 2.243 → 233 | 6,0 MB | hecho |
+| `boletines3/detailed-notas-group` | quibdo | 3.433 → **271** | 48.673 → 362 | 2,2 MB | hecho (P5 + P6) |
+| `boletines3/detailed-notas-group` | simon | 2.464 → **321** | 31.343 → 224 | 0,6 MB | hecho (P5 + P6) |
+| `boletines-competencias/detailed-notas-group` | quibdo | 1.074 → 1.000 | 441 → 403 | 365 KB | casi nada: ver pendientes |
+| `bolfinales/detailed-notas-year-group` | quibdo | 855 → **63** | 492 → 142 | 2,3 MB | hecho |
+| `bolfinales/detailed-notas-year-group` | simon | 922 → **111** | 507 → 174 | 1,7 MB | hecho |
+| `bolfinales-preescolar/detailed-notas-year-group` (208) | quibdo | 663 → **20** | 209 → 61 | 111 KB | hecho |
+| `puestos/detailed-notas-year` | quibdo | 240 → **17** | 1.693 → 74 | 90 KB | hecho |
+| `puestos/detailed-notas-periodo` | quibdo | 125 → **53** | 539 → 72 | 118 KB | hecho |
+
+Sobre 69 casos (los de arriba más periodos 1/2/4, hojas sueltas, años pasados, grupos
+con faltas, frases, recuperaciones, independientes y celdas duplicadas; lista en el
+scratchpad de la sesión): **105.816 → 20.672 consultas, 65,7 s → 17,4 s sumados**, y
+**68 idénticos por sha1** a `b4bfe40`. El que no: ver P6, «el duplicado».
+`--filter "Bolet|Bolfinal|Puesto|Certificad|NotasActuales|Informe|Perdidas|Unidad|Subunidad"`:
+433 pruebas en verde.
 
 **El 124 ms / 165 consultas que decía la tabla de arriba para `boletines3` ya no es
 verdad**: hoy tarda 48 s. No es una regresión de esta semana que se haya buscado; es
@@ -230,6 +238,59 @@ asignaturas del mismo área con `orden` nulo (Inglés y Lengua en simon) salían
 orden en que el plan las leía, **distinto de un alumno a otro en el mismo grupo**; ahora
 desempatan por `a.id` y salen igual en todos. El `indice` (`@rownum`) también cambia;
 no lo pinta ninguna pantalla de boletines. 190 pruebas con `--filter Boletin` en verde.
+
+### P6 — Todo lo demás de los boletines, por grupo (hecho, 26 sep)
+
+Tres agentes en paralelo, una rama cada uno, juntadas en `perf/boletines` (`fe6fa82`):
+
+- **Formatos 1 y 2** (`perf/boletines-12`): las pérdidas del año —la forma
+  `…definitiva_year, cant_perdidas_1…` de ~800 ms— salen en una consulta para el grupo
+  (`CalcPerdidasDefinitivas::delGrupo`); unidades, subunidades y escalas una vez por
+  grupo (`Support/LasUnidadesDelGrupo`, parámetro opcional `$delGrupo` en `Unidad`).
+- **Formato 3 y competencias** (`perf/boletines-3c`): reparto memorizado como P3a,
+  faltas y frases con `LoDelGrupoDeUnaVez`, pérdidas con `delGrupo`, y
+  `Unidad::recordandoElGrupo` (una memoria estática que sólo enciende `boletines3`).
+- **Bolfinales, preescolar y puestos** (`perf/boletines-fp`): definitivas, materias,
+  comportamiento, frases y recuperaciones una vez por grupo; preescolar filtra las
+  hojas antes de calcular; puestos, las definitivas del año del grupo en una consulta.
+  Aparte del sha1, comparado alumno por alumno contra las consultas viejas en 282
+  grupos (comportamiento y recuperaciones) y en los 68 grupos de 2025-2026 (puestos).
+
+**El duplicado.** Con dos filas de `notas_finales` para la misma celda y periodo
+(simon 103, alumno 547, asignatura 1293, periodo 2, las dos con nota 0), ninguna
+consulta vieja ordenaba y cada informe servía la que su plan leía: **los boletines la
+más nueva (7249491) y `notas-actuales` la vieja (7248184)**. `delGrupo` ordena por id
+descendente (`bfb426e`): ahora todos dan la nueva, y `notas-actuales` de ese grupo
+cambia ese `nf_id_2`. No hay orden que reproduzca a los dos viejos a la vez.
+
+**Empates de orden que no se tocaron**: en puestos, dos asignaturas con
+`(ar.orden, m.orden, a.orden)` iguales salen en el orden del plan, **igual que en la
+base** (dos pasadas de la base dieron sha1 distintos). Un desempate escrito acierta en
+simon y da la vuelta en quibdo (grupo 168).
+
+### Lo que queda en los boletines, con su precio
+
+- **Competencias**: 760 de sus 1.000 consultas son
+  `DefinitivasDeAsignatura::ponerAlDiaUnInforme` reparando 380 definitivas. En la
+  medida se repiten porque la transacción se deshace; en producción es una vez y
+  luego no. Es escritura: no se tocó.
+- **`ponerAlDiaLasDefinitivas`** en el boletín de un alumno (~150 consultas): escribe,
+  mismo motivo.
+- **`Area::agrupar_asignaturas`**: 2 consultas por alumno (~76 de las 111 que quedan
+  en bolfinales simon, ~25 ms), y otras ~5 por alumno en modelos compartidos
+  (ausencias totales, comportamiento, disciplina, `bol_ind_periodos`). ~100 ms por
+  grupo en total; un modelo que usan todos los formatos.
+- **`Grupo::detailed_materias_notas_finales`** (formato 3) y `detailed_materias_notafinal`
+  (competencias), una por alumno (~65–80 ms el grupo): pasarlas a una por grupo choca
+  con el empate de orden de P5 y no se podría demostrar por sha1.
+- **El tamaño de la respuesta**, que ya pesa más que el cálculo: formato 1, **6,6 MB**
+  —`asignaturas_perdidas` repite entera cada asignatura perdida con unidades y
+  subunidades (3,2 MB, el 48 %), y `definicion_subunidad` y `definicion` llevan el mismo
+  texto—; formato 2, **6 MB** —cada asignatura va tres veces (`asignaturas`,
+  `areas[].asignaturas`, `asignaturas_perdidas`, ~1,9 MB cada una) y cada unidad lleva
+  ~20 columnas de la escala (`created_at`, `icono_*`…, ~2,5 MB)—. Recortarlo es cambiar
+  el contrato con el front (y con myvc_front_2 si lo lee): trabajo aparte, con el
+  front delante.
 
 ## Qué no se propone
 
