@@ -555,6 +555,12 @@ class Boletines2Controller extends Controller {
 	 * El número pasa por la misma puerta que `delGrupo()`: un `periodo_a_calcular` que
 	 * no sea un entero del 1 al 4 escrito tal cual (`10`, `"3.0"`) va por el camino de
 	 * siempre, que lo compara con `==` y puede responder distinto.
+	 *
+	 * **Lo único que puede cambiar, y es un desempate**: con dos filas de `notas_finales`
+	 * para la misma celda y periodo (duplicados con la misma nota), ninguna de las dos
+	 * consultas tiene `ORDER BY` y cada una se queda con la que su plan sirve primero. En
+	 * simon, grupo 103, un alumno: `detalle_periodos.nf_id_2` pasa de 7249491 a 7248184,
+	 * los dos del mismo periodo con nota 0. Lo que se imprime no cambia.
 	 */
 	private function perdidasDeLaCelda($alumno_id, $asignatura_id, $grupo_id, $periodo_a_calcular): array
 	{
