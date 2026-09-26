@@ -1,7 +1,8 @@
 # 48 — Los informes pesados: certificados y boletines
 
 24 sep 2026. Encargo de Joseth: analizar y rehacer los endpoints que tardan en
-cargar, empezando por certificados y boletines. **Hecho, sin desplegar:**
+cargar, empezando por certificados y boletines. **Desplegado en LAL el 25 sep
+(`086b5a8`); lo del 26 sep está en §Los boletines, uno por uno.** Lo del 24:
 
 | | Commit | Antes → después (consultas) |
 |---|---|---|
@@ -183,6 +184,52 @@ las herramientas de red del navegador el tiempo de `detailed-notas-year-group`.
 En el colegio con más ausencias (simonbolivar en las copias) es donde se nota:
 de 24–32 s a menos de 1 s. Si se enciende P4 en ese colegio, el registro de
 consultas lentas debería dejar de mostrar la de `notas_finales` con `ausencias`.
+
+## Los boletines, uno por uno — 26 sep 2026
+
+Encargo de Joseth: **no medir en producción cuál tarda** (ya se sabe: los boletines),
+sino repasar todos sus endpoints y hacerlos mucho más rápidos. Rama `perf/boletines`,
+worktree `.worktrees/boletines`. Mismo método que arriba (§Cómo se midió): JSON
+comparado por sha1 contra `main` antes de cada commit.
+
+Línea base del 26 sep, con todo lo del 24 ya dentro (quibdo grupo 223 periodo 3,
+simon grupo 102):
+
+| Endpoint | Base | Consultas | ms | Respuesta | Estado |
+|---|---|---:|---:|---:|---|
+| `boletines3/detailed-notas-group` | quibdo | 3.433 | **48.673** | 2,2 MB | P5 hecho → 1.801 ms |
+| `boletines3/detailed-notas-group` | simon | 2.464 | **31.343** | 0,6 MB | P5 hecho → 892 ms |
+| `boletines/detailed-notas-group` (formato 1) | quibdo | 1.577 | 1.586 | **6,6 MB** | pendiente |
+| `boletines/detailed-notas-group` | simon | 1.094 | 1.064 | 1,0 MB | pendiente |
+| `boletines/detailed-notas` (un alumno) | quibdo | 1.728 | 1.468 | 180 KB | pendiente |
+| `boletines2/detailed-notas-group` | quibdo | 3.436 | 1.897 | **6,0 MB** | pendiente |
+| `boletines-competencias/detailed-notas-group` | quibdo | 1.074 | 428 | 365 KB | pendiente |
+| `bolfinales/detailed-notas-year-group` | quibdo | 855 | 492 | 2,3 MB | pendiente |
+| `bolfinales/detailed-notas-year-group` | simon | 922 | 559 | 1,7 MB | pendiente |
+| `bolfinales-preescolar/detailed-notas-year-group` (Transición, 208) | quibdo | 663 | 211 | 111 KB | pendiente |
+| `puestos/detailed-notas-year` | quibdo | 240 | 1.358 | 90 KB | pendiente |
+| `puestos/detailed-notas-periodo` | quibdo | 125 | 420 | 118 KB | pendiente |
+
+**El 124 ms / 165 consultas que decía la tabla de arriba para `boletines3` ya no es
+verdad**: hoy tarda 48 s. No es una regresión de esta semana que se haya buscado; es
+que aquella medida fue en otro periodo o antes de que la nivelación (27 §5.3)
+añadiera las subconsultas. Con el grupo entero en 48 s, un colegio que imprima el
+formato 3 retiene un proceso casi un minuto.
+
+### P5 — `boletines3`: el alumno dentro de las derivadas (hecho, `49efc49`)
+
+`Grupo::detailed_materias_notas_finales` (sólo la usa `Boletines3Controller`) tiene
+hasta diez subconsultas `select distinct … from notas_finales nf order by nf.id desc`
+que se filtraban por alumno **en el `ON`**, fuera de la derivada: MySQL materializaba
+`notas_finales` entera (199 mil filas en quibdo) por periodo y por alumno. Se mete
+`where nf.alumno_id = <entero>` dentro de cada una. 48,7 s → 1,8 s en quibdo p3;
+16,9 → 1,4 s (p1), 32,7 → 1,6 s (p2), 62,7 → 2,0 s (p4); simon 31,3 → 0,9 s.
+
+JSON idéntico en quibdo p1–p3. **En p4 y en simon cambia algo, y es a mejor**: dos
+asignaturas del mismo área con `orden` nulo (Inglés y Lengua en simon) salían en el
+orden en que el plan las leía, **distinto de un alumno a otro en el mismo grupo**; ahora
+desempatan por `a.id` y salen igual en todos. El `indice` (`@rownum`) también cambia;
+no lo pinta ninguna pantalla de boletines. 190 pruebas con `--filter Boletin` en verde.
 
 ## Qué no se propone
 
