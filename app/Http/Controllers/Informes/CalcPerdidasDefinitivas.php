@@ -275,10 +275,16 @@ class CalcPerdidasDefinitivas {
 			FROM alumnos a
 			inner join asignaturas g on g.id IN ('.$asignaturas.')
 			'.$joins.'
-			where a.deleted_at is null and a.id IN ('.$alumnos.')',
+			where a.deleted_at is null and a.id IN ('.$alumnos.')
+			order by '.implode(', ', array_map(fn ($i) => 'nf'.$i.'.id desc', $k)),
 			array_fill(0, $n, User::$nota_minima_aceptada)
 		);
 
+		// Con dos definitivas para la misma celda y periodo (duplicados), el que llama se
+		// queda con la primera fila: el `order by` pone delante la más nueva. La consulta
+		// por alumno no ordenaba, y el plan decidía: en simon 103 los boletines servían la
+		// más nueva (7249491) y `notas-actuales` la vieja (7248184), para la misma celda.
+		// Ahora todos dan la más nueva. Las dos tienen la misma nota; sólo cambia el `nf_id`.
 		$porCelda = [];
 		foreach ($filas as $fila) {
 			$clave = (int) $fila->id.'|'.(int) $fila->asignatura_de_reparto;
