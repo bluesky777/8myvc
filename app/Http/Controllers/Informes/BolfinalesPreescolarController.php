@@ -141,39 +141,12 @@ class BolfinalesPreescolarController extends Controller {
 		 * Se resuelve aquí y no dentro de `definitivasMateriasXPeriodo` para no hacer la
 		 * consulta una vez por alumno: son treinta y la respuesta es la misma.
 		 */
-		$periodos_del_anio = array_map(
-			fn ($periodo) => (int) $periodo->id,
-			Periodo::hastaPeriodoN($user->year_id)
-		);
+		$periodos_del_anio = Periodo::hastaPeriodoN($user->year_id);
 
-		foreach ($alumnos as $alumno) {
-
-			// Todas las materias con sus unidades y subunides
-			$this->definitivasMateriasXPeriodo($alumno, $grupo_id, $user->year_id, $user);
-
-			/*
-			 * `bol_independiente`: **este boletín es el suyo, no el del grupo** — §6.4 del
-			 * [19](../../../../docs/migracion/19-boletin-independiente.md).
-			 *
-			 * **Es un dato del ALUMNO puesto en cada asignatura**, no una propiedad de la
-			 * asignatura: la marca cuelga de `(alumno_id, periodo_id)` y vale lo mismo en
-			 * todas las suyas. Se emite por asignatura porque el front pinta la nota al
-			 * lado de cada bloque, y subirla obligaría a cada plantilla a ir a buscarla.
-			 *
-			 * **No se rotula el papel**: es una nota flotante que se ve en pantalla y
-			 * desaparece al imprimir. Si el campo no viaja no se pinta nada y **nadie se
-			 * entera** — el front no inventa la marca en el cliente. Por eso los cinco
-			 * sitios lo emiten a la vez: si lo emite uno y otro no, los otros mienten.
-			 */
-			$bol_independiente = BoletinIndependiente::aplicaEnAlguno((int) $alumno->alumno_id, $periodos_del_anio);
-
-			foreach ($alumno->asignaturas as $asignatura) {
-				$asignatura->bol_independiente = $bol_independiente;
-			}
-
-		}
-
-
+		// **El filtro de las hojas va ANTES de calcular, y sólo se calcula a esas**: este
+		// boletín no tiene puesto, así que ningún alumno necesita a los demás. Estaba
+		// detrás del bucle y pedir una hoja costaba lo que el grupo entero. Son los mismos
+		// objetos en el mismo orden, así que la respuesta no cambia.
 		foreach ($alumnos as $alumno) {
 			
 			if ($requested_alumnos == '') {
@@ -193,14 +166,120 @@ class BolfinalesPreescolarController extends Controller {
 
 		}
 
+		// **Lo que era una consulta por alumno x asignatura, una por grupo** (docs/migracion/48
+		// §Los boletines, uno por uno): las materias, sus frases, las faltas y el
+		// comportamiento. Ver `delGrupo()`.
+		$delGrupo = $this->delGrupo($grupo_id, $response_alumnos, $user->year_id);
+
+		// «¿Fue aparte en ALGUNO?» con el mapa del año y no con `aplicaEnAlguno()`, que
+		// pregunta periodo a periodo: una consulta en vez de hasta cuatro por alumno.
+		// `aparteEnPorAlumno()` devuelve los `numero` de los periodos vivos del año en que
+		// va aparte, y `hastaPeriodoN()` son los vivos con `numero <= 10`: se cruzan por
+		// ese mismo tope para que el conjunto sea exactamente el de antes.
+		$tope = 10;
+		$aparteEn = $periodos_del_anio === [] ? [] : BoletinIndependiente::aparteEnPorAlumno((int) $user->year_id);
+
+		foreach ($response_alumnos as $alumno) {
+
+			// Todas las materias con sus unidades y subunides
+			$this->definitivasMateriasXPeriodo($alumno, $grupo_id, $user->year_id, $user, $delGrupo);
+
+			/*
+			 * `bol_independiente`: **este boletín es el suyo, no el del grupo** — §6.4 del
+			 * [19](../../../../docs/migracion/19-boletin-independiente.md).
+			 *
+			 * **Es un dato del ALUMNO puesto en cada asignatura**, no una propiedad de la
+			 * asignatura: la marca cuelga de `(alumno_id, periodo_id)` y vale lo mismo en
+			 * todas las suyas. Se emite por asignatura porque el front pinta la nota al
+			 * lado de cada bloque, y subirla obligaría a cada plantilla a ir a buscarla.
+			 *
+			 * **No se rotula el papel**: es una nota flotante que se ve en pantalla y
+			 * desaparece al imprimir. Si el campo no viaja no se pinta nada y **nadie se
+			 * entera** — el front no inventa la marca en el cliente. Por eso los cinco
+			 * sitios lo emiten a la vez: si lo emite uno y otro no, los otros mienten.
+			 */
+			$bol_independiente = false;
+			foreach ($aparteEn[(int) $alumno->alumno_id] ?? [] as $numero) {
+				if ($numero <= $tope) {
+					$bol_independiente = true;
+				}
+			}
+
+			foreach ($alumno->asignaturas as $asignatura) {
+				$asignatura->bol_independiente = $bol_independiente;
+			}
+
+		}
+
 
 		return array($grupo, $year, $response_alumnos);
 	}
 
-	public function definitivasMateriasXPeriodo(&$alumno, $grupo_id, $year_id, $user)
+	/**
+	 * Todo lo que `definitivasMateriasXPeriodo()` consultaba por alumno x asignatura, para
+	 * el grupo entero: las materias, las frases de cada una, las faltas de cada celda y el
+	 * promedio de comportamiento. Las mismas consultas con `IN` y agrupadas.
+	 *
+	 * - Faltas: el `count()` de antes, por celda, **sin periodo ni `deleted_at`**, igual
+	 *   que antes. Una celda sin filas es 0.
+	 * - Frases: el orden de antes era el del índice de `asignatura_id`, o sea el del id.
+	 * - Comportamiento: `NotaComportamiento::nota_promedio_year()` sin tope de periodo.
+	 *
+	 * @param  array<int, object>  $alumnos
+	 * @return array{materias: array<int, object>, frases: array<int, array<int, object>>, faltas: array<int, array<int, object>>, comportamiento: array<int, float|int>}
+	 */
+	private function delGrupo($grupo_id, array $alumnos, $year_id): array
+	{
+		$delGrupo = ['materias' => Grupo::detailed_materias($grupo_id), 'frases' => [], 'faltas' => [], 'comportamiento' => []];
+
+		$alumnoIds     = array_values(array_unique(array_map(static fn ($a) => (int) $a->alumno_id, $alumnos)));
+		$asignaturaIds = array_map(static fn ($a) => (int) $a->asignatura_id, $delGrupo['materias']);
+
+		if ($asignaturaIds !== []) {
+			$enAsignaturas = implode(',', array_fill(0, count($asignaturaIds), '?'));
+
+			foreach (DB::select('SELECT * FROM frases_preescolar WHERE asignatura_id IN ('.$enAsignaturas.') AND deleted_at IS NULL ORDER BY asignatura_id, id', $asignaturaIds) as $frase) {
+				$delGrupo['frases'][(int) $frase->asignatura_id][] = $frase;
+			}
+
+			if ($alumnoIds !== []) {
+				$filas = DB::select(
+					'SELECT a.alumno_id, a.asignatura_id,
+							count(CASE WHEN a.cantidad_ausencia > 0 THEN a.id END) as cantidad_ausencia,
+							count(CASE WHEN a.cantidad_tardanza > 0 THEN a.id END) as cantidad_tardanzas
+					   FROM ausencias a
+					  WHERE a.alumno_id IN ('.implode(',', array_fill(0, count($alumnoIds), '?')).') AND a.asignatura_id IN ('.$enAsignaturas.')
+					  GROUP BY a.alumno_id, a.asignatura_id',
+					array_merge($alumnoIds, $asignaturaIds)
+				);
+				foreach ($filas as $fila) {
+					$delGrupo['faltas'][(int) $fila->alumno_id][(int) $fila->asignatura_id] = $fila;
+				}
+			}
+		}
+
+		if ($alumnoIds !== []) {
+			$promedios = DB::select(
+				'SELECT n.alumno_id, avg(n.nota) as nota_comportamiento_year FROM nota_comportamiento n INNER JOIN periodos p ON p.id=n.periodo_id AND p.deleted_at is null AND p.year_id=?
+				  WHERE n.alumno_id IN ('.implode(',', array_fill(0, count($alumnoIds), '?')).') and n.deleted_at is null
+				  GROUP BY n.alumno_id',
+				array_merge([$year_id], $alumnoIds)
+			);
+			foreach ($promedios as $fila) {
+				$delGrupo['comportamiento'][(int) $fila->alumno_id] = $fila->nota_comportamiento_year === null ? 0 : (float) $fila->nota_comportamiento_year;
+			}
+		}
+
+		return $delGrupo;
+	}
+
+	public function definitivasMateriasXPeriodo(&$alumno, $grupo_id, $year_id, $user, $delGrupo = null)
 	{
 
-		$alumno->asignaturas	= Grupo::detailed_materias($grupo_id);
+		// `clone`: cada alumno escribe sus faltas y sus frases en su copia de la asignatura.
+		$alumno->asignaturas	= $delGrupo !== null
+			? array_map(static fn ($a) => clone $a, $delGrupo['materias'])
+			: Grupo::detailed_materias($grupo_id);
 
 		$alumno->ausencias = 0;
 		$alumno->tardanzas = 0;
@@ -225,6 +304,14 @@ class BolfinalesPreescolarController extends Controller {
 			];
 				
 			
+			if ($delGrupo !== null) {
+				$faltas = $delGrupo['faltas'][(int) $alumno->alumno_id][(int) $asignatura->asignatura_id] ?? null;
+				$asignatura->ausencias = (object) ['cantidad_ausencia' => $faltas ? $faltas->cantidad_ausencia : 0];
+				$asignatura->tardanzas = (object) ['cantidad_tardanzas' => $faltas ? $faltas->cantidad_tardanzas : 0];
+				$asignatura->frases = $delGrupo['frases'][(int) $asignatura->asignatura_id] ?? [];
+				continue;
+			}
+
 			$asignatura->ausencias = DB::select($consulta_aus, $paramentros)[0];
 			$asignatura->tardanzas = DB::select($consulta_tar, $paramentros)[0];
 			
@@ -238,7 +325,9 @@ class BolfinalesPreescolarController extends Controller {
 		}
 
 		// Nota promedio de comportamiento
-		$alumno->nota_comportamiento_year 	= NotaComportamiento::nota_promedio_year($alumno->alumno_id, $year_id);
+		$alumno->nota_comportamiento_year 	= $delGrupo !== null
+			? ($delGrupo['comportamiento'][(int) $alumno->alumno_id] ?? 0)
+			: NotaComportamiento::nota_promedio_year($alumno->alumno_id, $year_id);
 		
 		$escala = $this->valoracion($alumno->nota_comportamiento_year);
 		if ($escala) {
