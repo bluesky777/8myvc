@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Act;
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Http\Controllers\Controller;
 use App\Services\Act\Actividad;
+use App\Services\Act\Avisos;
 use App\Services\Act\Formas;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Request;
@@ -47,7 +48,12 @@ class AprobarYCerrarController extends Controller
             [(int) $user->user_id, $ahora, $ahora, (int) $act->id]
         );
 
-        return ['estado' => Actividad::estado(Actividad::cargar($id))];
+        // Al creador, y la publicación a sus destinatarios (si no es programada: ésa la avisa el reloj).
+        $act = Actividad::cargar($id);
+        Avisos::alCreador($act, 'aprobada');
+        Avisos::alPublicar($act);
+
+        return ['estado' => Actividad::estado($act)];
     }
 
     /** `POST act/{id}/rechazar` `{motivo}` → `{estado: 'borrador'}`. Directivo; el motivo, obligatorio. */
@@ -71,6 +77,8 @@ class AprobarYCerrarController extends Controller
               WHERE id = ? AND estado = 'por_aprobar'",
             [$motivo, Actividad::ahora(), (int) $act->id]
         );
+
+        Avisos::alCreador($act, 'rechazada');
 
         return ['estado' => 'borrador'];
     }
@@ -102,6 +110,9 @@ class AprobarYCerrarController extends Controller
             $this->guardarCompartir($act, $comparte, $compartidas, $ahora);
         });
 
+        // Si comparte, el aviso `resultados` (una vez por actividad).
+        Avisos::resultados(Actividad::cargar($id));
+
         return Formas::editable(Actividad::cargar($id));
     }
 
@@ -123,6 +134,8 @@ class AprobarYCerrarController extends Controller
         [$comparte, $compartidas] = $this->compartirValido($act, Request::input('comparte_resultados'));
 
         DB::transaction(fn () => $this->guardarCompartir($act, $comparte, $compartidas, Actividad::ahora()));
+
+        Avisos::resultados(Actividad::cargar($id));
 
         return Formas::editable(Actividad::cargar($id));
     }

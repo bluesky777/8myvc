@@ -848,6 +848,7 @@ class AutorizacionTest extends CasoDeContrato
      * @var array<string, string> familia => cuántas abiertas y por qué se sale
      */
     private const FAMILIAS_FUERA_DEL_CANDADO = [
+        'act' => '12 abiertas de 42 (tanda 5 de actividades, 26 sep 2026). Las 9 de EXCEPCIONES_DE_FAMILIA más `act/avisos`, `act/avisos/leidos` y `act/calendario`, que contestan sólo lo del token y no aceptan identificador de persona. Todo lo del creador sigue con `auth.personal` y el dueño lo mira el controlador',
         'acudientes' => '5 abiertas de 14. Cuatro se defienden por dentro y están en EXCEPCIONES_DE_HERMANAS; `guardar-valor` y `mis-acudidos` no las mira nadie',
         'alumnos' => '9 abiertas de 17. Seis están en EXCEPCIONES_DE_HERMANAS; `eps-check`, `guardar-valor`, `guardar-valor-varios` y `show` no',
         'ciudades' => '6 abiertas de 11, las seis lecturas de catálogo. Cuatro no las cubre ningún test',

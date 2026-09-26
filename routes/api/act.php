@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Act\ActividadesController;
 use App\Http\Controllers\Act\AprobarYCerrarController;
+use App\Http\Controllers\Act\AvisosController;
 use App\Http\Controllers\Act\EditarConNotasController;
 use App\Http\Controllers\Act\EntregasController;
 use App\Http\Controllers\Act\IaController as ActIaController;
@@ -24,8 +25,8 @@ use Illuminate\Support\Facades\Route;
 | `App\Services\Act\Destinatarios`, no el tipo de usuario. Además, TODO lo del creador exige ser el
 | dueño (`created_by`), y eso lo mira el controlador.
 |
-| Tandas 1, 2, 3 y 4 (la IA: `ia/actividades/*`, aquí y no en `ia.php`, ver
-| `Act\IaController`). Faltan (en su tanda): recordar y calendario (5).
+| Tandas 1 a 5 (la IA: `ia/actividades/*`, aquí y no en `ia.php`, ver `Act\IaController`; la
+| campana, recordar y el calendario: `Act\AvisosController`).
 |
 | Las rutas sin {parámetro} van antes que las que lo llevan.
 |
@@ -40,6 +41,12 @@ Route::get('act/logros', [ActividadesController::class, 'getLogros'])->middlewar
 Route::post('act/conteo', [ActividadesController::class, 'postConteo'])->middleware('auth.personal');
 Route::post('act/crear', [ActividadesController::class, 'postCrear'])->middleware('auth.personal');
 Route::get('act/para-duplicar', [ActividadesController::class, 'getParaDuplicar'])->middleware('auth.personal');
+
+// AvisosController (tanda 5): la campana y la capa del calendario, para cualquier sesión (cada uno
+// ve sólo lo suyo: sale del token).
+Route::get('act/avisos', [AvisosController::class, 'getAvisos']);
+Route::post('act/avisos/leidos', [AvisosController::class, 'postLeidos']);
+Route::get('act/calendario', [AvisosController::class, 'getCalendario']);
 
 // EntregasController: el fichero de una entrega (antes que act/{id} para que no lo tape).
 Route::get('act/archivos/{archivoId}', [EntregasController::class, 'getArchivo'])->where('archivoId', '[0-9]+');
@@ -87,3 +94,6 @@ Route::post('act/{id}/compartir', [AprobarYCerrarController::class, 'postCompart
 Route::post('act/{id}/anonimato', [AprobarYCerrarController::class, 'postAnonimato'])->where('id', '[0-9]+')->middleware('auth.personal');
 Route::post('act/{id}/duplicar', [ActividadesController::class, 'postDuplicar'])->where('id', '[0-9]+')->middleware('auth.personal');
 Route::post('act/{id}/imagen', [PreguntasController::class, 'postImagen'])->where('id', '[0-9]+')->middleware('auth.personal');
+
+// Tanda 5: recordar a quien falta (§3.10).
+Route::post('act/{id}/recordar', [AvisosController::class, 'postRecordar'])->where('id', '[0-9]+')->middleware('auth.personal');

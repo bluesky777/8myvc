@@ -140,7 +140,8 @@ class TemasDeNotificacionTest extends CasoDeContrato
         $this->assertCount(1, $cuerpo['alumnos'], 'Un alumno recibió temas de más de una persona.');
         $this->assertSame((int) $suyo->id, $cuerpo['alumnos'][0]['alumno_id']);
 
-        $this->assertSame(['notas', 'asistencia', 'disciplina', 'matricula', 'compromiso'],
+        // `actividad` entró el 26 sep 2026 (el módulo nuevo de actividades, tanda 5).
+        $this->assertSame(['notas', 'asistencia', 'disciplina', 'matricula', 'compromiso', 'actividad'],
             array_keys($cuerpo['alumnos'][0]['temas']));
 
         $this->assertSame(

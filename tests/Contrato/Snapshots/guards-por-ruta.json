@@ -218,6 +218,7 @@
         "POST api/act/{id}/preguntas/orden",
         "POST api/act/{id}/publicar",
         "POST api/act/{id}/rechazar",
+        "POST api/act/{id}/recordar",
         "POST api/actas/firmar/{id}",
         "POST api/actividades/crear",
         "POST api/acudientes/crear-usuario",

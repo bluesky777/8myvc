@@ -610,6 +610,33 @@ class Destinatarios
         );
     }
 
+    /**
+     * Quiénes ya respondieron, como claves para `respondio()`: la entrega entregada en la tarea (una
+     * por alumno), la hoja terminada en lo demás (por `user_id` y alumno). Lo usan «faltan» y los
+     * avisos que van sólo a quien falta; en `total` ninguno de los dos lo pregunta (§2.6).
+     *
+     * @return array<string, int>
+     */
+    public static function respondieron(object $act): array
+    {
+        if ($act->modo === 'tarea') {
+            return array_flip(array_map(fn ($f) => 'alumno:'.$f->alumno_id, DB::select(
+                'SELECT alumno_id FROM ws_entregas WHERE actividad_id = ? AND entregada_at IS NOT NULL', [$act->id])));
+        }
+
+        return array_flip(array_map(fn ($f) => $f->user_id.':'.($f->alumno_id ?? 0), DB::select(
+            'SELECT DISTINCT user_id, alumno_id FROM ws_actividades_resueltas
+              WHERE actividad_id = ? AND terminado = 1 AND deleted_at IS NULL', [$act->id])));
+    }
+
+    /** Si esta entrada ya respondió, con las claves de `respondieron()`. */
+    public static function respondio(object $act, array $entrada, array $ya): bool
+    {
+        return $act->modo === 'tarea'
+            ? isset($ya['alumno:'.$entrada['alumno_id']])
+            : isset($ya[$entrada['user_id'].':'.($entrada['alumno_id'] ?? 0)]);
+    }
+
     private static function fila(string $publico, ?int $grupo, ?int $grado, ?int $asignatura, ?int $user): array
     {
         return [

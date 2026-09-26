@@ -90,6 +90,9 @@ class NotificacionesController extends Controller
             // de Firebase para todos** — el proyecto es uno solo. Ver
             // `TemasDeNotificacion::delColegio()`.
             'colegio' => TemasDeNotificacion::todosLosDelColegio(),
+            // Los de la persona (26 sep 2026, actividades): el docente, el directivo y el acudiente
+            // al que se le pide algo a él. De su `id` del token, nunca de la petición.
+            'usuario' => TemasDeNotificacion::todosLosDelUsuario((int) $user->user_id),
         ];
     }
 

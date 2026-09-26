@@ -147,14 +147,7 @@ class ResultadosController extends Controller
             abort(409, 'En una encuesta anónima del todo no se sabe quién falta.');
         }
 
-        if ($act->modo === 'tarea') {
-            $ya = array_flip(array_map(fn ($f) => 'alumno:'.$f->alumno_id, DB::select(
-                'SELECT alumno_id FROM ws_entregas WHERE actividad_id = ? AND entregada_at IS NOT NULL', [$act->id])));
-        } else {
-            $ya = array_flip(array_map(fn ($f) => $f->user_id.':'.($f->alumno_id ?? 0), DB::select(
-                'SELECT DISTINCT user_id, alumno_id FROM ws_actividades_resueltas
-                  WHERE actividad_id = ? AND terminado = 1 AND deleted_at IS NULL', [$act->id])));
-        }
+        $ya = Destinatarios::respondieron($act);
 
         $grupos = [];
         $nombres = Destinatarios::nombresDeGrupos(Destinatarios::gruposDelAlcance((int) $act->year_id, Destinatarios::deActividad((int) $act->id)));
@@ -173,11 +166,7 @@ class ResultadosController extends Controller
             ];
             $grupos[$clave]['total']++;
 
-            $respondio = $act->modo === 'tarea'
-                ? isset($ya['alumno:'.$e['alumno_id']])
-                : isset($ya[$e['user_id'].':'.($e['alumno_id'] ?? 0)]);
-
-            if (! $respondio) {
+            if (! Destinatarios::respondio($act, $e, $ya)) {
                 $grupos[$clave]['faltan'][] = Formas::personaDeEntrada($e);
             }
         }

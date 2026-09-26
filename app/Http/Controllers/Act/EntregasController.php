@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Act;
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Http\Controllers\Controller;
 use App\Services\Act\Actividad;
+use App\Services\Act\Avisos;
 use App\Services\Act\Destinatarios;
 use App\Services\Act\Formas;
 use App\Services\Act\Planilla;
@@ -325,6 +326,9 @@ class EntregasController extends Controller
             }
         });
 
+        // Al docente: entrega nueva (la tarea nunca es anónima). El push las junta por actividad.
+        Avisos::alCreador($act, 'entregada', $entrada['alumno_id']);
+
         return Formas::entrega(DB::selectOne('SELECT * FROM ws_entregas WHERE actividad_id = ? AND alumno_id = ?',
             [$act->id, $entrada['alumno_id']]));
     }
@@ -435,6 +439,8 @@ class EntregasController extends Controller
         }
 
         $forzar = Request::boolean('forzar_planilla');
+        // Avisar al alumno y a su familia (tanda 5): por defecto sí; `avisar: false` lo calla.
+        $avisar = Request::boolean('avisar', true);
 
         $resultado = DB::transaction(function () use ($act, $user, $antes, $nota, $comentario, $forzar, $alumnoId) {
             $ahora = Actividad::ahora();
@@ -463,6 +469,13 @@ class EntregasController extends Controller
 
             return ['escrita', $enEscala];
         });
+
+        // Primera nota: `calificada`; otra distinta: `nota_cambiada`. La misma otra vez no avisa.
+        $clase = $antes->nota === null ? 'calificada' : ((int) $antes->nota !== $nota ? 'nota_cambiada' : null);
+
+        if ($avisar && $clase !== null) {
+            Avisos::aAlumnos($act, $clase, [$alumnoId]);
+        }
 
         return [
             'entrega' => Formas::entrega(DB::selectOne('SELECT * FROM ws_entregas WHERE id = ?', [$antes->id])),

@@ -75,7 +75,7 @@ class EnviarNotificacionesTest extends CasoDeContrato
         // nada** —`compromisos` todavía no existe, así que devuelven cero—; se
         // olvidan igual porque el día que la tabla aterrice la marca heredada sería
         // justo lo que hace que un test publique un aviso que no pidió.
-        foreach (['notas', 'asistencia', 'disciplina', 'muro', 'compromiso', 'compromiso-resultado'] as $fuente) {
+        foreach (['notas', 'asistencia', 'disciplina', 'muro', 'compromiso', 'compromiso-resultado', 'actividades'] as $fuente) {
             Cache::forget('notificaciones.marca.'.$fuente);
         }
     }

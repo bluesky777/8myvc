@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Act;
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Http\Controllers\Controller;
 use App\Services\Act\Actividad;
+use App\Services\Act\Avisos;
 use App\Services\Act\Calificador;
 use App\Services\Act\Destinatarios;
 use App\Services\Act\Formas;
@@ -28,8 +29,8 @@ use Illuminate\Support\Facades\Request;
  *   de todas las hojas, y la planilla según `aplicar` —`todas`, `salvo_editadas` (por defecto) o
  *   `ninguna`—. «Editada» se juzga contra la calculada de ANTES del cambio (§2.8).
  *
- * `avisar` (el aviso `nota_cambiada` a alumno y acudiente) es de la tanda 5: hoy se acepta y no hace
- * nada.
+ * `avisar` encola `nota_cambiada` (tanda 5) a cada alumno cuya nota calculada cambió, a su tema (él y
+ * sus acudientes). Sin la nota: el aviso sólo dice que cambió.
  */
 class EditarConNotasController extends Controller
 {
@@ -69,7 +70,9 @@ class EditarConNotasController extends Controller
         $cambios = (array) Request::input('cambios', []);
         [$notaMaxima, $preguntas] = $this->conLosCambios($act, $cambios);
 
-        return DB::transaction(function () use ($act, $user, $aplicar, $notaMaxima, $preguntas) {
+        $cambiaron = [];
+
+        $salida = DB::transaction(function () use ($act, $user, $aplicar, $notaMaxima, $preguntas, &$cambiaron) {
             // Con candado: dos «aplicar» a la vez no se cruzan, y un envío que llegue en medio espera.
             DB::select('SELECT id FROM ws_actividades WHERE id = ? FOR UPDATE', [$act->id]);
 
@@ -108,6 +111,10 @@ class EditarConNotasController extends Controller
             foreach ($impacto['forma']['filas'] as $f) {
                 $alumnoId = $f['alumno']['alumno_id'];
 
+                if ($alumnoId !== null && $f['antes'] !== $f['despues']) {
+                    $cambiaron[] = (int) $alumnoId;
+                }
+
                 // Sólo las que el cambio mueve: a quien no le cambia la nota no se le toca la planilla,
                 // ni con `todas` (pisaría una edición a mano que nada tiene que ver con el cambio).
                 // En la escala del año, que es la de la planilla.
@@ -129,6 +136,12 @@ class EditarConNotasController extends Controller
 
             return ['actualizadas' => $actualizadas, 'no_tocadas' => $noTocadas];
         });
+
+        if (Request::boolean('avisar') && $cambiaron !== []) {
+            Avisos::aAlumnos($act, 'nota_cambiada', array_values(array_unique($cambiaron)));
+        }
+
+        return $salida;
     }
 
     // ------------------------------------------------------------------ el cálculo

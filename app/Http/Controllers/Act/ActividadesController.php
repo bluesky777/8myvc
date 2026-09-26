@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Act;
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Http\Controllers\Controller;
 use App\Services\Act\Actividad;
+use App\Services\Act\Avisos;
 use App\Services\Act\Calificador;
 use App\Services\Act\Destinatarios;
 use App\Services\Act\Formas;
@@ -505,6 +506,9 @@ class ActividadesController extends Controller
         });
 
         $act = Actividad::cargar($id);
+
+        // Los avisos (tanda 5): a los directivos si queda por aprobar; si no, a sus destinatarios.
+        $requiere ? Avisos::porAprobar($act) : Avisos::alPublicar($act);
 
         return [
             'estado' => Actividad::estado($act),
