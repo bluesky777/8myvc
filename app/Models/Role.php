@@ -94,10 +94,10 @@ class Role extends Model
 			':user_id'		=> $user_id,
 		));
 
-		// Los que da el NOMBRAMIENTO del año, sin fila en `role_user`. Van detrás y sin repetir:
-		// quien ya tenía el rol a mano lo sigue teniendo una vez.
+		// Los que dan el TIPO y el NOMBRAMIENTO del año, sin fila en `role_user`. Van detrás y sin
+		// repetir: quien ya tenía el rol a mano lo sigue teniendo una vez.
 		$nombres = array_column($roles, 'name');
-		foreach (self::rolesDelNombramiento((int) $user_id) as $rol) {
+		foreach (self::rolesImplicitos((int) $user_id) as $rol) {
 			if (! in_array($rol->name, $nombres, true)) {
 				$roles[] = $rol;
 			}
@@ -122,6 +122,57 @@ class Role extends Model
 	 *
 	 * @return list<object{role_id: int, name: string}>
 	 */
+	/**
+	 * Los roles que el usuario tiene SIN fila en `role_user`: el de su tipo y los de su
+	 * nombramiento. Primero el del tipo.
+	 *
+	 * @return list<object{role_id: int, name: string}>
+	 */
+	public static function rolesImplicitos(int $user_id): array
+	{
+		$roles = self::rolDelTipo($user_id);
+		$nombres = array_column($roles, 'name');
+		foreach (self::rolesDelNombramiento($user_id) as $rol) {
+			if (! in_array($rol->name, $nombres, true)) {
+				$roles[] = $rol;
+			}
+		}
+
+		return $roles;
+	}
+
+	/**
+	 * EL TIPO TRAE SU ROL. Pedido por Joseth el 26 sep 2026: un `users.tipo = 'Profesor'` tiene el
+	 * rol `Profesor` aunque nadie se lo haya dado en `role_user`, y lo mismo `Alumno` y
+	 * `Acudiente`. Los demás roles asignados se suman, no se sustituyen.
+	 *
+	 * Como el nombramiento, **no se escribe en `role_user`**: si cambia el tipo, cambia el rol.
+	 * Se cruza por nombre porque el `id` de cada rol es de cada colegio (ver
+	 * `Autoriza`, la tabla `roles` es por base). `Usuario` no tiene rol con su nombre, así que
+	 * un administrativo no recibe ninguno implícito: sus roles siguen siendo los que le den.
+	 *
+	 * @return list<object{role_id: int, name: string}>
+	 */
+	public static function rolDelTipo(int $user_id): array
+	{
+		if ($user_id <= 0) {
+			return [];
+		}
+
+		/** @var list<object{role_id: int, name: string}> $roles */
+		$roles = DB::select(
+			"SELECT r.id AS role_id, r.name
+			   FROM users u
+			   INNER JOIN roles r ON r.name = u.tipo AND r.deleted_at IS NULL
+			  WHERE u.id = ? AND u.tipo IN ('Profesor', 'Alumno', 'Acudiente')
+			  ORDER BY r.id
+			  LIMIT 1",
+			[$user_id]
+		);
+
+		return $roles;
+	}
+
 	public static function rolesDelNombramiento(int $user_id): array
 	{
 		if ($user_id <= 0) {
