@@ -205,12 +205,28 @@ class PuestosController extends Controller {
 		 * promediando — y eso no le cambia el puesto a él, se lo cambia a los treinta
 		 * de detrás.
 		 */
+		$periodos_hasta = Periodo::hastaPeriodoN($user->year_id, $periodo_a_calcular);
 		$periodos_del_informe = array_map(
 			fn ($periodo) => (int) $periodo->id,
-			Periodo::hastaPeriodoN($user->year_id, $periodo_a_calcular)
+			$periodos_hasta
 		);
 
 		$alumnos = BoletinIndependiente::losQueCuentanParaElPuesto($alumnos, $periodos_del_informe, (int) $user->year_id);
+
+		// **Una consulta por grupo y no una por alumno** (docs/migracion/48 §Los boletines,
+		// uno por uno): las notas, el comportamiento y la marca de independiente.
+		$notasDelGrupo = $this->definitivasYearDelGrupo($alumnos, $grupo_id, $user, $periodo_a_calcular);
+		$comportamientoDelGrupo = $this->comportamientoYearDelGrupo($alumnos, $user->year_id, $periodo_a_calcular);
+
+		// La marca, con el mapa del año en vez de `aplicaEnAlguno()` periodo a periodo.
+		// `aparteEnPorAlumno()` da los `numero` de los periodos vivos del año en que va
+		// aparte; los del informe son los vivos con `numero <= periodo_a_calcular`, así que
+		// basta con ver si alguno de esos números es de un periodo del informe.
+		$numeros_del_informe = [];
+		foreach ($periodos_hasta as $periodo) {
+			$numeros_del_informe[(int) $periodo->numero] = true;
+		}
+		$aparteEn = $numeros_del_informe === [] ? [] : BoletinIndependiente::aparteEnPorAlumno((int) $user->year_id);
 
 		foreach ($alumnos as $keyAlum => $alumno) {
 			// «¿este alumno va aparte en alguno de los periodos que se promedian?».
@@ -219,16 +235,17 @@ class PuestosController extends Controller {
 			// es `puestos_con_bol_independiente`. Con 1 es el dato que distingue, en una
 			// tabla donde sí están, a quién se le calculó el promedio sobre su propio
 			// reparto.
-			$alumno->bol_independiente_periodo = BoletinIndependiente::aplicaEnAlguno((int) $alumno->alumno_id, $periodos_del_informe);
+			$alumno->bol_independiente_periodo = false;
+			foreach ($aparteEn[(int) $alumno->alumno_id] ?? [] as $numero) {
+				if (isset($numeros_del_informe[$numero])) {
+					$alumno->bol_independiente_periodo = true;
+				}
+			}
 
-			$alumno->notas_asig = $this->definitivas_year_alumno($alumno->alumno_id, $grupo_id, $user, $periodo_a_calcular);
+			$alumno->notas_asig = $notasDelGrupo[(int) $alumno->alumno_id] ?? [];
 
-            $consulta = "SELECT AVG(c.nota) as comportamiento_prom 
-                FROM nota_comportamiento c
-                INNER JOIN periodos p ON p.id=c.periodo_id and p.numero<=?
-                WHERE p.deleted_at is null and c.alumno_id=? and p.year_id=?;";
-            $resComportamientoProm = DB::select($consulta, [$periodo_a_calcular, $alumno->alumno_id, $user->year_id]);
-            $alumno->comportamiento_prom = count($resComportamientoProm) > 0 ? $resComportamientoProm[0]->comportamiento_prom : 0;
+			// `AVG` sin filas es una fila con `NULL`: el alumno sin comportamiento lleva `null`.
+			$alumno->comportamiento_prom = $comportamientoDelGrupo[(int) $alumno->alumno_id] ?? null;
 
 			$sumatoria_asignaturas_year = 0;
 			$perdidos_year = 0;
@@ -273,6 +290,220 @@ class PuestosController extends Controller {
 
 	}
 
+
+	/**
+	 * `definitivas_year_alumno()` para el grupo entero: `[alumno_id => filas]`.
+	 *
+	 * Aquella es una consulta por alumno, y la cara (1,1 s de 1,4 en quibdo 223): sus dos
+	 * derivadas agrupan por asignatura las notas del alumno en todo el año, y MySQL las
+	 * materializa alumno por alumno. Aquí van las tres piezas por separado y una vez: las
+	 * asignaturas del grupo en el orden de siempre, la nota del año de cada celda y las
+	 * notas perdidas de cada celda; y se juntan en PHP con la forma de la fila de antes.
+	 *
+	 * Lo que se conserva a propósito, porque la respuesta sale de ahí:
+	 * - La cuenta de cada `N` es la suya (`sum/4` con TODOS los periodos del año, `sum/3`,
+	 *   `sum/2`, `avg` para el 1), escrita igual; con otro `periodo_a_calcular`, `[]`.
+	 * - El orden, **sin desempate**. Dos asignaturas con el mismo `(ar.orden, m.orden,
+	 *   a.orden)` salen en el orden en que el plan lee el `JOIN`: por `materias.id` en
+	 *   simon (Inglés y Lengua) y por `asignaturas.id` en quibdo (grupo 168). Un desempate
+	 *   escrito acierta en un colegio y le da la vuelta en el otro; la lista de asignaturas
+	 *   es el mismo `JOIN` de antes y el plan elige igual. Que el empate dependa del plan
+	 *   es anterior a esto.
+	 * - `cant_perdidas` se unía a `r` y no a `a`: una asignatura sin nota del año lleva
+	 *   `cant_perdidas` nulo aunque tenga notas perdidas.
+	 *
+	 * @param  array<int, object>  $alumnos
+	 * @return array<int, array<int, object>>
+	 */
+	private function definitivasYearDelGrupo(array $alumnos, $grupo_id, $user, $numero_periodo = 4): array
+	{
+		if ($numero_periodo == 1) {
+			$nota    = 'CAST(avg(nf.nota) AS DOUBLE)';
+			$periodo = 'p.numero=1 and ';
+		} elseif ($numero_periodo == 2) {
+			$nota    = 'CAST(sum(nf.nota)/2 AS DOUBLE)';
+			$periodo = '(p.numero=1 or p.numero=2) and ';
+		} elseif ($numero_periodo == 3) {
+			$nota    = 'CAST(sum(nf.nota)/3 AS DOUBLE)';
+			$periodo = '(p.numero=1 or p.numero=2 or p.numero=3) and ';
+		} elseif ($numero_periodo == 4) {
+			$nota    = 'CAST(sum(nf.nota)/4 AS DOUBLE)';
+			$periodo = '';
+		} else {
+			return [];
+		}
+
+		$alumnoIds = array_values(array_unique(array_map(static fn ($a) => (int) $a->alumno_id, $alumnos)));
+		if ($alumnoIds === []) {
+			return [];
+		}
+
+		$asignaturas = DB::select('SELECT a.id as asignatura_id, m.materia, m.alias
+				FROM asignaturas a
+				inner join materias m on m.id=a.materia_id and m.deleted_at is null and a.deleted_at is null and a.grupo_id=?
+				inner join areas ar on ar.id=m.area_id and ar.deleted_at is null
+				order by ar.orden, m.orden, a.orden', [$grupo_id]);
+		if ($asignaturas === []) {
+			return array_fill_keys($alumnoIds, []);
+		}
+
+		$enAlumnos     = implode(',', array_fill(0, count($alumnoIds), '?'));
+		$asignaturaIds = array_map(static fn ($a) => (int) $a->asignatura_id, $asignaturas);
+		$enAsignaturas = implode(',', array_fill(0, count($asignaturaIds), '?'));
+
+		$notas = [];
+		foreach (DB::select('SELECT nf.alumno_id, nf.asignatura_id, '.$nota.' as nota_final_year from notas_finales nf
+				inner join periodos p on p.id=nf.periodo_id and '.$periodo.'p.deleted_at is null and p.year_id=?
+				where nf.alumno_id IN ('.$enAlumnos.') and nf.asignatura_id IN ('.$enAsignaturas.')
+				group by nf.alumno_id, nf.asignatura_id',
+				array_merge([$user->year_id], $alumnoIds, $asignaturaIds)) as $fila) {
+			$notas[(int) $fila->alumno_id][(int) $fila->asignatura_id] = $fila->nota_final_year;
+		}
+
+		$perdidas = [];
+		foreach (DB::select('SELECT n.alumno_id, u.asignatura_id, count(n.nota) cant_perdidas
+				FROM unidades u
+				inner join subunidades s on s.unidad_id=u.id and s.deleted_at is null and u.deleted_at is null
+				inner join notas n on n.subunidad_id=s.id and n.deleted_at is null and n.nota<? and n.alumno_id IN ('.$enAlumnos.')
+				inner join periodos p on p.id=u.periodo_id and '.$periodo.'p.deleted_at is null and p.year_id=?
+				where u.asignatura_id IN ('.$enAsignaturas.')
+				group by n.alumno_id, u.asignatura_id',
+				array_merge([$user->nota_minima_aceptada], $alumnoIds, [$user->year_id], $asignaturaIds)) as $fila) {
+			$perdidas[(int) $fila->alumno_id][(int) $fila->asignatura_id] = $fila->cant_perdidas;
+		}
+
+		$porAlumno = [];
+		foreach ($alumnoIds as $alumnoId) {
+			$filas = [];
+			foreach ($asignaturas as $asignatura) {
+				$id = (int) $asignatura->asignatura_id;
+				$tieneNota = isset($notas[$alumnoId]) && array_key_exists($id, $notas[$alumnoId]);
+				$filas[] = (object) [
+					'asignatura_id'   => $asignatura->asignatura_id,
+					'materia'         => $asignatura->materia,
+					'alias'           => $asignatura->alias,
+					'cant_perdidas'   => $tieneNota ? ($perdidas[$alumnoId][$id] ?? null) : null,
+					'nota_final_year' => $tieneNota ? $notas[$alumnoId][$id] : null,
+				];
+			}
+			$porAlumno[$alumnoId] = $filas;
+		}
+
+		return $porAlumno;
+	}
+
+	/**
+	 * El `AVG` de comportamiento de cada alumno hasta `periodo_a_calcular`, en una
+	 * consulta. La de antes, por alumno, no miraba `c.deleted_at`; ésta tampoco.
+	 *
+	 * @param  array<int, object>  $alumnos
+	 * @return array<int, mixed>
+	 */
+	private function comportamientoYearDelGrupo(array $alumnos, $year_id, $periodo_a_calcular): array
+	{
+		$alumnoIds = array_values(array_unique(array_map(static fn ($a) => (int) $a->alumno_id, $alumnos)));
+		if ($alumnoIds === []) {
+			return [];
+		}
+
+		$promedios = [];
+		foreach (DB::select('SELECT c.alumno_id, AVG(c.nota) as comportamiento_prom
+				FROM nota_comportamiento c
+				INNER JOIN periodos p ON p.id=c.periodo_id and p.numero<=?
+				WHERE p.deleted_at is null and c.alumno_id IN ('.implode(',', array_fill(0, count($alumnoIds), '?')).') and p.year_id=?
+				GROUP BY c.alumno_id',
+				array_merge([$periodo_a_calcular], $alumnoIds, [$year_id])) as $fila) {
+			$promedios[(int) $fila->alumno_id] = $fila->comportamiento_prom;
+		}
+
+		return $promedios;
+	}
+
+	/**
+	 * `consulta_notas_finales_periodo` y `consulta_notas_comportamiento_periodo` para el
+	 * grupo entero: `[[alumno_id => filas], [alumno_id => nota de comportamiento]]`.
+	 *
+	 * Lo mismo que `definitivasYearDelGrupo()`, con dos cosas más que conservar:
+	 * - `r.manual` no está agregado (el `GROUP BY` es por asignatura): MySQL daba el de
+	 *   la primera fila que leía, y el plan las leía por id. Con dos definitivas del mismo
+	 *   periodo en una celda, es el `manual` de la de id menor, y así se pide.
+	 * - El comportamiento era `[0]` de un `SELECT *` sin orden, leído por id: el de id menor.
+	 *
+	 * @param  array<int, object>  $alumnos
+	 * @return array{0: array<int, array<int, object>>, 1: array<int, object>}
+	 */
+	private function notasPeriodoDelGrupo(array $alumnos, $grupo_id, $user): array
+	{
+		$alumnoIds = array_values(array_unique(array_map(static fn ($a) => (int) $a->alumno_id, $alumnos)));
+		if ($alumnoIds === []) {
+			return [[], []];
+		}
+		$enAlumnos = implode(',', array_fill(0, count($alumnoIds), '?'));
+
+		$comportamiento = [];
+		foreach (DB::select('SELECT * FROM nota_comportamiento WHERE alumno_id IN ('.$enAlumnos.') and periodo_id=? and deleted_at is null ORDER BY alumno_id, id',
+				array_merge($alumnoIds, [$user->periodo_id])) as $fila) {
+			$comportamiento[(int) $fila->alumno_id] ??= $fila;
+		}
+
+		$asignaturas = DB::select('SELECT a.id as asignatura_id, m.materia, m.alias, ar.orden as orden_area, m.orden as orden_materia, a.orden as orden_asignatura
+				FROM asignaturas a
+				inner join materias m on m.id=a.materia_id and m.deleted_at is null and a.deleted_at is null and a.grupo_id=?
+				inner join areas ar on ar.id=m.area_id and ar.deleted_at is null
+				order by ar.orden, m.orden, a.orden', [$grupo_id]);
+		if ($asignaturas === []) {
+			return [array_fill_keys($alumnoIds, []), $comportamiento];
+		}
+
+		$asignaturaIds = array_map(static fn ($a) => (int) $a->asignatura_id, $asignaturas);
+		$enAsignaturas = implode(',', array_fill(0, count($asignaturaIds), '?'));
+
+		$notas = [];
+		foreach (DB::select('SELECT x.alumno_id, x.asignatura_id, x.nota_asignatura, nf2.manual FROM (
+					select nf.alumno_id, nf.asignatura_id, CAST(avg(nf.nota) AS DOUBLE) as nota_asignatura, MIN(nf.id) as primera from notas_finales nf
+					inner join periodos p on p.id=nf.periodo_id and p.numero=? and p.deleted_at is null and p.year_id=?
+					where nf.alumno_id IN ('.$enAlumnos.') and nf.asignatura_id IN ('.$enAsignaturas.')
+					group by nf.alumno_id, nf.asignatura_id
+				) x INNER JOIN notas_finales nf2 ON nf2.id=x.primera',
+				array_merge([$user->numero_periodo, $user->year_id], $alumnoIds, $asignaturaIds)) as $fila) {
+			$notas[(int) $fila->alumno_id][(int) $fila->asignatura_id] = $fila;
+		}
+
+		$perdidas = [];
+		foreach (DB::select('SELECT n.alumno_id, u.asignatura_id, count(n.nota) cant_perdidas
+				FROM unidades u
+				inner join subunidades s on s.unidad_id=u.id and s.deleted_at is null and u.deleted_at is null
+				inner join notas n on n.subunidad_id=s.id and n.deleted_at is null and n.nota<? and n.alumno_id IN ('.$enAlumnos.')
+				inner join periodos p on p.id=u.periodo_id and p.numero=? and p.deleted_at is null and p.year_id=?
+				where u.asignatura_id IN ('.$enAsignaturas.')
+				group by n.alumno_id, u.asignatura_id',
+				array_merge([$user->nota_minima_aceptada], $alumnoIds, [$user->numero_periodo, $user->year_id], $asignaturaIds)) as $fila) {
+			$perdidas[(int) $fila->alumno_id][(int) $fila->asignatura_id] = $fila->cant_perdidas;
+		}
+
+		$porAlumno = [];
+		foreach ($alumnoIds as $alumnoId) {
+			$filas = [];
+			foreach ($asignaturas as $asignatura) {
+				$id = (int) $asignatura->asignatura_id;
+				$nota = $notas[$alumnoId][$id] ?? null;
+				$filas[] = (object) [
+					'asignatura_id'    => $asignatura->asignatura_id,
+					'materia'          => $asignatura->materia,
+					'alias'            => $asignatura->alias,
+					'cant_perdidas'    => $nota !== null ? ($perdidas[$alumnoId][$id] ?? null) : null,
+					'nota_asignatura'  => $nota?->nota_asignatura,
+					'orden_area'       => $asignatura->orden_area,
+					'orden_materia'    => $asignatura->orden_materia,
+					'orden_asignatura' => $asignatura->orden_asignatura,
+					'manual'           => $nota?->manual,
+				];
+			}
+			$porAlumno[$alumnoId] = $filas;
+		}
+
+		return [$porAlumno, $comportamiento];
+	}
 
 	public function definitivas_year_alumno($alumno_id, $grupo_id, $user, $numero_periodo=4)
 	{
@@ -327,15 +558,15 @@ class PuestosController extends Controller {
 
 		$alumnos = BoletinIndependiente::losQueCuentanParaElPuesto($alumnos, $periodos_del_informe, (int) $user->year_id);
 
+		// Las notas y el comportamiento, una consulta por grupo y no una por alumno.
+		[$notasDelGrupo, $comportamientoDelGrupo] = $this->notasPeriodoDelGrupo($alumnos, $grupo_id, $user);
+
 		foreach ($alumnos as $keyAlum => $alumno) {
 
 			$alumno->bol_independiente_periodo = BoletinIndependiente::aplicaEnAlguno((int) $alumno->alumno_id, $periodos_del_informe);
 
-            $consulta   = $this->consulta_notas_finales_periodo;
-            
-			$alumno->asignaturas = DB::select($consulta, [ ':gr_id' => $grupo_id, ':alu_id' => $alumno->alumno_id, ':num_periodo' => $user->numero_periodo, ':year_id' => $user->year_id, ':min' => $user->nota_minima_aceptada, ':alu_id2' => $alumno->alumno_id, ':num_periodo2' => $user->numero_periodo, ':year_id2' => $user->year_id ]);
-			$comportamiento = DB::select($this->consulta_notas_comportamiento_periodo, [$alumno->alumno_id, $user->periodo_id]);
-			$alumno->comportamiento = count($comportamiento) > 0 ? $comportamiento[0] : [];
+			$alumno->asignaturas = $notasDelGrupo[(int) $alumno->alumno_id] ?? [];
+			$alumno->comportamiento = $comportamientoDelGrupo[(int) $alumno->alumno_id] ?? [];
 
 			$sumatoria_asignaturas = 0;
 			$perdidos_year = 0;
