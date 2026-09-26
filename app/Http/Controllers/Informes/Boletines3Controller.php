@@ -61,6 +61,12 @@ class Boletines3Controller extends Controller {
 	/** @var array<int, true> Las asignaturas del grupo que `$loDelGrupo` trajo. */
 	private array $asignaturasDelGrupo = [];
 
+	/** @var array<int, true> Los alumnos que `$loDelGrupo` trajo. */
+	private array $alumnosDelGrupo = [];
+
+	/** @var array<string, list<object>>|null Las pérdidas del grupo por `alumno|asignatura`. */
+	private ?array $perdidasDelGrupo = null;
+
 	private function escalasVal()
 	{
 		if ($this->escalas_val === null) {
@@ -186,13 +192,22 @@ class Boletines3Controller extends Controller {
 		// Las faltas y las frases se pedían por alumno × asignatura: 2 × 456 consultas
 		// en un grupo de 38. Son las de todos los que vienen, que son los que se calculan.
 		$asignaturaIds = array_map('intval', DB::table('asignaturas')->where('grupo_id', $grupo_id)->pluck('id')->all());
+		$alumnoIds = array_map(static fn ($a) => (int) $a->alumno_id, array_values($alumnos));
 		$this->asignaturasDelGrupo = array_fill_keys($asignaturaIds, true);
+		$this->alumnosDelGrupo = array_fill_keys($alumnoIds, true);
 		$this->loDelGrupo = new LoDelGrupoDeUnaVez(
-			array_map(static fn ($a) => (int) $a->alumno_id, array_values($alumnos)),
+			$alumnoIds,
 			$asignaturaIds,
 			(int) $user->periodo_id,
 			(int) $this->user->numero_periodo,
 		);
+
+		// Las pérdidas del año, igual: una consulta por alumno × asignatura, la más
+		// cara del boletín (800 ms de 1,8 s en el grupo 223). `delGrupo` sólo entiende
+		// los periodos 1 a 4 escritos tal cual; con otra cosa se pregunta como siempre.
+		$this->perdidasDelGrupo = in_array((string) $periodo_a_calcular, ['1', '2', '3', '4'], true)
+			? (new CalcPerdidasDefinitivas())->delGrupo($alumnoIds, $asignaturaIds, $periodo_a_calcular)
+			: null;
 
 		foreach ($alumnos as $alumno) {
 
@@ -235,6 +250,7 @@ class Boletines3Controller extends Controller {
 		 * tercero.
 		 */
 		$this->loDelGrupo = null;
+		$this->perdidasDelGrupo = null;
 
 		BoletinIndependiente::ponerPuestos($alumnos, [(int) $user->periodo_id], (int) $user->year_id);
 
@@ -421,8 +437,18 @@ class Boletines3Controller extends Controller {
 
 		foreach ($alumno->asignaturas as $keyAsig => $asignatura) {
 			
-			$calcPerdidas = new CalcPerdidasDefinitivas();
-			$periodos = $calcPerdidas->hastaPeriodoConDefinitivas($alumno->alumno_id, $asignatura->asignatura_id, $grupo_id, $periodo_a_calcular);
+			if ($asignatura->asignatura_id === null) {
+				// Sin definitiva no hay nota que contar: la consulta de siempre devolvía
+				// una fila con `cant_perdidas_year` en 0, que el `if` de abajo descarta.
+				$periodos = [];
+			} elseif ($this->perdidasDelGrupo !== null
+				&& isset($this->alumnosDelGrupo[(int) $alumno->alumno_id])
+				&& isset($this->asignaturasDelGrupo[(int) $asignatura->asignatura_id])) {
+				$periodos = $this->perdidasDelGrupo[(int) $alumno->alumno_id.'|'.(int) $asignatura->asignatura_id] ?? [];
+			} else {
+				$calcPerdidas = new CalcPerdidasDefinitivas();
+				$periodos = $calcPerdidas->hastaPeriodoConDefinitivas($alumno->alumno_id, $asignatura->asignatura_id, $grupo_id, $periodo_a_calcular);
+			}
 			if(count($periodos)>0){
 				
 				if ($this->user->si_recupera_materia_recup_indicador){
