@@ -57,6 +57,14 @@ class BoletinesController extends Controller {
 	/** Las definitivas, faltas y frases del grupo, mientras se arma (doc 48 §P3b). */
 	private ?LoDelGrupoDeUnaVez $loDelGrupo = null;
 
+	/**
+	 * Las asignaturas perdidas del grupo, en una consulta y no en una por alumno ×
+	 * asignatura (456 en un grupo de 38; doc 48). Se piden a la primera celda.
+	 *
+	 * @var array{alumnos: list<int>, asignaturas: list<int>, porCelda: ?array<string, list<object>>}|null
+	 */
+	private ?array $perdidasDelGrupo = null;
+
 	private function escalasVal()
 	{
 		if ($this->escalas_val === null) {
@@ -271,12 +279,16 @@ class BoletinesController extends Controller {
 		$response_alumnos = [];
 		
 
+		$alumnoIds = array_map(static fn ($a) => (int) $a->alumno_id, array_values($alumnos));
+		$asignaturaIds = array_map('intval', DB::table('asignaturas')->where('grupo_id', $grupo_id)->pluck('id')->all());
+
 		$this->loDelGrupo = new LoDelGrupoDeUnaVez(
-			array_map(static fn ($a) => (int) $a->alumno_id, array_values($alumnos)),
-			array_map('intval', DB::table('asignaturas')->where('grupo_id', $grupo_id)->pluck('id')->all()),
+			$alumnoIds,
+			$asignaturaIds,
 			(int) $user->periodo_id,
 			(int) $this->user->numero_periodo,
 		);
+		$this->perdidasDelGrupo = ['alumnos' => $alumnoIds, 'asignaturas' => $asignaturaIds, 'porCelda' => null];
 
 		foreach ($alumnos as $alumno) {
 			// Todas las materias con sus unidades y subunides
@@ -316,6 +328,7 @@ class BoletinesController extends Controller {
 		 * tercero.
 		 */
 		$this->loDelGrupo = null;
+		$this->perdidasDelGrupo = null;
 
 		BoletinIndependiente::ponerPuestos($alumnos, [(int) $user->periodo_id], (int) $user->year_id);
 
@@ -516,8 +529,7 @@ class BoletinesController extends Controller {
 		$alumno->notas_perdidas_per4 = 0;
 
 		foreach ($alumno->asignaturas as $keyAsig => $asignatura) {
-			$calcPerdidas = new CalcPerdidasDefinitivas();
-			$periodos = $calcPerdidas->hastaPeriodoConDefinitivas($alumno->alumno_id, $asignatura->asignatura_id, $grupo_id, $periodo_a_calcular);
+			$periodos = $this->perdidasDeLaCelda($alumno->alumno_id, $asignatura->asignatura_id, $grupo_id, $periodo_a_calcular);
 
 			if (count($periodos)>0) {
 				
@@ -557,6 +569,31 @@ class BoletinesController extends Controller {
 		return $alumno;
 	}
 
+
+	/**
+	 * `hastaPeriodoConDefinitivas()`, del grupo precargado si la celda está en él.
+	 *
+	 * El número pasa por la misma puerta que `delGrupo()`: un `periodo_a_calcular` que
+	 * no sea un entero del 1 al 4 escrito tal cual (`10`, `"3.0"`) va por el camino de
+	 * siempre, que lo compara con `==` y puede responder distinto.
+	 */
+	private function perdidasDeLaCelda($alumno_id, $asignatura_id, $grupo_id, $periodo_a_calcular): array
+	{
+		$n = (int) $periodo_a_calcular;
+		$delGrupo = $this->perdidasDelGrupo;
+
+		if ($delGrupo === null || $n < 1 || $n > 4 || (string) $n !== (string) $periodo_a_calcular
+			|| ! in_array((int) $alumno_id, $delGrupo['alumnos'], true)
+			|| ! in_array((int) $asignatura_id, $delGrupo['asignaturas'], true)) {
+			return (new CalcPerdidasDefinitivas())->hastaPeriodoConDefinitivas($alumno_id, $asignatura_id, $grupo_id, $periodo_a_calcular);
+		}
+
+		$this->perdidasDelGrupo['porCelda'] ??= (new CalcPerdidasDefinitivas())->delGrupo(
+			$delGrupo['alumnos'], $delGrupo['asignaturas'], $n
+		);
+
+		return $this->perdidasDelGrupo['porCelda'][(int) $alumno_id.'|'.(int) $asignatura_id] ?? [];
+	}
 
 	public function datosYearPasado(&$alumno, $grupo_id, $year_id)
 	{
