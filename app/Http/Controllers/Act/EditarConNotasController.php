@@ -110,7 +110,9 @@ class EditarConNotasController extends Controller
 
                 // Sólo las que el cambio mueve: a quien no le cambia la nota no se le toca la planilla,
                 // ni con `todas` (pisaría una edición a mano que nada tiene que ver con el cambio).
-                if ($subunidad === null || $f['despues'] === null || $f['antes'] === $f['despues'] || $f['planilla'] === $f['despues']) {
+                // En la escala del año, que es la de la planilla.
+                if ($subunidad === null || $f['despues_planilla'] === null || $f['antes_planilla'] === $f['despues_planilla']
+                    || $f['planilla'] === $f['despues_planilla']) {
                     continue;
                 }
 
@@ -120,7 +122,7 @@ class EditarConNotasController extends Controller
                     continue;
                 }
 
-                $aEscribir[$alumnoId] = $f['despues'];
+                $aEscribir[$alumnoId] = $f['despues_planilla'];
             }
 
             $actualizadas = $subunidad !== null && $aEscribir !== [] ? Planilla::escribir($subunidad, $aEscribir, $user) : 0;
@@ -175,13 +177,17 @@ class EditarConNotasController extends Controller
 
         foreach ($porAlumno as $alumnoId => $a) {
             $nota = $notas[$alumnoId] ?? null;
-            $editada = $subunidad !== null && Planilla::editada($nota, $subunidad, $a['antes']);
+            // Antes, sobre la nota máxima de ahora; después, sobre la del cambio. La mínima y la
+            // planilla van en la escala del año.
+            $antesEnEscala = Planilla::aLaEscala($act, $a['antes']);
+            $despuesEnEscala = Planilla::aLaEscala($act, $a['despues'], $notaMaxima);
+            $editada = $subunidad !== null && Planilla::editada($nota, $subunidad, $antesEnEscala);
             $cruza = null;
 
-            if ($a['antes'] !== null && $a['despues'] !== null) {
-                if ($a['antes'] >= $minima && $a['despues'] < $minima) {
+            if ($antesEnEscala !== null && $despuesEnEscala !== null) {
+                if ($antesEnEscala >= $minima && $despuesEnEscala < $minima) {
                     $cruza = 'baja';
-                } elseif ($a['antes'] < $minima && $a['despues'] >= $minima) {
+                } elseif ($antesEnEscala < $minima && $despuesEnEscala >= $minima) {
                     $cruza = 'sube';
                 }
             }
@@ -194,6 +200,8 @@ class EditarConNotasController extends Controller
                 'alumno' => $personas[$alumnoId],
                 'antes' => $a['antes'],
                 'despues' => $a['despues'],
+                'antes_planilla' => $antesEnEscala,
+                'despues_planilla' => $despuesEnEscala,
                 'planilla' => $nota && $nota->nota !== null ? (int) $nota->nota : null,
                 'editada_a_mano' => $editada,
                 'cruza' => $cruza,

@@ -266,6 +266,25 @@ class Planilla
         return $f === null || $f->nota === null ? null : (int) $f->nota;
     }
 
+    /**
+     * La nota de la actividad llevada a la escala del año (Joseth, 26 sep): la actividad se
+     * califica sobre `nota_maxima` (50, por ejemplo) y la planilla va sobre el máximo de la escala
+     * (100 en casi todos): `round(nota / nota_maxima × máximo)`, mitad hacia arriba. Todo lo que
+     * escribe en la planilla o compara con ella («editada a mano») pasa por aquí. `$notaMaxima`
+     * sólo para el impacto de un cambio de nota máxima; si no, la de la actividad.
+     */
+    public static function aLaEscala(object $act, ?int $nota, ?int $notaMaxima = null): ?int
+    {
+        if ($nota === null) {
+            return null;
+        }
+
+        $maximo = Actividad::maximoDeLaEscala((int) $act->year_id);
+        $sobre = max(1, (int) ($notaMaxima ?? $act->nota_maxima ?? $maximo));
+
+        return $sobre === $maximo ? $nota : (int) round($nota * $maximo / $sobre, 0, PHP_ROUND_HALF_UP);
+    }
+
     /** @return array<int, object> las notas vivas de la subunidad, por alumno (`id`, `nota`) */
     public static function notasDe(int $subunidadId): array
     {
@@ -336,7 +355,7 @@ class Planilla
     /**
      * Al enviar un cuestionario: si la nota vigente cambió y la de la planilla no estaba editada a
      * mano (juzgado contra la vigente de ANTES de este envío), se escribe. En un año cerrado no se
-     * toca la planilla, pero el envío no falla por eso.
+     * toca la planilla, pero el envío no falla por eso. Las dos, llevadas a la escala del año.
      */
     public static function alEnviar(object $act, object $user, int $alumnoId, ?int $antes): void
     {
@@ -350,10 +369,10 @@ class Planilla
             return;
         }
 
-        $despues = self::calculadaDe($act, $alumnoId);
+        $despues = self::aLaEscala($act, self::calculadaDe($act, $alumnoId));
         $nota = self::notasDe((int) $subunidad->id)[$alumnoId] ?? null;
 
-        if ($despues === null || self::editada($nota, $subunidad, $antes)) {
+        if ($despues === null || self::editada($nota, $subunidad, self::aLaEscala($act, $antes))) {
             return;
         }
 

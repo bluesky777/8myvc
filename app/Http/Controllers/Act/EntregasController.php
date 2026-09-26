@@ -359,7 +359,7 @@ class EntregasController extends Controller
         $notas = $subunidad ? Planilla::notasDe((int) $subunidad->id) : [];
         $grupos = Destinatarios::nombresDeGrupos(array_values(array_unique(array_filter(array_column($alumnos, 'grupo_id')))));
 
-        $filas = array_map(function ($e) use ($entregas, $subunidad, $notas, $grupos) {
+        $filas = array_map(function ($e) use ($act, $entregas, $subunidad, $notas, $grupos) {
             $entrega = $entregas[$e['alumno_id']] ?? null;
             $nota = $notas[$e['alumno_id']] ?? null;
 
@@ -377,7 +377,7 @@ class EntregasController extends Controller
                 'entrega' => Formas::entrega($entrega),
                 'nota_planilla' => $nota && $nota->nota !== null ? (int) $nota->nota : null,
                 'editada_a_mano' => $subunidad !== null
-                    && Planilla::editada($nota, $subunidad, $entrega && $entrega->nota !== null ? (int) $entrega->nota : null),
+                    && Planilla::editada($nota, $subunidad, Planilla::aLaEscala($act, $entrega && $entrega->nota !== null ? (int) $entrega->nota : null)),
             ];
         }, $alumnos);
 
@@ -451,15 +451,17 @@ class EntregasController extends Controller
             }
 
             $enPlanilla = Planilla::notasDe((int) $subunidad->id)[$alumnoId] ?? null;
-            $calculadaAntes = $antes->nota === null ? null : (int) $antes->nota;
+            // Contra la planilla, todo en la escala del año (la nota de la tarea va sobre `nota_maxima`).
+            $calculadaAntes = Planilla::aLaEscala($act, $antes->nota === null ? null : (int) $antes->nota);
+            $enEscala = Planilla::aLaEscala($act, $nota);
 
             if (! $forzar && Planilla::editada($enPlanilla, $subunidad, $calculadaAntes)) {
                 return ['no_tocada', (int) $enPlanilla->nota];
             }
 
-            Planilla::escribir($subunidad, [$alumnoId => $nota], $user);
+            Planilla::escribir($subunidad, [$alumnoId => $enEscala], $user);
 
-            return ['escrita', $nota];
+            return ['escrita', $enEscala];
         });
 
         return [
