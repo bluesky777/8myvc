@@ -179,10 +179,10 @@ const ESCRITOS_EN_BOGOTA = [
     // propósito** —el front busca el historial de una nota por tipo— y escribe con `Reloj::ahora()`,
     // o sea en Bogotá: sus filas se leen seguidas con las de `putLote` y dos relojes ahí serían
     // cinco horas entre dos renglones que cuentan lo mismo. Ver docs/migracion/50 §8.bis.
-    'Nota' => 'NotasController::putUpdate, ::putLote, los tres de nivelar (::bitacoraDeNota) y EscrituraDeNotasImportadas::escribirLaNota',
+    'Nota' => 'NotasController::putUpdate, EscrituraDeNotas::bitacora (putLote, los tres de nivelar y la nota de una actividad) y EscrituraDeNotasImportadas::escribirLaNota',
     'NF_UPDATE' => 'DefinitivasPeriodosController::putUpdate y ::putNivelar',
     'RF_UPDATE' => 'DefinitivasPeriodosController:329',
-    'Nueva subunidad' => 'SubunidadesController:68 y EscrituraDeNotasImportadas::crearElIndicador (F9 de la planilla sin internet)',
+    'Nueva subunidad' => 'SubunidadNueva::crear (subunidades y actividades) y EscrituraDeNotasImportadas::crearElIndicador (F9 de la planilla sin internet)',
     'YEAR CONFIGURACION' => 'YearsController:359',
     'intento_login' => 'Services/Login.php:126',
 ];

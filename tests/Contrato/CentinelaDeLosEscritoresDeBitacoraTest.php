@@ -51,8 +51,17 @@ class CentinelaDeLosEscritoresDeBitacoraTest extends TestCase
         'app/Http/Middleware/ExigirBoletinPropio.php' => 'UTC',
         'app/Services/Sesion.php' => 'UTC',
         'app/Services/Login.php' => 'Bogotá',
-        'app/Http/Controllers/SubunidadesController.php' => 'Bogotá',
         'app/Http/Controllers/YearsController.php' => 'Bogotá',
+
+        // Actividades (commit `c0c953a`, 26 sep 2026): el alta de subunidad y la bitácora de
+        // `putLote` y de nivelar salen a servicios para que la nota de una actividad llegue a la
+        // planilla por el mismo camino. Mismos tipos (`Nueva subunidad`, `Nota`) y **Bogotá**:
+        // `SubunidadNueva::crear` hace `Carbon::now('America/Bogota')`, y a
+        // `EscrituraDeNotas::bitacora` le llega el `$now` de Bogotá de `NotasController` y de
+        // `Act\Planilla`. `SubunidadesController` deja de escribir y `NotasController` baja de 3
+        // a 1: las dos que salen se juntan en `EscrituraDeNotas::bitacora`.
+        'app/Services/SubunidadNueva.php' => 'Bogotá',
+        'app/Services/EscrituraDeNotas.php' => 'Bogotá',
     ];
 
     /**
@@ -63,7 +72,7 @@ class CentinelaDeLosEscritoresDeBitacoraTest extends TestCase
      * @var array<string, int>
      */
     private const CON_VARIOS = [
-        'app/Http/Controllers/NotasController.php' => 3,
+        'app/Http/Controllers/NotasController.php' => 1,
         'app/Http/Controllers/DefinitivasPeriodosController.php' => 3,
 
         // «Notas sin internet» (fase 2, commit `3e16747`). **Escribe en Bogotá**
@@ -75,7 +84,10 @@ class CentinelaDeLosEscritoresDeBitacoraTest extends TestCase
     ];
 
     /**
-     * **Catorce desde el 21 sep 2026**, y las dos últimas son de la planilla sin
+     * **Trece desde el 26 sep 2026**: actividades junta en `EscrituraDeNotas::bitacora` las dos
+     * de `NotasController` (`putLote` y `bitacoraDeNota`), sin tipo ni reloj nuevos.
+     *
+     * Catorce desde el 21 sep 2026, y las dos últimas son de la planilla sin
      * internet (`EscrituraDeNotasImportadas`, docs 49 y 50): una por nota escrita y
      * otra por indicador creado desde una columna de reserva. Las dos van en
      * **Bogotá**, que es la decisión del coordinador y no una casualidad del código:
@@ -99,7 +111,7 @@ class CentinelaDeLosEscritoresDeBitacoraTest extends TestCase
      * entre corregir y nivelar vive en `auditoria`, que es donde hay vocabulario
      * cerrado para tenerla.
      */
-    private const TOTAL_ESPERADO = 14;
+    private const TOTAL_ESPERADO = 13;
 
     #[Test]
     public function los_escritores_de_bitacora_siguen_siendo_los_mismos(): void
