@@ -33,6 +33,22 @@ class BolfinalesController extends Controller {
 	private $escalas_val = [];
 
 	/**
+	 * Las columnas de una definitiva del boletín final (ver el comentario largo de
+	 * `definitivasMateriasXPeriodo()`): la usan la consulta por celda y la del grupo, y
+	 * va en un solo sitio para que las dos devuelvan exactamente los mismos campos.
+	 */
+	private const DEFINITIVAS_SELECT = 'SELECT nf.id, nf.alumno_id, nf.asignatura_id, nf.periodo_id, nf.periodo, CAST(nf.nota AS DOUBLE) AS nota, CAST(nf.nota AS DOUBLE) as DefMateria,
+						nf.recuperada, nf.manual, nf.updated_by, nf.created_at, nf.updated_at,
+						CAST(nf.nota_original AS DOUBLE) as nota_original, nf.nivelada_at, nf.nivelada_por,
+						(SELECT NULLIF(COUNT(au.id), 0) FROM ausencias au
+							WHERE au.alumno_id=nf.alumno_id AND au.asignatura_id=nf.asignatura_id AND au.periodo_id=nf.periodo_id
+							AND au.deleted_at is null AND au.cantidad_ausencia > 0) AS cantidad_ausencia,
+						(SELECT NULLIF(COUNT(au.id), 0) FROM ausencias au
+							WHERE au.alumno_id=nf.alumno_id AND au.asignatura_id=nf.asignatura_id AND au.periodo_id=nf.periodo_id
+							AND au.deleted_at is null AND au.cantidad_tardanza > 0) AS cantidad_tardanza
+						FROM notas_finales nf';
+
+	/**
 	 * Los periodos del año — **una consulta por petición, no una por alumno por
 	 * asignatura**.
 	 *
@@ -516,11 +532,19 @@ class BolfinalesController extends Controller {
 		// calcula entero sólo a los pedidos, y a los demás, más abajo, sólo lo que el puesto
 		// lee de ellos -- `promediosParaElPuesto()`.
 		$soloLasHojas = is_array($requested_alumnos);
+		$calculados   = $soloLasHojas ? $response_alumnos : $alumnos;
 
-		foreach ($soloLasHojas ? $response_alumnos : $alumnos as $alumno) {
+		// **Lo que era una consulta por alumno (o por alumno x asignatura), una por grupo**
+		// (docs/migracion/48 §Los boletines, uno por uno). Las materias del grupo no cambian
+		// de un alumno a otro: se leen una vez y cada alumno se lleva su copia, porque el
+		// bucle les escribe encima las definitivas y el promedio.
+		$materias            = Grupo::detailed_materias($grupo_id);
+		$definitivasDelGrupo = $this->definitivasDelGrupo($calculados, $materias, $user->year_id, $periodo_a_calcular);
+
+		foreach ($calculados as $alumno) {
 
 			// Todas las materias con sus unidades y subunides
-			$this->definitivasMateriasXPeriodo($alumno, $grupo_id, $user->year_id, $year->periodos, $periodo_a_calcular, $user->si_recupera_materia_recup_indicador, $perdidasPorDefinitiva );
+			$this->definitivasMateriasXPeriodo($alumno, $grupo_id, $user->year_id, $year->periodos, $periodo_a_calcular, $user->si_recupera_materia_recup_indicador, $perdidasPorDefinitiva, $materias, $definitivasDelGrupo );
 
 			
 			
@@ -578,7 +602,7 @@ class BolfinalesController extends Controller {
 			$alumno->cant_lost_asig = $alumno->cant_lost_asig - count($alumno->recuperaciones);
 
 	
-			$asignaturas_perdidas = $this->asignaturasPerdidasDeAlumno($alumno, $grupo_id, $user->year_id, $perdidasDelGrupo, $year->periodos);
+			$asignaturas_perdidas = $this->asignaturasPerdidasDeAlumno($alumno, $grupo_id, $user->year_id, $perdidasDelGrupo, $year->periodos, $materias);
 
 			if (count($asignaturas_perdidas) > 0) {
 				
@@ -731,12 +755,54 @@ class BolfinalesController extends Controller {
 		}
 	}
 
-	public function definitivasMateriasXPeriodo(&$alumno, $grupo_id, $year_id, $periodos, $per_calcular=null, $si_recupera_materia_recup_indicador=false, $perdidasPorDefinitiva=null)
+	/**
+	 * Las definitivas de todo el grupo en una consulta: `[alumno_id][asignatura_id] => filas`.
+	 *
+	 * Era una por alumno x asignatura (456 de las 855 consultas del boletín final de quibdo
+	 * 223). Misma consulta, con `IN` en vez de `=`. **El `nf.id` del final no es adorno**:
+	 * hay celdas con dos filas del mismo periodo (24 en quibdo, 13 en simon) y la consulta
+	 * por celda las sacaba en el orden del índice, que es el del id; con el grupo entero el
+	 * plan cambia y sin él el empate saldría al azar.
+	 *
+	 * @param  array<int, object>  $alumnos
+	 * @param  array<int, object>  $materias
+	 * @return array<int, array<int, array<int, object>>>
+	 */
+	private function definitivasDelGrupo(array $alumnos, array $materias, $year_id, $per_calcular): array
+	{
+		if ($alumnos === [] || $materias === []) {
+			return [];
+		}
+
+		$alumnoIds     = array_values(array_unique(array_map(static fn ($a) => (int) $a->alumno_id, $alumnos)));
+		$asignaturaIds = array_map(static fn ($a) => (int) $a->asignatura_id, $materias);
+
+		$filas = DB::select(
+			self::DEFINITIVAS_SELECT.'
+				INNER JOIN periodos p on p.year_id=? and p.id=nf.periodo_id '.($per_calcular ? 'and nf.periodo<=?' : '').' and p.deleted_at is null
+				WHERE nf.alumno_id IN ('.implode(',', array_fill(0, count($alumnoIds), '?')).')
+				  AND nf.asignatura_id IN ('.implode(',', array_fill(0, count($asignaturaIds), '?')).')
+				ORDER BY nf.alumno_id, nf.asignatura_id, nf.periodo, nf.id',
+			array_merge([$year_id], $per_calcular ? [$per_calcular] : [], $alumnoIds, $asignaturaIds)
+		);
+
+		$porCelda = [];
+		foreach ($filas as $fila) {
+			$porCelda[(int) $fila->alumno_id][(int) $fila->asignatura_id][] = $fila;
+		}
+
+		return $porCelda;
+	}
+
+	public function definitivasMateriasXPeriodo(&$alumno,$grupo_id, $year_id, $periodos, $per_calcular=null, $si_recupera_materia_recup_indicador=false, $perdidasPorDefinitiva=null, $materias=null, $definitivasDelGrupo=null)
 	{
 		$deEsteAlumno = $perdidasPorDefinitiva[(int) $alumno->alumno_id] ?? [];
 
 
-		$alumno->asignaturas	= Grupo::detailed_materias($grupo_id);
+		// `clone` y no el mismo objeto: cada alumno escribe sus definitivas en su asignatura.
+		$alumno->asignaturas	= $materias !== null
+			? array_map(static fn ($a) => clone $a, $materias)
+			: Grupo::detailed_materias($grupo_id);
 
 		$alumno->promedio = 0;
 		$alumno->cant_lost_asig = 0;
@@ -776,16 +842,7 @@ class BolfinalesController extends Controller {
 			// boletín de un grupo. Correlacionadas usan los índices de `ausencias` y devuelven
 			// lo mismo --el `LEFT JOIN` nunca daba 0, daba NULL--. Medido y con la huella del
 			// JSON igual en 17 grupos: docs/migracion/48-los-informes-pesados.md §P1.
-			$consulta = 'SELECT nf.id, nf.alumno_id, nf.asignatura_id, nf.periodo_id, nf.periodo, CAST(nf.nota AS DOUBLE) AS nota, CAST(nf.nota AS DOUBLE) as DefMateria,
-						nf.recuperada, nf.manual, nf.updated_by, nf.created_at, nf.updated_at,
-						CAST(nf.nota_original AS DOUBLE) as nota_original, nf.nivelada_at, nf.nivelada_por,
-						(SELECT NULLIF(COUNT(au.id), 0) FROM ausencias au
-							WHERE au.alumno_id=nf.alumno_id AND au.asignatura_id=nf.asignatura_id AND au.periodo_id=nf.periodo_id
-							AND au.deleted_at is null AND au.cantidad_ausencia > 0) AS cantidad_ausencia,
-						(SELECT NULLIF(COUNT(au.id), 0) FROM ausencias au
-							WHERE au.alumno_id=nf.alumno_id AND au.asignatura_id=nf.asignatura_id AND au.periodo_id=nf.periodo_id
-							AND au.deleted_at is null AND au.cantidad_tardanza > 0) AS cantidad_tardanza
-						FROM notas_finales nf
+			$consulta = self::DEFINITIVAS_SELECT.'
 						INNER JOIN periodos p on p.year_id=:year_id and p.id=nf.periodo_id '.$sqlPeriodo.' and p.deleted_at is null
 						WHERE nf.alumno_id=:alumno_id and nf.asignatura_id=:asignatura_id
 						ORDER BY nf.periodo';
@@ -806,7 +863,11 @@ class BolfinalesController extends Controller {
 			}
 				
 			
-			$asignatura->definitivas = DB::select($consulta, $paramentros);
+			// Con el mapa del grupo, la celda sale de ahí; sin él (quien llame de fuera), la
+			// consulta de siempre. Un par sin fila es `[]`, que es lo que devolvía el `select`.
+			$asignatura->definitivas = $definitivasDelGrupo !== null
+				? ($definitivasDelGrupo[(int) $alumno->alumno_id][(int) $asignatura->asignatura_id] ?? [])
+				: DB::select($consulta, $paramentros);
 
 
 
@@ -1112,9 +1173,11 @@ class BolfinalesController extends Controller {
 	 * @param  array<int, array<int, array<int, int>>>  $perdidasDelGrupo  ver perdidasPorAlumnoDelGrupo()
 	 * @param  array<int, object>  $periodosDelAnio
 	 */
-	public function asignaturasPerdidasDeAlumno($alumno, $grupo_id, $year_id, $perdidasDelGrupo = null, $periodosDelAnio = null)
+	public function asignaturasPerdidasDeAlumno($alumno, $grupo_id, $year_id, $perdidasDelGrupo = null, $periodosDelAnio = null, $materias = null)
 	{
-		$asignaturas	= Grupo::detailed_materias($grupo_id);
+		$asignaturas	= $materias !== null
+			? array_map(static fn ($a) => clone $a, $materias)
+			: Grupo::detailed_materias($grupo_id);
 
 		$deEsteAlumno = $perdidasDelGrupo[(int) $alumno->alumno_id] ?? [];
 
