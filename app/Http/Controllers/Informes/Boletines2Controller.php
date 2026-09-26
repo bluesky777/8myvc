@@ -6,6 +6,7 @@ use App\Support\PeriodoDelBoletin;
 use Illuminate\Support\Facades\Request;
 use App\Support\RepartoDeLaNota;
 use App\Support\LoDelGrupoDeUnaVez;
+use App\Support\LasUnidadesDelGrupo;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
@@ -55,6 +56,9 @@ class Boletines2Controller extends Controller {
 
 	/** Las definitivas, faltas y frases del grupo, mientras se arma (doc 48 §P3b). */
 	private ?LoDelGrupoDeUnaVez $loDelGrupo = null;
+
+	/** Las unidades y subunidades del grupo, mientras se arma (doc 48). */
+	private ?LasUnidadesDelGrupo $unidadesDelGrupo = null;
 
 	/**
 	 * Las asignaturas perdidas del grupo, en una consulta y no en una por alumno ×
@@ -195,6 +199,7 @@ class Boletines2Controller extends Controller {
 			(int) $this->user->numero_periodo,
 		);
 		$this->perdidasDelGrupo = ['alumnos' => $alumnoIds, 'asignaturas' => $asignaturaIds, 'porCelda' => null];
+		$this->unidadesDelGrupo = new LasUnidadesDelGrupo($alumnoIds, $asignaturaIds, (int) $user->periodo_id, (int) $this->user->year_id);
 
 		foreach ($alumnos as $alumno) {
 
@@ -236,6 +241,7 @@ class Boletines2Controller extends Controller {
 		 */
 		$this->loDelGrupo = null;
 		$this->perdidasDelGrupo = null;
+		$this->unidadesDelGrupo = null;
 
 		BoletinIndependiente::ponerPuestos($alumnos, [(int) $user->periodo_id], (int) $user->year_id);
 
@@ -330,9 +336,9 @@ class Boletines2Controller extends Controller {
 
 			// UNIDADES
 			if ($show_fortaleza_bol == 0) {
-				$asignaturas[$i]->unidades = Unidad::deAsignaturaCalculada($alumno->alumno_id, $asignaturas[$i]->asignatura_id, $periodo_id, 'con_desempenio', $this->user->year_id);
+				$asignaturas[$i]->unidades = Unidad::deAsignaturaCalculada($alumno->alumno_id, $asignaturas[$i]->asignatura_id, $periodo_id, 'con_desempenio', $this->user->year_id, delGrupo: $this->unidadesDelGrupo);
 			}else{
-				$asignaturas[$i]->unidades = Unidad::deAsignaturaCalculada($alumno->alumno_id, $asignaturas[$i]->asignatura_id, $periodo_id, 'fortaleza_debilidad', $this->user->year_id, $this->user->nota_minima_aceptada);
+				$asignaturas[$i]->unidades = Unidad::deAsignaturaCalculada($alumno->alumno_id, $asignaturas[$i]->asignatura_id, $periodo_id, 'fortaleza_debilidad', $this->user->year_id, $this->user->nota_minima_aceptada, delGrupo: $this->unidadesDelGrupo);
 			}
 			
 			

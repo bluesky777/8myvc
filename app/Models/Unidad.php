@@ -151,7 +151,7 @@ class Unidad extends Model {
 	 * repartirlas. El boletín de periodo las tiraba y las volvía a pedir unidad por
 	 * unidad: 2.660 consultas en un grupo de 38 (docs/migracion/48 §P3b).
 	 */
-	public static function deAsignaturaCalculada($alumno_id, $asignatura_id, $periodo_id, $con_desempenio='sin_desempenio', $year_id=0, $nota_minima=70, bool $conSubunidades = false)
+	public static function deAsignaturaCalculada($alumno_id, $asignatura_id, $periodo_id, $con_desempenio='sin_desempenio', $year_id=0, $nota_minima=70, bool $conSubunidades = false, ?\App\Support\LasUnidadesDelGrupo $delGrupo = null)
 	{
 		// **El modo sale del `$year_id` que este método YA recibía**, no de un
 		// parámetro nuevo. Con `$year_id=0` —el defecto— cae en `porcentaje`, que es
@@ -217,20 +217,23 @@ class Unidad extends Model {
 					where u.asignatura_id=:asignatura_id and u.periodo_id=:periodo_id and u.deleted_at is null and u.alumno_id <=> :alcance
 					order by u.orden, u.id';
 
-		$unidades = DB::select($consulta, [
-			':asignatura_id'	=> $asignatura_id,
-			':periodo_id'		=> $periodo_id,
-			':alcance'			=> $alcance,
-		]);
+		// `$delGrupo`: lo mismo, traído una vez para todo el boletín de grupo
+		// (docs/migracion/48). Lo que no sepa responder vuelve `null` y va por aquí.
+		$unidades = $delGrupo?->unidades((int) $asignatura_id, $alcance, (int) $periodo_id, (int) $year_id)
+			?? DB::select($consulta, [
+				':asignatura_id'	=> $asignatura_id,
+				':periodo_id'		=> $periodo_id,
+				':alcance'			=> $alcance,
+			]);
 
-		$porUnidad = \App\Models\Subunidad::deLasUnidadesCalculadas(
-			array_map(fn ($u) => (int) $u->unidad_id, $unidades), $alumno_id, $year_id
-		);
+		$unidadIds = array_map(fn ($u) => (int) $u->unidad_id, $unidades);
+		$porUnidad = $delGrupo?->subunidades((int) $alumno_id, $unidadIds, (int) $year_id)
+			?? \App\Models\Subunidad::deLasUnidadesCalculadas($unidadIds, $alumno_id, $year_id);
 
 		// Las escalas del año, una vez y no una por unidad: es una consulta que no depende de
 		// la unidad, y sólo hace falta en la rama que las unía.
 		$escalas = $con_desempenio === 'con_desempenio'
-			? self::escalasDelAnio($year_id)
+			? ($delGrupo?->escalas((int) $year_id) ?? self::escalasDelAnio($year_id))
 			: [];
 
 		$calculadas = [];

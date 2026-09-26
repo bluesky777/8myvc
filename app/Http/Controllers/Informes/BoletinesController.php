@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Hash;
 
 use App\Support\LaParcialYLaCobertura;
 use App\Support\LoDelGrupoDeUnaVez;
+use App\Support\LasUnidadesDelGrupo;
 use App\Support\RepartoDeLaNota;
 use App\Models\Grupo;
 use App\Models\Periodo;
@@ -56,6 +57,9 @@ class BoletinesController extends Controller {
 
 	/** Las definitivas, faltas y frases del grupo, mientras se arma (doc 48 §P3b). */
 	private ?LoDelGrupoDeUnaVez $loDelGrupo = null;
+
+	/** Las unidades y subunidades del grupo, mientras se arma (doc 48). */
+	private ?LasUnidadesDelGrupo $unidadesDelGrupo = null;
 
 	/**
 	 * Las asignaturas perdidas del grupo, en una consulta y no en una por alumno ×
@@ -289,6 +293,7 @@ class BoletinesController extends Controller {
 			(int) $this->user->numero_periodo,
 		);
 		$this->perdidasDelGrupo = ['alumnos' => $alumnoIds, 'asignaturas' => $asignaturaIds, 'porCelda' => null];
+		$this->unidadesDelGrupo = new LasUnidadesDelGrupo($alumnoIds, $asignaturaIds, (int) $user->periodo_id, (int) $this->user->year_id);
 
 		foreach ($alumnos as $alumno) {
 			// Todas las materias con sus unidades y subunides
@@ -329,6 +334,7 @@ class BoletinesController extends Controller {
 		 */
 		$this->loDelGrupo = null;
 		$this->perdidasDelGrupo = null;
+		$this->unidadesDelGrupo = null;
 
 		BoletinIndependiente::ponerPuestos($alumnos, [(int) $user->periodo_id], (int) $user->year_id);
 
@@ -427,7 +433,7 @@ class BoletinesController extends Controller {
 			$asignaturas[$i]->bol_independiente = BoletinIndependiente::aplica((int) $alumno->alumno_id, (int) $periodo_id);
 
 			// UNIDADES
-			$asignaturas[$i]->unidades = Unidad::deAsignaturaCalculada($alumno->alumno_id, $asignaturas[$i]->asignatura_id, $periodo_id, 'sin_desempenio', $this->user->year_id, conSubunidades: true);
+			$asignaturas[$i]->unidades = Unidad::deAsignaturaCalculada($alumno->alumno_id, $asignaturas[$i]->asignatura_id, $periodo_id, 'sin_desempenio', $this->user->year_id, conSubunidades: true, delGrupo: $this->unidadesDelGrupo);
 
 			// **LA PARCIAL Y LA COBERTURA** — Fase 2 del
 			// [43](../../../../docs/migracion/43-lo-que-todavia-no-se-ha-calificado.md).
