@@ -260,9 +260,13 @@ class IaController extends Controller
             abort(503, 'Este colegio todavía no tiene activada la ayuda de IA.');
         }
 
+        // Proponer varias preguntas pasa de los 30 s de PHP (medido: 32 s con cuatro); cortar
+        // aquí sería un 502 con la llamada ya pagada en el proxy. El proxy puede tardar hasta 2 × 150 s.
+        set_time_limit(320);
+
         try {
             $respuesta = Http::withToken($secreto)
-                ->timeout(120)
+                ->timeout(300)
                 ->acceptJson()
                 ->post(rtrim($url, '/') . '/' . $ruta, $cuerpo + ['usuario' => $this->quienPide()]);
         } catch (\Throwable $fallo) {
