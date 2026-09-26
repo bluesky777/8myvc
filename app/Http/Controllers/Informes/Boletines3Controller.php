@@ -209,22 +209,25 @@ class Boletines3Controller extends Controller {
 			? (new CalcPerdidasDefinitivas())->delGrupo($alumnoIds, $asignaturaIds, $periodo_a_calcular)
 			: null;
 
-		foreach ($alumnos as $alumno) {
+		// Y las unidades con sus subunidades, una vez por asignatura para todo el grupo.
+		Unidad::recordandoElGrupo($alumnoIds, function () use ($alumnos, $grupo_id, &$user, $periodo_a_calcular) {
+			foreach ($alumnos as $alumno) {
 
-			// Todas las materias con sus unidades y subunides
-			$this->allNotasAlumno($alumno, $grupo_id, $user->periodo_id, true, $periodo_a_calcular);
+				// Todas las materias con sus unidades y subunides
+				$this->allNotasAlumno($alumno, $grupo_id, $user->periodo_id, true, $periodo_a_calcular);
 
-			
-			$this->asignaturasPerdidasDeAlumno($alumno, $grupo_id, $user->year_id, $periodo_a_calcular);
-			
-			if ($this->user->year_pasado_en_bol) {
-				if (!$alumno->nuevo && !$alumno->repitente) {
-					$this->datosYearPasado($alumno, $grupo_id, $user->year_id);
+				
+				$this->asignaturasPerdidasDeAlumno($alumno, $grupo_id, $user->year_id, $periodo_a_calcular);
+				
+				if ($this->user->year_pasado_en_bol) {
+					if (!$alumno->nuevo && !$alumno->repitente) {
+						$this->datosYearPasado($alumno, $grupo_id, $user->year_id);
+					}
 				}
+				
+				unset($alumno->asignaturas);
 			}
-			
-			unset($alumno->asignaturas);
-		}
+		});
 
 
 		/*

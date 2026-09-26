@@ -144,6 +144,34 @@ class Unidad extends Model {
 	}
 
 
+	/** @var array<string, list<object>>|null `null` = apagada, que es lo normal. */
+	private static ?array $unidadesDelGrupo = null;
+
+	/**
+	 * Arma un boletín de grupo con {@see deAsignaturaCalculada} preguntando una vez por
+	 * asignatura y no por alumno × asignatura: las unidades se recuerdan por asignatura,
+	 * periodo y alcance, y las subunidades se piden para todos los `$alumnoIds` de una
+	 * vez ({@see Subunidad::recordandoElGrupo}). 912 consultas en un grupo de 38
+	 * (docs/migracion/48). Encendida a mano, y sólo para leer: quien escribe unidades o
+	 * notas en la misma petición leería lo de antes.
+	 *
+	 * @template T
+	 * @param  list<int>  $alumnoIds
+	 * @param  callable(): T  $armar
+	 * @return T
+	 */
+	public static function recordandoElGrupo(array $alumnoIds, callable $armar)
+	{
+		$antes = self::$unidadesDelGrupo;
+		self::$unidadesDelGrupo = [];
+
+		try {
+			return Subunidad::recordandoElGrupo($alumnoIds, $armar);
+		} finally {
+			self::$unidadesDelGrupo = $antes;
+		}
+	}
+
 	/**
 	 * Con `$conSubunidades` cada unidad sale con sus `subunidades`, **las mismas filas que
 	 * `Subunidad::deUnidadCalculada()`** y en el mismo orden: son las que este método ya
@@ -217,11 +245,24 @@ class Unidad extends Model {
 					where u.asignatura_id=:asignatura_id and u.periodo_id=:periodo_id and u.deleted_at is null and u.alumno_id <=> :alcance
 					order by u.orden, u.id';
 
-		$unidades = DB::select($consulta, [
-			':asignatura_id'	=> $asignatura_id,
-			':periodo_id'		=> $periodo_id,
-			':alcance'			=> $alcance,
-		]);
+		// Las unidades no dependen del alumno sino de su alcance: en un boletín de grupo
+		// son las mismas treinta y ocho veces. Se clonan al guardar y al dar, porque abajo
+		// se les escribe la nota.
+		$recordada = $asignatura_id.'|'.$periodo_id.'|'.$alcance;
+
+		if (self::$unidadesDelGrupo !== null && isset(self::$unidadesDelGrupo[$recordada])) {
+			$unidades = array_map(static fn ($u) => clone $u, self::$unidadesDelGrupo[$recordada]);
+		} else {
+			$unidades = DB::select($consulta, [
+				':asignatura_id'	=> $asignatura_id,
+				':periodo_id'		=> $periodo_id,
+				':alcance'			=> $alcance,
+			]);
+
+			if (self::$unidadesDelGrupo !== null) {
+				self::$unidadesDelGrupo[$recordada] = array_map(static fn ($u) => clone $u, $unidades);
+			}
+		}
 
 		$porUnidad = \App\Models\Subunidad::deLasUnidadesCalculadas(
 			array_map(fn ($u) => (int) $u->unidad_id, $unidades), $alumno_id, $year_id
