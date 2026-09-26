@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Act\ActividadesController;
+use App\Http\Controllers\Act\AprobarYCerrarController;
 use App\Http\Controllers\Act\EditarConNotasController;
 use App\Http\Controllers\Act\EntregasController;
 use App\Http\Controllers\Act\PreguntasController;
@@ -22,8 +23,7 @@ use Illuminate\Support\Facades\Route;
 | `App\Services\Act\Destinatarios`, no el tipo de usuario. Además, TODO lo del creador exige ser el
 | dueño (`created_by`), y eso lo mira el controlador.
 |
-| Tandas 1 y 2. Faltan (en su tanda): aprobar, rechazar, cerrar, compartir, anonimato, duplicar
-| (3); recordar y calendario (5).
+| Tandas 1, 2 y 3. Faltan (en su tanda): recordar y calendario (5).
 |
 | Las rutas sin {parámetro} van antes que las que lo llevan.
 |
@@ -35,6 +35,7 @@ Route::get('act/catalogo', [ActividadesController::class, 'getCatalogo'])->middl
 Route::get('act/logros', [ActividadesController::class, 'getLogros'])->middleware('auth.personal');
 Route::post('act/conteo', [ActividadesController::class, 'postConteo'])->middleware('auth.personal');
 Route::post('act/crear', [ActividadesController::class, 'postCrear'])->middleware('auth.personal');
+Route::get('act/para-duplicar', [ActividadesController::class, 'getParaDuplicar'])->middleware('auth.personal');
 
 // EntregasController: el fichero de una entrega (antes que act/{id} para que no lo tape).
 Route::get('act/archivos/{archivoId}', [EntregasController::class, 'getArchivo'])->where('archivoId', '[0-9]+');
@@ -72,3 +73,13 @@ Route::get('act/{id}/entregas', [EntregasController::class, 'getEntregas'])->whe
 Route::post('act/{id}/entregas/{alumnoId}/calificar', [EntregasController::class, 'postCalificar'])->where(['id' => '[0-9]+', 'alumnoId' => '[0-9]+'])->middleware('auth.personal');
 Route::post('act/{id}/impacto', [EditarConNotasController::class, 'postImpacto'])->where('id', '[0-9]+')->middleware('auth.personal');
 Route::post('act/{id}/aplicar-cambios', [EditarConNotasController::class, 'postAplicarCambios'])->where('id', '[0-9]+')->middleware('auth.personal');
+
+// Tanda 3: aprobar y rechazar (§3.6), cerrar, compartir y anonimato (§3.12), duplicar (§3.14) y la
+// imagen de una pregunta o de sus opciones.
+Route::post('act/{id}/aprobar', [AprobarYCerrarController::class, 'postAprobar'])->where('id', '[0-9]+')->middleware('auth.personal');
+Route::post('act/{id}/rechazar', [AprobarYCerrarController::class, 'postRechazar'])->where('id', '[0-9]+')->middleware('auth.personal');
+Route::post('act/{id}/cerrar', [AprobarYCerrarController::class, 'postCerrar'])->where('id', '[0-9]+')->middleware('auth.personal');
+Route::post('act/{id}/compartir', [AprobarYCerrarController::class, 'postCompartir'])->where('id', '[0-9]+')->middleware('auth.personal');
+Route::post('act/{id}/anonimato', [AprobarYCerrarController::class, 'postAnonimato'])->where('id', '[0-9]+')->middleware('auth.personal');
+Route::post('act/{id}/duplicar', [ActividadesController::class, 'postDuplicar'])->where('id', '[0-9]+')->middleware('auth.personal');
+Route::post('act/{id}/imagen', [PreguntasController::class, 'postImagen'])->where('id', '[0-9]+')->middleware('auth.personal');

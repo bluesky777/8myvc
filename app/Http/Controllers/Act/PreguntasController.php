@@ -8,7 +8,9 @@ use App\Services\Act\Actividad;
 use App\Services\Act\Destinatarios;
 use App\Services\Act\Formas;
 use App\Services\Act\Recorrido;
+use App\Support\SafeUpload;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Request;
 
 /**
@@ -37,6 +39,76 @@ class PreguntasController extends Controller
 
     /** Por defecto no se comparten los textos libres ni los archivos (§2.10). */
     private const NO_SE_COMPARTEN = ['corta', 'parrafo', 'archivo', 'fecha'];
+
+    /** Imágenes del enunciado y de las opciones: el cliente ya las reduce a 1600 px. */
+    private const IMAGEN_TOPE_BYTES = 5 * 1024 * 1024;
+
+    private const IMAGEN_LADO_MAXIMO = 1600;
+
+    /**
+     * `POST act/{id}/imagen` multipart `file` → `{id, imagen_url, ancho, alto, bytes}` (tanda 3).
+     *
+     * La imagen del enunciado de una pregunta (`imagen_id`) o de una opción (`image_id`, en
+     * `imagen_opciones`). Va a `images` —la tabla a la que apuntan esas dos columnas y de la que
+     * `Formas` saca `imagen_url`—, en `public/images/perfil/user_{id}/` y **pública**: la ve todo el
+     * que responde, con un `<img>` sin token. No es el almacén privado de las entregas
+     * (`ws_archivos`), que es para lo que suben los alumnos. Sólo el dueño; tope 5 MB, sólo
+     * imágenes, y 422 si el lado largo pasa de 1600 px. Subirla no la ata a nada: se ata al guardar
+     * la pregunta con ese id.
+     */
+    public function postImagen($id)
+    {
+        $user = $this->user;
+        $this->actividadDelDueno($id);
+
+        $file = SafeUpload::archivoRecibido('file');
+
+        if ($file->getSize() > self::IMAGEN_TOPE_BYTES) {
+            abort(422, 'La imagen pasa de 5 MB.');
+        }
+
+        $medidas = @getimagesize($file->getRealPath());
+
+        if (! $medidas || ! in_array($medidas[2] ?? null, [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_GIF, IMAGETYPE_WEBP], true)) {
+            abort(422, 'Eso no se puede leer como imagen (jpg, png, gif o webp).');
+        }
+
+        [$ancho, $alto] = $medidas;
+
+        if (max($ancho, $alto) > self::IMAGEN_LADO_MAXIMO) {
+            abort(422, 'La imagen pasa de '.self::IMAGEN_LADO_MAXIMO.' px por el lado largo: redúcela antes de subirla.');
+        }
+
+        $carpetaNombre = 'user_'.(int) $user->user_id;
+        $carpeta = public_path('images/perfil/'.$carpetaNombre);
+
+        if (! File::exists($carpeta)) {
+            File::makeDirectory($carpeta, 0755, true, true);
+        }
+
+        // Valida la extensión declarada y la real, y da un nombre libre en la carpeta.
+        $nombre = SafeUpload::nombreDisponible($file, $carpeta, SafeUpload::EXTENSIONES_IMAGEN);
+        $bytes = (int) $file->getSize();
+        $file->move($carpeta, $nombre);
+
+        $ahora = Actividad::ahora();
+        $imagenId = DB::table('images')->insertGetId([
+            'nombre' => $carpetaNombre.'/'.$nombre,
+            'user_id' => (int) $user->user_id,
+            'publica' => 1,
+            'created_by' => (int) $user->user_id,
+            'created_at' => $ahora,
+            'updated_at' => $ahora,
+        ]);
+
+        return [
+            'id' => $imagenId,
+            'imagen_url' => Formas::urlDeImagen($carpetaNombre.'/'.$nombre),
+            'ancho' => (int) $ancho,
+            'alto' => (int) $alto,
+            'bytes' => $bytes,
+        ];
+    }
 
     /** `POST act/{id}/preguntas` `PreguntaNueva` → `PreguntaAct`, al final. */
     public function postCrear($id)

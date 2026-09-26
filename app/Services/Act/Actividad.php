@@ -126,6 +126,18 @@ class Actividad
         ) !== null;
     }
 
+    /**
+     * Si los resultados de la encuesta ya están compartidos (§2.10): cerrada —a mano o por la
+     * fecha, que no hay cron— y con `comparte_resultados` distinto de `no`. A quién le llegan lo
+     * decide quien pregunta: `respondieron` exige hoja terminada; `todos`, ser destinatario.
+     */
+    public static function compartidos(object $act): bool
+    {
+        return $act->modo === 'encuesta'
+            && in_array($act->comparte_resultados, ['respondieron', 'todos'], true)
+            && self::estado($act) === 'cerrada';
+    }
+
     /** `AAAA-MM-DD HH:MM:SS` de ahora, en hora de Colombia. */
     public static function ahora(): string
     {

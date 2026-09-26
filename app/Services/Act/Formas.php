@@ -134,6 +134,8 @@ class Formas
                 [(int) $subunidad->id]
             ) !== null,
             'duplicada_de' => $act->duplicada_de === null ? null : (int) $act->duplicada_de,
+            // Tanda 3: desde cuándo se ven los resultados compartidos (null = no se compartieron).
+            'resultados_compartidos_at' => $act->resultados_compartidos_at,
             'preguntas' => self::preguntas($id),
         ];
     }

@@ -580,6 +580,17 @@ class AutorizacionTest extends CasoDeContrato
      * @return array<string, string> uri => por qué se queda sin el guard de sus hermanas
      */
     private const EXCEPCIONES_DE_FAMILIA = [
+        // act/* (tanda 3): con las rutas del creador la familia pasó de 9 abiertas de 25
+        // (fuera del candado) a 9 de 38, y estas nueve se declaran una a una.
+        'GET api/act/bandeja' => 'act/*, lo que responde cualquier sesión: quién puede lo decide `Services\\Act\\Destinatarios` por dentro (403 si no le toca), no el tipo de usuario (ACTIVIDADES-CONTRATO §3). La familia entró en el candado con la tanda 3 (9 abiertas de 38)',
+        'GET api/act/archivos/{archivoId}' => 'act/*, lo que responde cualquier sesión: quién puede lo decide `Services\\Act\\Destinatarios` por dentro (403 si no le toca), no el tipo de usuario (ACTIVIDADES-CONTRATO §3). La familia entró en el candado con la tanda 3 (9 abiertas de 38)',
+        'GET api/act/{id}/responder' => 'act/*, lo que responde cualquier sesión: quién puede lo decide `Services\\Act\\Destinatarios` por dentro (403 si no le toca), no el tipo de usuario (ACTIVIDADES-CONTRATO §3). La familia entró en el candado con la tanda 3 (9 abiertas de 38)',
+        'GET api/act/{id}/mis-respuestas' => 'act/*, lo que responde cualquier sesión: quién puede lo decide `Services\\Act\\Destinatarios` por dentro (403 si no le toca), no el tipo de usuario (ACTIVIDADES-CONTRATO §3). La familia entró en el candado con la tanda 3 (9 abiertas de 38)',
+        'POST api/act/{id}/recorrido' => 'act/*, lo que responde cualquier sesión: quién puede lo decide `Services\\Act\\Destinatarios` por dentro (403 si no le toca), no el tipo de usuario (ACTIVIDADES-CONTRATO §3). La familia entró en el candado con la tanda 3 (9 abiertas de 38)',
+        'POST api/act/{id}/borrador' => 'act/*, lo que responde cualquier sesión: quién puede lo decide `Services\\Act\\Destinatarios` por dentro (403 si no le toca), no el tipo de usuario (ACTIVIDADES-CONTRATO §3). La familia entró en el candado con la tanda 3 (9 abiertas de 38)',
+        'POST api/act/{id}/enviar' => 'act/*, lo que responde cualquier sesión: quién puede lo decide `Services\\Act\\Destinatarios` por dentro (403 si no le toca), no el tipo de usuario (ACTIVIDADES-CONTRATO §3). La familia entró en el candado con la tanda 3 (9 abiertas de 38)',
+        'POST api/act/{id}/archivo' => 'act/*, lo que responde cualquier sesión: quién puede lo decide `Services\\Act\\Destinatarios` por dentro (403 si no le toca), no el tipo de usuario (ACTIVIDADES-CONTRATO §3). La familia entró en el candado con la tanda 3 (9 abiertas de 38)',
+        'POST api/act/{id}/entregar' => 'act/*, lo que responde cualquier sesión: quién puede lo decide `Services\\Act\\Destinatarios` por dentro (403 si no le toca), no el tipo de usuario (ACTIVIDADES-CONTRATO §3). La familia entró en el candado con la tanda 3 (9 abiertas de 38)',
         // Las lecturas de catálogo. Son las nueve que `inventario-autorizacion.py`
         // sigue contando y que esperan una decisión en 08: no exponen a nadie,
         // pero nadie ha dicho si un alumno tiene que poder leerlas. Van aquí con
@@ -837,7 +848,6 @@ class AutorizacionTest extends CasoDeContrato
      * @var array<string, string> familia => cuántas abiertas y por qué se sale
      */
     private const FAMILIAS_FUERA_DEL_CANDADO = [
-        'act' => '9 abiertas de 25: bandeja, responder, recorrido, borrador, enviar, mis-respuestas, archivo, archivos/{id} y entregar. Las responde cualquier sesión y quién puede lo decide `Services\\Act\\Destinatarios` por dentro; lo del creador lleva auth.personal y además exige el dueño (ACTIVIDADES-CONTRATO §3)',
         'acudientes' => '5 abiertas de 14. Cuatro se defienden por dentro y están en EXCEPCIONES_DE_HERMANAS; `guardar-valor` y `mis-acudidos` no las mira nadie',
         'alumnos' => '9 abiertas de 17. Seis están en EXCEPCIONES_DE_HERMANAS; `eps-check`, `guardar-valor`, `guardar-valor-varios` y `show` no',
         'ciudades' => '6 abiertas de 11, las seis lecturas de catálogo. Cuatro no las cubre ningún test',

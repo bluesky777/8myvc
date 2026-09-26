@@ -98,6 +98,44 @@ class ResultadosController extends Controller
         ];
     }
 
+    /**
+     * Los resultados COMPARTIDOS (§2.10, tanda 3): lo que ve un destinatario en «mis respuestas»
+     * cuando la encuesta se cerró compartiendo. Es `ResultadosAct` con tres diferencias, y las tres
+     * son para que nada identifique a nadie, sea cual sea el anonimato de la encuesta:
+     *
+     *   - k-anonimato siempre (como una anónima): celdas y preguntas con menos de 5 hojas, ocultas;
+     *   - sólo las preguntas con `compartir = 1`, nunca las de archivo, y los textos de las marcadas
+     *     sin autor ni grupo; el texto de «otra» no sale nunca (sólo su cuenta), y sin filtros;
+     *   - sin notas. Y con `$mias` (las respuestas de quien mira), cada opción y cada valor de la
+     *     escala llevan `mia: true|false` para marcar lo que eligió.
+     *
+     * @param  array<int, array>|null  $mias  respuestas por pregunta_id, o null si no respondió
+     */
+    public function compartidos(object $act, object $user, ?array $entrada, ?array $mias): array
+    {
+        $filas = Destinatarios::deActividad((int) $act->id);
+        $entradas = array_values(array_filter(Destinatarios::resolver($act, $filas), fn ($e) => $e['user_id'] !== null));
+        $gruposDelAlcance = Destinatarios::gruposDelAlcance((int) $act->year_id, $filas);
+        $gradoDe = $this->gradosDe($gruposDelAlcance);
+        $hojas = $this->hojasQueCuentan($act);
+
+        return [
+            'actividad' => Formas::enBandeja($act, $user, $entrada, $entrada ? Respuestas::miEstado($act, $entrada) : null),
+            'participacion' => [
+                'destinatarios' => count($entradas),
+                'respondieron' => count($hojas),
+                'porcentaje' => $entradas !== [] ? round(count($hojas) * 100 / count($entradas), 1) : 0,
+            ],
+            'por_grupo' => $this->celdas($gruposDelAlcance, Destinatarios::nombresDeGrupos($gruposDelAlcance), $entradas, $hojas, true,
+                fn ($grupo, $publico, $clave) => $grupo === $clave),
+            'por_grado' => $this->porGrado($gruposDelAlcance, $gradoDe, $entradas, $hojas, true),
+            'por_publico' => $this->celdas(array_keys(self::PUBLICOS), self::PUBLICOS, $entradas, $hojas, true,
+                fn ($grupo, $publico, $clave) => $publico === $clave, true),
+            'preguntas' => $this->preguntas($act, $hojas, true, count($hojas), true, $mias),
+            'notas' => null,
+        ];
+    }
+
     /** `GET act/{id}/faltan` → `FaltanAct`. 409 en `total`: ahí no se sabe quién falta. */
     public function getFaltan($id)
     {
@@ -243,9 +281,14 @@ class ResultadosController extends Controller
     }
 
     /** `ResultadoDePregunta[]` sobre las hojas del filtro. */
-    private function preguntas(object $act, array $hojas, bool $anonima, int $hojasTotales): array
+    private function preguntas(object $act, array $hojas, bool $anonima, int $hojasTotales, bool $compartidos = false, ?array $mias = null): array
     {
         $preguntas = Formas::preguntas((int) $act->id);
+
+        // Compartidas: el recorrido se evalúa con todas, pero sólo salen las marcadas.
+        $salen = $compartidos
+            ? array_flip(array_map(fn ($p) => $p['id'], array_filter($preguntas, fn ($p) => $p['compartir'] && $p['tipo'] !== 'archivo')))
+            : null;
         $respuestas = Respuestas::deHojas(array_map(fn ($h) => (int) $h->id, $hojas));
         $esCuestionario = $act->modo === 'cuestionario';
 
@@ -267,6 +310,11 @@ class ResultadosController extends Controller
         $resultado = [];
 
         foreach ($preguntas as $p) {
+            if ($salen !== null && ! isset($salen[$p['id']])) {
+                continue;
+            }
+
+            $mia = $mias[$p['id']] ?? null;
             $mostrada = 0;
             $respondida = 0;
             $porOpcion = [];
@@ -329,6 +377,10 @@ class ResultadosController extends Controller
                 foreach ($p['opciones'] as $o) {
                     $fila = ['opcion_id' => $o['id'], 'definicion' => $o['definicion'], 'n' => $porOpcion[$o['id']] ?? 0];
 
+                    if ($compartidos) {
+                        $fila['mia'] = $mia !== null && in_array($o['id'], $mia['opcion_ids'] ?? [], true);
+                    }
+
                     if ($esCuestionario) {
                         $fila['es_correcta'] = $o['is_correct'];
                     }
@@ -337,12 +389,14 @@ class ResultadosController extends Controller
                 }
 
                 if ($p['opcion_otra']) {
-                    $opciones[] = ['opcion_id' => null, 'definicion' => 'Otra', 'n' => $otra];
+                    $opciones[] = ['opcion_id' => null, 'definicion' => 'Otra', 'n' => $otra]
+                        + ($compartidos ? ['mia' => $mia !== null && ($mia['texto'] ?? null) !== null && $mia['texto'] !== ''] : []);
                 }
             }
 
             $votosEscala = array_sum($escala);
-            $conTextos = in_array($p['tipo'], ['corta', 'parrafo', 'fecha'], true) || $p['opcion_otra'];
+            // Compartidos: el «otra» de una pregunta de opciones es texto libre, y ése no se marcó.
+            $conTextos = in_array($p['tipo'], ['corta', 'parrafo', 'fecha'], true) || ($p['opcion_otra'] && ! $compartidos);
 
             $resultado[] = [
                 'pregunta_id' => $p['id'],
@@ -353,7 +407,8 @@ class ResultadosController extends Controller
                 'oculto' => $oculto,
                 'opciones' => $oculto ? [] : $opciones,
                 'escala' => $oculto || $p['tipo'] !== 'escala' ? null
-                    : array_map(fn ($v, $n) => ['valor' => $v, 'n' => $n], array_keys($escala), array_values($escala)),
+                    : array_map(fn ($v, $n) => ['valor' => $v, 'n' => $n]
+                        + ($compartidos ? ['mia' => $mia !== null && ($mia['valor'] ?? null) === $v] : []), array_keys($escala), array_values($escala)),
                 'promedio' => $oculto || $p['tipo'] !== 'escala' || $votosEscala === 0 ? null
                     : round(array_sum(array_map(fn ($v, $n) => $v * $n, array_keys($escala), array_values($escala))) / $votosEscala, 2),
                 'textos' => $sinTextos || ! $conTextos ? null : $textos,

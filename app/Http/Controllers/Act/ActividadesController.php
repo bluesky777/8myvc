@@ -514,6 +514,254 @@ class ActividadesController extends Controller
         ];
     }
 
+    // ------------------------------------------------------------------ §3.14 duplicar (tanda 3)
+
+    /**
+     * `GET act/para-duplicar?q=&year_id=` → `ActEnBandeja[]`: las mías (de todos los años, o de
+     * `year_id`), buscando `q` en el título. Las más nuevas primero, hasta 200.
+     */
+    public function getParaDuplicar()
+    {
+        $user = $this->user;
+        $yearId = Destinatarios::entero(Request::input('year_id'));
+        $q = trim((string) Request::input('q', ''));
+
+        $sql = 'SELECT * FROM ws_actividades WHERE modo IS NOT NULL AND deleted_at IS NULL AND created_by = ?';
+        $params = [(int) $user->user_id];
+
+        if ($yearId !== null) {
+            $sql .= ' AND year_id = ?';
+            $params[] = $yearId;
+        }
+
+        if ($q !== '') {
+            $sql .= ' AND titulo LIKE ?';
+            $params[] = '%'.addcslashes($q, '%_\\').'%';
+        }
+
+        $filas = DB::select($sql.' ORDER BY id DESC LIMIT 200', $params);
+
+        return array_map(fn ($a) => Formas::enBandeja($a, $user), $filas);
+    }
+
+    /**
+     * `POST act/{id}/duplicar` `{destinos, titulo?, publica_at?, cierra_at?, copiar}` →
+     * `{creadas: number[]}`.
+     *
+     * Una copia por destino, en borrador, en el año y el periodo del token (así se trae una de un año
+     * pasado), con `duplicada_de`. **Nunca** hojas, respuestas, entregas, archivos, notas ni
+     * subunidad: la copia crea su indicador al publicarse. Cada copia pasa por la misma validación
+     * que `crear` (la clase tiene que ser tuya, la nota máxima cabe en la escala de este año…).
+     *
+     * `copiar` (cada parte, `true` si no viene): `preguntas` (con opciones y condiciones),
+     * `configuracion` (intentos, correctas, nota a la planilla, anonimato, entrega, a quién
+     * responde…), `instrucciones`, `avisos` y `destinatarios` (sólo encuestas sin destino; los
+     * grupos y clases de otro año no se copian porque no existen en éste).
+     *
+     * Destino: tarea y cuestionario, `{asignatura_id, unidad_id?, peso?}` (una clase); encuesta,
+     * `{asignatura_id}`, `{grupo_id}` o `{}` (el alcance de la original).
+     */
+    public function postDuplicar($id)
+    {
+        $user = $this->user;
+        $origen = Actividad::cargar($id);
+
+        if (! Actividad::esDueno($origen, $user) && ! Actividad::esDirectivo($user)) {
+            abort(403, 'Sólo se duplican las tuyas (un directivo, cualquiera).');
+        }
+
+        $destinos = Request::input('destinos');
+
+        if (! is_array($destinos) || $destinos === [] || count($destinos) > 60) {
+            abort(422, 'Elige al menos un destino (hasta 60).');
+        }
+
+        $copiar = array_replace(
+            ['preguntas' => true, 'configuracion' => true, 'instrucciones' => true, 'avisos' => true, 'destinatarios' => true],
+            array_map(fn ($v) => (bool) $v, (array) Request::input('copiar', []))
+        );
+
+        $yearId = (int) $user->year_id;
+        $periodoId = (int) $user->periodo_id;
+        $mismoAnio = (int) $origen->year_id === $yearId;
+        $base = Formas::config($origen);
+        $maximo = Actividad::maximoDeLaEscala($yearId);
+        $titulo = Request::has('titulo') && trim((string) Request::input('titulo')) !== ''
+            ? (string) Request::input('titulo') : (string) $origen->titulo;
+
+        // La config común a todas las copias; lo de cada destino se pone después.
+        $comun = [
+            'modo' => $origen->modo,
+            'titulo' => $titulo,
+            'instrucciones' => $copiar['instrucciones'] ? $origen->instrucciones : null,
+            'alcance' => $base['alcance'],
+            'asignatura_id' => null,
+            'grupo_id' => null,
+            'responden' => $base['responden'],
+            'acudiente_por_hijo' => $base['acudiente_por_hijo'],
+            'anonimato' => $copiar['configuracion'] ? $base['anonimato'] : 'nombre',
+            'destinatarios' => [],
+            'publica_at' => Request::input('publica_at'),
+            'cierra_at' => Request::input('cierra_at'),
+            'recibir_tarde' => $copiar['configuracion'] && $base['recibir_tarde'],
+            'entrega' => $copiar['configuracion'] ? $base['entrega'] : ['texto' => false, 'foto' => false, 'archivo' => false, 'enlace' => false],
+            'califica' => $copiar['configuracion'] && $base['califica'],
+            'unidad_id' => null,
+            'peso' => null,
+            // Una nota máxima del año pasado que no cabe en la escala de éste se queda en el máximo.
+            'nota_maxima' => $copiar['configuracion'] && $base['nota_maxima'] !== null ? min($maximo, (int) $base['nota_maxima']) : $maximo,
+            'oportunidades' => $copiar['configuracion'] ? $base['oportunidades'] : 1,
+            'mostrar_correctas' => $copiar['configuracion'] ? $base['mostrar_correctas'] : 'al_cerrar',
+            'comparte_resultados' => $copiar['configuracion'] ? $base['comparte_resultados'] : 'no',
+            'avisos' => $copiar['avisos'] ? $base['avisos'] : ['al_publicar' => true, 'recordar_horas_antes' => null, 'en_calendario' => true],
+        ];
+
+        $validadas = [];
+
+        foreach (array_values($destinos) as $i => $d) {
+            if (! is_array($d)) {
+                abort(422, 'Cada destino es un objeto.');
+            }
+
+            $c = $comun;
+            $asignaturaId = Destinatarios::entero($d['asignatura_id'] ?? null);
+            $grupoId = Destinatarios::entero($d['grupo_id'] ?? null);
+
+            if ($origen->modo !== 'encuesta') {
+                if ($asignaturaId === null) {
+                    abort(422, 'Las tareas y los cuestionarios se duplican a una clase: falta la clase del destino '.($i + 1).'.');
+                }
+
+                $c['asignatura_id'] = $asignaturaId;
+                $c['unidad_id'] = $c['califica'] ? Destinatarios::entero($d['unidad_id'] ?? null) : null;
+                $c['peso'] = $c['califica'] ? Destinatarios::entero($d['peso'] ?? null) : null;
+            } elseif ($asignaturaId !== null) {
+                $c['alcance'] = 'clase';
+                $c['asignatura_id'] = $asignaturaId;
+
+                if ($c['responden'] === 'personal') {
+                    $c['responden'] = 'alumnos';
+                }
+            } elseif ($grupoId !== null) {
+                $c['alcance'] = 'grupo';
+                $c['grupo_id'] = $grupoId;
+
+                if ($c['responden'] === 'personal') {
+                    $c['responden'] = 'alumnos';
+                }
+            } else {
+                $c['destinatarios'] = $copiar['destinatarios'] ? $this->destinatariosQueSirven($origen, $mismoAnio) : [];
+
+                // Una clase o un grupo que no se copia (otro año, o sin destinatarios) deja el
+                // alcance abierto a «grupos», para elegirlos en la copia.
+                if (in_array($c['alcance'], ['clase', 'grupo'], true)) {
+                    $sirve = $mismoAnio && $copiar['destinatarios'];
+                    $c['asignatura_id'] = $sirve ? $base['asignatura_id'] : null;
+                    $c['grupo_id'] = $sirve ? $base['grupo_id'] : null;
+
+                    if (! $sirve) {
+                        $c['alcance'] = 'grupos';
+                        $c['destinatarios'] = [];
+                    }
+                }
+            }
+
+            $validadas[] = $this->configValida($c, $user, $yearId, $periodoId);
+        }
+
+        $ahora = Actividad::ahora();
+
+        $creadas = DB::transaction(function () use ($origen, $validadas, $copiar, $user, $yearId, $periodoId, $ahora) {
+            $creadas = [];
+
+            foreach ($validadas as [$columnas, $filas]) {
+                $nueva = DB::table('ws_actividades')->insertGetId($columnas + [
+                    'estado' => 'borrador',
+                    'year_id' => $yearId,
+                    'periodo_id' => $periodoId,
+                    'created_by' => (int) $user->user_id,
+                    'duplicada_de' => (int) $origen->id,
+                    'created_at' => $ahora,
+                    'updated_at' => $ahora,
+                ]);
+
+                Destinatarios::guardar($nueva, $filas);
+
+                if ($copiar['preguntas']) {
+                    $this->copiarPreguntas((int) $origen->id, $nueva, $user, $ahora);
+                }
+
+                $creadas[] = $nueva;
+            }
+
+            return $creadas;
+        });
+
+        return ['creadas' => $creadas];
+    }
+
+    /**
+     * Los destinatarios de la original que valen en el año del token: todo el colegio, el personal,
+     * los grados (no son de un año) y personas sueltas siempre; grupos y clases sólo del mismo año.
+     */
+    private function destinatariosQueSirven(object $origen, bool $mismoAnio): array
+    {
+        return array_values(array_filter(
+            Destinatarios::deActividad((int) $origen->id),
+            fn ($f) => $mismoAnio || ($f['grupo_id'] === null && $f['asignatura_id'] === null)
+        ));
+    }
+
+    /** Copia preguntas, opciones y condiciones, con las condiciones apuntando a las copias. */
+    private function copiarPreguntas(int $origenId, int $nuevaId, object $user, string $ahora): void
+    {
+        $preguntas = [];
+        $opciones = [];
+
+        foreach (DB::select('SELECT * FROM ws_preguntas WHERE actividad_id = ? AND deleted_at IS NULL ORDER BY orden, id', [$origenId]) as $p) {
+            $fila = (array) $p;
+            $viejo = (int) $fila['id'];
+            unset($fila['id']);
+            $fila['actividad_id'] = $nuevaId;
+            $fila['added_by'] = (int) $user->user_id;
+            $fila['created_at'] = $ahora;
+            $fila['updated_at'] = $ahora;
+            $preguntas[$viejo] = DB::table('ws_preguntas')->insertGetId($fila);
+
+            foreach (DB::select('SELECT * FROM ws_opciones WHERE pregunta_id = ? ORDER BY orden, id', [$viejo]) as $o) {
+                $o = (array) $o;
+                $vieja = (int) $o['id'];
+                unset($o['id']);
+                $o['pregunta_id'] = $preguntas[$viejo];
+                $o['created_at'] = $ahora;
+                $o['updated_at'] = $ahora;
+                $opciones[$vieja] = DB::table('ws_opciones')->insertGetId($o);
+            }
+        }
+
+        if ($preguntas === []) {
+            return;
+        }
+
+        foreach (DB::select('SELECT * FROM ws_condiciones WHERE pregunta_id IN ('
+            .implode(',', array_fill(0, count($preguntas), '?')).') ORDER BY id', array_keys($preguntas)) as $c) {
+            $c = (array) $c;
+
+            // Una condición que apunta a una pregunta u opción borrada no se copia.
+            if (! isset($preguntas[(int) $c['depende_de_id']]) || ($c['opcion_id'] !== null && ! isset($opciones[(int) $c['opcion_id']]))) {
+                continue;
+            }
+
+            unset($c['id']);
+            $c['pregunta_id'] = $preguntas[(int) $c['pregunta_id']];
+            $c['depende_de_id'] = $preguntas[(int) $c['depende_de_id']];
+            $c['opcion_id'] = $c['opcion_id'] === null ? null : $opciones[(int) $c['opcion_id']];
+            $c['created_at'] = $ahora;
+            $c['updated_at'] = $ahora;
+            DB::table('ws_condiciones')->insert($c);
+        }
+    }
+
     // ------------------------------------------------------------------ la config
 
     /** El cuerpo, sólo con los campos de `ConfigAct`. */

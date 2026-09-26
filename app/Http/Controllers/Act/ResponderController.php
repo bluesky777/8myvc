@@ -273,7 +273,10 @@ class ResponderController extends Controller
             $entrega = DB::selectOne('SELECT * FROM ws_entregas WHERE actividad_id = ? AND user_id = ?', [$act->id, (int) $user->user_id]);
         }
 
-        if ($hojas === [] && ! ($entrega && $entrega->entregada_at !== null)) {
+        // Sin responder sólo se entra a ver los resultados compartidos «con todos» (§2.10).
+        $soloCompartidos = $hojas === [] && $entrada !== null && Actividad::compartidos($act) && $act->comparte_resultados === 'todos';
+
+        if ($hojas === [] && ! ($entrega && $entrega->entregada_at !== null) && ! $soloCompartidos) {
             abort(409, 'Todavía no has respondido esta actividad.');
         }
 
@@ -323,6 +326,15 @@ class ResponderController extends Controller
             }
         }
 
+        // Los resultados compartidos, con la marca de lo que eligió (§2.10): a quien respondió, y
+        // con `todos` también a quien le llegó y no respondió.
+        $compartidos = null;
+
+        if (Actividad::compartidos($act) && ($hoja !== null || ($act->comparte_resultados === 'todos' && $entrada !== null))) {
+            $compartidos = (new ResultadosController)->compartidos($act, $user, $entrada,
+                $hoja ? (Respuestas::deHojas([(int) $hoja->id])[(int) $hoja->id] ?? []) : null);
+        }
+
         $tiempo = null;
 
         if ($hoja && $hoja->iniciada_at !== null && $hoja->enviada_at !== null) {
@@ -341,7 +353,7 @@ class ResponderController extends Controller
             'promedio_grupo' => $verNota && $hoja && $hoja->grupo_id !== null ? $this->promedioDelGrupo($act, (int) $hoja->grupo_id) : null,
             'respuestas' => $filas,
             'entrega' => Formas::entrega($entrega),
-            'compartidos' => null,
+            'compartidos' => $compartidos,
         ];
     }
 
