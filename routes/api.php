@@ -52,6 +52,7 @@ Route::middleware('auth.token')->group(function () {
     require __DIR__.'/api/perfiles.php';
     require __DIR__.'/api/votaciones.php';
     require __DIR__.'/api/actividades.php';
+    require __DIR__.'/api/act.php';
     require __DIR__.'/api/piars.php';
     require __DIR__.'/api/notificaciones.php';
     require __DIR__.'/api/rubricas.php';

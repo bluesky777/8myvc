@@ -11,6 +11,10 @@
         "total": 2,
         "con_guard": 2
     },
+    "act": {
+        "total": 25,
+        "con_guard": 16
+    },
     "actas": {
         "total": 5,
         "con_guard": 5

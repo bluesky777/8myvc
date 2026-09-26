@@ -210,6 +210,11 @@ class CentinelaDeLasTablasDelAnioNuevoTest extends TestCase
         // tiene su horario y no se pisan (23 §5.2, decisión 13).
         'horario_versiones' => 'cada año tiene su horario y no se pisan; el puntero de years ya está excusado por lo mismo (23 §5.2)',
 
+        // Las actividades nuevas (tareas, cuestionarios, encuestas) guardan el año en que
+        // se crearon. Pasar una al año siguiente es DUPLICARLA a propósito (`act/{id}/duplicar`,
+        // tanda 3), nunca copiarlas todas: vienen con respuestas, entregas y notas de ese año.
+        'ws_actividades' => 'las tareas, cuestionarios y encuestas de ESE año con sus respuestas; al año siguiente se duplican a mano (ACTIVIDADES-CONTRATO §3.14)',
+
         // Los tres del PIAR. El Decreto 1421/2017 lo hace **anual**: se valora, se
         // acuerda con la familia y se firma cada año. Un PIAR copiado sería un
         // acuerdo que nadie volvió a firmar, y lleva documentos y firmas dentro.

@@ -837,6 +837,7 @@ class AutorizacionTest extends CasoDeContrato
      * @var array<string, string> familia => cuántas abiertas y por qué se sale
      */
     private const FAMILIAS_FUERA_DEL_CANDADO = [
+        'act' => '9 abiertas de 25: bandeja, responder, recorrido, borrador, enviar, mis-respuestas, archivo, archivos/{id} y entregar. Las responde cualquier sesión y quién puede lo decide `Services\\Act\\Destinatarios` por dentro; lo del creador lleva auth.personal y además exige el dueño (ACTIVIDADES-CONTRATO §3)',
         'acudientes' => '5 abiertas de 14. Cuatro se defienden por dentro y están en EXCEPCIONES_DE_HERMANAS; `guardar-valor` y `mis-acudidos` no las mira nadie',
         'alumnos' => '9 abiertas de 17. Seis están en EXCEPCIONES_DE_HERMANAS; `eps-check`, `guardar-valor`, `guardar-valor-varios` y `show` no',
         'ciudades' => '6 abiertas de 11, las seis lecturas de catálogo. Cuatro no las cubre ningún test',
