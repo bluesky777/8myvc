@@ -15,8 +15,11 @@ use Illuminate\Support\Facades\Schema;
  * las respuestas que no son una opción, y quién/cuándo en la hoja.
  *
  * **La única columna existente que cambia es `ws_actividades_resueltas.persona_id`, que pasa a
- * NULL**: una hoja anónima no puede llevar a su autor. Aprobado por Joseth (0 respuestas en
- * producción). `MODIFY`, sin `->change()`, como en la migración anterior.
+ * NULL** (aprobado por Joseth; 0 respuestas en producción). `MODIFY`, sin `->change()`, como en la
+ * migración anterior. Se pensó para las hojas anónimas; desde el 26 sep el anonimato es sólo de
+ * PRESENTACIÓN (Joseth: la base guarda siempre quién respondió qué, y lo que no ven el creador ni
+ * los directivos lo decide la API), así que hoy toda hoja lleva su `persona_id`. Nula se queda:
+ * una hoja de alguien sin ficha —un usuario del personal sin `profesores`— no tiene persona.
  *
  * La FK de `ws_respuestas.archivo_id` hacia `ws_archivos` NO va aquí: esa tabla se crea en
  * `2026_09_27_150000_las_entregas_de_las_tareas`, y es allí donde se ata.
@@ -36,6 +39,9 @@ return new class extends Migration
             'escala_estilo' => fn ($t) => $t->enum('escala_estilo', ['numeros', 'caras', 'estrellas'])->nullable(),
             'compartir' => fn ($t) => $t->boolean('compartir')->default(true),
             'explicacion' => fn ($t) => $t->text('explicacion')->nullable(),
+            // Sólo `multiple` en cuestionario: 0 = todo o nada; 1 = suma por correcta marcada y resta
+            // por incorrecta marcada, mínimo 0. Lo elige el docente por pregunta (Joseth, 26 sep).
+            'puntaje_parcial' => fn ($t) => $t->boolean('puntaje_parcial')->default(false),
         ]);
 
         $this->anadir('ws_opciones', 'is_correct', [
@@ -116,7 +122,7 @@ return new class extends Migration
         $this->quitar('ws_respuestas', ['texto', 'valor', 'fecha', 'archivo_id']);
         $this->quitar('ws_opciones', ['error_tipico']);
         $this->quitar('ws_preguntas', ['seccion', 'obligatoria', 'imagen_id', 'youtube_id', 'youtube_inicio',
-            'youtube_fin', 'enlace_url', 'escala_estilo', 'compartir', 'explicacion']);
+            'youtube_fin', 'enlace_url', 'escala_estilo', 'compartir', 'explicacion', 'puntaje_parcial']);
 
         // `persona_id` NO vuelve a `NOT NULL`: una hoja anónima escrita lo haría fallar.
     }
