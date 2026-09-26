@@ -884,7 +884,7 @@ class PerfilesController extends Controller
 
             if ($userTemp) {
 
-                $roles = $userTemp->roles()->get();
+                $roles = $userTemp->rolesConLosImplicitos();
                 $usuario->roles = $roles;
                 $usuario->perms = $userTemp->permissions();
             }

@@ -61,6 +61,26 @@ class User extends Authenticatable
       return $this->belongsToMany('App\Models\Role', 'role_user', 'user_id', 'role_id');
     }
 
+	/**
+	 * Los de `role_user` y detrás los que da el tipo o el nombramiento (`Role::rolesImplicitos`),
+	 * sin repetir. Lo que enseña y lo que permite tiene que salir de la misma lista que el contexto.
+	 *
+	 * @return \Illuminate\Support\Collection<int, \App\Models\Role>
+	 */
+	public function rolesConLosImplicitos()
+	{
+		$roles = $this->roles()->get()->toBase();
+		$faltan = array_values(array_diff(
+			array_column(\App\Models\Role::rolesImplicitos((int) $this->id), 'role_id'),
+			$roles->pluck('id')->all()
+		));
+		if ($faltan !== []) {
+			$roles = $roles->concat(\App\Models\Role::whereIn('id', $faltan)->get());
+		}
+
+		return $roles->values();
+	}
+
 
     
 	/**
@@ -201,7 +221,7 @@ class User extends Authenticatable
 	{
 		$perms = [];
 
-		foreach( $this->roles()->get() as $role )
+		foreach( $this->rolesConLosImplicitos() as $role )
 		{
 			$permisos = $role->permissions($detailed);
 			// No quiero un array con multiples arrays dentro que contengan los permisos
