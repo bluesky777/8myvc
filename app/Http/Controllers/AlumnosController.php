@@ -288,6 +288,35 @@ class AlumnosController extends Controller
     }
 
     /**
+     * `GET alumnos/nunca-matriculados` — los alumnos con ficha y SIN NINGUNA matrícula en toda la
+     * historia del colegio *(27 sep 2026, pedido)*. Nacen sobre todo de «Boletines de otros
+     * colegios» (`LoteDeOtrosColegios`): alguien que va a llegar y del que ya se guardaron sus años.
+     * Con lo que hace falta para decidir qué hacer con cada uno: desde cuándo está, quién lo creó,
+     * qué boletines tiene y si ya tiene usuario.
+     *
+     * @return list<object>
+     */
+    public function getNuncaMatriculados(): array
+    {
+        Autoriza::exigir(Autoriza::puedeEditarAlumnos($this->user), 'No tienes permiso para ver los alumnos.');
+
+        return DB::select('SELECT a.id AS alumno_id, a.nombres, a.apellidos, a.sexo, a.documento, a.user_id,
+                u.username, a.created_at AS creado, cu.username AS creado_por,
+                IFNULL(i.nombre, IF(a.sexo = "F", "default_female.png", "default_male.png")) AS foto_nombre,
+                (SELECT COUNT(*) FROM anos_externos ae WHERE ae.alumno_id = a.id AND ae.deleted_at IS NULL) AS anos_externos,
+                (SELECT MAX(ae.year) FROM anos_externos ae WHERE ae.alumno_id = a.id AND ae.deleted_at IS NULL) AS ultimo_ano,
+                (SELECT GROUP_CONCAT(DISTINCT ae.colegio_nombre ORDER BY ae.year DESC SEPARATOR " · ")
+                   FROM anos_externos ae WHERE ae.alumno_id = a.id AND ae.deleted_at IS NULL) AS colegios
+            FROM alumnos a
+            LEFT JOIN users u ON u.id = a.user_id
+            LEFT JOIN users cu ON cu.id = a.created_by
+            LEFT JOIN images i ON i.id = a.foto_id AND i.deleted_at IS NULL
+            WHERE a.deleted_at IS NULL
+              AND NOT EXISTS (SELECT 1 FROM matriculas m WHERE m.alumno_id = a.id)
+            ORDER BY a.created_at DESC, a.id DESC');
+    }
+
+    /**
      * `POST alumnos/{id}/crear-usuario` — la cuenta de un alumno que tiene ficha y no usuario
      * *(27 sep 2026)*: el que llega de «Boletines de otros colegios», o uno viejo que nunca la tuvo.
      *

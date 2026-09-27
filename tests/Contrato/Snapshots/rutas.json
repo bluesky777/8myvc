@@ -82,6 +82,7 @@
     "GET api/actas/{id}/grupo/{grupo}": "App\\Http\\Controllers\\VtActasController@getGrupo",
     "GET api/acudientes-export/acudientes": "App\\Http\\Controllers\\Informes\\AcudientesExportController@getAcudientes",
     "GET api/alumnos": "App\\Http\\Controllers\\AlumnosController@getIndex",
+    "GET api/alumnos/nunca-matriculados": "App\\Http\\Controllers\\AlumnosController@getNuncaMatriculados",
     "GET api/alumnos/sin-matriculas": "App\\Http\\Controllers\\AlumnosController@getSinMatriculas",
     "GET api/alumnos/trashed": "App\\Http\\Controllers\\AlumnosController@getTrashed",
     "GET api/areas": "App\\Http\\Controllers\\AreasController@getIndex",

@@ -50,6 +50,18 @@ class AlumnoSinUsuarioTest extends CasoDeContrato
         $this->postJson("/api/alumnos/{$id}/crear-usuario", [], $h)->assertStatus(422);
     }
 
+    public function test_sale_en_la_lista_de_nunca_matriculados_y_uno_matriculado_no(): void
+    {
+        $id = $this->alumnoSinNada();
+        $matriculado = (int) DB::table('matriculas')->whereNull('deleted_at')->value('alumno_id');
+
+        $ids = array_map(fn ($a) => (int) $a['alumno_id'],
+            $this->getJson('/api/alumnos/nunca-matriculados', $this->h())->assertStatus(200)->json());
+
+        $this->assertContains($id, $ids);
+        $this->assertNotContains($matriculado, $ids);
+    }
+
     public function test_un_alumno_no_crea_cuentas(): void
     {
         $id = $this->alumnoSinNada();

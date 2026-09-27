@@ -57,6 +57,7 @@ Route::put('alumnos/guardar-valor-varios', [AlumnosController::class, 'putGuarda
 // Los duplicados y su arreglo. `revisar-fusion` sólo mira; `fusionar` mueve el expediente
 // entero y manda la ficha vacía a la papelera, y por eso pide superusuario y no administrativo.
 Route::put('alumnos/duplicados', [AlumnosController::class, 'putDuplicados'])->middleware('auth.personal');
+Route::get('alumnos/nunca-matriculados', [AlumnosController::class, 'getNuncaMatriculados'])->middleware('auth.personal');
 Route::put('alumnos/revisar-fusion', [AlumnosController::class, 'putRevisarFusion'])->middleware('auth.personal');
 Route::put('alumnos/fusionar', [AlumnosController::class, 'putFusionar'])->middleware('auth.personal');
 Route::put('alumnos/alumnos-parecidos', [AlumnosController::class, 'putAlumnosParecidos'])->middleware('auth.personal');

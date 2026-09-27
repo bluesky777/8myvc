@@ -68,6 +68,7 @@
         "GET api/actas/{id}/grupo/{grupo}",
         "GET api/acudientes-export/acudientes",
         "GET api/alumnos",
+        "GET api/alumnos/nunca-matriculados",
         "GET api/alumnos/sin-matriculas",
         "GET api/alumnos/trashed",
         "GET api/areas/jefes",
