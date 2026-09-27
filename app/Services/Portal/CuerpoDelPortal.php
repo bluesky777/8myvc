@@ -136,6 +136,11 @@ final class CuerpoDelPortal
      */
     public static function codigoDane(): ?string
     {
+        $fijado = trim((string) config('portal.dane'));
+        if ($fijado !== '') {
+            return $fijado;   // PORTAL_DANE manda sobre `years` (config/portal.php)
+        }
+
         $fila = DB::selectOne("SELECT codigo_dane FROM years
             WHERE deleted_at IS NULL AND codigo_dane IS NOT NULL AND TRIM(codigo_dane) <> ''
             ORDER BY actual DESC, year DESC LIMIT 1");

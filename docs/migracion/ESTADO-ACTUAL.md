@@ -8,7 +8,7 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
-> ## 🟡 EL EMISOR DEL PORTAL DE LA UNIÓN, EN `feat/portal-emisor` SIN FUNDIR (27 sep 2026)
+> ## 🟡 EL EMISOR DEL PORTAL DE LA UNIÓN, FUNDIDO Y SIN DESPLEGAR (27 sep 2026)
 >
 > `portal:enviar {--anio=} {--seco} {--retroactivo}` y `portal:respaldo-inicial`, con el
 > cuerpo **v2** de `myvc_ucn/docs/01-diseno-tecnico.md` §2.1 (salud incluida) armado en
@@ -32,6 +32,10 @@
 >   `micolev1_la_hermosa`): 2026 → 201 aceptado y luego 200 reemplazado; carga inicial 2019 y
 >   2020 → 201. Destapó que **2019 de `la_hermosa` lleva el DANE de otro colegio**
 >   (`381736001849`): el remitente sale ahora del año actual, no del año mandado.
+> - **`PORTAL_DANE` opcional en el `.env`** manda sobre `years.codigo_dane`. Medido en
+>   producción el 27 sep 2026: **COMAD lleva el DANE de LAL** (`381794004629`) y **LAL lleva
+>   el texto entero del reconocimiento oficial** en ese campo (lo imprimen sus certificados;
+>   no se toca). A esos dos se les pone `PORTAL_DANE` al repartir la clave.
 > - El `tools/tests-que-tocan.py` pide la suite entera por `config/portal.php`: **no se ha
 >   corrido**, es decisión de Joseth antes de desplegar.
 
