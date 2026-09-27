@@ -147,6 +147,37 @@ class PortalCuerpoTest extends CasoDeContrato
     }
 
     /**
+     * El remitente es el DANE de hoy aunque el año mandado lleve otro: en
+     * `micolev1_la_hermosa` 2019 tiene el DANE de otro colegio y la carga inicial
+     * salía firmada como él (401 del portal, 27 sep 2026).
+     */
+    public function test_el_codigo_dane_es_el_del_anio_actual_y_no_el_del_anio_mandado(): void
+    {
+        // El año mandado (2025) deja de ser actual y lleva el DANE de otro; el actual
+        // pasa a ser 2024 con el suyo.
+        DB::table('years')->update(['actual' => 0]);
+        DB::table('years')->where('year', self::ANIO)->update(['codigo_dane' => '999999999999']);
+        DB::table('years')->where('year', self::ANIO - 1)->update(['actual' => 1, 'codigo_dane' => '481794005085']);
+        $hoy = (object) ['codigo_dane' => '481794005085'];
+
+        $this->assertSame((string) $hoy->codigo_dane, $this->cuerpo()['sobre']['codigo_dane']);
+    }
+
+    /**
+     * El receptor declara `ausencias_del_periodo` no anulable: un año sin periodo
+     * actual (lo normal en uno pasado) manda el último, no null.
+     */
+    public function test_sin_periodo_actual_las_ausencias_no_van_a_null(): void
+    {
+        DB::table('periodos')->where('year_id', $this->yearId())->update(['actual' => 0]);
+
+        $cuerpo = $this->cuerpo();
+
+        $this->assertNull($cuerpo['colegio']['periodo_actual']);
+        $this->assertIsInt($cuerpo['convivencia']['ausencias_del_periodo']);
+    }
+
+    /**
      * El periodo en curso del año en curso no cuenta: sus casillas sin calificar
      * están a 0 y harían perder a medio colegio (medido en `caz_zaragoza`).
      */

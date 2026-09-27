@@ -16,7 +16,7 @@
 > el `schedule()` a las **04:10 de Bogotá** (`->timezone()` explícito: `config/app.php` va en
 > UTC y sin él serían las 23:10). Sin `PORTAL_URL`/`PORTAL_CLAVE`: no manda y sale con 0.
 > **No añade rutas** (el emisor es saliente). Tests: `PortalCuerpoTest`, `NadaDeMenoresTest`,
-> `PortalSaludTest`, `PortalEnviarTest` — 19 verdes con
+> `PortalSaludTest`, `PortalEnviarTest` — 21 verdes con
 > `--filter='PortalCuerpoTest|NadaDeMenoresTest|PortalSaludTest|PortalEnviarTest'`.
 >
 > - **El snapshot tiene 60 rutas, no 61**: el JSON de §2.1.1 aplanado da 55 (el documento
@@ -28,6 +28,10 @@
 > - **Esperan decisión de Joseth**: activo = `MATR`+`ASIS` (criterio de `GruposController`,
 >   sin mirar `fecha_retiro`); «procesos abiertos» = todos los `dis_procesos` del año (la
 >   tabla no tiene cierre: `lal` 2025 da 522); y si `portal:respaldo-inicial` se programa.
+> - **Probado de punta a punta contra el receptor local** (`myvc_ucn/portal`, `eal` con
+>   `micolev1_la_hermosa`): 2026 → 201 aceptado y luego 200 reemplazado; carga inicial 2019 y
+>   2020 → 201. Destapó que **2019 de `la_hermosa` lleva el DANE de otro colegio**
+>   (`381736001849`): el remitente sale ahora del año actual, no del año mandado.
 > - El `tools/tests-que-tocan.py` pide la suite entera por `config/portal.php`: **no se ha
 >   corrido**, es decisión de Joseth antes de desplegar.
 

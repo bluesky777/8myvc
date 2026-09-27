@@ -41,9 +41,7 @@ class PortalRespaldoInicial extends Command
             return self::SUCCESS;
         }
 
-        $dane = DB::selectOne("SELECT codigo_dane FROM years
-            WHERE deleted_at IS NULL AND codigo_dane IS NOT NULL AND TRIM(codigo_dane) <> ''
-            ORDER BY actual DESC, year DESC LIMIT 1")?->codigo_dane;
+        $dane = CuerpoDelPortal::codigoDane();
         if ($dane === null) {
             $this->error('`years.codigo_dane` está vacío: el portal no sabría de quién es el envío.');
 

@@ -49,7 +49,7 @@ use RuntimeException;
  *   cierre, así que se cuentan todos los del año sin borrar. Si algún día hay
  *   columna de cierre, este número baja y la clave sigue siendo la misma.
  * - **Ausencias del periodo** = suma de `cantidad_ausencia` en el periodo actual
- *   del año; `null` si el año no tiene periodo actual.
+ *   del año (o el último, si ninguno está marcado); 0 si el año no tiene periodos.
  */
 final class CuerpoDelPortal
 {
@@ -70,7 +70,7 @@ final class CuerpoDelPortal
     {
         $ahora = ($ahora ?? Reloj::ahora())->copy()->setTimezone(Reloj::ZONA);
 
-        $year = DB::selectOne('SELECT id, year, nombre_colegio, codigo_dane, nota_minima_aceptada
+        $year = DB::selectOne('SELECT id, year, nombre_colegio, nota_minima_aceptada
             FROM years WHERE year = ? AND deleted_at IS NULL
             ORDER BY actual DESC, id DESC LIMIT 1', [$anio]);
         if ($year === null) {
@@ -89,7 +89,7 @@ final class CuerpoDelPortal
         return [
             'sobre' => [
                 'version_emisor' => self::VERSION,
-                'codigo_dane' => $year->codigo_dane === null ? null : (string) $year->codigo_dane,
+                'codigo_dane' => self::codigoDane(),
                 'anio' => (int) $year->year,
                 'fecha_corte' => $ahora->format('Y-m-d'),
                 'es_retroactivo' => $retroactivo,
@@ -104,15 +104,43 @@ final class CuerpoDelPortal
             'convivencia' => [
                 'procesos_disciplinarios_abiertos' => $this->contar('SELECT COUNT(*) AS n FROM dis_procesos
                     WHERE year_id = ? AND deleted_at IS NULL', [$yearId]),
-                'ausencias_del_periodo' => $periodo === null ? null : $this->contar(
-                    'SELECT COALESCE(SUM(cantidad_ausencia), 0) AS n FROM ausencias
-                     WHERE periodo_id = ? AND deleted_at IS NULL', [(int) $periodo->id]),
+                // Nunca null: el receptor la declara `conteo` (no anulable) y un año
+                // pasado sin periodo marcado como actual rompería la carga inicial
+                // con un 422. Sin periodo actual, el último del año; sin ninguno, 0.
+                'ausencias_del_periodo' => $this->contar(
+                    'SELECT COALESCE(SUM(au.cantidad_ausencia), 0) AS n FROM ausencias au
+                     WHERE au.deleted_at IS NULL AND au.periodo_id = (
+                        SELECT p.id FROM periodos p WHERE p.year_id = ? AND p.deleted_at IS NULL
+                        ORDER BY p.actual DESC, p.numero DESC LIMIT 1)', [$yearId]),
             ],
             'escala' => $this->escala($yearId, $year->nota_minima_aceptada),
             'despliegue' => Despliegue::parte(),
             'grados' => $this->grados($yearId, $alumnos, $retiradosPorGrado),
             'salud' => ['meses' => $this->salud((int) $year->year, $ahora)],
         ];
+    }
+
+    /**
+     * El remitente: el código DANE de HOY, no el del año que se manda.
+     *
+     * `codigo_dane` vive en `years` y se copia año a año, así que es un dato por
+     * año que casi nunca cambia — pero **cambia**. Medido el 27 sep 2026 en
+     * `micolev1_la_hermosa`: 2019 lleva `381736001849` y 2020–2026 `481794005085`
+     * (un colegio nuevo se crea copiando otro, y su primer año se quedó con el
+     * DANE del de origen). Con el del año, la carga inicial de 2019 llegó al
+     * portal firmada como OTRO colegio y el portal la rechazó con 401 — o, peor,
+     * la habría aceptado si ese otro tuviera clave. El remitente es una identidad
+     * del colegio, no un atributo del año: se toma del año actual, y si no lo
+     * tiene, del más reciente que lo tenga. Lo comparte `portal:respaldo-inicial`
+     * para el GET, que tiene que preguntar como el mismo remitente que luego manda.
+     */
+    public static function codigoDane(): ?string
+    {
+        $fila = DB::selectOne("SELECT codigo_dane FROM years
+            WHERE deleted_at IS NULL AND codigo_dane IS NOT NULL AND TRIM(codigo_dane) <> ''
+            ORDER BY actual DESC, year DESC LIMIT 1");
+
+        return $fila === null ? null : trim((string) $fila->codigo_dane);
     }
 
     /**
