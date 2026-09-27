@@ -300,11 +300,18 @@ class EntregasController extends Controller
                 ]);
             }
 
-            // Las preguntas de la tarea, en una sola hoja que se reescribe al reentregar.
+            // Las preguntas de la tarea, en una sola hoja que se reescribe al reentregar: la tarea no
+            // gasta intentos. Si mientras tanto guardó borrador (otra hoja, sin terminar), la enviada
+            // se queda con las respuestas y el borrador se retira, para que no vuelva al responder.
             if ($preguntas !== []) {
-                $hoja = Respuestas::hojasDe((int) $act->id, $entrada)[0] ?? null;
+                $hoja = Respuestas::hojasDe((int) $act->id, $entrada, true)[0]
+                    ?? Respuestas::hojasDe((int) $act->id, $entrada, false)[0] ?? null;
 
                 if ($hoja) {
+                    DB::update('UPDATE ws_actividades_resueltas SET deleted_at = ?, updated_at = ?
+                                 WHERE actividad_id = ? AND user_id = ? AND alumno_id <=> ? AND terminado = 0
+                                   AND deleted_at IS NULL AND id <> ?',
+                        [$ahora, $ahora, $act->id, $entrada['user_id'], $entrada['alumno_id'], $hoja->id]);
                     $hojaId = (int) $hoja->id;
                     DB::delete('DELETE FROM ws_respuestas WHERE actividad_resuelta_id = ?', [$hojaId]);
                 } else {

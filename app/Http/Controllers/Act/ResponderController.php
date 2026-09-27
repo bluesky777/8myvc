@@ -46,18 +46,26 @@ class ResponderController extends Controller
         }
 
         $borrador = [];
+        $entrega = null;
+
+        if ($entrada && $act->modo === 'tarea' && $entrada['alumno_id'] !== null) {
+            $entrega = DB::selectOne('SELECT * FROM ws_entregas WHERE actividad_id = ? AND alumno_id = ?',
+                [$act->id, $entrada['alumno_id']]);
+        }
 
         if ($entrada) {
             $hoja = Respuestas::hojasDe((int) $act->id, $entrada, false)[0] ?? null;
+
+            // Reentregar una tarea (§3.8) parte de lo que ya entregó: sin borrador, la hoja enviada
+            // vuelve como borrador para editarla. No en una ya calificada, que no se reentrega.
+            if (! $hoja && $act->modo === 'tarea' && ! ($entrega && $entrega->nota !== null)) {
+                $hoja = Respuestas::hojasDe((int) $act->id, $entrada, true)[0] ?? null;
+            }
+
             $borrador = $hoja ? Respuestas::listaDeHoja((int) $hoja->id) : [];
         }
 
-        $miEntrega = null;
-
-        if ($entrada && $act->modo === 'tarea' && $entrada['alumno_id'] !== null) {
-            $miEntrega = Formas::entrega(DB::selectOne('SELECT * FROM ws_entregas WHERE actividad_id = ? AND alumno_id = ?',
-                [$act->id, $entrada['alumno_id']]));
-        }
+        $miEntrega = Formas::entrega($entrega);
 
         return [
             'id' => (int) $act->id,
