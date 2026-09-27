@@ -3,6 +3,7 @@
 use App\Support\Ancla;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Database\Schema\ColumnDefinition;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -79,7 +80,7 @@ return new class extends Migration
     /**
      * Las columnas nuevas, en el orden del contrato.
      *
-     * @return array<string, callable(Blueprint): \Illuminate\Database\Schema\ColumnDefinition>
+     * @return array<string, callable(Blueprint): ColumnDefinition>
      */
     private function columnas(): array
     {

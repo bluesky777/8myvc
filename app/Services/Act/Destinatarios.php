@@ -509,7 +509,7 @@ class Destinatarios
      *          (responden ∈ {acudientes, ambos} Y algún grupo del alcance no es de su titularía)
      *       O  (responden ∈ {alumnos, ambos}    Y el alcance cubre más de 3 grupos distintos) )
      *
-     * @return array{0: bool, 1: ?string}  si requiere, y la frase que lo explica
+     * @return array{0: bool, 1: ?string} si requiere, y la frase que lo explica
      */
     public static function requiereAprobacion(object $act, array $filas, object $creador): array
     {

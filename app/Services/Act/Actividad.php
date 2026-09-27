@@ -3,6 +3,7 @@
 namespace App\Services\Act;
 
 use App\Support\Autoriza;
+use App\Support\EscalaDeNotas;
 use App\Support\Reloj;
 use Illuminate\Support\Facades\DB;
 
@@ -147,6 +148,6 @@ class Actividad
     /** La nota más alta de la escala del año; 100 si el año no tiene escala. */
     public static function maximoDeLaEscala(int $yearId): int
     {
-        return \App\Support\EscalaDeNotas::maximo($yearId) ?? 100;
+        return EscalaDeNotas::maximo($yearId) ?? 100;
     }
 }

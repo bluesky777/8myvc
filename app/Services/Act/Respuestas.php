@@ -317,7 +317,7 @@ class Respuestas
     /**
      * Las respuestas guardadas de varias hojas, en la forma de `RespuestaEnviada`.
      *
-     * @return array<int, array<int, array>>  hoja_id => pregunta_id => respuesta
+     * @return array<int, array<int, array>> hoja_id => pregunta_id => respuesta
      */
     public static function deHojas(array $hojaIds): array
     {

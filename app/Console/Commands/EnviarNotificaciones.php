@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\Act\Avisos as AvisosDeActividades;
+use App\Services\Act\Formas;
 use App\Services\Notificaciones\Publicador;
 use App\Services\Notificaciones\TemasDeNotificacion;
 use App\Support\Reloj;
@@ -959,7 +960,7 @@ class EnviarNotificaciones extends Command
             $deTema = $f->user_id === null;
 
             if ($f->clase === 'por_aprobar') {
-                $creadores[(int) $f->created_by] ??= \App\Services\Act\Formas::personaDeUsuario((int) $f->created_by)['nombre'] ?? null;
+                $creadores[(int) $f->created_by] ??= Formas::personaDeUsuario((int) $f->created_by)['nombre'] ?? null;
             }
 
             $frase = AvisosDeActividades::frase(

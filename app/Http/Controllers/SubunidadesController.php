@@ -13,7 +13,6 @@ use App\Support\CandadoDeLaPlantilla;
 use App\Support\PeriodoDeLaFila;
 use App\Support\Reloj;
 use App\User;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Request;
 

@@ -3,6 +3,7 @@
 use App\Support\Ancla;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Database\Schema\ColumnDefinition;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -90,7 +91,7 @@ return new class extends Migration
     /**
      * Añade las columnas que falten, en cadena detrás de `$ancla` (ver la migración anterior).
      *
-     * @param  array<string, callable(Blueprint): \Illuminate\Database\Schema\ColumnDefinition>  $columnas
+     * @param  array<string, callable(Blueprint): ColumnDefinition>  $columnas
      */
     private function anadir(string $tabla, string $ancla, array $columnas): void
     {
