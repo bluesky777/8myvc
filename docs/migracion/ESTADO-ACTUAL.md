@@ -8,6 +8,29 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+> ## 🟡 EL EMISOR DEL PORTAL DE LA UNIÓN, EN `feat/portal-emisor` SIN FUNDIR (27 sep 2026)
+>
+> `portal:enviar {--anio=} {--seco} {--retroactivo}` y `portal:respaldo-inicial`, con el
+> cuerpo **v2** de `myvc_ucn/docs/01-diseno-tecnico.md` §2.1 (salud incluida) armado en
+> `App\Services\Portal\CuerpoDelPortal`, firma HMAC de §3.1 con `PORTAL_CLAVE` y línea en
+> el `schedule()` a las **04:10 de Bogotá** (`->timezone()` explícito: `config/app.php` va en
+> UTC y sin él serían las 23:10). Sin `PORTAL_URL`/`PORTAL_CLAVE`: no manda y sale con 0.
+> **No añade rutas** (el emisor es saliente). Tests: `PortalCuerpoTest`, `NadaDeMenoresTest`,
+> `PortalSaludTest`, `PortalEnviarTest` — 19 verdes con
+> `--filter='PortalCuerpoTest|NadaDeMenoresTest|PortalSaludTest|PortalEnviarTest'`.
+>
+> - **El snapshot tiene 60 rutas, no 61**: el JSON de §2.1.1 aplanado da 55 (el documento
+>   dice 58) y `salud` añade 5, no 3. El conjunto es el del documento; la cuenta escrita no.
+> - **Pérdidas y promedios en vivo desde `notas_finales`**, no desde
+>   `matriculas.cant_asign_perdidas`/`promedio` (sólo las escribe el cierre: a 0 en todo
+>   2026). **Sin el periodo en curso del año en curso**: en `caz_zaragoza` el periodo 3 de
+>   2026 tenía 523 de 1.602 definitivas a 0 y ponía a 72 de 214 alumnos con 3+ perdidas.
+> - **Esperan decisión de Joseth**: activo = `MATR`+`ASIS` (criterio de `GruposController`,
+>   sin mirar `fecha_retiro`); «procesos abiertos» = todos los `dis_procesos` del año (la
+>   tabla no tiene cierre: `lal` 2025 da 522); y si `portal:respaldo-inicial` se programa.
+> - El `tools/tests-que-tocan.py` pide la suite entera por `config/portal.php`: **no se ha
+>   corrido**, es decisión de Joseth antes de desplegar.
+
 > ## ✅ EL TABLERO DE DEFINITIVAS DICE LA VERDAD, Y SEIS CAMINOS MÁS RECALCULAN (25 sep 2026)
 >
 > **Lo reportó Joseth en `lalvirtual.edu.co`**: muchos grupos en «Notas finales
