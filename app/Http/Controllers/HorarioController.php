@@ -1542,6 +1542,95 @@ class HorarioController extends Controller
     }
 
     /**
+     * Las clases de UN docente en UN día del horario oficial, en orden de franja.
+     *
+     * La pide la portada (`ChangesAsked/to-me`) para pintar el horario del día con su
+     * hora, en lugar de la lista que sale de las siete columnas de `asignaturas`. Esas
+     * columnas dicen *qué* se da ese día, no *cuándo*, y siguen siendo lo que se enseña
+     * cuando el colegio no tiene horario oficial.
+     *
+     * Una fila por lección y asignación, sin juntar: la unión de dos franjas seguidas
+     * de la misma asignatura en un bloque la hace el front, que es quien decide cómo se
+     * lee. Para poder hacerla sin adivinar viaja `descanso_despues`: dos franjas
+     * seguidas con un descanso en medio no son un bloque.
+     *
+     * El docente sale de `horario_pieza_docente`, no de `asignaturas.profesor_id`: es
+     * quien da esa pieza en ESTE horario.
+     *
+     * `inicio` y `fin` son `null` mientras el colegio no haya dado los timbres de la
+     * jornada de ese grupo, que es lo que pasa en todos los proyectos reales a 27 sep
+     * 2026. No se inventan: el front pinta entonces el número de la franja.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function clasesDelDocenteEnElDia(int $versionId, int $profesorId, int $dia): array
+    {
+        $filas = DB::select(
+            'SELECT hl.asignatura_id, hl.franja, hl.duracion, hl.salon,
+                    m.materia, m.alias AS alias_materia,
+                    g.id AS grupo_id, g.nombre AS nombre_grupo, g.abrev AS abrev_grupo
+               FROM horario_lecciones hl
+               INNER JOIN horario_pieza_docente hpd
+                       ON hpd.version_id = hl.version_id AND hpd.pieza_id = hl.pieza_id AND hpd.profesor_id = ?
+               INNER JOIN asignaturas a ON a.id = hl.asignatura_id AND a.deleted_at IS NULL
+               INNER JOIN materias m ON m.id = a.materia_id
+               INNER JOIN grupos g ON g.id = a.grupo_id
+              WHERE hl.version_id = ? AND hl.dia = ?
+              ORDER BY hl.franja, g.orden, hl.id',
+            [$profesorId, $versionId, $dia]
+        );
+
+        if ($filas === []) {
+            return [];
+        }
+
+        $blob = DB::select('SELECT proyecto FROM horario_versiones WHERE id = ?', [$versionId]);
+        $leidas = $this->jornadasDelProyecto($this->proyectoDeLaVersion($blob[0]->proyecto ?? null));
+
+        $nivelDelGrupo = [];
+        $jornadaDelNivel = [];
+
+        if ($leidas !== null) {
+            foreach ($leidas['grupos'] as $g) {
+                $nivelDelGrupo[$g['grupo_id']] = $g['nivel_id'];
+            }
+
+            foreach ($leidas['niveles'] as $n) {
+                $jornadaDelNivel[$n['id']] = $n['jornada'];
+            }
+        }
+
+        return array_map(function ($f) use ($leidas, $nivelDelGrupo, $jornadaDelNivel) {
+            $desde = (int) $f->franja;
+            $hasta = $desde + max(1, (int) $f->duracion) - 1;
+
+            $jornada = null;
+
+            if ($leidas !== null) {
+                $nivel = $nivelDelGrupo[(int) $f->grupo_id] ?? null;
+                $jornada = ($nivel !== null ? ($jornadaDelNivel[$nivel] ?? null) : null) ?? $leidas['por_defecto'];
+            }
+
+            $timbres = $jornada['timbres'] ?? null;
+
+            return [
+                'asignatura_id' => (int) $f->asignatura_id,
+                'grupo_id' => (int) $f->grupo_id,
+                'materia' => $f->materia,
+                'alias_materia' => $f->alias_materia,
+                'nombre_grupo' => $f->nombre_grupo,
+                'abrev_grupo' => $f->abrev_grupo,
+                'salon' => $f->salon,
+                'desde' => $desde,
+                'hasta' => $hasta,
+                'inicio' => $timbres[$desde - 1]['inicio'] ?? null,
+                'fin' => $timbres[$hasta - 1]['fin'] ?? null,
+                'descanso_despues' => in_array($hasta, $jornada['descansos_tras'] ?? [], true),
+            ];
+        }, $filas);
+    }
+
+    /**
      * El fichero de proyecto **decodificado**, o `null` si no se pudo leer.
      *
      * Se decodifica **una sola vez por petición** y el resultado se reparte: de aquí

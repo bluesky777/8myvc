@@ -145,13 +145,16 @@ class ChangeAskedController extends Controller {
 				// estreno del horario en un fallo nuevo.
 				$horario_manana = self::asignaturas_dia($user->year_id, $user->profesor_id, $user->periodo_id, ($dia + 1) % 7);
 			}
+
+			[$clases_hoy, $clases_manana] = $this->clasesDelHorarioOficial((int) $user->year_id, $user->profesor_id ? (int) $user->profesor_id : null);
 			
 			
 			
 			return [ 'alumnos'=>$cambios_alum, 'profesores'=> $pedidos, 'historial'=> $historial, 'intentos_fallidos'=> 
 				$intentos_fallidos, 'profes_actuales' => $profes_actuales, 'mis_publicaciones' => $mis_publicaciones,
 				'publicaciones' => $publicaciones, 'eventos' => $eventos, 'horario_hoy' => $horario_hoy, 'horario_manana' => $horario_manana,
-				'horario_version_id' => $this->horarioOficialDelAnio((int) $user->year_id) ];
+				'horario_version_id' => $this->horarioOficialDelAnio((int) $user->year_id),
+				'clases_hoy' => $clases_hoy, 'clases_manana' => $clases_manana ];
 
 			
 		}elseif ($user->tipo == 'Profesor') {
@@ -208,6 +211,7 @@ class ChangeAskedController extends Controller {
 			$horario_hoy 	= self::asignaturas_dia($user->year_id, $user->persona_id, $user->periodo_id, $dia, $user->show_materias_todas);
 			// El mismo sábado que arriba, en la otra rama de `getToMe` (§2.1 del 23).
 			$horario_manana = self::asignaturas_dia($user->year_id, $user->persona_id, $user->periodo_id, ($dia + 1) % 7);
+			[$clases_hoy, $clases_manana] = $this->clasesDelHorarioOficial((int) $user->year_id, (int) $user->persona_id);
 
 			
 			
@@ -230,7 +234,8 @@ class ChangeAskedController extends Controller {
 			return [ 'alumnos'=>$cambios_alum, 'profesores'=>[], 'historial'=> $historial, 'intentos_fallidos'=> $intentos_fallidos, 
 				'profes_actuales' => $profes_actuales, 'mis_publicaciones' => $mis_publicaciones,
 				'publicaciones' => $publicaciones, 'eventos' => $eventos, 'horario_hoy' => $horario_hoy, 'horario_manana' => $horario_manana,
-				'horario_version_id' => $this->horarioOficialDelAnio((int) $user->year_id) ];
+				'horario_version_id' => $this->horarioOficialDelAnio((int) $user->year_id),
+				'clases_hoy' => $clases_hoy, 'clases_manana' => $clases_manana ];
 		
 		
 		}elseif ($user->tipo == 'Alumno') {
@@ -1339,6 +1344,30 @@ class ChangeAskedController extends Controller {
 	}
 
 
+
+	/**
+	 * `clases_hoy` y `clases_manana`: el día del docente sacado del horario OFICIAL, con
+	 * franja y hora. `null` las dos si el año no tiene versión oficial o no hay docente —y
+	 * entonces la portada sigue con `horario_hoy`/`horario_manana`, que salen de los días
+	 * marcados en `asignaturas`—. Campos NUEVOS y no un cambio de los viejos: `to-me` lo
+	 * leen también la vieja y Flutter.
+	 */
+	private function clasesDelHorarioOficial(int $yearId, ?int $profesorId): array
+	{
+		$versionId = $this->horarioOficialDelAnio($yearId);
+
+		if ($versionId === null || $profesorId === null) {
+			return [null, null];
+		}
+
+		$dia = Carbon::now('America/Bogota')->dayOfWeek;
+		$horario = app(HorarioController::class);
+
+		return [
+			$horario->clasesDelDocenteEnElDia($versionId, $profesorId, $dia),
+			$horario->clasesDelDocenteEnElDia($versionId, $profesorId, ($dia + 1) % 7),
+		];
+	}
 
 	/**
 	 * La versión de horario que el año tiene marcada como oficial, o `null`.
