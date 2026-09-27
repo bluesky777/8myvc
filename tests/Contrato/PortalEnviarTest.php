@@ -78,6 +78,16 @@ class PortalEnviarTest extends CasoDeContrato
         $this->assertStringContainsString('no es un error', Artisan::output());
     }
 
+    public function test_portal_dane_manda_sobre_el_de_years(): void
+    {
+        config(['portal.url' => null, 'portal.clave' => null, 'portal.dane' => '188001000001']);
+
+        $this->assertSame(0, Artisan::call('portal:enviar', ['--anio' => self::ANIO, '--seco' => true]));
+
+        $json = json_decode(trim(Artisan::output()), true);
+        $this->assertSame('188001000001', $json['sobre']['codigo_dane']);
+    }
+
     public function test_en_seco_imprime_el_cuerpo_y_no_manda(): void
     {
         config(['portal.url' => null, 'portal.clave' => null]);

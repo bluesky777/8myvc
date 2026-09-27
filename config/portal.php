@@ -26,6 +26,12 @@ return [
     // 32 bytes aleatorios, tal cual los entrega el portal al dar de alta.
     'clave' => env('PORTAL_CLAVE'),
 
+    // Opcional. El DANE con el que este colegio se presenta al portal, cuando el de
+    // `years.codigo_dane` no sirve: medido en producción el 27 sep 2026, COMAD lleva
+    // el de LAL (se creó copiándolo) y LAL lleva el texto entero del reconocimiento
+    // oficial, que es lo que imprimen sus certificados y por eso no se toca.
+    'dane' => env('PORTAL_DANE'),
+
     // Segundos entre intentos cuando el POST falla por red o por un 5xx: tres
     // intentos, esperas crecientes y tope de un par de minutos en total
     // (§3.2). Repetir es gratis —el receptor reemplaza la foto de la misma
