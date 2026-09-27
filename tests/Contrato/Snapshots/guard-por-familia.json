@@ -32,8 +32,8 @@
         "con_guard": 1
     },
     "alumnos": {
-        "total": 21,
-        "con_guard": 12
+        "total": 22,
+        "con_guard": 13
     },
     "aplicacion-descargas": {
         "total": 1,
@@ -244,8 +244,8 @@
         "con_guard": 6
     },
     "ia": {
-        "total": 3,
-        "con_guard": 3
+        "total": 6,
+        "con_guard": 6
     },
     "images-users": {
         "total": 10,
@@ -336,8 +336,8 @@
         "con_guard": 6
     },
     "otros-colegios": {
-        "total": 12,
-        "con_guard": 12
+        "total": 14,
+        "con_guard": 14
     },
     "pagos-inscripcion": {
         "total": 2,

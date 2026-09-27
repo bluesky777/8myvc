@@ -64,6 +64,7 @@ Route::put('alumnos/personas-check', [AlumnosController::class, 'putPersonasChec
 Route::put('alumnos/show', [AlumnosController::class, 'putShow']);
 Route::get('alumnos/sin-matriculas', [AlumnosController::class, 'getSinMatriculas'])->middleware('auth.personal');
 Route::post('alumnos/store', [AlumnosController::class, 'postStore']);
+Route::post('alumnos/{id}/crear-usuario', [AlumnosController::class, 'postCrearUsuario'])->middleware('auth.personal');
 Route::get('alumnos/trashed', [AlumnosController::class, 'getTrashed'])->middleware('auth.personal');
 Route::put('alumnos/years-con-notas', [AlumnosController::class, 'putYearsConNotas'])->middleware('persona.propia');
 Route::put('alumnos/de-grupo/{grupo_id}', [AlumnosController::class, 'putDeGrupo'])->middleware('auth.personal');
@@ -310,6 +311,9 @@ Route::delete('piars-alumnos/document/{alumno_id}', [PiarsAlumnosController::cla
 // alumnos, dentro de cada método. Ver la cabecera de `OtrosColegiosController`.
 Route::get('otros-colegios/documentos/{id}', [OtrosColegiosController::class, 'getDocumento'])->middleware('auth.personal');
 Route::delete('otros-colegios/documentos/{id}', [OtrosColegiosController::class, 'deleteDocumento'])->middleware('auth.personal');
+// En lote (26 sep 2026): antes que `otros-colegios/{id}`, que se tragaría «lote».
+Route::put('otros-colegios/lote/ensayo', [OtrosColegiosController::class, 'putLoteEnsayo'])->middleware('auth.personal');
+Route::post('otros-colegios/lote', [OtrosColegiosController::class, 'postLote'])->middleware('auth.personal');
 Route::get('otros-colegios/grados', [OtrosColegiosController::class, 'getGrados'])->middleware('auth.personal');
 Route::get('otros-colegios/materias-del-grado/{grado_id}', [OtrosColegiosController::class, 'getMateriasDelGrado'])->middleware('auth.personal');
 Route::get('otros-colegios/alumno/{alumno_id}/certificados', [OtrosColegiosController::class, 'getCertificadosDeAlumno'])->middleware('auth.personal');

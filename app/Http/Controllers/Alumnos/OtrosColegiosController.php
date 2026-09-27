@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Http\Controllers\Controller;
 use App\Models\EscalaDeValoracion;
 use App\Models\Year;
+use App\Services\LoteDeOtrosColegios;
 use App\Support\Autoriza;
 use App\Support\NotaDeOtroColegio;
 use App\Support\Reloj;
@@ -287,6 +288,45 @@ class OtrosColegiosController extends Controller
         });
 
         return ['guardadas' => count($filas)];
+    }
+
+    /**
+     * `PUT otros-colegios/lote/ensayo` — boletines de muchos alumnos de una vez, sin escribir nada.
+     * Devuelve cada boletín con su alumno y sus materias emparejados, las notas convertidas, lo
+     * dudoso y lo repetido. Ver `App\Services\LoteDeOtrosColegios` y `NOTAS-DE-OTRO-COLEGIO.md` §11.
+     */
+    public function putLoteEnsayo()
+    {
+        $this->exigirPermiso();
+
+        return (new LoteDeOtrosColegios)->ensayo($this->filasDelLote(), (array) Request::input('decisiones', []));
+    }
+
+    /** `POST otros-colegios/lote` — lo mismo, con las decisiones de la revisión, y escribe. */
+    public function postLote()
+    {
+        $this->exigirPermiso();
+
+        return (new LoteDeOtrosColegios)->aplicar(
+            $this->filasDelLote(),
+            (array) Request::input('decisiones', []),
+            (int) $this->user->user_id,
+        );
+    }
+
+    /** 2.000 filas: un colegio con cien boletines de veinte materias. Más, en dos lotes. */
+    private function filasDelLote(): array
+    {
+        $filas = Request::input('filas');
+
+        if (! is_array($filas) || $filas === []) {
+            abort(422, 'No llegó ninguna fila.');
+        }
+        if (count($filas) > 2000) {
+            abort(422, 'Son más de 2.000 filas: pártelo en dos lotes.');
+        }
+
+        return array_values(array_filter($filas, 'is_array'));
     }
 
     /** Los grados del colegio, para elegir de cuál se toman las asignaturas. */

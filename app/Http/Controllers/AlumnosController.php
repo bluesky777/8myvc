@@ -287,6 +287,61 @@ class AlumnosController extends Controller
         return ['eps' => $res];
     }
 
+    /**
+     * `POST alumnos/{id}/crear-usuario` — la cuenta de un alumno que tiene ficha y no usuario
+     * *(27 sep 2026)*: el que llega de «Boletines de otros colegios», o uno viejo que nunca la tuvo.
+     *
+     * El nombre de usuario lo escribe quien la crea o, si no, sale del documento (y si no hay, de los
+     * nombres); `username_no_repetido` le pone número si ya existe. La contraseña es la de siempre
+     * en esta casa, `123456`, la misma de `postStore` y de `AcudientesController::postCrearUsuario`,
+     * y se devuelve para decírsela a quien la crea. Sin matrícula: eso es matricularlo.
+     */
+    public function postCrearUsuario($id)
+    {
+        Autoriza::exigir(Autoriza::puedeEditarAlumnos($this->user), 'No tienes permiso para editar alumnos.');
+
+        $alumno = Alumno::find((int) $id);
+        if (! $alumno) {
+            abort(404, 'Ese alumno no existe o está en la papelera.');
+        }
+        if ($alumno->user_id) {
+            abort(422, 'Este alumno ya tiene usuario.');
+        }
+
+        $escrito = trim((string) Request::input('username', ''));
+        $base = $escrito !== '' ? $escrito : (trim((string) $alumno->documento) ?: (string) $alumno->nombres);
+        $username = (new Alumnos\OperacionesAlumnos)->username_no_repetido($base, 'alumno'.$alumno->id);
+
+        $usuario = DB::transaction(function () use ($alumno, $username) {
+            $usuario = new User;
+            $usuario->username = $username;
+            $usuario->password = Hash::make('123456');
+            $usuario->email = CorreoDeLaCuenta::oNada($alumno->email);
+            $usuario->sexo = $alumno->sexo;
+            $usuario->is_superuser = 0;
+            $usuario->periodo_id = Periodo::where('year_id', Year::actual()->id)->orderByDesc('actual')->value('id');
+            $usuario->is_active = 1;
+            $usuario->tipo = 'Alumno';
+            $usuario->created_by = $this->user->user_id;
+            $usuario->save();
+            $usuario->roles()->attach(Role::where('name', 'Alumno')->value('id'));
+
+            $alumno->user_id = $usuario->id;
+            $alumno->updated_by = $this->user->user_id;
+            $alumno->save();
+
+            return $usuario;
+        });
+
+        // Como en `AcudientesController::postCrearUsuario`: el sujeto es el alumno, y la contraseña no entra.
+        Auditoria::registrar()
+            ->crear('alumno', (int) $alumno->id)
+            ->resumen('Le creó la cuenta de usuario '.$usuario->id.' («'.$usuario->username.'») al alumno')
+            ->guardar();
+
+        return ['user_id' => $usuario->id, 'username' => $usuario->username, 'password' => '123456'];
+    }
+
     public function postStore()
     {
         if (
@@ -1322,11 +1377,16 @@ class AlumnosController extends Controller
             $consulta = 'SELECT a.id as alumno_id, a.nombres, a.apellidos, "alumno" as tipo, a.deleted_at, 
 						a.foto_id, IFNULL(i2.nombre, IF(a.sexo="F","default_female.png", "default_male.png")) as foto_nombre
 					FROM alumnos a
-					INNER JOIN matriculas m on a.id=m.alumno_id and m.deleted_at is null
 					LEFT JOIN images i2 on i2.id=a.foto_id and i2.deleted_at is null
 					WHERE a.deleted_at is null and '.$condicion.'
 					GROUP BY a.id order by a.nombres, a.apellidos';
-            // INNER JOIN matriculas para evitar que se repita. Sólo traerá los que tengan alguna matricula en el sistema.
+            /*
+             * SIN EL `INNER JOIN matriculas` DESDE EL 27 SEP 2026. Estaba «para evitar que se repita»,
+             * pero el `GROUP BY a.id` ya lo evita, y lo que de verdad hacía era esconder al alumno
+             * que nunca se matriculó aquí: el que se crea al traer boletines de otros colegios
+             * (`LoteDeOtrosColegios`) no aparecía buscándolo por el nombre, sólo por el documento.
+             * Joseth: «al buscarlo se pueda crear el usuario si no lo tiene».
+             */
 
             $res = DB::select($consulta, $valores);
 
