@@ -286,9 +286,11 @@ class PreguntasController extends Controller
             abort(422, 'El orden tiene que traer todas las preguntas de la actividad, una vez cada una.');
         }
 
-        DB::beginTransaction();
-
-        try {
+        // El 422 sale DENTRO de la transacción: la excepción la deshace, y sólo a ella. Antes se
+        // deshacía a mano y el `catch` volvía a hacer `rollBack()` mientras quedara un nivel abierto,
+        // así que dentro de otra transacción (la de un test, o un llamador futuro) deshacía también
+        // la de fuera.
+        DB::transaction(function () use ($dada, $act) {
             foreach (array_values($dada) as $i => $o) {
                 $seccion = max(1, (int) ($o['seccion'] ?? 1));
                 DB::update('UPDATE ws_preguntas SET orden = ?, seccion = ?, updated_at = ? WHERE id = ?',
@@ -298,18 +300,9 @@ class PreguntasController extends Controller
             $rotas = $this->condicionesRotas((int) $act->id);
 
             if ($rotas !== []) {
-                DB::rollBack();
                 $this->conflicto(422, 'Ese orden deja preguntas que dependen de otras que van después.', $rotas);
             }
-
-            DB::commit();
-        } catch (\Throwable $e) {
-            if (DB::transactionLevel() > 0) {
-                DB::rollBack();
-            }
-
-            throw $e;
-        }
+        });
 
         return Formas::preguntas((int) $act->id);
     }
