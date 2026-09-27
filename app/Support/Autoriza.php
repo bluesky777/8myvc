@@ -258,6 +258,14 @@ class Autoriza
     private const ROLES_QUE_APRUEBAN_FIRMAS = ['Admin', 'Secretario', 'Rector', 'Coord académico', 'Coord disciplinario'];
 
     /**
+     * Quién escribe desempeños en las clases de otro docente, desde «Mis
+     * competencias». Ver `puedeEscribirDesempenos`. Decidido por Joseth el 26 sep 2026.
+     *
+     * @var list<string>
+     */
+    private const ROLES_QUE_ESCRIBEN_POR_EL_DOCENTE = ['Admin', 'Secretario', 'Rector', 'Coord académico'];
+
+    /**
      * Marcar y desmarcar un periodo de un alumno como boletín independiente.
      * `PUT boletin-independiente/periodo`, §6.3 del
      * [19](../../docs/migracion/19-boletin-independiente.md).
@@ -804,6 +812,24 @@ class Autoriza
         return (bool) ($user->is_superuser ?? false);
     }
 
+    /** Alguno de los roles del usuario está en la lista. Mismo recorrido que `puedeAprobarFirmas`. */
+    private static function tieneAlgunRolDe($user, array $roles): bool
+    {
+        $userId = $user->user_id ?? null;
+
+        if ($userId === null) {
+            return false;
+        }
+
+        foreach (Role::getUserRoles($userId) as $rol) {
+            if (in_array($rol->name, $roles, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * Quién puede escribir en un año que el colegio ya cerró.
      *
@@ -1021,6 +1047,26 @@ class Autoriza
 
         if ($gradoId === null) {
             return false;
+        }
+
+        /*
+         * ESCRIBIR EN LUGAR DEL DOCENTE  *(Joseth, 26 sep 2026)*: en «Mis
+         * competencias» estos roles eligen un docente y escriben lo de sus clases.
+         * El backend no sabe qué docente eligieron, así que la regla es la que se
+         * puede comprobar: el par (materia, grado) lo da **alguien** este año. El
+         * «todos los grados» sigue siendo sólo del colegio —el `return` de arriba— y
+         * el periodo cerrado les vale igual que al docente, porque entran por la
+         * rama 2 y `exigirEscrituraDelPlan` se lo pide.
+         */
+        if (self::tieneAlgunRolDe($user, self::ROLES_QUE_ESCRIBEN_POR_EL_DOCENTE)) {
+            return DB::selectOne(
+                'SELECT 1 AS si FROM asignaturas a
+                   INNER JOIN grupos g ON g.id = a.grupo_id AND g.deleted_at IS NULL
+                  WHERE a.deleted_at IS NULL
+                    AND g.year_id = ? AND a.materia_id = ? AND g.grado_id = ?
+                  LIMIT 1',
+                [$yearId, $materiaId, $gradoId]
+            ) !== null;
         }
 
         if (($user->tipo ?? null) !== 'Profesor') {

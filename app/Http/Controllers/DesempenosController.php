@@ -121,7 +121,7 @@ class DesempenosController extends Controller
         }
 
         $filas = DB::select(
-            'SELECT d.id, d.definicion, d.tipo, d.orden, d.materia_id, d.grado_id, d.periodo_id
+            'SELECT d.id, d.definicion, d.tipo, d.orden, d.materia_id, d.grado_id, d.periodo_id, d.updated_at
                FROM desempenos_por_defecto d
               WHERE '.implode(' AND ', $filtros).' AND d.deleted_at IS NULL
               ORDER BY d.materia_id, d.grado_id, d.periodo_id, d.orden, d.id',
@@ -832,6 +832,9 @@ class DesempenosController extends Controller
                 'grado_id' => $gradoId,
                 'grado' => $gradoId === null ? null : ($grados[$gradoId] ?? null),
                 'periodo_id' => (int) $fila->periodo_id,
+                // «Mis competencias» enseña las clases tocadas hace poco (26 sep 2026). `??`
+                // porque no todas las consultas que llegan aquí la seleccionan.
+                'actualizado' => $fila->updated_at ?? null,
             ];
         }, $filas);
     }
