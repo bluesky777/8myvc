@@ -117,6 +117,24 @@ class Kernel extends ConsoleKernel
         $schedule->command('importaciones:marcar-abandonadas')
             ->everyTenMinutes()
             ->withoutOverlapping();
+
+        // El resumen de este colegio para el portal de la Unión. De madrugada y una
+        // vez al día: el portal guarda una foto por noche, y dos fotos de la misma
+        // noche son la misma foto (la idempotencia la impone el receptor, no esto —
+        // `myvc_ucn/docs/01-diseno-tecnico.md` §3.2).
+        //
+        // 04:10 y no 05:30: a las 5:30 corre el parte diario en bucle sobre los
+        // diecisiete, y en hosting compartido dos cosas pesadas en la misma franja
+        // se notan. Sin `PORTAL_URL`/`PORTAL_CLAVE` en el `.env` no hace nada y sale
+        // con 0, que es el estado de cada colegio hasta que se le dé su clave.
+        //
+        // `timezone()` NO es adorno: `config/app.php` va en UTC, y sin él este
+        // «04:10» serían las 23:10 de Bogotá del día anterior — la foto saldría
+        // con el `fecha_corte` de la víspera y en plena franja de uso.
+        $schedule->command('portal:enviar')
+            ->dailyAt('04:10')
+            ->timezone('America/Bogota')
+            ->withoutOverlapping();
     }
 
     /**
