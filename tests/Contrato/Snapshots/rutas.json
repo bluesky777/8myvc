@@ -208,6 +208,7 @@
     "GET api/otros-colegios/alumno/{alumno_id}/certificados": "App\\Http\\Controllers\\Alumnos\\OtrosColegiosController@getCertificadosDeAlumno",
     "GET api/otros-colegios/documentos/{id}": "App\\Http\\Controllers\\Alumnos\\OtrosColegiosController@getDocumento",
     "GET api/otros-colegios/grados": "App\\Http\\Controllers\\Alumnos\\OtrosColegiosController@getGrados",
+    "GET api/otros-colegios/lotes": "App\\Http\\Controllers\\Alumnos\\OtrosColegiosController@getLotes",
     "GET api/otros-colegios/materias-del-grado/{grado_id}": "App\\Http\\Controllers\\Alumnos\\OtrosColegiosController@getMateriasDelGrado",
     "GET api/otros-colegios/{id}/notas": "App\\Http\\Controllers\\Alumnos\\OtrosColegiosController@getNotas",
     "GET api/paises": "App\\Http\\Controllers\\PaisesController@getIndex",

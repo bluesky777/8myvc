@@ -311,7 +311,29 @@ class OtrosColegiosController extends Controller
             $this->filasDelLote(),
             (array) Request::input('decisiones', []),
             (int) $this->user->user_id,
+            Request::input('puerta'),
         );
+    }
+
+    /**
+     * `GET otros-colegios/lotes` — el historial de «Boletines de otros colegios» *(27 sep 2026)*: los
+     * 100 últimos lotes, quién los aplicó, por qué puerta y qué pasó con cada boletín.
+     */
+    public function getLotes()
+    {
+        $this->exigirPermiso();
+
+        return array_map(function ($l) {
+            $l->boletines = json_decode($l->boletines, true) ?: [];
+
+            return $l;
+        }, DB::select('SELECT l.*, u.username AS quien,
+                TRIM(CONCAT(COALESCE(p.nombres, a.nombres, ""), " ", COALESCE(p.apellidos, a.apellidos, ""))) AS quien_nombre
+            FROM lotes_de_boletines l
+            LEFT JOIN users u ON u.id = l.user_id
+            LEFT JOIN profesores p ON p.user_id = u.id AND p.deleted_at IS NULL
+            LEFT JOIN acudientes a ON a.user_id = u.id AND a.deleted_at IS NULL
+            ORDER BY l.id DESC LIMIT 100'));
     }
 
     /** 2.000 filas: un colegio con cien boletines de veinte materias. Más, en dos lotes. */

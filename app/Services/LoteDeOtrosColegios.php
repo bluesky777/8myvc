@@ -397,13 +397,22 @@ class LoteDeOtrosColegios
      *
      * @return array{creados: int, reemplazados: int, combinados: int, conservados: int, omitidos: int, notas: int, aprendidas: int, anos: array<string, int>}
      */
-    public function aplicar(array $filas, array $decisiones, int $userId): array
+    public function aplicar(array $filas, array $decisiones, int $userId, ?string $puerta = null): array
     {
         $ensayo = $this->ensayo($filas, $decisiones);
         $cuenta = ['creados' => 0, 'reemplazados' => 0, 'combinados' => 0, 'conservados' => 0, 'omitidos' => 0, 'notas' => 0, 'aprendidas' => 0, 'alumnos_nuevos' => 0,
             /* clave del grupo => id del año escrito: con él se archiva después la foto o el PDF (`postSubirDocumento`). */
             'anos' => []];
         $plan = [];
+        /* Lo que se anota en `lotes_de_boletines`: un renglón por boletín, pase lo que pase con él. */
+        $historial = [];
+        $renglon = fn (array $g, string $accion, ?int $alumnoId = null, ?string $nombre = null, int $notas = 0, bool $nuevo = false, ?int $anoId = null) => [
+            'alumno_id' => $alumnoId ?? ($g['alumno']['id'] ?? null),
+            'alumno' => $nombre ?? ($g['alumno']['nombre'] ?? $g['alumno_texto']),
+            'year' => $g['year'], 'colegio' => $g['colegio'], 'grado' => $g['grado_texto'],
+            'accion' => $accion, 'notas' => $notas, 'alumno_nuevo' => $nuevo, 'ano_id' => $anoId,
+            'archivos' => array_values(array_unique(array_filter(array_map(fn ($f) => $f['archivo'], $g['filas'])))),
+        ];
 
         foreach ($ensayo['grupos'] as $g) {
             $d = (array) ($decisiones[$g['clave']] ?? []);
@@ -411,6 +420,7 @@ class LoteDeOtrosColegios
 
             if ($accion === 'omitir' || $accion === 'conservar') {
                 $cuenta[$accion === 'omitir' ? 'omitidos' : 'conservados']++;
+                $historial[] = $renglon($g, $accion);
 
                 continue;
             }
@@ -444,7 +454,7 @@ class LoteDeOtrosColegios
             $plan[] = compact('g', 'd', 'accion', 'alumnoId', 'nuevo', 'existente', 'nuevas');
         }
 
-        DB::transaction(function () use ($plan, $userId, &$cuenta) {
+        DB::transaction(function () use ($plan, $userId, $puerta, $renglon, &$historial, &$cuenta) {
             /*
              * UN ALUMNO NUEVO SE CREA UNA VEZ aunque traiga varios años --un certificado de tres años
              * son tres grupos--: la segunda vez se reconoce por su documento o, sin él, por el nombre.
@@ -514,7 +524,20 @@ class LoteDeOtrosColegios
                 $cuenta['anos'][$g['clave']] = (int) $anoId;
                 $cuenta['notas'] += count($nuevas);
                 $cuenta['aprendidas'] += $this->aprender($g, $d, $userId);
+                $historial[] = $renglon($g, $accion, (int) $alumnoId,
+                    $nuevo !== null ? $nuevo['nombres'].' '.$nuevo['apellidos'] : ($this->alumnos[$alumnoId] ?? null),
+                    count($nuevas), $nuevo !== null, (int) $anoId);
             }
+
+            DB::table('lotes_de_boletines')->insert([
+                'user_id' => $userId,
+                'puerta' => in_array($puerta, ['propia', 'myvc', 'guion'], true) ? $puerta : null,
+                'creados' => $cuenta['creados'], 'reemplazados' => $cuenta['reemplazados'], 'combinados' => $cuenta['combinados'],
+                'conservados' => $cuenta['conservados'], 'omitidos' => $cuenta['omitidos'],
+                'alumnos_nuevos' => $cuenta['alumnos_nuevos'], 'notas' => $cuenta['notas'],
+                'boletines' => json_encode($historial, JSON_UNESCAPED_UNICODE),
+                'created_at' => Reloj::ahora(),
+            ]);
         });
 
         return $cuenta;

@@ -189,7 +189,7 @@ if (porDecidir > 0) {
 	process.exit(1);
 }
 
-const r = await pedir('POST', 'otros-colegios/lote', token, { filas, decisiones });
+const r = await pedir('POST', 'otros-colegios/lote', token, { filas, decisiones, puerta: 'guion' });
 console.log(`Creados ${r.creados}, reemplazados ${r.reemplazados}, combinados ${r.combinados}, conservados ${r.conservados}, omitidos ${r.omitidos}; ${r.notas} notas; ${r.aprendidas} materias aprendidas.`);
 
 /* Los archivos: cada año recibe los de sus filas que estén en la carpeta. */

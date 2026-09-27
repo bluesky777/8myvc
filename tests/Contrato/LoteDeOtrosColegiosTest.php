@@ -177,6 +177,25 @@ class LoteDeOtrosColegiosTest extends CasoDeContrato
         $this->assertSame(2, (int) DB::table('anos_externos')->where('alumno_id', $alumno->id)->count());
     }
 
+    public function test_cada_lote_queda_en_el_historial_con_lo_que_paso_a_cada_boletin(): void
+    {
+        $alumno = $this->alumno();
+        $materia = $this->materia();
+        $h = $this->h();
+
+        $this->postJson('/api/otros-colegios/lote', ['puerta' => 'myvc', 'filas' => [$this->fila($alumno, $materia->materia, '4', 2015)]], $h)
+            ->assertStatus(200);
+
+        $this->olvidarControladores();
+        $lote = $this->getJson('/api/otros-colegios/lotes', $h)->assertStatus(200)->json('0');
+
+        $this->assertSame('myvc', $lote['puerta']);
+        $this->assertSame(1, (int) $lote['creados']);
+        $this->assertSame((int) $alumno->id, $lote['boletines'][0]['alumno_id']);
+        $this->assertSame('crear', $lote['boletines'][0]['accion']);
+        $this->assertSame(2015, $lote['boletines'][0]['year']);
+    }
+
     public function test_un_alumno_no_entra(): void
     {
         $h = ['Authorization' => 'Bearer '.$this->tokenDe($this->usuarioDeTipo('Alumno')->username), 'Accept' => 'application/json'];
