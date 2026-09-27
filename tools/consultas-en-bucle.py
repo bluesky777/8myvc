@@ -107,13 +107,23 @@ def control():
         print('CONTROL NO CONCLUYENTE: no se pudo leer 2837171^ '
               '(¿worktree sin ese commit?). NO uses las tablas sin esto.')
         return 2
+    # El «despues» es el fichero EN 2837171, no el del arbol: el arbol sigue
+    # cambiando (7eaafb1 y e2033c7 le quitaron otras dos) y el control dejaria
+    # de medir el detector para medir el codigo de hoy.
+    despues = subprocess.run(['git', 'show', f'2837171:{ruta}'],
+                             capture_output=True, text=True)
+    if despues.returncode != 0:
+        print('CONTROL NO CONCLUYENTE: no se pudo leer 2837171. NO uses las tablas sin esto.')
+        return 2
     with tempfile.NamedTemporaryFile('w', suffix='.php', delete=False) as f:
         f.write(antes.stdout); tmp = f.name
+    with tempfile.NamedTemporaryFile('w', suffix='.php', delete=False) as f:
+        f.write(despues.stdout); tmp2 = f.name
     try:
         n_antes = len([x for x in analizar(tmp)[0] if x[2] >= 1])
-        n_ahora = len([x for x in analizar(ruta)[0] if x[2] >= 1])
+        n_ahora = len([x for x in analizar(tmp2)[0] if x[2] >= 1])
     finally:
-        os.unlink(tmp)
+        os.unlink(tmp); os.unlink(tmp2)
     print(f'  antes de 2837171: {n_antes} consultas en bucle  (se esperan 10)')
     print(f'  despues:          {n_ahora} consultas en bucle  (se esperan 4)')
     if (n_antes, n_ahora) == (10, 4):
