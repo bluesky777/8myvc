@@ -31,6 +31,16 @@ use Illuminate\Support\Facades\Request;
  *
  * `avisar` encola `nota_cambiada` (tanda 5) a cada alumno cuya nota calculada cambió, a su tema (él y
  * sus acudientes). Sin la nota: el aviso sólo dice que cambió.
+ *
+ * ## La tarea (Joseth, 26 sep)
+ *
+ * Una tarea con entregas calificadas tampoco cambia la nota máxima por `guardar`: va por aquí, con
+ * el mismo criterio. Lo único que cambia es `nota_maxima` (sus preguntas no se califican: 422 si el
+ * cambio las trae). La nota que puso el docente **se queda** en la escala de la actividad —un 38
+ * sigue siendo 38—; lo que cambia es su conversión a la planilla (`Planilla::aLaEscala`), así que
+ * en la fila `antes` = `despues` y lo que se mueve es `antes_planilla` → `despues_planilla`. Las tres
+ * salidas y «editada a mano» igual que en el cuestionario. 422 si la nueva nota máxima queda por
+ * debajo de una nota ya puesta.
  */
 class EditarConNotasController extends Controller
 {
@@ -44,7 +54,7 @@ class EditarConNotasController extends Controller
     /** `POST act/{id}/impacto` `{cambios}` → `ImpactoAct`. Dueño. No escribe. */
     public function postImpacto($id)
     {
-        $act = $this->cuestionarioDelDueno($id);
+        $act = $this->conNotasDelDueno($id);
         [$notaMaxima, $preguntas] = $this->conLosCambios($act, (array) Request::input('cambios', []));
 
         return $this->impacto($act, $notaMaxima, $preguntas)['forma'];
@@ -58,7 +68,7 @@ class EditarConNotasController extends Controller
     public function postAplicarCambios($id)
     {
         $user = $this->user;
-        $act = $this->cuestionarioDelDueno($id);
+        $act = $this->conNotasDelDueno($id);
         $aplicar = (string) (Request::input('aplicar') ?? 'salvo_editadas');
 
         if (! in_array($aplicar, self::SALIDAS, true)) {
@@ -111,7 +121,10 @@ class EditarConNotasController extends Controller
             foreach ($impacto['forma']['filas'] as $f) {
                 $alumnoId = $f['alumno']['alumno_id'];
 
-                if ($alumnoId !== null && $f['antes'] !== $f['despues']) {
+                // En la tarea la nota no cambia: cambia lo que vale en la planilla.
+                $cambio = $act->modo === 'tarea' ? $f['antes_planilla'] !== $f['despues_planilla'] : $f['antes'] !== $f['despues'];
+
+                if ($alumnoId !== null && $cambio) {
                     $cambiaron[] = (int) $alumnoId;
                 }
 
@@ -153,6 +166,10 @@ class EditarConNotasController extends Controller
      */
     private function impacto(object $act, int $notaMaxima, array $preguntas): array
     {
+        if ($act->modo === 'tarea') {
+            return $this->impactoDeTarea($act, $notaMaxima);
+        }
+
         $hojas = DB::select(
             'SELECT id, alumno_id, nota_calculada FROM ws_actividades_resueltas
               WHERE actividad_id = ? AND terminado = 1 AND deleted_at IS NULL AND alumno_id IS NOT NULL
@@ -227,6 +244,65 @@ class EditarConNotasController extends Controller
         ];
     }
 
+    /**
+     * El impacto en una tarea: una fila por entrega calificada, con su nota (la misma antes y después)
+     * y lo que vale en la planilla con la nota máxima de ahora y con la del cambio.
+     *
+     * @return array{forma: array, hojas: array}
+     */
+    private function impactoDeTarea(object $act, int $notaMaxima): array
+    {
+        $entregas = DB::select(
+            'SELECT alumno_id, nota FROM ws_entregas WHERE actividad_id = ? AND nota IS NOT NULL ORDER BY alumno_id',
+            [$act->id]
+        );
+
+        $subunidad = $act->califica ? Planilla::subunidad((int) $act->id) : null;
+        $notas = $subunidad ? Planilla::notasDe((int) $subunidad->id) : [];
+        $minima = (int) (DB::selectOne('SELECT nota_minima_aceptada FROM years WHERE id = ?', [(int) $act->year_id])->nota_minima_aceptada ?? 0);
+        $personas = $this->personas($act, array_map(fn ($e) => (int) $e->alumno_id, $entregas));
+
+        $filas = [];
+        $cambian = 0;
+        $editadas = 0;
+        $cruzan = 0;
+
+        foreach ($entregas as $e) {
+            $alumnoId = (int) $e->alumno_id;
+            $nota = $notas[$alumnoId] ?? null;
+            $antesEnEscala = Planilla::aLaEscala($act, (int) $e->nota);
+            $despuesEnEscala = Planilla::aLaEscala($act, (int) $e->nota, $notaMaxima);
+            $editada = $subunidad !== null && Planilla::editada($nota, $subunidad, $antesEnEscala);
+            $cruza = null;
+
+            if ($antesEnEscala >= $minima && $despuesEnEscala < $minima) {
+                $cruza = 'baja';
+            } elseif ($antesEnEscala < $minima && $despuesEnEscala >= $minima) {
+                $cruza = 'sube';
+            }
+
+            $cambian += $antesEnEscala !== $despuesEnEscala ? 1 : 0;
+            $editadas += $editada ? 1 : 0;
+            $cruzan += $cruza !== null ? 1 : 0;
+
+            $filas[] = [
+                'alumno' => $personas[$alumnoId],
+                'antes' => (int) $e->nota,
+                'despues' => (int) $e->nota,
+                'antes_planilla' => $antesEnEscala,
+                'despues_planilla' => $despuesEnEscala,
+                'planilla' => $nota && $nota->nota !== null ? (int) $nota->nota : null,
+                'editada_a_mano' => $editada,
+                'cruza' => $cruza,
+            ];
+        }
+
+        return [
+            'forma' => ['filas' => $filas, 'cambian' => $cambian, 'editadas_a_mano' => $editadas, 'cruzan_minima' => $cruzan],
+            'hojas' => [],
+        ];
+    }
+
     private function mejor(?int $a, ?int $b): ?int
     {
         return $a === null ? $b : ($b === null ? $a : max($a, $b));
@@ -252,6 +328,20 @@ class EditarConNotasController extends Controller
             }
 
             $notaMaxima = $n;
+        }
+
+        if ($act->modo === 'tarea') {
+            if ((array) ($cambios['preguntas'] ?? []) !== []) {
+                abort(422, 'En una tarea sólo cambia la nota máxima: sus preguntas no se califican.');
+            }
+
+            $mayor = DB::selectOne('SELECT MAX(nota) AS n FROM ws_entregas WHERE actividad_id = ? AND nota IS NOT NULL', [$act->id])->n;
+
+            if ($mayor !== null && (int) $mayor > $notaMaxima) {
+                abort(422, "Ya hay una entrega calificada con {$mayor}: la nota máxima no puede quedar por debajo.");
+            }
+
+            return [$notaMaxima, []];
         }
 
         $preguntas = Formas::preguntas((int) $act->id);
@@ -343,13 +433,13 @@ class EditarConNotasController extends Controller
         return $personas;
     }
 
-    private function cuestionarioDelDueno($id): object
+    private function conNotasDelDueno($id): object
     {
         $act = Actividad::cargar($id);
         Actividad::exigirDueno($act, $this->user);
 
-        if ($act->modo !== 'cuestionario') {
-            abort(422, 'Editar con notas es de los cuestionarios: la nota de una tarea la pone el docente.');
+        if (! in_array($act->modo, ['cuestionario', 'tarea'], true)) {
+            abort(422, 'Editar con notas es de los cuestionarios y las tareas: una encuesta no tiene notas.');
         }
 
         return $act;

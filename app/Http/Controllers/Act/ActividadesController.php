@@ -321,6 +321,15 @@ class ActividadesController extends Controller
         if ($cambiaron !== [] && Actividad::tieneRespuestas((int) $act->id)) {
             $prohibidos = array_diff($cambiaron, self::EDITABLES_CON_RESPUESTAS, ['anonimato']);
 
+            // La nota máxima de una tarea sin ninguna entrega calificada no mueve ninguna nota: se
+            // guarda aquí. Con alguna calificada, 409 y va por `impacto` + `aplicar-cambios`, como el
+            // cuestionario con notas (§2.9).
+            if ($act->modo === 'tarea' && ! DB::selectOne(
+                'SELECT 1 AS si FROM ws_entregas WHERE actividad_id = ? AND nota IS NOT NULL LIMIT 1', [$act->id]
+            )) {
+                $prohibidos = array_diff($prohibidos, ['nota_maxima']);
+            }
+
             if ($prohibidos !== []) {
                 response()->json([
                     'mensaje' => 'Ya hay respuestas: sólo se pueden cambiar el título, las instrucciones, las fechas y subir el anonimato.',
