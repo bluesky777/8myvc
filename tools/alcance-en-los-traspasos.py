@@ -71,8 +71,11 @@ version perdia el 80% y su salida no tenia ningun aspecto sospechoso.*
 
 `--control` exige encontrar **los dos casos medidos a mano** en `bi-2.md` §4:
 
-    app/Http/Controllers/SubunidadesController.php   unidades  -> grupo_id
+    app/Services/SubunidadNueva.php                  unidades  -> grupo_id
     app/Services/DefinitivasDeAsignatura.php         unidades  -> asignatura_id
+
+(el primero vivia en `SubunidadesController.php` hasta `c0c953a`, que lo saco a
+un servicio; el caso es el mismo, cambio de fichero).
 
 y **sale con codigo 1 si falta cualquiera**. Un control positivo escrito en prosa
 -«tiene que encontrar X»- es una intencion: **nadie ejecuta una frase**, y esta
@@ -104,7 +107,7 @@ NIVEL_CAMPO = {
 
 # Los dos que `bi-2.md` §4 midio a mano. El control exige encontrarlos.
 CONTROL = [
-    ('app/Http/Controllers/SubunidadesController.php', 'grupo_id'),
+    ('app/Services/SubunidadNueva.php', 'grupo_id'),
     ('app/Services/DefinitivasDeAsignatura.php', 'asignatura_id'),
 ]
 

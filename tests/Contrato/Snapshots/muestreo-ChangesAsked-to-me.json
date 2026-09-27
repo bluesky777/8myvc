@@ -1,5 +1,7 @@
 {
     "alumnos": [],
+    "clases_hoy": "null",
+    "clases_manana": "null",
     "eventos": [
         {
             "allDay": "int",
