@@ -69,7 +69,7 @@ class PreguntasController extends Controller
 
         $medidas = @getimagesize($file->getRealPath());
 
-        if (! $medidas || ! in_array($medidas[2] ?? null, [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_GIF, IMAGETYPE_WEBP], true)) {
+        if (! $medidas || ! in_array($medidas[2], [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_GIF, IMAGETYPE_WEBP], true)) {
             abort(422, 'Eso no se puede leer como imagen (jpg, png, gif o webp).');
         }
 
@@ -524,7 +524,7 @@ class PreguntasController extends Controller
         }
 
         $opcion = Destinatarios::entero($c['opcion_id'] ?? null);
-        $valor = isset($c['valor']) && $c['valor'] !== null ? mb_substr(trim((string) $c['valor']), 0, 200) : null;
+        $valor = isset($c['valor']) ? mb_substr(trim((string) $c['valor']), 0, 200) : null;
         $deOpciones = in_array($d['tipo'], Recorrido::DE_OPCIONES, true);
 
         if ($deOpciones) {
@@ -550,7 +550,6 @@ class PreguntasController extends Controller
      */
     private function exigirSoloTextos(array $antes, array $columnas, array $opciones): void
     {
-        $textos = ['enunciado', 'ayuda', 'texto_arriba', 'texto_abajo', 'explicacion', 'compartir'];
         $estructura = [
             'tipo_pregunta' => $antes['tipo'], 'seccion' => $antes['seccion'], 'obligatoria' => (int) $antes['obligatoria'],
             'puntos' => $antes['puntos'], 'imagen_id' => $antes['imagen_id'], 'youtube_id' => $antes['youtube_id'],
@@ -561,7 +560,7 @@ class PreguntasController extends Controller
         ];
 
         foreach ($estructura as $col => $viejo) {
-            if (! in_array($col, $textos, true) && (string) $columnas[$col] !== (string) $viejo) {
+            if ((string) $columnas[$col] !== (string) $viejo) {
                 abort(409, 'Ya hay respuestas: de esta pregunta sólo se pueden cambiar los textos.');
             }
         }

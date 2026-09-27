@@ -163,7 +163,7 @@ class EnviarNotificaciones extends Command
     /**
      * Una fuente: lee la marca, pide los avisos, los publica y adelanta la marca.
      *
-     * @param  callable(int): array{avisos: array<int, array<string, mixed>>, hasta: int}  $buscar
+     * @param  callable(int): array{avisos: array<int, array<string, mixed>>, hasta: int, tope?: int, sigue?: bool}  $buscar
      */
     private function porFuente(string $fuente, callable $buscar, Publicador $publicador, bool $seco): int
     {

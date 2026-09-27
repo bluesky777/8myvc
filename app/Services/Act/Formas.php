@@ -21,7 +21,7 @@ class Formas
      * forma interna que usan el recorrido y el calificador. `sinSecretos()` quita lo que no ve quien
      * responde.
      *
-     * @return list<array<string, mixed>>
+     * @return array<int, array<string, mixed>>
      */
     public static function preguntas(int $actividadId): array
     {

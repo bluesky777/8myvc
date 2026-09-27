@@ -87,7 +87,7 @@ class Recorrido
 
         return match ($tipo) {
             'corta', 'parrafo' => trim((string) ($r['texto'] ?? '')) !== '',
-            'escala' => isset($r['valor']) && $r['valor'] !== null,
+            'escala' => isset($r['valor']),
             'fecha' => ! empty($r['fecha']),
             'archivo' => ! empty($r['archivo_id']),
             default => false,

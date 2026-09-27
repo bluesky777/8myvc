@@ -61,7 +61,7 @@ class Destinatarios
      * `clase` y `grupo` el alcance puede venir también en `asignatura_id` / `grupo_id` de la config.
      *
      * @param  list<array<string, mixed>>  $dadas
-     * @return list<array{publico: string, grupo_id: ?int, grado_id: ?int, asignatura_id: ?int, user_id: ?int}>
+     * @return array<int, array{publico: string, grupo_id: ?int, grado_id: ?int, asignatura_id: ?int, user_id: ?int}>
      */
     public static function normalizar(string $alcance, string $responden, array $dadas, ?int $asignaturaId, ?int $grupoId): array
     {
@@ -165,7 +165,7 @@ class Destinatarios
         }
     }
 
-    /** @return list<array{publico: string, grupo_id: ?int, grado_id: ?int, asignatura_id: ?int, user_id: ?int}> */
+    /** @return array<int, array{publico: string, grupo_id: ?int, grado_id: ?int, asignatura_id: ?int, user_id: ?int}> */
     public static function deActividad(int $actividadId): array
     {
         $filas = DB::select(
@@ -199,7 +199,7 @@ class Destinatarios
         return array_keys($grupos);
     }
 
-    /** @return list<int> */
+    /** @return array<int, int> */
     private static function gruposDeFila(int $yearId, array $f): array
     {
         if ($f['asignatura_id'] !== null) {
@@ -551,7 +551,7 @@ class Destinatarios
      * sólo un usuario de tipo Profesor puede tener titularía — el `persona_id` de un `Usuario` es un
      * `users.id` y compararlo daría la titularía de otra persona.
      *
-     * @return list<int>
+     * @return array<int, int>
      */
     public static function titularias(object $user, int $yearId): array
     {
@@ -587,7 +587,7 @@ class Destinatarios
      * público de sus filas. Es sólo el primer cedazo: quién de verdad las recibe lo dice
      * `resolver()` con `$soloUser`.
      *
-     * @return list<object>
+     * @return array<int, object>
      */
     public static function candidatasPara(object $user, int $yearId): array
     {
@@ -637,6 +637,7 @@ class Destinatarios
             : isset($ya[$entrada['user_id'].':'.($entrada['alumno_id'] ?? 0)]);
     }
 
+    /** @return array{publico: string, grupo_id: ?int, grado_id: ?int, asignatura_id: ?int, user_id: ?int} */
     private static function fila(string $publico, ?int $grupo, ?int $grado, ?int $asignatura, ?int $user): array
     {
         return [

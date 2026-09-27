@@ -79,7 +79,7 @@ class LoteDeOtrosColegios
     /* ── 1. el ensayo ─────────────────────────────────────────────────────────────────────── */
 
     /**
-     * @param  list<array<string, mixed>>  $filas  el formato de §11.1
+     * @param  array<int, array<string, mixed>>  $filas  el formato de §11.1
      * @return array{grupos: list<array<string, mixed>>, resumen: array<string, int>}
      */
     public function ensayo(array $filas, array $decisiones = []): array
@@ -176,10 +176,10 @@ class LoteDeOtrosColegios
             'comparacion' => $existente === null ? null : $this->comparar($existente, $p, $escala, $filas),
             'opciones' => $existente === null
                 ? ['crear', 'omitir']
-                : array_values(array_filter([
+                : array_filter([
                     'conservar', 'reemplazar',
                     $this->mismaEscala($existente['escala'], $escala) ? 'combinar' : null,
-                ])),
+                ]),
             'cursado_aqui' => $alumno !== null && $this->cursadoAqui($alumno['id'], $p['year']),
             'dudas' => $dudas,
         ];

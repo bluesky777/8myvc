@@ -787,7 +787,7 @@ class ActividadesController extends Controller
      * Valida una config entera y la convierte en columnas de `ws_actividades` y filas de
      * destinatarios. Las reglas de quién crea qué son las de §2.2.
      *
-     * @return array{0: array<string, mixed>, 1: list<array>}
+     * @return array{0: array<string, mixed>, 1: array<int, array>}
      */
     private function configValida(array $c, object $user, int $yearId, int $periodoId): array
     {

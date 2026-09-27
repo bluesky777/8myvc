@@ -73,7 +73,7 @@ class Boletines2Controller extends Controller {
 	 * Las asignaturas perdidas del grupo, en una consulta y no en una por alumno ×
 	 * asignatura (456 en un grupo de 38; doc 48). Se piden a la primera celda.
 	 *
-	 * @var array{alumnos: list<int>, asignaturas: list<int>, porCelda: ?array<string, list<object>>}|null
+	 * @var array{alumnos: list<int>, asignaturas: array<int, int>, porCelda: ?array<string, list<object>>}|null
 	 */
 	private ?array $perdidasDelGrupo = null;
 

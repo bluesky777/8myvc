@@ -313,7 +313,7 @@ class EditarConNotasController extends Controller
      * `_cambia`. 422 si nombra una pregunta que no es de la actividad, una opción que no es de la
      * pregunta, o deja una pregunta calificable sin correcta.
      *
-     * @return array{0: int, 1: list<array>}
+     * @return array{0: int, 1: array<int, array>}
      */
     private function conLosCambios(object $act, array $cambios): array
     {

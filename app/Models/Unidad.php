@@ -144,7 +144,7 @@ class Unidad extends Model {
 	}
 
 
-	/** @var array<string, list<object>>|null `null` = apagada, que es lo normal. */
+	/** @var array<string, array<int, object>>|null `null` = apagada, que es lo normal. */
 	private static ?array $unidadesDelGrupo = null;
 
 	/**

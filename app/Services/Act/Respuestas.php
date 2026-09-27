@@ -187,13 +187,13 @@ class Respuestas
             $pid = Destinatarios::entero($r['pregunta_id'] ?? null);
             $p = $pid === null ? null : ($porId[$pid] ?? null);
 
-            if ($p === null) {
+            if ($pid === null || $p === null) {
                 abort(422, 'Una respuesta apunta a una pregunta que no es de esta actividad.');
             }
 
             $leida = ['pregunta_id' => $pid, 'opcion_ids' => [], 'texto' => null, 'valor' => null, 'fecha' => null, 'archivo_id' => null];
             $tipo = $p['tipo'];
-            $texto = isset($r['texto']) && $r['texto'] !== null ? trim((string) $r['texto']) : null;
+            $texto = isset($r['texto']) ? trim((string) $r['texto']) : null;
             $texto = $texto === '' ? null : $texto;
 
             if (in_array($tipo, Recorrido::DE_OPCIONES, true)) {

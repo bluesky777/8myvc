@@ -1561,7 +1561,7 @@ class HorarioController extends Controller
      * jornada de ese grupo, que es lo que pasa en todos los proyectos reales a 27 sep
      * 2026. No se inventan: el front pinta entonces el número de la franja.
      *
-     * @return list<array<string, mixed>>
+     * @return array<int, array<string, mixed>>
      */
     public function clasesDelDocenteEnElDia(int $versionId, int $profesorId, int $dia): array
     {

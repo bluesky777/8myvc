@@ -294,7 +294,7 @@ class AlumnosController extends Controller
      * Con lo que hace falta para decidir qué hacer con cada uno: desde cuándo está, quién lo creó,
      * qué boletines tiene y si ya tiene usuario.
      *
-     * @return list<object>
+     * @return array<int, object>
      */
     public function getNuncaMatriculados(): array
     {

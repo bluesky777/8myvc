@@ -208,7 +208,7 @@ class BoletinPorCompetenciasController extends Controller
      * Las faltas y las frases de todo el grupo, por alumno, mientras se arma: dos
      * consultas en vez de dos por alumno (docs/migracion/48). `null` fuera del bucle.
      *
-     * @var array{faltas: array<int,array<int,\stdClass>>, frases: array<int,array<int,list<\stdClass>>>}|null
+     * @var array{alumnos: array<int,true>, faltas: array<int,array<int,\stdClass>>, frases: array<int,array<int,list<\stdClass>>>}|null
      */
     private ?array $delGrupo = null;
 
