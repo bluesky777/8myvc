@@ -345,12 +345,20 @@ class ResponderController extends Controller
             $tiempo = max(0, strtotime($hoja->enviada_at) - strtotime($hoja->iniciada_at));
         }
 
+        // «38 de 50 = 76 en la planilla»: la nota que ve, llevada a la escala del año, sólo si
+        // califica. En la tarea es la del docente; en el cuestionario, la de la hoja que cuenta.
+        $notaVista = $act->modo === 'tarea' ? ($entrega && $entrega->nota !== null ? (int) $entrega->nota : null)
+            : ($verNota && $hoja && $hoja->nota_calculada !== null ? (int) $hoja->nota_calculada : null);
+        $notaPlanilla = $act->califica ? Planilla::aLaEscala($act, $notaVista) : null;
+
         return [
             'actividad' => Formas::enBandeja($act, $user, $entrada, $entrada ? Respuestas::miEstado($act, $entrada) : null),
             'enviada_at' => $hoja?->enviada_at ?? $entrega?->entregada_at,
             'nota' => $verNota && $hoja && $hoja->nota_calculada !== null ? (int) $hoja->nota_calculada : null,
             'puntaje' => $verNota && $hoja && $hoja->puntaje !== null ? (float) $hoja->puntaje : null,
             'puntaje_max' => $verNota && $hoja && $hoja->puntaje_max !== null ? (float) $hoja->puntaje_max : null,
+            'nota_maxima' => $act->modo === 'encuesta' ? null : (int) $act->nota_maxima,
+            'nota_planilla' => $notaPlanilla,
             'correctas' => $correctas,
             'tiempo_segundos' => $tiempo,
             'intentos' => count($hojas),
