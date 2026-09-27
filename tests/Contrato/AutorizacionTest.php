@@ -580,6 +580,24 @@ class AutorizacionTest extends CasoDeContrato
      * @return array<string, string> uri => por qué se queda sin el guard de sus hermanas
      */
     private const EXCEPCIONES_DE_FAMILIA = [
+        // act/* (tanda 3): con las rutas del creador la familia pasó de 9 abiertas de 25
+        // (fuera del candado) a 9 de 38, y estas nueve se declaran una a una.
+        'GET api/act/bandeja' => 'act/*, lo que responde cualquier sesión: quién puede lo decide `Services\\Act\\Destinatarios` por dentro (403 si no le toca), no el tipo de usuario (ACTIVIDADES-CONTRATO §3). La familia entró en el candado con la tanda 3 (9 abiertas de 38)',
+        'GET api/act/archivos/{archivoId}' => 'act/*, lo que responde cualquier sesión: quién puede lo decide `Services\\Act\\Destinatarios` por dentro (403 si no le toca), no el tipo de usuario (ACTIVIDADES-CONTRATO §3). La familia entró en el candado con la tanda 3 (9 abiertas de 38)',
+        'GET api/act/{id}/responder' => 'act/*, lo que responde cualquier sesión: quién puede lo decide `Services\\Act\\Destinatarios` por dentro (403 si no le toca), no el tipo de usuario (ACTIVIDADES-CONTRATO §3). La familia entró en el candado con la tanda 3 (9 abiertas de 38)',
+        'GET api/act/{id}/mis-respuestas' => 'act/*, lo que responde cualquier sesión: quién puede lo decide `Services\\Act\\Destinatarios` por dentro (403 si no le toca), no el tipo de usuario (ACTIVIDADES-CONTRATO §3). La familia entró en el candado con la tanda 3 (9 abiertas de 38)',
+        'POST api/act/{id}/recorrido' => 'act/*, lo que responde cualquier sesión: quién puede lo decide `Services\\Act\\Destinatarios` por dentro (403 si no le toca), no el tipo de usuario (ACTIVIDADES-CONTRATO §3). La familia entró en el candado con la tanda 3 (9 abiertas de 38)',
+        'POST api/act/{id}/borrador' => 'act/*, lo que responde cualquier sesión: quién puede lo decide `Services\\Act\\Destinatarios` por dentro (403 si no le toca), no el tipo de usuario (ACTIVIDADES-CONTRATO §3). La familia entró en el candado con la tanda 3 (9 abiertas de 38)',
+        'POST api/act/{id}/enviar' => 'act/*, lo que responde cualquier sesión: quién puede lo decide `Services\\Act\\Destinatarios` por dentro (403 si no le toca), no el tipo de usuario (ACTIVIDADES-CONTRATO §3). La familia entró en el candado con la tanda 3 (9 abiertas de 38)',
+        'POST api/act/{id}/archivo' => 'act/*, lo que responde cualquier sesión: quién puede lo decide `Services\\Act\\Destinatarios` por dentro (403 si no le toca), no el tipo de usuario (ACTIVIDADES-CONTRATO §3). La familia entró en el candado con la tanda 3 (9 abiertas de 38)',
+        'POST api/act/{id}/entregar' => 'act/*, lo que responde cualquier sesión: quién puede lo decide `Services\\Act\\Destinatarios` por dentro (403 si no le toca), no el tipo de usuario (ACTIVIDADES-CONTRATO §3). La familia entró en el candado con la tanda 3 (9 abiertas de 38)',
+        // act/* (tanda 5): la campana y la capa de calendario. Sacan al usuario del token
+        // (`auth.token` del grupo) y a los alumnos de su tipo (el propio, o los acudidos por
+        // `parentescos`); no aceptan identificador de persona, así que no hay a quién suplantar.
+        // Son 12 abiertas de 42, todas declaradas: el candado ya no las cuenta para el umbral.
+        'GET api/act/avisos' => 'act/*, la campana de cualquier sesión: filas de `ws_avisos` del `user_id` del token y de sus alumnos (`AvisosController::alumnosDe`), sin identificador de persona en la petición',
+        'POST api/act/avisos/leidos' => 'act/*, marca leído hasta un id en `ws_avisos_leidos` del `user_id` del token; no toca filas de nadie más',
+        'GET api/act/calendario' => 'act/*, capa derivada del calendario para el usuario del token y sus alumnos; no acepta identificador de persona',
         // Las lecturas de catálogo. Son las nueve que `inventario-autorizacion.py`
         // sigue contando y que esperan una decisión en 08: no exponen a nadie,
         // pero nadie ha dicho si un alumno tiene que poder leerlas. Van aquí con
@@ -726,7 +744,13 @@ class AutorizacionTest extends CasoDeContrato
 
         foreach ($familias as $prefijo => $rutas) {
             $conGuard = count(array_filter($rutas, fn ($r) => $r['guardada']));
-            $sinGuard = count($rutas) - $conGuard;
+            // Las abiertas declaradas en EXCEPCIONES_DE_FAMILIA ya las miró una
+            // persona una a una, así que no cuentan para sacar la familia del
+            // candado: si contaran, declarar más abiertas legítimas acabaría
+            // apagando el aviso para la siguiente que saliera sin guard (act/*,
+            // tanda 5: 12 abiertas de 42, todas declaradas).
+            $sinGuard = count(array_filter($rutas, fn ($r) => ! $r['guardada']
+                && ! array_key_exists($r['clave'], self::EXCEPCIONES_DE_FAMILIA)));
 
             // La señal es «la que se quedó sola», no «esta familia está abierta».
             // Hacen falta al menos dos hermanas con guard —una sola no establece
@@ -855,7 +879,9 @@ class AutorizacionTest extends CasoDeContrato
             }
 
             foreach (array_diff($ruta->methods(), ['HEAD']) as $verbo) {
-                $familias[explode('/', $ruta->uri())[1]][] = $this->llevaGuardDePropiedad($ruta);
+                $familias[explode('/', $ruta->uri())[1]][] = $this->llevaGuardDePropiedad($ruta)
+                    ? 'guardada'
+                    : (array_key_exists($verbo.' '.$ruta->uri(), self::EXCEPCIONES_DE_FAMILIA) ? 'declarada' : 'abierta');
             }
         }
 
@@ -864,8 +890,8 @@ class AutorizacionTest extends CasoDeContrato
         $fuera = [];
 
         foreach ($familias as $prefijo => $guardadas) {
-            $conGuard = count(array_filter($guardadas));
-            $sinGuard = count($guardadas) - $conGuard;
+            $conGuard = count(array_keys($guardadas, 'guardada', true));
+            $sinGuard = count(array_keys($guardadas, 'abierta', true));
 
             // La MISMA condición que el candado de familia, y no una copia
             // parecida: si allí cambia el umbral y aquí no, esta lista deja de

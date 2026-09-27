@@ -7,6 +7,7 @@ use App\Models\Subunidad;
 use App\Models\Unidad;
 use App\Services\Auditoria;
 use App\Services\DefinitivasDeAsignatura;
+use App\Services\SubunidadNueva;
 use App\Support\AsignaturaDeLaFila;
 use App\Support\CandadoDeLaPlantilla;
 use App\Support\PeriodoDeLaFila;
@@ -18,110 +19,21 @@ use Illuminate\Support\Facades\Request;
 
 class SubunidadesController extends Controller
 {
+    /**
+     * `POST subunidades/store`. El cuerpo entero vive en `App\Services\SubunidadNueva`, con el porqué
+     * de cada paso: lo reutiliza el módulo de actividades para crear el indicador de una tarea o un
+     * cuestionario calificable (contrato de actividades §2.8). Mismo permiso, misma transacción,
+     * misma respuesta.
+     */
     public function postIndex()
     {
-        $user = User::fromToken();
-        $now = Carbon::now('America/Bogota');
-        // La subunidad todavía no existe: nace colgada de `unidad_id`, así que el
-        // periodo al que se escribe es el de esa unidad. §27.
-        User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad(Request::input('unidad_id')), AsignaturaDeLaFila::deUnidad(Request::input('unidad_id')));
-
-        // **Una sola transacción para las tres cosas**: la subunidad, sus notas y la
-        // definitiva. Es lo que cierra la §5.1 de verdad — crearlas en el mismo
-        // método pero en escrituras sueltas dejaría la misma ventana, sólo que más
-        // corta, y una petición que muriera en medio dejaría la subunidad sin notas
-        // exactamente igual que hoy.
-        //
-        // `recalcularPorSubunidad` abre la suya dentro; Laravel la resuelve con un
-        // savepoint y no hay que hacer nada.
-        return DB::transaction(function () use ($user, $now) {
-
-            $cant = Subunidad::where('unidad_id', Request::input('unidad_id'))->count();
-
-            $subunidad = new Subunidad;
-
-            $nota_def = Request::input('nota_default');
-
-            if (! $nota_def or $nota_def == '' or $nota_def < 0) {
-                $nota_def = 0;
-            }
-
-            $subunidad->definicion = Request::input('definicion');
-            $subunidad->porcentaje = Request::input('porcentaje');
-            $subunidad->orden = Request::input('orden', 0);
-            $subunidad->unidad_id = Request::input('unidad_id');
-            $subunidad->nota_default = $nota_def;
-            $subunidad->orden = $cant;
-            $subunidad->created_by = $user->user_id;
-
-            $subunidad->save();
-
-            // El ingreso sale del token (fase 2 de 18-auditoria.md), no del último
-            // login de esta persona. Y de paso se va un `[0]` que reventaba con
-            // "Undefined array key 0" para quien no tuviera ninguna sesión anotada.
-            $bit_by = $user->user_id;
-            $bit_hist = isset($user->historial_id) && is_numeric($user->historial_id)
-                ? (int) $user->historial_id
-                : null;
-            $bit_new = $subunidad->definicion.' -- '.$subunidad->porcentaje.'%'; 	// Guardo la nota nueva
-            $bit_per = $user->periodo_id;
-
-            $consulta = 'INSERT INTO bitacoras (created_by, historial_id, affected_element_type, affected_element_id, affected_element_new_value_string, created_at) 
-					VALUES (?, ?, "Nueva subunidad", ?, ?, ?)';
-
-            DB::insert($consulta, [$bit_by, $bit_hist, $subunidad->id, $bit_new, $now]);
-
-            // El rastro nuevo, al lado del viejo (18 §4). `crear` y no `editar`: es el
-            // único de los diez que da de alta una fila, y `bitacoras` lo escribía con
-            // `affected_element_type = "Nueva subunidad"` —texto libre, tercera
-            // convención de nombre de las tres que conviven en esa columna—.
-            //
-            // El valor va como estructura y no como la cadena `'X -- 30%'` que arma
-            // `$bit_new`: `valor_nuevo` es `json`, y una definición y un porcentaje son
-            // dos cosas. Pegadas con ` -- ` no se pueden volver a separar cuando la
-            // definición lleva un guión dentro, que es texto escrito a mano.
-            Auditoria::registrar()
-                ->crear('subunidad', (int) $subunidad->id)
-                ->en(periodo: $user->periodo_id)
-                ->a(['definicion' => $subunidad->definicion, 'porcentaje' => $subunidad->porcentaje])
-                ->guardar();
-
-            // §5.1 de 10-definitivas.md — **la subunidad y sus notas nacen juntas.**
-            //
-            // Hasta hoy el alta creaba la subunidad y nada más: las notas las creaba
-            // `Nota::verificarCrearNotas`, y sólo al abrir /notas en el navegador. Entre
-            // las dos cosas queda una ventana en la que **la definitiva se guarda sin el
-            // aporte de la subunidad nueva** — y si el profesor bajó los porcentajes de
-            // las demás para hacerle sitio, baja el doble. Desde Flutter, que crea
-            // subunidades y nunca llama a /notas, **la ventana puede durar días**.
-            //
-            // El grupo no viene del cuerpo: sale de la unidad. Pedírselo al cliente es
-            // la misma dependencia que hacía que el recálculo de unidades no ocurriera
-            // cuando el front no mandaba `asignatura_id`.
-            $grupo = DB::selectOne(
-                'SELECT a.grupo_id
-			   FROM unidades u
-			   INNER JOIN asignaturas a ON a.id = u.asignatura_id
-			  WHERE u.id = ?',
-                [$subunidad->unidad_id]
-            );
-
-            // **§6.5 del 19: cuando la unidad tiene dueño, aquí nace UNA nota y no
-            // treinta** — y no se ve en esta línea a propósito. La decisión vive dentro
-            // de `Nota::verificarCrearNotas`, que lee `unidades.alumno_id` de la unidad a
-            // la que cuelga esta subunidad. Se puso allí y no aquí porque el otro
-            // llamador —`NotasController::putDetailed`— necesita exactamente la misma
-            // regla, y dos sitios decidiendo de quién es una unidad es de donde salió el
-            // recalculador único.
-            if ($grupo !== null && $grupo->grupo_id) {
-                Nota::verificarCrearNotas($grupo->grupo_id, $subunidad, $user->user_id);
-            }
-
-            DefinitivasDeAsignatura::recalcularPorSubunidad((int) $subunidad->id, $user->user_id);
-
-            return $subunidad;
-
-        });
+        return SubunidadNueva::crear(User::fromToken(), [
+            'unidad_id' => Request::input('unidad_id'),
+            'definicion' => Request::input('definicion'),
+            'porcentaje' => Request::input('porcentaje'),
+            'nota_default' => Request::input('nota_default'),
+            'orden' => Request::input('orden', 0),
+        ]);
     }
 
     /**

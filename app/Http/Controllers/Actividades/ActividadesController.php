@@ -28,6 +28,9 @@ class ActividadesController extends Controller {
 		return $acti;
 	}
 
+	// `a.modo is null` en todos los listados de aquí: las actividades NUEVAS (tareas,
+	// cuestionarios y encuestas, `act/*`) viven en la misma `ws_actividades` y esta app
+	// vieja no sabe pintar sus tipos. Contrato de actividades §2.11 (26 sep 2026).
 	public function putDatos()
 	{
 		$user = User::fromToken();
@@ -69,7 +72,7 @@ class ActividadesController extends Controller {
 		$cant = count($mis_asignaturas);
 		for ($i=0; $i < $cant; $i++) { 
 
-			$consulta 			= 'SELECT * FROM ws_actividades a WHERE a.asignatura_id=? and a.deleted_at is null and a.periodo_id=?';
+			$consulta 			= 'SELECT * FROM ws_actividades a WHERE a.asignatura_id=? and a.deleted_at is null and a.modo is null and a.periodo_id=?';
 			$actividades 		= DB::select($consulta, [ $mis_asignaturas[$i]->asignatura_id, $user->periodo_id ]);
 			$mis_asignaturas[$i]->actividades = $actividades;
 		
@@ -78,7 +81,7 @@ class ActividadesController extends Controller {
 		$cant = count($otras_asignaturas);
 		for ($i=0; $i < $cant; $i++) { 
 
-			$consulta 			= 'SELECT * FROM ws_actividades a WHERE a.asignatura_id=? and a.deleted_at is null and a.periodo_id=?';
+			$consulta 			= 'SELECT * FROM ws_actividades a WHERE a.asignatura_id=? and a.deleted_at is null and a.modo is null and a.periodo_id=?';
 			$actividades 		= DB::select($consulta, [ $otras_asignaturas[$i]->asignatura_id, $user->periodo_id ]);
 			$otras_asignaturas[$i]->actividades = $actividades;
 		
@@ -95,6 +98,7 @@ class ActividadesController extends Controller {
 
 	}
 
+	// También `a.modo is null`: ver la nota de `putDatos()`.
 	public function putCompartidas()
 	{
 		$user = User::fromToken();
@@ -110,19 +114,19 @@ class ActividadesController extends Controller {
 		if ($user->is_superuser) {
 			
 			$consulta 				= 'SELECT * FROM ws_actividades a 
-										WHERE a.compartida=true and a.para_alumnos=true and a.deleted_at is null and a.periodo_id=?';
+										WHERE a.compartida=true and a.para_alumnos=true and a.deleted_at is null and a.modo is null and a.periodo_id=?';
 			$actividades 			= DB::select($consulta, [ $user->periodo_id ]);
 			$actv_alumnos 			= $actividades;
 			$datos['actv_alumnos'] 	= $actv_alumnos;
 
 			$consulta 				= 'SELECT * FROM ws_actividades a 
-										WHERE a.compartida=true and a.para_profesores=true and a.deleted_at is null and a.periodo_id=?';
+										WHERE a.compartida=true and a.para_profesores=true and a.deleted_at is null and a.modo is null and a.periodo_id=?';
 			$actividades 			= DB::select($consulta, [ $user->periodo_id ]);
 			$actv_profes 			= $actividades;
 			$datos['actv_profes'] 	= $actv_profes;
 			
 			$consulta 				= 'SELECT * FROM ws_actividades a 
-										WHERE a.compartida=true and a.para_acudientes=true and a.deleted_at is null and a.periodo_id=?';
+										WHERE a.compartida=true and a.para_acudientes=true and a.deleted_at is null and a.modo is null and a.periodo_id=?';
 			$actividades 			= DB::select($consulta, [ $user->periodo_id ]);
 			$actv_acudi 			= $actividades;
 			$datos['actv_acudi'] 	= $actv_acudi;
@@ -132,25 +136,25 @@ class ActividadesController extends Controller {
 		if ($user->tipo == 'Profesor') {
 			
 			$consulta 				= 'SELECT * FROM ws_actividades a 
-										WHERE a.compartida=true and a.created_by=? and a.para_alumnos=true and a.deleted_at is null and a.periodo_id=?';
+										WHERE a.compartida=true and a.created_by=? and a.para_alumnos=true and a.deleted_at is null and a.modo is null and a.periodo_id=?';
 			$actividades 			= DB::select($consulta, [ $user->persona_id, $user->periodo_id ]);
 			$actv_alumnos 			= $actividades;
 			$datos['actv_alumnos'] 	= $actv_alumnos;
 
 			$consulta 				= 'SELECT * FROM ws_actividades a 
-										WHERE a.compartida=true and a.created_by=? and a.para_profesores=true and a.deleted_at is null and a.periodo_id=?';
+										WHERE a.compartida=true and a.created_by=? and a.para_profesores=true and a.deleted_at is null and a.modo is null and a.periodo_id=?';
 			$actividades 			= DB::select($consulta, [ $user->persona_id, $user->periodo_id ]);
 			$actv_profes 			= $actividades;
 			$datos['actv_profes'] 	= $actv_profes;
 			
 			$consulta 				= 'SELECT * FROM ws_actividades a 
-										WHERE a.compartida=true and a.para_profesores=true and a.deleted_at is null and a.periodo_id=?';
+										WHERE a.compartida=true and a.para_profesores=true and a.deleted_at is null and a.modo is null and a.periodo_id=?';
 			$actividades 			= DB::select($consulta, [ $user->periodo_id ]);
 			$actv_x_respon 			= $actividades;
 			$datos['actv_x_respon'] = $actv_x_respon;
 			
 			$consulta 				= 'SELECT * FROM ws_actividades a 
-										WHERE a.compartida=true and a.created_by=? and a.para_acudientes=true and a.deleted_at is null and a.periodo_id=?';
+										WHERE a.compartida=true and a.created_by=? and a.para_acudientes=true and a.deleted_at is null and a.modo is null and a.periodo_id=?';
 			$actividades 			= DB::select($consulta, [ $user->persona_id, $user->periodo_id ]);
 			$actv_acudi 			= $actividades;
 			$datos['actv_acudi'] 	= $actv_acudi;

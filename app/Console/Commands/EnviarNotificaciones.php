@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Act\Avisos as AvisosDeActividades;
 use App\Services\Notificaciones\Publicador;
 use App\Services\Notificaciones\TemasDeNotificacion;
 use App\Support\Reloj;
@@ -95,6 +96,19 @@ class EnviarNotificaciones extends Command
 
     public function handle(Publicador $publicador): int
     {
+        // **Lo que encola el reloj en `ws_avisos`, antes que nada** (actividades, tanda 5): las
+        // programadas que llegaron a su hora, «cierra pronto» y los resultados de las que se
+        // cerraron por la fecha. Va antes de mirar Firebase y el secreto porque la campana web lee
+        // esas filas aunque el colegio no tenga push. En seco sólo cuenta.
+        if (Schema::hasTable('ws_avisos')) {
+            $reloj = AvisosDeActividades::delReloj((bool) $this->option('seco'));
+
+            if (array_sum($reloj) > 0) {
+                $this->line('[actividades] '.($this->option('seco') ? 'se encolarían' : 'encolados').' por la hora: '
+                    .$reloj['publicada'].' publicada, '.$reloj['por_cerrar'].' por cerrar, '.$reloj['resultados'].' resultados.');
+            }
+        }
+
         if (! TemasDeNotificacion::hayComoDerivar()) {
             $this->warn('Sin `APP_KEY` ni `NOTIFICACIONES_SECRETO`: no hay con qué derivar los temas.');
 
@@ -137,6 +151,9 @@ class EnviarNotificaciones extends Command
         $mandados += $this->porFuente('compromiso', fn ($desde) => $this->avisosDeCompromiso($desde), $publicador, $seco);
         $mandados += $this->porFuente('compromiso-resultado', fn ($desde) => $this->avisosDelResultadoDelCompromiso($desde), $publicador, $seco);
 
+        // Las actividades (tareas, cuestionarios, encuestas): la bandeja de salida `ws_avisos`.
+        $mandados += $this->porFuente('actividades', fn ($desde) => $this->avisosDeActividades($desde), $publicador, $seco);
+
         $this->info(($seco ? 'Se mandarían ' : 'Mandados ').$mandados.' avisos.');
 
         return 0;
@@ -158,11 +175,14 @@ class EnviarNotificaciones extends Command
         // clase — sin esto, encender el push le manda a cada familia un aviso por
         // cada fila del año.
         if ($marca === null) {
+            // `tope` es el final de verdad cuando la fuente entrega por tramos (actividades).
+            $hasta = $resultado['tope'] ?? $resultado['hasta'];
+
             if (! $seco) {
-                Cache::forever($clave, $resultado['hasta']);
+                Cache::forever($clave, $hasta);
             }
 
-            $this->line("[$fuente] primera pasada: marca puesta en {$resultado['hasta']}, sin avisar de lo viejo.");
+            $this->line("[$fuente] primera pasada: marca puesta en {$hasta}, sin avisar de lo viejo.");
 
             return 0;
         }
@@ -172,7 +192,10 @@ class EnviarNotificaciones extends Command
         // nunca — y sin esta línea el comando diría «mandados 300» y parecería que
         // los mandó todos. Con quince minutos entre pasadas no debería pasar; si
         // pasa, es que la marca se perdió (un `cache:clear`) y hay que mirarlo.
-        if (count($resultado['avisos']) >= self::TOPE_POR_FUENTE) {
+        if (! empty($resultado['sigue'])) {
+            // Una fuente que corta en el tope y deja la marca donde cortó: no se pierde nada.
+            $this->line("[$fuente] quedan avisos por encima del tope: salen en la próxima pasada.");
+        } elseif (count($resultado['avisos']) >= self::TOPE_POR_FUENTE) {
             $this->warn("[$fuente] se alcanzó el tope de ".self::TOPE_POR_FUENTE
                 .' avisos: lo que pasara de ahí NO se avisa y la marca avanza igual.');
         }
@@ -849,6 +872,122 @@ class EnviarNotificaciones extends Command
         }
 
         return ['avisos' => $avisos, 'hasta' => $tope];
+    }
+
+    /**
+     * **Las actividades: la bandeja de salida `ws_avisos`** (`myvc_front/ACTIVIDADES-CONTRATO.md`
+     * tanda 5). La llenan los endpoints `act/*` y el reloj de arriba; aquí sólo se lee, se junta y
+     * se publica. Marca = último `id`, como notas.
+     *
+     * Dos destinos, según la fila (ver `App\Services\Act\Avisos`):
+     *
+     * - `user_id` NULL → el tema del alumno, tipo `actividad`: el alumno y sus acudientes.
+     * - `user_id` → el tema de la persona (`TemasDeNotificacion::deUsuarioYTipo`): el docente, el
+     *   directivo, el acudiente al que se le pide algo a él.
+     *
+     * **Se junta por tema, actividad y clase**: doce entregas de una tarea en quince minutos son UN
+     * aviso al docente con «12 entregas nuevas». Y el texto no lleva la nota ni a quién: lo compone
+     * `Avisos::frase`, el mismo que lee la campana.
+     *
+     * ## No recorta: corta y sigue
+     *
+     * Una encuesta a todo el colegio son miles de filas, una por alumno y por acudiente, y cada una
+     * es un tema distinto. Las demás fuentes recortan en el tope y avanzan la marca (lo que sobra se
+     * pierde, y lo dicen); ésta **deja la marca en la última fila que cupo** y el resto sale en la
+     * pasada siguiente. `tope` es el final de verdad, para la primera pasada.
+     *
+     * @return array{avisos: array<int, array<string, mixed>>, hasta: int, tope: int, sigue: bool}
+     */
+    private function avisosDeActividades(int $desde): array
+    {
+        if (! Schema::hasTable('ws_avisos')) {
+            return ['avisos' => [], 'hasta' => $desde, 'tope' => $desde, 'sigue' => false];
+        }
+
+        $tope = (int) (DB::selectOne('SELECT COALESCE(MAX(id), 0) AS m FROM ws_avisos')->m ?? 0);
+
+        $filas = DB::select(
+            'SELECT v.id, v.actividad_id, v.clase, v.user_id, v.alumno_id,
+                    a.modo, a.titulo, a.anonimato, a.cierra_at, a.created_by
+               FROM ws_avisos v
+               LEFT JOIN ws_actividades a ON a.id = v.actividad_id AND a.deleted_at IS NULL
+              WHERE v.id > ? AND v.id <= ?
+              ORDER BY v.id
+              LIMIT '.(self::TOPE_POR_FUENTE * 10),
+            [$desde, $tope]
+        );
+
+        $grupos = [];
+        $hasta = $desde;
+        $sigue = false;
+
+        foreach ($filas as $f) {
+            // Borrada después de encolar: no se avisa, pero la marca pasa por encima.
+            if ($f->modo === null) {
+                $hasta = (int) $f->id;
+
+                continue;
+            }
+
+            $deTema = $f->user_id === null;
+            $clave = ($deTema ? 'a'.$f->alumno_id : 'u'.$f->user_id.':'.($f->clase === 'entregada' ? '' : $f->alumno_id))
+                .'|'.$f->actividad_id.'|'.$f->clase;
+
+            if (! isset($grupos[$clave]) && count($grupos) >= self::TOPE_POR_FUENTE - 1) {
+                $sigue = true;
+
+                break;
+            }
+
+            $grupos[$clave] ??= ['f' => $f, 'cuantas' => 0];
+            $grupos[$clave]['cuantas']++;
+            $hasta = (int) $f->id;
+        }
+
+        if (! $sigue && count($filas) < self::TOPE_POR_FUENTE * 10) {
+            $hasta = $tope;
+        } elseif (! $sigue) {
+            $sigue = true;
+        }
+
+        $avisos = [];
+        $creadores = [];
+
+        foreach ($grupos as $g) {
+            $f = $g['f'];
+            $alumnoId = $f->alumno_id === null ? null : (int) $f->alumno_id;
+            $deTema = $f->user_id === null;
+
+            if ($f->clase === 'por_aprobar') {
+                $creadores[(int) $f->created_by] ??= \App\Services\Act\Formas::personaDeUsuario((int) $f->created_by)['nombre'] ?? null;
+            }
+
+            $frase = AvisosDeActividades::frase(
+                (string) $f->clase,
+                $f,
+                $deTema ? $this->primerNombreDe((int) $alumnoId) : null,
+                ! $deTema && $alumnoId !== null && $f->clase !== 'entregada' ? $this->primerNombreDe($alumnoId) : null,
+                $g['cuantas'],
+                $creadores[(int) $f->created_by] ?? null
+            );
+
+            $datos = ['pantalla' => 'actividad', 'actividad_id' => (string) $f->actividad_id, 'clase' => (string) $f->clase];
+
+            if ($alumnoId !== null && $f->clase !== 'entregada') {
+                $datos['alumno_id'] = (string) $alumnoId;
+            }
+
+            $avisos[] = [
+                'tema' => $deTema
+                    ? TemasDeNotificacion::deAlumnoYTipo((int) $alumnoId, 'actividad')
+                    : TemasDeNotificacion::deUsuarioYTipo((int) $f->user_id, 'actividad'),
+                'titulo' => $frase['titulo'],
+                'cuerpo' => $frase['cuerpo'],
+                'datos' => $datos,
+            ];
+        }
+
+        return ['avisos' => $avisos, 'hasta' => $hasta, 'tope' => $tope, 'sigue' => $sigue];
     }
 
     private function avisosDelMuro(int $desde): array

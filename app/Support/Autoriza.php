@@ -759,6 +759,40 @@ class Autoriza
     }
 
     /**
+     * Quién aprueba las encuestas que lo necesitan, y la definición de **directivo** del módulo
+     * de actividades (`act/*`): el que lee resultados, entregas y «faltan» de cualquiera.
+     *
+     * La misma lista que `ROLES_QUE_APRUEBAN_FIRMAS` —administradores, secretaría, rector y las
+     * dos coordinaciones—, con el superusuario por encima. Decidido por Joseth el 26 sep 2026
+     * («alguien con rol de coordinador, rector, secretario o superusuario»); `Admin` entra por la
+     * misma razón que en las firmas. Ver `myvc_front/ACTIVIDADES-CONTRATO.md` §2.3.
+     *
+     * Hoy dice lo mismo que `puedeAprobarFirmas()`, y **se escribe aparte a propósito**: son dos
+     * decisiones distintas que coinciden por población, y el día que una cambie no tiene que
+     * arrastrar a la otra.
+     */
+    public static function puedeAprobarActividades($user): bool
+    {
+        if (self::esSuperusuario($user)) {
+            return true;
+        }
+
+        $userId = $user->user_id ?? null;
+
+        if ($userId === null) {
+            return false;
+        }
+
+        foreach (Role::getUserRoles($userId) as $rol) {
+            if (in_array($rol->name, self::ROLES_QUE_APRUEBAN_FIRMAS, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Quién aprueba o rechaza la colilla del pago de un formulario.
      *
      * Decidido por Joseth el 19 sep 2026: **el tesorero, y si no hay, secretaría.**

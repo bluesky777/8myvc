@@ -93,8 +93,27 @@ class TemasDeNotificacion
      * **Esto vuelve a mover el contrato de `GET notificaciones/temas`**: de cuatro
      * claves a cinco, y se degrada igual de bien que la vez anterior — una app que
      * no conozca el tema no se apunta y no recibe estos avisos.
+     *
+     * ## EL SEXTO ENTRÓ EL 26 SEP 2026 Y ES `actividad`
+     *
+     * Tareas, cuestionarios y encuestas del módulo nuevo (`myvc_front/ACTIVIDADES-CONTRATO.md`
+     * tanda 5): publicada, recordatorio, cierra pronto, calificada, nota cambiada y resultados.
+     * Lo escribe `EnviarNotificaciones::avisosDeActividades` leyendo `ws_avisos`. Tipo propio por
+     * la regla de siempre: apagar «Notas» no puede apagar «tienes una tarea que cierra mañana».
+     * Contrato de `GET notificaciones/temas`: de cinco claves a seis, y degrada igual de bien.
      */
-    public const TIPOS = ['notas', 'asistencia', 'disciplina', 'matricula', 'compromiso'];
+    public const TIPOS = ['notas', 'asistencia', 'disciplina', 'matricula', 'compromiso', 'actividad'];
+
+    /**
+     * Los tipos que se avisan **a una persona** y no a un alumno: el tema por usuario.
+     *
+     * Existe por el personal —al docente se le avisa de una entrega nueva, al directivo de una
+     * actividad por aprobar, y ninguno tiene tema de alumno— y por el acudiente cuando la actividad
+     * es PARA ÉL (una encuesta a acudientes): mandarla al tema del hijo se la enseñaría también al
+     * hijo, que comparte ese tema. Mismo HMAC y mismo secreto que el del alumno, con otro prefijo
+     * dentro del mensaje para que `u_` de 345 no sea nunca `a_` de 345.
+     */
+    public const TIPOS_DE_USUARIO = ['actividad'];
 
     /**
      * Los del colegio entero, que no dependen de ningún alumno.
@@ -219,6 +238,37 @@ class TemasDeNotificacion
 
         foreach (self::TIPOS as $tipo) {
             $temas[$tipo] = self::deAlumnoYTipo($alumnoId, $tipo);
+        }
+
+        return $temas;
+    }
+
+    /**
+     * El tema de una persona: `u_` + 32 hex de HMAC-SHA256 de `usuario:{id}`, más el tipo.
+     *
+     * @throws \InvalidArgumentException si el tipo no es de `TIPOS_DE_USUARIO`, por lo de `de()`.
+     */
+    public static function deUsuarioYTipo(int $userId, string $tipo): string
+    {
+        if (! in_array($tipo, self::TIPOS_DE_USUARIO, true)) {
+            throw new \InvalidArgumentException('Tipo de notificación de usuario desconocido: '.$tipo);
+        }
+
+        return 'u_'.substr(hash_hmac('sha256', 'usuario:'.$userId, self::secreto()), 0, 32).'_'.$tipo;
+    }
+
+    /**
+     * Los temas de una persona, ya compuestos: lo que `GET notificaciones/temas` devuelve en
+     * `usuario`. Sólo los suyos: el `id` sale del token, nunca de la petición.
+     *
+     * @return array<string, string>
+     */
+    public static function todosLosDelUsuario(int $userId): array
+    {
+        $temas = [];
+
+        foreach (self::TIPOS_DE_USUARIO as $tipo) {
+            $temas[$tipo] = self::deUsuarioYTipo($userId, $tipo);
         }
 
         return $temas;
