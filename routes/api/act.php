@@ -25,12 +25,13 @@ use Illuminate\Support\Facades\Route;
 | `App\Services\Act\Destinatarios`, no el tipo de usuario. Además, TODO lo del creador exige ser el
 | dueño (`created_by`), y eso lo mira el controlador.
 |
-| Tandas 1 a 5 (la IA: `ia/actividades/*`, aquí y no en `ia.php`, ver `Act\IaController`; la
+| Tandas 1 a 5 (la IA: `ia/actividades/*` y `act/ia/estado`, aquí y no en `ia.php`, ver `Act\IaController`; la
 | campana, recordar y el calendario: `Act\AvisosController`).
 |
 | Las rutas sin {parámetro} van antes que las que lo llevan.
 |
 */
+Route::get('act/ia/estado', [ActIaController::class, 'getEstado'])->middleware('auth.personal');
 Route::post('ia/actividades/proponer', [ActIaController::class, 'postProponer'])->middleware('auth.personal');
 Route::post('ia/actividades/mejorar', [ActIaController::class, 'postMejorar'])->middleware('auth.personal');
 

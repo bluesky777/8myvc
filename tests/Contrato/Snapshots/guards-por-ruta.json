@@ -57,6 +57,7 @@
         "DELETE api/years/destroy/{id}",
         "GET api/accesos-favoritos",
         "GET api/act/catalogo",
+        "GET api/act/ia/estado",
         "GET api/act/logros",
         "GET api/act/para-duplicar",
         "GET api/act/{id}",

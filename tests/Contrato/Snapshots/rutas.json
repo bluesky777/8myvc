@@ -69,6 +69,7 @@
     "GET api/act/bandeja": "App\\Http\\Controllers\\Act\\ActividadesController@getBandeja",
     "GET api/act/calendario": "App\\Http\\Controllers\\Act\\AvisosController@getCalendario",
     "GET api/act/catalogo": "App\\Http\\Controllers\\Act\\ActividadesController@getCatalogo",
+    "GET api/act/ia/estado": "App\\Http\\Controllers\\Act\\IaController@getEstado",
     "GET api/act/logros": "App\\Http\\Controllers\\Act\\ActividadesController@getLogros",
     "GET api/act/para-duplicar": "App\\Http\\Controllers\\Act\\ActividadesController@getParaDuplicar",
     "GET api/act/{id}": "App\\Http\\Controllers\\Act\\ActividadesController@getLeer",

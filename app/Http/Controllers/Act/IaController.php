@@ -46,6 +46,48 @@ class IaController extends Controller
     private const ATAJOS = ['vida_real', 'mas_dificil', 'cambiar_tipo', 'explicar'];
 
     /**
+     * `GET act/ia/estado` → `EstadoDeIa {disponible, gastado?, tope?, quedan?}`, la misma forma que
+     * `ia/estado`; en `quedan` viene el contador `actividades` junto a los demás.
+     *
+     * Existe porque `ia/estado` exige el permiso de la plantilla de notas y un docente sin él
+     * recibía 403: la pantalla de actividades no sabía si había IA hasta el primer 503. Aquí basta
+     * con ser personal (quien puede crear actividades); si su rol la tiene, lo decide el proxy.
+     * Copia de `IaController::getEstado` por la misma razón que `alProxy` (ver arriba). Un proxy
+     * caído o sin configurar es `{disponible: false}`, nunca un error: la pantalla lo pide al abrir.
+     *
+     * @return array<string, mixed>
+     */
+    public function getEstado(): array
+    {
+        $url = (string) config('services.ia.url');
+        $secreto = (string) config('services.ia.secreto');
+
+        if ($url === '' || $secreto === '') {
+            return ['disponible' => false];
+        }
+
+        try {
+            $respuesta = Http::withToken($secreto)->timeout(5)->acceptJson()
+                ->get(rtrim($url, '/') . '/gasto', ['usuario' => $this->quienPide()]);
+        } catch (\Throwable $fallo) {
+            error_log('[ia] el proxy no contestó al estado de actividades: ' . $fallo->getMessage());
+
+            return ['disponible' => false];
+        }
+
+        if ($respuesta->failed()) {
+            return ['disponible' => false];
+        }
+
+        return [
+            'disponible' => (bool) ($respuesta->json('disponible') ?? true),
+            'gastado' => $respuesta->json('gastado'),
+            'tope' => $respuesta->json('tope'),
+            'quedan' => $respuesta->json('quedan'),
+        ];
+    }
+
+    /**
      * `POST ia/actividades/proponer` — `{actividad_id, cantidad, tema, tipos, dificultad,
      * indicaciones, conversacion}` → `{datos: {preguntas: PreguntaPropuesta[]}, costo, gastado,
      * tope, quedan}`.
