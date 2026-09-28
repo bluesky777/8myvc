@@ -8,6 +8,14 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+> ## 🔴 COLJORDAN P3: 9.022 NOTAS REPUESTAS DESDE JETBACKUP (28 sep 2026) — FALTAN LAS DEFINITIVAS
+>
+> El rescate del 21 sep les había puesto `nota_default`, que en coljordan es 0. Repuestas desde
+> la copia del 20 sep 03:16 ([43](43-lo-que-todavia-no-se-ha-calificado.md), «coljordan, 28 sep»).
+> **Falta:** recalcular definitivas del P3 y mirar las 95 `manual`. **Y la pregunta que abre:**
+> cuánto falló el mismo rescate en los otros trece colegios; la copia del 20 sep caduca hacia el
+> **20 oct**.
+
 > ## 🟡 `GET horario/anterior/proyecto`: EL OFICIAL DEL AÑO PASADO (28 sep 2026), SIN FUNDIR
 >
 > Autorizada por Joseth hoy. `HorarioController::getProyectoAnterior`, `auth.personal` +

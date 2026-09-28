@@ -220,6 +220,27 @@ la copia de desarrollo, no los dieciséis.**
 > cálculo de las casillas de hoy. Con la fase 0 revertida, **ese botón convierte una definitiva buena
 > en el cálculo con ceros**, y está desplegado en los dieciséis. Hasta que `notas` esté bien, no se le
 > puede pedir a un colegio que lo pulse.
+>
+> ### coljordan, 28 sep: el `nota_default` que se repuso era 0
+>
+> El colegio avisó de que el P3 (`periodo_id=36`), del que ya había entregado boletines, salía casi
+> todo en cero. Medido en producción: 9.921 ceros en el P3, de los que **9.738 sin autor y con
+> `created_at = updated_at`, y los 9.738 de subunidades con `nota_default = 0`** — que en coljordan
+> es lo normal (≈2.950 subunidades por periodo con 0 y <100 con 100). El rescate del 21 les
+> «repuso» un 0. En la copia de JetBackup del **20 sep 03:16** el P3 tenía 898 ceros, y de esas
+> casillas intactas 9.746 tenían nota (media 94): **se escribieron sin tocar `updated_by` ni
+> `updated_at`**, la misma pregunta abierta de arriba.
+>
+> Reparado por Joseth en phpMyAdmin con `tools/rescates/coljordan-2026-p3-*.sql`: reserva de las
+> 9.738 → tabla `copia_coljordan_0920` (id, nota ≠ 0 del P3 de la copia, 29.654 filas, sacada
+> cargando el volcado en el docker) → `UPDATE` sólo sobre reservadas que siguen en 0, sin autor y
+> con el mismo `updated_at`. **9.022 repuestas**; las 716 restantes ya valían 0 el 20 sep. Después:
+> P3 con 899 ceros (898 en la copia) y 9.022 casillas iguales a la copia. Falta recalcular las
+> definitivas del P3; las 95 `manual` no las toca el cálculo.
+>
+> **Esto dice cuánto falló el rescate del 21 donde el colegio no siembra el máximo**, y la copia
+> del 20 sep es la única que lo arregla: caduca hacia el **20 oct**. El volcado de MariaDB empieza
+> por `/*!999999\- enable the sandbox mode */`, que MySQL 8 rechaza: se quita esa línea al cargarlo.
 
 ---
 
