@@ -250,6 +250,17 @@ la copia de desarrollo, no los dieciséis.**
 > valor = `nota_default`, así que cubre también el 100 sembrado), **1.227 repuestas**, comprobadas en
 > producción. Censo de sospechosas por copia en los demás (mínimo, con falsos positivos por originales
 > corregidos después): arauca_maranatha P4 306, la_hermosa P2 244, fortul P3 220, bethel P2 21.
+>
+> **El daño no era sólo del año corriente:** la migración vació todo periodo con
+> `profes_pueden_editar_notas = 1` de cualquier año, y muchos colegios nunca cerraron los viejos.
+> Reparado con la copia del 20 sep y la misma reserva generalizada (toda nota sin tocar cuyo
+> valor difiera de la copia; sin autor sólo pudo cambiarla nuestro SQL): **coljordan resto
+> 39.923 + 86 del P3 con 100 por defecto; arauca_maranatha 47.976**. Comprobado en producción: 0
+> notas sin tocar distintas de la copia. Las definitivas de 2019–2024 de coljordan son idénticas
+> a las del 20 sep (no recalcular: el aviso de «desactualizadas» es la fórmula nueva, diferencias
+> <1 punto medidas en 2025). **Pendientes con copia del 20 sep:** fortul (~4.200 en el censo),
+> comad_san_andres (~2.000), bethel (~770), la_hermosa (~340), y menores colbosque, amiguitos,
+> semillitas, caz_zaragoza.
 
 ---
 
