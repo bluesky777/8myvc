@@ -327,6 +327,15 @@ class AsignaturasController extends Controller {
 			$asignatura->horas_fuera_del_horario = (int) $fuera;
 		}
 
+		// Y LA OTRA MITAD: bajar la IH por debajo de las horas fuera, sin tocarlas, tampoco.
+		// Decisión de Joseth (28 sep 2026): «la tabla web no puede permitir un número mayor para
+		// excluir que su IH». Sin esto, la IH de 4 con 3 fuera bajaba a 2 y quedaban 3 horas fuera
+		// de 2 --un dato que ninguna lectura sabe interpretar--.
+		if ($asignatura->creditos !== null && (int) $asignatura->horas_fuera_del_horario > (int) $asignatura->creditos) {
+			abort(422, 'La IH ('.(int) $asignatura->creditos.') no puede quedar por debajo de las horas fuera del horario ('
+				.(int) $asignatura->horas_fuera_del_horario.'). Baja primero las horas fuera del horario, o en el mismo cambio.');
+		}
+
 		AuditarModelo::guardar($asignatura, 'asignatura');
 		return $asignatura;
 	}

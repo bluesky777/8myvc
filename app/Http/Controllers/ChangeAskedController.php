@@ -848,11 +848,17 @@ class ChangeAskedController extends Controller {
 				[$pedido->materia_to_add_id, $pedido->grupo_to_add_id]);
 
 			if ($ocupada !== null) {
-				$consulta = 'UPDATE asignaturas SET profesor_id=:profesor_id, creditos=:creditos, updated_by=:updated_by, updated_at=:updated_at
+				// Las horas fuera del horario se ACOTAN a la IH nueva en vez de rechazar el pedido:
+				// aprobar la solicitud de un docente no puede fallar por esto, y nunca pueden quedar
+				// más horas fuera que horas (decisión de Joseth, 28 sep 2026).
+				$consulta = 'UPDATE asignaturas SET profesor_id=:profesor_id, creditos=:creditos,
+								horas_fuera_del_horario=LEAST(horas_fuera_del_horario, COALESCE(:tope, 40)),
+								updated_by=:updated_by, updated_at=:updated_at
 								WHERE id=:id';
 				DB::update($consulta, [
 						':profesor_id' 	=> $profesor->id,
 						':creditos' 	=> $pedido->creditos_new,
+						':tope' 		=> $pedido->creditos_new,
 						':updated_by'	=> $user->user_id,
 						':updated_at' 	=> $now,
 						':id' 			=> $ocupada->id,

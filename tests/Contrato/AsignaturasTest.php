@@ -642,4 +642,27 @@ class AsignaturasTest extends CasoDeContrato
 
         $this->assertNull(DB::table('asignaturas')->where('id', $asignatura->id)->value('deleted_at'));
     }
+
+    /**
+     * **La IH no puede bajar por debajo de las horas fuera del horario.** Decisión de
+     * Joseth (28 sep 2026): «la tabla web no puede permitir un número mayor para excluir
+     * que su IH». La otra mitad del rango: sin esto, IH 4 con 3 fuera bajaba a 2 sola.
+     */
+    public function test_la_ih_no_baja_por_debajo_de_las_horas_fuera(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $a = $this->unaAsignatura();
+        DB::table('asignaturas')->where('id', $a->id)->update(['creditos' => 4, 'horas_fuera_del_horario' => 3]);
+
+        $r = $this->withToken($token)->putJson('/api/asignaturas/update/'.$a->id,
+            ['materia_id' => $a->materia_id, 'grupo_id' => $a->grupo_id, 'creditos' => 2]);
+        $r->assertStatus(422);
+        $this->assertStringContainsString('no puede quedar por debajo', (string) $r->json('message'));
+        $this->assertSame(4, (int) DB::table('asignaturas')->where('id', $a->id)->value('creditos'),
+            'El 422 dejó la IH escrita.');
+
+        // Igual a las horas fuera sí: la asignatura entera se dicta fuera del horario.
+        $this->withToken($token)->putJson('/api/asignaturas/update/'.$a->id,
+            ['materia_id' => $a->materia_id, 'grupo_id' => $a->grupo_id, 'creditos' => 3])->assertStatus(200);
+    }
 }
