@@ -20,6 +20,7 @@ use App\Support\CamposQueVinieron;
 use App\Support\CorreoDeLaCuenta;
 use App\Support\DuplicadosDeAlumnos;
 use App\Support\FusionDeAlumnos;
+use App\Support\NuncaMatriculados;
 use App\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -300,20 +301,20 @@ class AlumnosController extends Controller
     {
         Autoriza::exigir(Autoriza::puedeEditarAlumnos($this->user), 'No tienes permiso para ver los alumnos.');
 
-        return DB::select('SELECT a.id AS alumno_id, a.nombres, a.apellidos, a.sexo, a.documento, a.user_id,
-                u.username, a.created_at AS creado, cu.username AS creado_por,
-                IFNULL(i.nombre, IF(a.sexo = "F", "default_female.png", "default_male.png")) AS foto_nombre,
-                (SELECT COUNT(*) FROM anos_externos ae WHERE ae.alumno_id = a.id AND ae.deleted_at IS NULL) AS anos_externos,
-                (SELECT MAX(ae.year) FROM anos_externos ae WHERE ae.alumno_id = a.id AND ae.deleted_at IS NULL) AS ultimo_ano,
-                (SELECT GROUP_CONCAT(DISTINCT ae.colegio_nombre ORDER BY ae.year DESC SEPARATOR " · ")
-                   FROM anos_externos ae WHERE ae.alumno_id = a.id AND ae.deleted_at IS NULL) AS colegios
-            FROM alumnos a
-            LEFT JOIN users u ON u.id = a.user_id
-            LEFT JOIN users cu ON cu.id = a.created_by
-            LEFT JOIN images i ON i.id = a.foto_id AND i.deleted_at IS NULL
-            WHERE a.deleted_at IS NULL
-              AND NOT EXISTS (SELECT 1 FROM matriculas m WHERE m.alumno_id = a.id)
-            ORDER BY a.created_at DESC, a.id DESC');
+        return NuncaMatriculados::listar();
+    }
+
+    /**
+     * `DELETE alumnos/{id}/sin-matricula` — manda a la papelera una ficha que nunca se matriculó,
+     * sólo si no le cuelga nada, y le desactiva el usuario *(27 sep 2026)*. Ver
+     * App\Support\NuncaMatriculados. El `destroy` de siempre no sirve para esto: no mira qué
+     * cuelga y deja la cuenta abierta.
+     */
+    public function deleteSinMatricula($id): array
+    {
+        Autoriza::exigir(Autoriza::puedeEditarAlumnos($this->user), 'No tienes permiso para borrar alumnos.');
+
+        return NuncaMatriculados::descartar((int) $id, $this->user->user_id ?? null);
     }
 
     /**

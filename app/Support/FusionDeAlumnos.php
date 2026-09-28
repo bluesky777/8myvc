@@ -96,10 +96,32 @@ class FusionDeAlumnos
     public static function revisar(int $origen, int $destino): array
     {
         [$fichaOrigen, $fichaDestino] = self::lasDosFichas($origen, $destino);
+        $mueve = self::loQueCuelga($origen);
 
+        return [
+            'origen' => $fichaOrigen,
+            'destino' => $fichaDestino,
+            'mueve' => $mueve,
+            'filas_totales' => array_sum(array_column($mueve, 'filas')),
+            'choques' => self::choques($origen, $destino),
+            'matriculas' => self::matriculasQueChocan($origen, $destino),
+            'cuenta_de_acceso' => self::quePasaConLaCuenta($fichaOrigen, $fichaDestino),
+        ];
+    }
+
+    /**
+     * Todo lo que cuelga de una ficha: las tablas con `alumno_id` y las de otro nombre, con sus
+     * filas. Es lo que `revisar()` enseña que se va a mover, y lo que «Alumnos sin matrícula»
+     * mira para decidir si una ficha se puede borrar sin perder nada *(27 sep 2026)*: una lista,
+     * la misma en los dos sitios.
+     *
+     * @return list<array{tabla: string, filas: int}>
+     */
+    public static function loQueCuelga(int $alumno): array
+    {
         $mueve = [];
         foreach (self::tablasConAlumno() as $tabla) {
-            $n = (int) DB::selectOne("SELECT COUNT(*) AS n FROM `$tabla` WHERE alumno_id = ?", [$origen])->n;
+            $n = (int) DB::selectOne("SELECT COUNT(*) AS n FROM `$tabla` WHERE alumno_id = ?", [$alumno])->n;
             if ($n > 0) {
                 $mueve[] = ['tabla' => $tabla, 'filas' => $n];
             }
@@ -111,7 +133,7 @@ class FusionDeAlumnos
             }
 
             $sql = "SELECT COUNT(*) AS n FROM `{$otra['tabla']}` WHERE {$otra['columna']} = ?";
-            $valores = [$origen];
+            $valores = [$alumno];
             if ($otra['tipo'] !== null) {
                 $sql .= ' AND tipo_persona = ?';
                 $valores[] = $otra['tipo'];
@@ -123,15 +145,7 @@ class FusionDeAlumnos
             }
         }
 
-        return [
-            'origen' => $fichaOrigen,
-            'destino' => $fichaDestino,
-            'mueve' => $mueve,
-            'filas_totales' => array_sum(array_column($mueve, 'filas')),
-            'choques' => self::choques($origen, $destino),
-            'matriculas' => self::matriculasQueChocan($origen, $destino),
-            'cuenta_de_acceso' => self::quePasaConLaCuenta($fichaOrigen, $fichaDestino),
-        ];
+        return $mueve;
     }
 
     /**

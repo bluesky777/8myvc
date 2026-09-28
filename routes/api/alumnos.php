@@ -66,6 +66,7 @@ Route::put('alumnos/show', [AlumnosController::class, 'putShow']);
 Route::get('alumnos/sin-matriculas', [AlumnosController::class, 'getSinMatriculas'])->middleware('auth.personal');
 Route::post('alumnos/store', [AlumnosController::class, 'postStore']);
 Route::post('alumnos/{id}/crear-usuario', [AlumnosController::class, 'postCrearUsuario'])->middleware('auth.personal');
+Route::delete('alumnos/{id}/sin-matricula', [AlumnosController::class, 'deleteSinMatricula'])->middleware('auth.personal');
 Route::get('alumnos/trashed', [AlumnosController::class, 'getTrashed'])->middleware('auth.personal');
 Route::put('alumnos/years-con-notas', [AlumnosController::class, 'putYearsConNotas'])->middleware('persona.propia');
 Route::put('alumnos/de-grupo/{grupo_id}', [AlumnosController::class, 'putDeGrupo'])->middleware('auth.personal');

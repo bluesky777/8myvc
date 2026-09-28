@@ -4,6 +4,7 @@
     "DELETE api/acudientes/destroy/{id}": "App\\Http\\Controllers\\AcudientesController@deleteDestroy",
     "DELETE api/alumnos/destroy/{id}": "App\\Http\\Controllers\\AlumnosController@deleteDestroy",
     "DELETE api/alumnos/forcedelete/{id}": "App\\Http\\Controllers\\AlumnosController@deleteForcedelete",
+    "DELETE api/alumnos/{id}/sin-matricula": "App\\Http\\Controllers\\AlumnosController@deleteSinMatricula",
     "DELETE api/areas/destroy/{id}": "App\\Http\\Controllers\\AreasController@deleteDestroy",
     "DELETE api/areas/jefes/{area_id}": "App\\Http\\Controllers\\AreasController@deleteJefe",
     "DELETE api/asignaturas/destroy/{id}": "App\\Http\\Controllers\\AsignaturasController@deleteDestroy",

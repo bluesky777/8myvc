@@ -106,8 +106,7 @@ class DuplicadosDeAlumnos
             }
         }
 
-        $fichas = self::fichasDe($todos);
-        $contexto = AlumnosParecidos::contextoDe($todos);
+        $fichas = self::fichas($todos);
 
         $salida = [];
         foreach ($grupos as $g) {
@@ -116,21 +115,46 @@ class DuplicadosDeAlumnos
             $salida[] = [
                 'clave' => $g->clave,
                 'cuantas' => (int) $g->cuantas,
-                'fichas' => array_map(static fn ($id) => [
-                    'alumno_id' => $id,
-                    'nombres' => $fichas[$id]->nombres ?? '',
-                    'apellidos' => $fichas[$id]->apellidos ?? null,
-                    'documento' => $fichas[$id]->documento ?? null,
-                    'tipo_doc_nombre' => $fichas[$id]->tipo_doc_nombre ?? null,
-                    'fecha_nac' => $fichas[$id]->fecha_nac ?? null,
-                    'foto_nombre' => $fichas[$id]->foto_nombre ?? null,
-                    'creado' => $fichas[$id]->created_at ?? null,
-                    'matriculas' => $contexto[$id]['matriculas'] ?? 0,
-                    'ultimo_year' => $contexto[$id]['ultimo_year'] ?? null,
-                    'ultimo_grupo' => $contexto[$id]['ultimo_grupo'] ?? null,
-                    'ultimo_estado' => $contexto[$id]['ultimo_estado'] ?? null,
-                    'definitivas' => $contexto[$id]['definitivas'] ?? 0,
-                ], $ids),
+                'fichas' => array_map(static fn ($id) => $fichas[$id], $ids),
+            ];
+        }
+
+        return $salida;
+    }
+
+    /**
+     * La tarjeta de cada ficha, con su historial: lo que hace falta para decidir si dos son la
+     * misma persona. Pública porque «Alumnos sin matrícula» enseña las mismas tarjetas y abre el
+     * mismo diálogo de unir *(27 sep 2026)*.
+     *
+     * @param  list<int>  $ids
+     * @return array<int,array<string,mixed>>
+     */
+    public static function fichas(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        $fichas = self::fichasDe($ids);
+        $contexto = AlumnosParecidos::contextoDe($ids);
+
+        $salida = [];
+        foreach ($ids as $id) {
+            $salida[$id] = [
+                'alumno_id' => $id,
+                'nombres' => $fichas[$id]->nombres ?? '',
+                'apellidos' => $fichas[$id]->apellidos ?? null,
+                'documento' => $fichas[$id]->documento ?? null,
+                'tipo_doc_nombre' => $fichas[$id]->tipo_doc_nombre ?? null,
+                'fecha_nac' => $fichas[$id]->fecha_nac ?? null,
+                'foto_nombre' => $fichas[$id]->foto_nombre ?? null,
+                'creado' => $fichas[$id]->created_at ?? null,
+                'matriculas' => $contexto[$id]['matriculas'] ?? 0,
+                'ultimo_year' => $contexto[$id]['ultimo_year'] ?? null,
+                'ultimo_grupo' => $contexto[$id]['ultimo_grupo'] ?? null,
+                'ultimo_estado' => $contexto[$id]['ultimo_estado'] ?? null,
+                'definitivas' => $contexto[$id]['definitivas'] ?? 0,
             ];
         }
 

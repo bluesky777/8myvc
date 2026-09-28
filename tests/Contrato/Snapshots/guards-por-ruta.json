@@ -2,6 +2,7 @@
     "auth.personal": [
         "DELETE api/actas/destroy/{id}",
         "DELETE api/actividades/destroy/{id}",
+        "DELETE api/alumnos/{id}/sin-matricula",
         "DELETE api/areas/destroy/{id}",
         "DELETE api/areas/jefes/{area_id}",
         "DELETE api/asignaturas/destroy/{id}",
