@@ -222,7 +222,7 @@ class PuestosController extends Controller {
 
 		// **Una consulta por grupo y no una por alumno** (docs/migracion/48 §Los boletines,
 		// uno por uno): las notas, el comportamiento y la marca de independiente.
-		$notasDelGrupo = $this->definitivasYearDelGrupo($alumnos, $grupo_id, $user, $periodo_a_calcular);
+		$notasDelGrupo = $this->definitivasYearDelGrupo($alumnos, $grupo_id, $user, $periodo_a_calcular, Request::boolean('con_periodos'));
 		$comportamientoDelGrupo = $this->comportamientoYearDelGrupo($alumnos, $user->year_id, $periodo_a_calcular);
 
 		// La marca, con el mapa del año en vez de `aplicaEnAlguno()` periodo a periodo.
@@ -319,10 +319,16 @@ class PuestosController extends Controller {
 	 * - `cant_perdidas` se unía a `r` y no a `a`: una asignatura sin nota del año lleva
 	 *   `cant_perdidas` nulo aunque tenga notas perdidas.
 	 *
+	 * `con_periodos`: cada fila lleva además `definitivas_periodo`, `[{numero, nota}]` de los
+	 * periodos que entran en la cuenta. Lo pide «Lo que necesita en el P4» para explicar de dónde
+	 * sale el promedio; sin el campo la respuesta es la de siempre. La nota de un periodo es la
+	 * SUMA de sus filas de `notas_finales`, igual que la usa la media: con una definitiva
+	 * duplicada sale el doble, y así se ve por qué el promedio no cuadra.
+	 *
 	 * @param  array<int, object>  $alumnos
 	 * @return array<int, array<int, object>>
 	 */
-	private function definitivasYearDelGrupo(array $alumnos, $grupo_id, $user, $numero_periodo = 4): array
+	private function definitivasYearDelGrupo(array $alumnos, $grupo_id, $user, $numero_periodo = 4, bool $conPeriodos = false): array
 	{
 		if ($numero_periodo == 1) {
 			$nota    = 'CAST(avg(nf.nota) AS DOUBLE)';
@@ -367,6 +373,21 @@ class PuestosController extends Controller {
 			$notas[(int) $fila->alumno_id][(int) $fila->asignatura_id] = $fila->nota_final_year;
 		}
 
+		$porPeriodo = [];
+		if ($conPeriodos) {
+			foreach (DB::select('SELECT nf.alumno_id, nf.asignatura_id, p.numero, CAST(sum(nf.nota) AS DOUBLE) as nota from notas_finales nf
+					inner join periodos p on p.id=nf.periodo_id and '.$periodo.'p.deleted_at is null and p.year_id=?
+					where nf.alumno_id IN ('.$enAlumnos.') and nf.asignatura_id IN ('.$enAsignaturas.')
+					group by nf.alumno_id, nf.asignatura_id, p.numero
+					order by p.numero',
+					array_merge([$user->year_id], $alumnoIds, $asignaturaIds)) as $fila) {
+				$porPeriodo[(int) $fila->alumno_id][(int) $fila->asignatura_id][] = (object) [
+					'numero' => (int) $fila->numero,
+					'nota'   => $fila->nota,
+				];
+			}
+		}
+
 		$perdidas = [];
 		foreach (DB::select('SELECT n.alumno_id, u.asignatura_id, count(n.nota) cant_perdidas
 				FROM unidades u
@@ -385,13 +406,17 @@ class PuestosController extends Controller {
 			foreach ($asignaturas as $asignatura) {
 				$id = (int) $asignatura->asignatura_id;
 				$tieneNota = isset($notas[$alumnoId]) && array_key_exists($id, $notas[$alumnoId]);
-				$filas[] = (object) [
+				$fila = (object) [
 					'asignatura_id'   => $asignatura->asignatura_id,
 					'materia'         => $asignatura->materia,
 					'alias'           => $asignatura->alias,
 					'cant_perdidas'   => $tieneNota ? ($perdidas[$alumnoId][$id] ?? null) : null,
 					'nota_final_year' => $tieneNota ? $notas[$alumnoId][$id] : null,
 				];
+				if ($conPeriodos) {
+					$fila->definitivas_periodo = $porPeriodo[$alumnoId][$id] ?? [];
+				}
+				$filas[] = $fila;
 			}
 			$porAlumno[$alumnoId] = $filas;
 		}
