@@ -330,7 +330,7 @@ class GruposController extends Controller {
 	public function getCantAlumnos()
 	{
 		$user = User::fromToken();
-		$consulta = 'SELECT g.id, g.nombre, g.abrev, g.orden, gra.orden as orden_grado, g.grado_id, g.year_id, g.titular_id, g.cupo, g.ih,
+		$consulta = 'SELECT g.id, g.nombre, g.abrev, g.orden, gra.orden as orden_grado, g.grado_id, g.year_id, g.titular_id, g.cupo, g.ih, g.juntos_con,
 						p.nombres as nombres_titular, p.apellidos as apellidos_titular, p.titulo, fot.nombre as foto_titular, g.caritas, 
 						g.created_at, g.updated_at, gra.nombre as nombre_grado, count(a.id) as cant_alumnos 
 					from grupos g
@@ -864,6 +864,97 @@ class GruposController extends Controller {
 			return $grupo;
 		} catch (\Exception $e) {
 			abort(422, 'Datos incorrectos');
+		}
+	}
+
+
+
+	/**
+	 * Junta varios grupos: desde ahora van siempre juntos — `grupos.juntos_con`,
+	 * ver su migración. Cuerpo: `grupo_ids`, dos o más, todos del mismo año, y
+	 * `conjunto` si se está editando uno que ya existe (su `juntos_con`).
+	 *
+	 * Los que vengan salen antes del conjunto que tuvieran, y ese conjunto sigue
+	 * con los demás. Sólo al editar `conjunto`, los suyos que ya no vienen se
+	 * quedan sueltos. Un conjunto que se queda con uno solo se deshace.
+	 * Devuelve los grupos tocados con su `juntos_con` nuevo.
+	 */
+	public function putJuntos()
+	{
+		$user = User::fromToken();
+		$ids = array_values(array_unique(array_map('intval', (array) Request::input('grupo_ids', []))));
+
+		if (count($ids) < 2) {
+			abort(422, 'Hacen falta al menos dos grupos para juntarlos.');
+		}
+
+		$grupos = Grupo::whereIn('id', $ids)->get();
+		if ($grupos->count() !== count($ids)) {
+			abort(422, 'Alguno de esos grupos no existe o está en la papelera.');
+		}
+		if ($grupos->pluck('year_id')->unique()->count() !== 1) {
+			abort(422, 'Sólo se pueden juntar grupos del mismo año.');
+		}
+
+		$ancla = min($ids);
+
+		$editado = (int) Request::input('conjunto') ?: null;
+
+		return DB::transaction(function () use ($ids, $ancla, $grupos, $user, $editado) {
+			if ($editado) {
+				Grupo::where('juntos_con', $editado)->whereNotIn('id', $ids)
+					->update(['juntos_con' => null, 'updated_by' => $user->user_id]);
+			}
+			$anclasViejas = $grupos->pluck('juntos_con')->filter()->unique()->values()->all();
+
+			Grupo::whereIn('id', $ids)->update(['juntos_con' => $ancla, 'updated_by' => $user->user_id]);
+
+			$this->deshacerConjuntosDeUno($anclasViejas);
+
+			return Grupo::whereIn('id', $ids)->get(['id', 'nombre', 'juntos_con']);
+		});
+	}
+
+
+	/**
+	 * Saca un grupo de su conjunto. Si el conjunto se queda con uno, se deshace.
+	 * Cuerpo: `grupo_id`.
+	 */
+	public function putSoltar()
+	{
+		$user = User::fromToken();
+		$grupo = Grupo::findOrFail(Request::input('grupo_id'));
+		$ancla = $grupo->juntos_con;
+
+		if (!$ancla) {
+			return ['soltado' => $grupo->id];
+		}
+
+		DB::transaction(function () use ($grupo, $ancla, $user) {
+			$grupo->juntos_con = null;
+			$grupo->updated_by = $user->user_id;
+			$grupo->save();
+
+			$this->deshacerConjuntosDeUno([$ancla]);
+		});
+
+		return ['soltado' => $grupo->id];
+	}
+
+
+	/**
+	 * Un conjunto de uno no existe. Y si el ancla se fue, el que queda con el id
+	 * más bajo pasa a serlo: el número del conjunto es siempre un grupo suyo.
+	 */
+	private function deshacerConjuntosDeUno(array $anclas)
+	{
+		foreach ($anclas as $ancla) {
+			$ids = Grupo::where('juntos_con', $ancla)->pluck('id')->all();
+			if (count($ids) < 2) {
+				Grupo::where('juntos_con', $ancla)->update(['juntos_con' => null]);
+			} elseif (!in_array($ancla, $ids)) {
+				Grupo::whereIn('id', $ids)->update(['juntos_con' => min($ids)]);
+			}
 		}
 	}
 

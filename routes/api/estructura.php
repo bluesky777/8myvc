@@ -50,6 +50,8 @@ Route::get('grupos/next-year', [GruposController::class, 'getNextYear'])->middle
 Route::post('grupos/store', [GruposController::class, 'postStore'])->middleware('auth.personal');
 Route::get('grupos/trashed', [GruposController::class, 'getTrashed'])->middleware('auth.personal');
 Route::put('grupos/update', [GruposController::class, 'putUpdate'])->middleware('auth.personal');
+Route::put('grupos/juntos', [GruposController::class, 'putJuntos'])->middleware('auth.personal');
+Route::put('grupos/soltar', [GruposController::class, 'putSoltar'])->middleware('auth.personal');
 Route::delete('grupos/destroy/{id}', [GruposController::class, 'deleteDestroy'])->middleware('auth.personal');
 Route::delete('grupos/forcedelete/{id}', [GruposController::class, 'deleteForcedelete'])->middleware('auth.personal');
 Route::get('grupos/listado/{grupo_id}', [GruposController::class, 'getListado'])->middleware('auth.personal');
