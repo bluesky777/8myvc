@@ -10,6 +10,7 @@
         "grado_id": "int",
         "id": "int",
         "ih": "null",
+        "juntos_con": "null",
         "nombre": "string",
         "nombre_grado": "string",
         "nombres_titular": "string",

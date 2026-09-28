@@ -22,6 +22,7 @@
     "grado_id": "int",
     "id": "int",
     "ih": "null",
+    "juntos_con": "null",
     "nombre": "string",
     "orden": "int",
     "titular": {

@@ -8,6 +8,7 @@
         "foto_titular": "string",
         "grado_id": "int",
         "id": "int",
+        "juntos_con": "null",
         "nombre": "string",
         "nombre_grado": "string",
         "nombres_titular": "string",
