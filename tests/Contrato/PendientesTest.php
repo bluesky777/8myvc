@@ -91,6 +91,26 @@ class PendientesTest extends CasoDeContrato
         $this->assertContains('intensidad_horaria', $tipos);
     }
 
+    public function test_un_grupo_sin_ih_se_pide_aunque_sus_asignaturas_la_tengan(): void
+    {
+        $e = $this->escenario();
+
+        DB::table('asignaturas')->where('grupo_id', $e->grupo_id)->update(['creditos' => 3]);
+        DB::table('grupos')->where('id', $e->grupo_id)->update(['ih' => null]);
+
+        $r = $this->withToken($this->tokenDe($this->usuarioDeTipo('Usuario')->username))
+            ->getJson('/api/pendientes/mios');
+        $ih = collect($r->json('pendientes'))->firstWhere('tipo', 'intensidad_horaria');
+
+        $this->assertNotNull($ih);
+        $this->assertStringContainsString('sin intensidad horaria', $ih['titular']);
+        $grupo = DB::table('grupos')->where('id', $e->grupo_id)->first();
+        $this->assertContains(
+            ['texto' => 'Grupo '.($grupo->abrev ?: $grupo->nombre), 'nota' => 'sin IH', 'aviso' => true],
+            $ih['filas']
+        );
+    }
+
     public function test_el_personal_sin_cargo_no_ve_nada(): void
     {
         $this->escenario();

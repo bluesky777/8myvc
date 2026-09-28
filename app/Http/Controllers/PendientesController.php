@@ -525,7 +525,7 @@ class PendientesController extends Controller
         ];
     }
 
-    /* ── 7. Intensidad horaria: asignaturas sin IH y grupos que no cuadran ──────────── */
+    /* ── 7. Intensidad horaria: grupos y asignaturas sin IH, y grupos que no cuadran ── */
 
     /**
      * Los dos casos del encargo, con el criterio de `app2/…/asignaturas.ts` (cabecera
@@ -566,11 +566,19 @@ class PendientesController extends Controller
         $descuadrados = array_values(array_filter($grupos,
             static fn ($g) => $g['ih'] !== null && $g['vacias'] === 0 && $g['suma'] !== (int) $g['ih']));
 
-        if ($sinIh === [] && $descuadrados === []) {
+        // Sin la IH del grupo el cuadre no tiene contra qué comparar: se pide ponerla.
+        $gruposSinIh = array_values(array_filter($grupos,
+            static fn ($g) => $g['ih'] === null || (int) $g['ih'] <= 0));
+
+        if ($sinIh === [] && $descuadrados === [] && $gruposSinIh === []) {
             return null;
         }
 
         $partes = [];
+
+        if ($gruposSinIh !== []) {
+            $partes[] = $this->plural(count($gruposSinIh), 'grupo sin intensidad horaria', 'grupos sin intensidad horaria');
+        }
 
         if ($sinIh !== []) {
             $partes[] = $this->plural(count($sinIh), 'asignatura sin intensidad horaria', 'asignaturas sin intensidad horaria');
@@ -581,6 +589,11 @@ class PendientesController extends Controller
         }
 
         $lista = array_merge(
+            array_map(static fn ($g) => [
+                'texto' => 'Grupo '.$g['nombre'],
+                'nota' => 'sin IH',
+                'aviso' => true,
+            ], $gruposSinIh),
             array_map(static fn ($g) => [
                 'texto' => 'Grupo '.$g['nombre'],
                 'nota' => "{$g['suma']} de {$g['ih']} horas",
@@ -599,12 +612,17 @@ class PendientesController extends Controller
             'insistencia' => self::IMPORTANTE,
             'urgencia' => 90,
             'icono' => 'hourglass',
-            'titular' => 'Hay '.implode(' y ', $partes),
+            'titular' => 'Hay '.(count($partes) > 1
+                ? implode(', ', array_slice($partes, 0, -1)).' y '.end($partes)
+                : $partes[0]),
             'detalle' => 'La intensidad horaria es obligatoria para lo académico, aunque el colegio no use horario.'
+                .($gruposSinIh !== [] ? ' La **IH del grupo** se pone en Grupos.' : '')
                 .($descuadrados !== [] ? ' Un grupo cuadra cuando la suma de sus asignaturas da la **IH del grupo**.' : ''),
             'filas' => array_slice($lista, 0, self::TOPE_DE_FILAS),
             'total_filas' => count($lista),
-            'destino' => ['ruta' => '/asignaturas', 'etiqueta' => 'Ir a asignaturas'],
+            'destino' => $sinIh === [] && $descuadrados === []
+                ? ['ruta' => '/panel/grupos', 'etiqueta' => 'Ir a grupos']
+                : ['ruta' => '/asignaturas', 'etiqueta' => 'Ir a asignaturas'],
             'primero_para' => ['Coord académico'],
         ];
     }
