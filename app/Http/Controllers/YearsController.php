@@ -531,7 +531,10 @@ class YearsController extends Controller {
 			// cierto no es un borrador pendiente. Decisión de Joseth; el docente de la
 			// asignatura, doce líneas más abajo, se copia justo por lo contrario.
 			$grupos_ant = Grupo::where('year_id', $pasado->id)->get();
-			
+
+			// Los grupos nuevos de cada conjunto «siempre juntos», por el ancla VIEJA.
+			$conjuntos = [];
+
 			foreach ($grupos_ant as $key => $grupo) {
 				$newGr = new Grupo;
 				$newGr->nombre 			= $grupo->nombre;
@@ -557,6 +560,9 @@ class YearsController extends Controller {
 				// buscar, y por eso lo vigila `CentinelaDeLasColumnasDelGrupoCopiadoTest`.
 				$newGr->ih 				= $grupo->ih;
 				$newGr->save();
+				if ($grupo->juntos_con !== null) {
+					$conjuntos[$grupo->juntos_con][] = $newGr;
+				}
 
 				$asigs_ant = Asignatura::where('grupo_id', $grupo->id)->get();
 				
@@ -588,6 +594,20 @@ class YearsController extends Controller {
 					$newAsig->save();
 				}
 				$grupo->asigs_ant = $asigs_ant;
+			}
+
+			// LOS GRUPOS QUE VAN SIEMPRE JUNTOS se copian en una segunda pasada, porque
+			// `juntos_con` apunta a otro grupo y los ids nuevos no existen hasta el `save()`.
+			// La forma se conserva: todos llevan el id MÁS BAJO del conjunto --el del año
+			// nuevo, no el viejo-- y un conjunto que se quedó con uno solo no es conjunto.
+			// Lo lee el programa de horarios al importar; sin esto, preescolar amanecería
+			// cada enero con la maestra contada tres veces y el horario «imposible».
+			foreach ($conjuntos as $nuevos) {
+				$ancla = count($nuevos) > 1 ? min(array_map(fn ($g) => $g->id, $nuevos)) : null;
+				foreach ($nuevos as $newGr) {
+					$newGr->juntos_con = $ancla;
+					$newGr->save();
+				}
 			}
 			$year->grupos_ant = $grupos_ant;
 		}

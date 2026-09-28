@@ -8,6 +8,15 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+> ## 🟡 LOS GRUPOS QUE VAN SIEMPRE JUNTOS PASAN AL AÑO NUEVO (28 sep 2026), SIN FUNDIR
+>
+> `YearsController::postStore` copia `grupos.juntos_con` (commit `60d2a15`) en una segunda
+> pasada tras el bucle de grupos: cada conjunto se reancla al id **más bajo del año nuevo**, y
+> uno que se quede con un solo grupo nace a NULL. Lo lee el programa de horarios al importar.
+> Test: `YearsTest::test_el_ano_nuevo_copia_los_grupos_que_van_siempre_juntos` (dos mutantes
+> lo ponen rojo). Verde en las 8 clases que llaman a `years/store` más las centinelas: 124 de
+> 124. **La suite entera no se ha corrido**: `tests-que-tocan.py` no tiene mapa de rutas.
+
 > ## 🟡 EL EMISOR DEL PORTAL DE LA UNIÓN, FUNDIDO Y SIN DESPLEGAR (27 sep 2026)
 >
 > `portal:enviar {--anio=} {--seco} {--retroactivo}` y `portal:respaldo-inicial`, con el
