@@ -211,7 +211,14 @@ class PuestosController extends Controller {
 			$periodos_hasta
 		);
 
-		$alumnos = BoletinIndependiente::losQueCuentanParaElPuesto($alumnos, $periodos_del_informe, (int) $user->year_id);
+		/*
+		 * `con_independientes`: el informe «Lo que necesita en el P4» pide estas mismas notas y
+		 * no reparte puestos, así que quiere a TODOS los alumnos -- también a los que van aparte,
+		 * que tienen que pasar el año igual. Sin el campo, todo sigue como estaba.
+		 */
+		if (!Request::boolean('con_independientes')) {
+			$alumnos = BoletinIndependiente::losQueCuentanParaElPuesto($alumnos, $periodos_del_informe, (int) $user->year_id);
+		}
 
 		// **Una consulta por grupo y no una por alumno** (docs/migracion/48 §Los boletines,
 		// uno por uno): las notas, el comportamiento y la marca de independiente.
