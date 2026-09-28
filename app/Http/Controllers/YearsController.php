@@ -572,6 +572,10 @@ class YearsController extends Controller {
 					$newAsig->grupo_id 		= $newGr->id;
 					$newAsig->creditos 		= $asigs_ant[$i]->creditos;
 					$newAsig->orden 		= $asigs_ant[$i]->orden;
+					// Las horas que se dictan en otra jornada viajan con la IH: si se
+					// quedaran en 0, el año nuevo le pediría al horario casillas que el
+					// colegio nunca dio en esa jornada (28 sep 2026, decisión de Joseth).
+					$newAsig->horas_fuera_del_horario = $asigs_ant[$i]->horas_fuera_del_horario;
 					// El docente y su suplente SÍ se copian (30 ago 2026), y es lo que ya
 					// hacía `POST asignaturas/copiar` de grupo a grupo: esta ruta era la
 					// única de las dos que no lo hacía.

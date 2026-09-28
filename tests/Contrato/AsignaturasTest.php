@@ -483,6 +483,144 @@ class AsignaturasTest extends CasoDeContrato
             'Copiar dos veces duplica: el endpoint no mira lo que ya hay en el destino.');
     }
 
+    /**
+     * Una asignatura del AÑO DEL TOKEN, sacada de `GET asignaturas`: la que lee el
+     * importador de horarios y la pantalla, que es la población de estos casos.
+     */
+    private function unaDeLaLectura(string $token): array
+    {
+        $filas = $this->withToken($token)->getJson('/api/asignaturas')->assertStatus(200)->json();
+        $this->assertNotEmpty($filas, 'GET asignaturas no devuelve nada con el token del personal.');
+
+        return $filas[0];
+    }
+
+    /**
+     * **`horas_fuera_del_horario` sale en `GET asignaturas` con ESE nombre y como entero.**
+     *
+     * La lee el importador del programa de horarios fila a fila, por su nombre exacto
+     * (28 sep 2026). Se mide en TODAS las filas, no en la primera.
+     */
+    public function test_la_lectura_trae_las_horas_fuera_del_horario(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $a = $this->unaDeLaLectura($token);
+        DB::table('asignaturas')->where('id', $a['id'])->update(['creditos' => 4, 'horas_fuera_del_horario' => 3]);
+
+        $filas = $this->withToken($token)->getJson('/api/asignaturas')->assertStatus(200)->json();
+
+        foreach ($filas as $fila) {
+            $this->assertArrayHasKey('horas_fuera_del_horario', $fila,
+                "La fila {$fila['id']} de GET asignaturas no trae `horas_fuera_del_horario`.");
+            $this->assertIsInt($fila['horas_fuera_del_horario']);
+        }
+
+        $this->assertSame(3, collect($filas)->firstWhere('id', $a['id'])['horas_fuera_del_horario']);
+    }
+
+    /**
+     * **Se edita por `PUT asignaturas/update/{id}`, como `creditos`**, y lo que no
+     * viaja no se toca: la pantalla vieja no la manda y no puede ponerla a cero.
+     */
+    public function test_editar_escribe_las_horas_fuera_y_no_las_pisa_si_no_vienen(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $a = $this->unaAsignatura();
+        DB::table('asignaturas')->where('id', $a->id)->update(['creditos' => 4, 'horas_fuera_del_horario' => 0]);
+
+        $r = $this->withToken($token)->putJson('/api/asignaturas/update/'.$a->id,
+            ['materia_id' => $a->materia_id, 'grupo_id' => $a->grupo_id, 'creditos' => 4, 'horas_fuera_del_horario' => 3]);
+        $r->assertStatus(200)->assertJsonPath('horas_fuera_del_horario', 3);
+        $this->assertSame(3, (int) DB::table('asignaturas')->where('id', $a->id)->value('horas_fuera_del_horario'));
+
+        // Lo que manda la pantalla de hoy, sin la clave.
+        $this->withToken($token)->putJson('/api/asignaturas/update/'.$a->id,
+            ['materia_id' => $a->materia_id, 'grupo_id' => $a->grupo_id, 'creditos' => 4])->assertStatus(200);
+        $this->assertSame(3, (int) DB::table('asignaturas')->where('id', $a->id)->value('horas_fuera_del_horario'),
+            'Un cuerpo sin `horas_fuera_del_horario` las pisó.');
+
+        // Cero es un valor, y la IH entera también.
+        foreach ([0, 4] as $horas) {
+            $this->withToken($token)->putJson('/api/asignaturas/update/'.$a->id,
+                ['horas_fuera_del_horario' => $horas])->assertStatus(200);
+            $this->assertSame($horas, (int) DB::table('asignaturas')->where('id', $a->id)->value('horas_fuera_del_horario'));
+        }
+    }
+
+    /**
+     * **Fuera de 0..IH es 422 con el tope delante, y no se escribe nada.** Contra la IH
+     * que queda DESPUÉS del mismo cuerpo: bajar la IH y las horas fuera a la vez tiene
+     * que poder pasar, y bajar sólo la IH por debajo de lo pedido no.
+     */
+    public function test_las_horas_fuera_van_de_cero_a_la_ih(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $a = $this->unaAsignatura();
+        DB::table('asignaturas')->where('id', $a->id)->update(['creditos' => 4, 'horas_fuera_del_horario' => 1]);
+
+        foreach ([5, -1, 1.5, 'tres', null, '', true] as $malo) {
+            $r = $this->withToken($token)->putJson('/api/asignaturas/update/'.$a->id,
+                ['horas_fuera_del_horario' => $malo]);
+            $r->assertStatus(422);
+            $this->assertStringContainsString('entre 0 y 4', (string) $r->json('message'),
+                'El 422 no dice el tope: '.json_encode($malo));
+        }
+
+        $fila = DB::selectOne('SELECT creditos, horas_fuera_del_horario FROM asignaturas WHERE id = ?', [$a->id]);
+        $this->assertSame([4, 1], [(int) $fila->creditos, (int) $fila->horas_fuera_del_horario],
+            'Un 422 dejó algo escrito.');
+
+        // En el mismo cuerpo manda la IH nueva, en las dos direcciones.
+        $this->withToken($token)->putJson('/api/asignaturas/update/'.$a->id,
+            ['creditos' => 2, 'horas_fuera_del_horario' => 3])->assertStatus(422);
+        $this->withToken($token)->putJson('/api/asignaturas/update/'.$a->id,
+            ['creditos' => 6, 'horas_fuera_del_horario' => 6])->assertStatus(200);
+
+        // Sin IH, el tope es 40.
+        DB::table('asignaturas')->where('id', $a->id)->update(['creditos' => null]);
+        $this->withToken($token)->putJson('/api/asignaturas/update/'.$a->id,
+            ['horas_fuera_del_horario' => 40])->assertStatus(200);
+        $r = $this->withToken($token)->putJson('/api/asignaturas/update/'.$a->id,
+            ['horas_fuera_del_horario' => 41]);
+        $r->assertStatus(422);
+        $this->assertStringContainsString('entre 0 y 40', (string) $r->json('message'));
+    }
+
+    /**
+     * **La escritura mueve la huella de sincronización.** `GET sincronizacion/huella`
+     * mira `MAX(a.updated_at)` para decirle al programa de horarios que las
+     * asignaturas cambiaron; una escritura que no tocara `updated_at` sería un cambio
+     * que el programa no ve nunca.
+     *
+     * Todo lo que entra en esa huella se lleva antes a 2020, para que la fecha nueva no
+     * quede tapada por la de otra fila o por la de una materia.
+     */
+    public function test_editar_las_horas_fuera_mueve_la_huella_de_sincronizacion(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $a = $this->unaDeLaLectura($token);
+        DB::table('asignaturas')->where('id', $a['id'])->update(['creditos' => 4, 'horas_fuera_del_horario' => 0]);
+
+        DB::update("UPDATE asignaturas SET updated_at = '2020-01-01 00:00:00'");
+        DB::update("UPDATE materias SET updated_at = '2020-01-01 00:00:00'");
+        DB::update("UPDATE areas SET updated_at = '2020-01-01 00:00:00'");
+
+        $antes = $this->withToken($token)->getJson('/api/sincronizacion/huella')
+            ->assertStatus(200)->json('huellas.asignaturas');
+        $this->assertSame('2020-01-01 00:00:00', $antes['ultimo_cambio'],
+            'La huella no partió de 2020: el caso no distinguiría nada.');
+
+        // Sólo la clave nueva en el cuerpo: si viajara `creditos`, la huella podría
+        // moverla él.
+        $this->withToken($token)->putJson('/api/asignaturas/update/'.$a['id'],
+            ['horas_fuera_del_horario' => 1])->assertStatus(200);
+
+        $despues = $this->withToken($token)->getJson('/api/sincronizacion/huella')->json('huellas.asignaturas');
+
+        $this->assertGreaterThan($antes['ultimo_cambio'], $despues['ultimo_cambio'],
+            'Cambiar las horas fuera del horario no movió la huella: el programa de horarios no se entera.');
+    }
+
     /** Una familia no toca la estructura de asignaturas del colegio. */
     public function test_una_familia_no_toca_las_asignaturas(): void
     {

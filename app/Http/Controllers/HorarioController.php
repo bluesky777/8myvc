@@ -753,7 +753,7 @@ class HorarioController extends Controller
         }
 
         $delAnio = DB::select(
-            'SELECT a.id, a.creditos, g.nombre AS grupo, m.materia AS materia
+            'SELECT a.id, a.creditos, a.horas_fuera_del_horario, g.nombre AS grupo, m.materia AS materia
                FROM asignaturas a
                JOIN grupos g ON g.id = a.grupo_id
                LEFT JOIN materias m ON m.id = a.materia_id
@@ -783,12 +783,24 @@ class HorarioController extends Controller
 
             $ih = (int) $a->creditos;
 
-            if ($suma > $ih) {
-                $pasadas[] = ['asignatura_id' => $id, 'nombre' => $nombre, 'colocadas' => $suma, 'ih' => $ih];
-            } elseif ($suma === $ih) {
+            // Lo que toca colocar NO es la IH entera: las horas que se dictan en otra
+            // jornada (`horas_fuera_del_horario`, 28 sep 2026) no entran en el horario.
+            // Física de Décimo con IH 4 y 3 fuera está COMPLETA con una hora colocada;
+            // contra la IH a secas saldría «incompleta, 1 de 4» cuando está entera. Y
+            // la dura va contra lo mismo: colocar las 4 sería dar dos veces las 3 de la
+            // tarde. `max(0, …)` porque la columna se valida contra la IH al escribirla
+            // pero la IH puede bajar después sin tocarla.
+            $fuera = (int) $a->horas_fuera_del_horario;
+            $aColocar = max(0, $ih - $fuera);
+            $renglon = ['asignatura_id' => $id, 'nombre' => $nombre, 'colocadas' => $suma, 'ih' => $ih,
+                'fuera_del_horario' => $fuera, 'a_colocar' => $aColocar];
+
+            if ($suma > $aColocar) {
+                $pasadas[] = $renglon;
+            } elseif ($suma === $aColocar) {
                 $completas++;
             } else {
-                $incompletas[] = ['asignatura_id' => $id, 'nombre' => $nombre, 'colocadas' => $suma, 'ih' => $ih];
+                $incompletas[] = $renglon;
             }
         }
 

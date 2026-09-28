@@ -789,6 +789,112 @@ class HorarioSubidaTest extends CasoDeContrato
     }
 
     /**
+     * **Las horas que se dictan fuera del horario no se piden en él.**
+     *
+     * `asignaturas.horas_fuera_del_horario` (28 sep 2026): Física de Décimo con IH 4 y
+     * 3 horas en la jornada de la tarde tiene UNA casilla en el horario. Contra la IH
+     * a secas, esa versión salía «incompleta, 1 de 4» cuando está entera.
+     *
+     * Se aísla con un grupo fabricado aquí y se lee el renglón de ESA asignatura por
+     * su id: las del seed también salen incompletas —la versión sólo trae una pieza—,
+     * y contar `incompletas` sin nombrar a nadie no distinguiría nada.
+     */
+    #[Test]
+    public function una_asignatura_con_horas_fuera_esta_completa_con_el_resto_colocado(): void
+    {
+        $id = $this->unSegundoGrupo((int) $this->anio()->id);
+        DB::update('UPDATE asignaturas SET creditos = 4, horas_fuera_del_horario = 3 WHERE id = ?', [$id]);
+
+        $antes = $this->subir([$this->pieza('fisica', 1, 1, 1, [$id])]);
+        $antes->assertStatus(201);
+
+        $renglon = $antes->json('comprobaciones.renglones.suma_igual_que_la_ih');
+        $cuales = array_column($renglon['cuales'], 'asignatura_id');
+
+        $this->assertNotContains($id, $cuales,
+            'Con IH 4, 3 horas fuera y 1 colocada, la asignatura sale incompleta: se comparó '.
+            'contra la IH entera y no contra lo que toca colocar.');
+
+        // Y el mismo caso sin horas fuera SÍ es incompleto: sin este control, un
+        // renglón que no nombrara a nadie pasaría igual.
+        DB::update('UPDATE asignaturas SET horas_fuera_del_horario = 0 WHERE id = ?', [$id]);
+
+        $sin = $this->subir([$this->pieza('fisica', 1, 1, 1, [$id])], ['nombre' => 'Propuesta B']);
+        $sin->assertStatus(201);
+
+        $fila = collect($sin->json('comprobaciones.renglones.suma_igual_que_la_ih.cuales'))
+            ->firstWhere('asignatura_id', $id);
+
+        $this->assertNotNull($fila, 'Sin horas fuera, 1 de 4 tiene que salir incompleta.');
+        $this->assertSame(['colocadas' => 1, 'ih' => 4, 'fuera_del_horario' => 0, 'a_colocar' => 4],
+            array_intersect_key($fila, array_flip(['colocadas', 'ih', 'fuera_del_horario', 'a_colocar'])));
+    }
+
+    /**
+     * **La dura también va contra lo que toca colocar.** Con IH 4 y 3 fuera, colocar
+     * 2 es dar dos veces una hora de la tarde: 422, y el renglón lo explica con las
+     * cuatro cifras, no sólo con la IH que parecería no pasarse.
+     */
+    #[Test]
+    public function colocar_horas_que_se_dictan_fuera_es_422(): void
+    {
+        $id = $this->unSegundoGrupo((int) $this->anio()->id);
+        DB::update('UPDATE asignaturas SET creditos = 4, horas_fuera_del_horario = 3 WHERE id = ?', [$id]);
+
+        $r = $this->subir([$this->pieza('fisica', 1, 1, 2, [$id])]);
+
+        $r->assertStatus(422);
+        $r->assertJsonPath('motivo', 'suma-mayor-que-la-ih');
+
+        $fila = collect($r->json('asignaciones'))->firstWhere('asignatura_id', $id);
+        $this->assertNotNull($fila, 'El rechazo no nombra la asignatura que se pasó.');
+        $this->assertSame(['colocadas' => 2, 'ih' => 4, 'fuera_del_horario' => 3, 'a_colocar' => 1],
+            array_intersect_key($fila, array_flip(['colocadas', 'ih', 'fuera_del_horario', 'a_colocar'])));
+
+        $this->assertNadaEscrito('horas fuera colocadas dentro');
+    }
+
+    /**
+     * **Lo que toca colocar no baja de cero.** La columna se valida contra la IH al
+     * escribirla, pero la IH puede bajar después sin tocarla: IH 2 con 3 fuera. Sin el
+     * suelo, lo que toca colocar sería −1 y **una asignatura que la versión ni menciona**
+     * —cero horas colocadas— tumbaría la subida entera con «gasta más de las que tiene».
+     */
+    #[Test]
+    public function horas_fuera_por_encima_de_la_ih_no_tumban_la_subida(): void
+    {
+        $anio = $this->anio();
+        $id = $this->unSegundoGrupo((int) $anio->id);
+        DB::update('UPDATE asignaturas SET creditos = 2, horas_fuera_del_horario = 3 WHERE id = ?', [$id]);
+
+        $otra = $this->asignaturasDe((int) $anio->id)[0];
+        $r = $this->subir([$this->pieza('otra', 1, 1, 1, [(int) $otra->id])]);
+
+        $r->assertStatus(201);
+        $this->assertNotContains($id,
+            array_column($r->json('comprobaciones.renglones.suma_igual_que_la_ih.cuales'), 'asignatura_id'),
+            'Con cero que colocar y cero colocadas, la asignatura está completa.');
+    }
+
+    /**
+     * Y la IH vacía se queda como estaba: no comprobada, aunque traiga horas fuera.
+     * `NULL - 3` no es un número contra el que comparar.
+     */
+    #[Test]
+    public function una_asignatura_sin_ih_con_horas_fuera_sigue_sin_comprobar(): void
+    {
+        $id = $this->unSegundoGrupo((int) $this->anio()->id);
+        DB::update('UPDATE asignaturas SET creditos = NULL, horas_fuera_del_horario = 3 WHERE id = ?', [$id]);
+
+        $r = $this->subir([$this->pieza('fisica', 1, 1, 2, [$id])]);
+
+        $r->assertStatus(201);
+        $this->assertContains($id,
+            array_column($r->json('comprobaciones.no_comprobadas.asignaciones_sin_ih.cuales'), 'asignatura_id'),
+            'Una asignatura sin IH dejó de contarse como no comprobada por traer horas fuera.');
+    }
+
+    /**
      * La población del veredicto **sale de esa corrida, no del código**.
      *
      * 345 y 134 son cifras de `simonbolivar`; escritas a mano dirían 345 en el
