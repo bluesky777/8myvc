@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Support\Autoriza;
 use App\Support\CierreDeAsignatura;
+use App\Support\DocenteDelUsuario;
 use App\Support\CierreDeLoNoCalificado;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -290,9 +291,7 @@ class CierresAsignaturaController extends Controller
 
     private function miProfesorId(): ?int
     {
-        return ($this->user->tipo ?? '') === 'Profesor' && isset($this->user->persona_id)
-            ? (int) $this->user->persona_id
-            : null;
+        return DocenteDelUsuario::id($this->user);
     }
 
     private function userId(): ?int

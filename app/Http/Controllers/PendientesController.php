@@ -7,6 +7,7 @@ use App\Models\Role;
 use App\Services\CalendarioDePeriodos;
 use App\Support\Autoriza;
 use App\Support\CierreDeAsignatura;
+use App\Support\DocenteDelUsuario;
 use App\Support\AlcanceDeLaPlantilla;
 use App\Support\FotoDeLaPlantilla;
 use App\Support\Reloj;
@@ -121,7 +122,7 @@ class PendientesController extends Controller
         $super = Autoriza::esSuperusuario($user);
         $directivo = $this->esDirectivo($user, $roles);
         $coordAcademico = $super || in_array('Coord académico', $roles, true);
-        $profesorId = ($user->tipo ?? null) === 'Profesor' && ($user->persona_id ?? null) !== null ? (int) $user->persona_id : null;
+        $profesorId = DocenteDelUsuario::id($user);
         $todasLasAsignaturas = $super || array_intersect(['Coord académico', 'Rector'], $roles) !== [];
         $coordDisciplinario = $super || in_array('Coord disciplinario', $roles, true)
             || ($profesorId !== null && (int) ($year->coordinador_disciplinario_id ?? 0) === $profesorId);
