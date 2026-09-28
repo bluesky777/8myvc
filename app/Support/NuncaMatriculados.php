@@ -36,7 +36,7 @@ use Illuminate\Support\Facades\DB;
  */
 class NuncaMatriculados
 {
-    /** @return list<array<string,mixed>> */
+    /** @return list<array<array-key, mixed>> */
     public static function listar(): array
     {
         $filas = DB::select('SELECT a.id AS alumno_id, a.nombres, a.apellidos, a.sexo, a.documento, a.user_id,
@@ -67,7 +67,7 @@ class NuncaMatriculados
         }
         $fichas = DuplicadosDeAlumnos::fichas(array_values(array_unique($todos)));
 
-        return array_map(static function ($f) use ($gemelosDe, $fichas) {
+        return array_values(array_map(static function ($f) use ($gemelosDe, $fichas) {
             $id = (int) $f->alumno_id;
             $cuelga = FusionDeAlumnos::loQueCuelga($id);
 
@@ -81,7 +81,7 @@ class NuncaMatriculados
                 'cuelga' => $cuelga,
                 'borrable' => $cuelga === [],
             ];
-        }, $filas);
+        }, $filas));
     }
 
     /**

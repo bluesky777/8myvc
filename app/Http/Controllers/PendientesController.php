@@ -614,7 +614,7 @@ class PendientesController extends Controller
             'icono' => 'hourglass',
             'titular' => 'Hay '.(count($partes) > 1
                 ? implode(', ', array_slice($partes, 0, -1)).' y '.end($partes)
-                : $partes[0]),
+                : ($partes[0] ?? '')),
             'detalle' => 'La intensidad horaria es obligatoria para lo académico, aunque el colegio no use horario.'
                 .($gruposSinIh !== [] ? ' La **IH del grupo** se pone en Grupos.' : '')
                 .($descuadrados !== [] ? ' Un grupo cuadra cuando la suma de sus asignaturas da la **IH del grupo**.' : ''),

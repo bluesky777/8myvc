@@ -603,6 +603,8 @@ class YearsController extends Controller {
 			// Lo lee el programa de horarios al importar; sin esto, preescolar amanecería
 			// cada enero con la maestra contada tres veces y el horario «imposible».
 			foreach ($conjuntos as $nuevos) {
+				// Un id de `grupos` es autoincremental y nunca negativo; larastan no lo sabe de `min()`.
+				/** @var int<0, max>|null $ancla */
 				$ancla = count($nuevos) > 1 ? min(array_map(fn ($g) => $g->id, $nuevos)) : null;
 				foreach ($nuevos as $newGr) {
 					$newGr->juntos_con = $ancla;
