@@ -2888,6 +2888,91 @@ class HorarioController extends Controller
         ]);
     }
 
+    /**
+     * `GET horario/anterior/proyecto` — el proyecto de la versión OFICIAL del año pasado.
+     *
+     * Autorizada por Joseth el 28 sep 2026: *«Crea la nueva ruta para importar oficial del
+     * año pasado»*. El programa de horarios, al importar el año nuevo, hereda del horario
+     * oficial del año anterior los salones, las jornadas, las disponibilidades y las
+     * colocaciones que sigan valiendo con los datos del año nuevo.
+     *
+     * ## El permiso es el de `getProyecto`, y por la misma razón
+     *
+     * Es el mismo fichero: **llevárselo saca de la casa las disponibilidades declaradas de
+     * los docentes**. `auth.personal` en la ruta y `puedePublicarHorario` aquí dentro.
+     *
+     * ## El año sale del token, nunca de la petición
+     *
+     * Decisión 16, la misma que cita `getVersiones`: quien quiera otro año se mueve a ese
+     * año. El «anterior» es `years.year` del token menos uno, entre los años vivos; un
+     * `year_id` por parámetro sería un identificador de fuera que no comprueba nadie.
+     *
+     * ## JSON y no fichero, al revés que `getProyecto`, y a propósito
+     *
+     * El cliente necesita saber **de qué año** es lo que recibe, y en una descarga binaria
+     * eso iría en una cabecera nueva que habría que exponer por CORS. Se paga el escapado
+     * (× 1,41 a × 1,795, §10.2) a cambio de no abrir cabeceras. Y **200 siempre** que haya
+     * permiso: «no hay año anterior» o «no tiene oficial» no son errores del cliente sino
+     * lo normal el primer año, así que van en `motivo` con `proyecto` a null.
+     */
+    public function getProyectoAnterior(): JsonResponse
+    {
+        Autoriza::exigir(Autoriza::puedePublicarHorario($this->user),
+            'No tienes permiso para descargar el proyecto del horario.');
+
+        $yearId = (int) $this->user->year_id;
+        $actual = DB::selectOne('SELECT year FROM years WHERE id = ?', [$yearId]);
+        $anio = $actual === null ? null : (int) $actual->year - 1;
+
+        $respuesta = [
+            'anio' => $anio,
+            'version_id' => null,
+            'nombre' => null,
+            'proyecto' => null,
+            'motivo' => null,
+        ];
+
+        if ($anio === null) {
+            $respuesta['motivo'] = 'No se encontró el año de la sesión.';
+
+            return response()->json($respuesta);
+        }
+
+        // Si hubiera dos filas vivas con el mismo `year`, gana la que tiene oficial y,
+        // entre iguales, la más reciente: el orden deja la elección escrita y no al azar.
+        $anterior = DB::selectOne(
+            'SELECT y.id, y.horario_version_id
+               FROM years y
+              WHERE y.year = ? AND y.deleted_at IS NULL
+              ORDER BY (y.horario_version_id IS NULL), y.id DESC
+              LIMIT 1',
+            [$anio]
+        );
+
+        if ($anterior === null) {
+            $respuesta['motivo'] = "No existe el año {$anio} en este colegio.";
+
+            return response()->json($respuesta);
+        }
+
+        $version = $anterior->horario_version_id === null ? null : DB::selectOne(
+            'SELECT hv.id, hv.nombre, hv.proyecto FROM horario_versiones hv WHERE hv.id = ?',
+            [(int) $anterior->horario_version_id]
+        );
+
+        if ($version === null) {
+            $respuesta['motivo'] = "El año {$anio} no tiene horario oficial.";
+
+            return response()->json($respuesta);
+        }
+
+        $respuesta['version_id'] = (int) $version->id;
+        $respuesta['nombre'] = $version->nombre;
+        $respuesta['proyecto'] = $version->proyecto;
+
+        return response()->json($respuesta);
+    }
+
     public function putOficial($id)
     {
         Autoriza::exigir(Autoriza::puedePublicarHorario($this->user),

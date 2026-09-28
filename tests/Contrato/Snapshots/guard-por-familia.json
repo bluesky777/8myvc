@@ -236,16 +236,16 @@
         "con_guard": 3
     },
     "grupos": {
-        "total": 17,
-        "con_guard": 16
+        "total": 19,
+        "con_guard": 18
     },
     "historiales": {
         "total": 4,
         "con_guard": 4
     },
     "horario": {
-        "total": 6,
-        "con_guard": 6
+        "total": 7,
+        "con_guard": 7
     },
     "ia": {
         "total": 8,

@@ -8,6 +8,19 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+> ## 🟡 `GET horario/anterior/proyecto`: EL OFICIAL DEL AÑO PASADO (28 sep 2026), SIN FUNDIR
+>
+> Autorizada por Joseth hoy. `HorarioController::getProyectoAnterior`, `auth.personal` +
+> `puedePublicarHorario` dentro. El año sale del token (`years.year - 1`, vivo) y la versión
+> es su `years.horario_version_id`. **JSON, no descarga**: `{anio, version_id, nombre,
+> proyecto, motivo}`, 200 siempre con permiso, `proyecto` null y `motivo` si no hay año
+> anterior o no tiene oficial. Mueve `rutas.json`, `guards-por-ruta.json`,
+> `guard-por-familia.json` (horario 6 → 7) y el contador de `CLAUDE.md`. Test:
+> `HorarioProyectoAnteriorTest` (5), con mutantes `-2`, sin filtro de año y sin `exigir`.
+> **De paso, en las mismas tres instantáneas**: `PUT grupos/juntos` y `PUT grupos/soltar`
+> (`60d2a15`) habían entrado sin ellas, y `RutasTest` + `AutorizacionTest` estaban rojos en
+> esta rama por eso (grupos 17/16 → 19/18).
+
 > ## 🟡 LOS GRUPOS QUE VAN SIEMPRE JUNTOS PASAN AL AÑO NUEVO (28 sep 2026), SIN FUNDIR
 >
 > `YearsController::postStore` copia `grupos.juntos_con` (commit `60d2a15`) en una segunda

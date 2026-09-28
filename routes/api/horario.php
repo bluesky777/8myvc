@@ -147,3 +147,40 @@ Route::put('horario/docentes/{profesor_id}/tono', [HorarioController::class, 'pu
 |
 */
 Route::get('horario/versiones/{id}/proyecto', [HorarioController::class, 'getProyecto'])->middleware('auth.personal');
+
+/*
+|--------------------------------------------------------------------------
+| La séptima: el proyecto oficial del año pasado
+|--------------------------------------------------------------------------
+|
+| Autorizada por Joseth el 28 sep 2026: «Crea la nueva ruta para importar
+| oficial del año pasado». El programa de horarios, al importar el año nuevo,
+| hereda del horario oficial del año anterior los salones, las jornadas, las
+| disponibilidades y las colocaciones que sigan valiendo con los datos del año
+| nuevo. Sin esta ruta, cada enero se cuadraba el año desde cero.
+|
+| ## El año sale del token, no de la URL
+|
+| Decisión 16, la que cita `getVersiones`: quien quiera otro año se mueve a ese
+| año. «Anterior» es `years.year` del token menos uno entre los años vivos, y
+| la oficial es su `years.horario_version_id`. Un año por parámetro sería un
+| identificador de fuera que no comprueba nadie.
+|
+| ## El permiso es el de publicar, como en la sexta
+|
+| `auth.personal` cierra la puerta a alumnos y acudientes; `puedePublicarHorario`
+| va dentro del método. Es el mismo fichero que la sexta: **llevárselo saca de
+| la casa las disponibilidades declaradas de los docentes**.
+|
+| ## JSON y no descarga, al revés que la sexta
+|
+| El cliente necesita el AÑO de lo que recibe, y en una descarga binaria iría
+| en una cabecera nueva que habría que exponer por CORS. Responde 200 siempre
+| que haya permiso, con `proyecto` a null y un `motivo` cuando no hay año
+| anterior vivo o no tiene oficial: el primer año eso es lo normal, no un error.
+|
+| `anterior` es literal y no hay ningún comodín `horario/{x}/proyecto`: no tapa
+| a nadie ni la tapa nadie.
+|
+*/
+Route::get('horario/anterior/proyecto', [HorarioController::class, 'getProyectoAnterior'])->middleware('auth.personal');
