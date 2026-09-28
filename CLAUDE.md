@@ -26,7 +26,7 @@ test, así que va con la orden que la rehace al lado.
 
 | Qué | Hoy — cada una con el día que se contó | Orden |
 |---|---|---|
-| Rutas | **693** (23 sep) | ver la orden debajo de la tabla |
+| Rutas | **785** (28 sep, contado con `route:list` en el worktree `hor` antes de fundir, con `horario/anterior/proyecto` dentro; el 693 del 23 ya no casaba: el principal daba 784 ese mismo día) | ver la orden debajo de la tabla |
 | Ficheros de controlador | **140** (139 controladores) (23 sep) | `find app/Http/Controllers -name '*.php' \| wc -l` |
 | Clases de controlador | **142** (23 sep) | `grep -rhoE '^[[:space:]]*(final )?(abstract )?class [A-Za-z_]+' app/Http/Controllers \| wc -l` |
 | Rutas públicas | **16** (`RutasPreLoginTest::TOTAL_PUBLICAS`) (21 sep, y el test sigue verde el 23) | correr el test, no restar |

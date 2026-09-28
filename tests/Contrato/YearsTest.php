@@ -1855,4 +1855,60 @@ class YearsTest extends CasoDeContrato
             'Ninguna de las '.count($excusadas)." tablas excusadas tiene filas en el año anterior, así que este\n".
             'test no ha comprobado nada. Hay que darle al año origen algo que copiar.');
     }
+
+    /**
+     * Los grupos que van siempre juntos siguen juntos en el año nuevo, con los ids nuevos.
+     *
+     * `juntos_con` apunta a otro grupo, así que copiarla tal cual dejaría al año nuevo
+     * apuntando a los grupos del año pasado: el programa de horarios los leería como
+     * sueltos. Se comprueban los dos conjuntos a la vez --uno de tres y uno de dos-- para
+     * que un bucle que mezclara los conjuntos no pasara por casualidad.
+     */
+    public function test_el_ano_nuevo_copia_los_grupos_que_van_siempre_juntos(): void
+    {
+        $token = $this->tokenDelPersonal();
+        $ultimo = DB::selectOne('SELECT id, year FROM years WHERE deleted_at IS NULL
+            ORDER BY year DESC LIMIT 1');
+
+        $grupos = DB::table('grupos')->where('year_id', $ultimo->id)->whereNull('deleted_at')
+            ->orderBy('id')->pluck('id')->all();
+        if (count($grupos) < 5) {
+            $grado = DB::table('grados')->value('id');
+            for ($i = count($grupos); $i < 5; $i++) {
+                $grupos[] = DB::table('grupos')->insertGetId([
+                    'nombre' => "Grupo de prueba {$i}", 'abrev' => "GP{$i}",
+                    'year_id' => $ultimo->id, 'grado_id' => $grado, 'orden' => 100 + $i,
+                ]);
+            }
+            sort($grupos);
+        }
+        [$a, $b, $c, $d, $e] = array_slice($grupos, 0, 5);
+        DB::table('grupos')->whereIn('id', [$a, $b, $c])->update(['juntos_con' => $a]);
+        DB::table('grupos')->whereIn('id', [$d, $e])->update(['juntos_con' => $d]);
+
+        $nombres = DB::table('grupos')->whereIn('id', [$a, $b, $c, $d, $e])->pluck('nombre', 'id');
+
+        $r = $this->withToken($token)->postJson('/api/years/store',
+            $this->cuerpoDeAnioNuevo(((int) $ultimo->year) + 1, false));
+        $r->assertStatus(200);
+        $nuevo = (int) $r->json('id');
+
+        $nuevos = DB::table('grupos')->where('year_id', $nuevo)->get();
+        $delNuevo = fn (int $viejo) => $nuevos->firstWhere('nombre', $nombres[$viejo]);
+
+        $tres = array_map(fn ($v) => $delNuevo($v), [$a, $b, $c]);
+        $dos = array_map(fn ($v) => $delNuevo($v), [$d, $e]);
+        $anclaTres = min(array_map(fn ($g) => (int) $g->id, $tres));
+        $anclaDos = min(array_map(fn ($g) => (int) $g->id, $dos));
+
+        foreach ($tres as $g) {
+            $this->assertSame($anclaTres, (int) $g->juntos_con, "{$g->nombre} no quedó en el conjunto de tres");
+        }
+        foreach ($dos as $g) {
+            $this->assertSame($anclaDos, (int) $g->juntos_con, "{$g->nombre} no quedó en el conjunto de dos");
+        }
+        $this->assertNotSame($anclaTres, $anclaDos);
+        $this->assertSame(5, $nuevos->whereNotNull('juntos_con')->count(),
+            'Sólo los cinco grupos marcados van juntos en el año nuevo.');
+    }
 }
