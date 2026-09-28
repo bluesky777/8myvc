@@ -2,6 +2,7 @@
 
 namespace App\Services\Act;
 
+use App\Support\DocenteDelUsuario;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -547,21 +548,23 @@ class Destinatarios
     }
 
     /**
-     * Los grupos del año de los que es titular. `grupos.titular_id` es un `profesores.id`, así que
-     * sólo un usuario de tipo Profesor puede tener titularía — el `persona_id` de un `Usuario` es un
-     * `users.id` y compararlo daría la titularía de otra persona.
+     * Los grupos del año de los que es titular. `grupos.titular_id` es un `profesores.id`: el del
+     * Profesor o el enlazado a un Usuario (`DocenteDelUsuario`) — nunca el `persona_id` de un
+     * `Usuario`, que es un `users.id` y daría la titularía de otra persona.
      *
      * @return array<int, int>
      */
     public static function titularias(object $user, int $yearId): array
     {
-        if (($user->tipo ?? '') !== 'Profesor' || empty($user->persona_id)) {
+        $docenteId = DocenteDelUsuario::id($user);
+
+        if ($docenteId === null) {
             return [];
         }
 
         return array_map(fn ($f) => (int) $f->id, DB::select(
             'SELECT id FROM grupos WHERE year_id = ? AND titular_id = ? AND deleted_at IS NULL',
-            [$yearId, (int) $user->persona_id]
+            [$yearId, $docenteId]
         ));
     }
 

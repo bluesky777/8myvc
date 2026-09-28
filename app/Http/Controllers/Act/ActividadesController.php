@@ -11,6 +11,7 @@ use App\Services\Act\Destinatarios;
 use App\Services\Act\Formas;
 use App\Services\Act\Planilla;
 use App\Services\Act\Recorrido;
+use App\Support\DocenteDelUsuario;
 use App\Support\EscalaDeNotas;
 use App\Support\HtmlDelEditor;
 use App\Support\RepartoDeLaNota;
@@ -122,8 +123,10 @@ class ActividadesController extends Controller
         $yearId = (int) $user->year_id;
         $clases = [];
 
-        // `asignaturas.profesor_id` es un `profesores.id`: sólo un usuario Profesor tiene clases.
-        if (($user->tipo ?? '') === 'Profesor') {
+        // `asignaturas.profesor_id` es un `profesores.id`: el del Profesor, o el enlazado a un Usuario.
+        $docenteId = DocenteDelUsuario::id($user);
+
+        if ($docenteId !== null) {
             $clases = array_map(fn ($c) => [
                 'asignatura_id' => (int) $c->asignatura_id,
                 'materia' => (string) $c->materia,
@@ -137,7 +140,7 @@ class ActividadesController extends Controller
                   INNER JOIN grupos g ON g.id = a.grupo_id AND g.year_id = ? AND g.deleted_at IS NULL
                   WHERE a.profesor_id = ? AND a.deleted_at IS NULL
                   ORDER BY g.orden, g.nombre, a.orden, m.materia',
-                [$yearId, (int) $user->persona_id]
+                [$yearId, $docenteId]
             ));
         }
 
@@ -195,7 +198,7 @@ class ActividadesController extends Controller
             abort(404, 'Esa clase no existe.');
         }
 
-        $esSuya = ($user->tipo ?? '') === 'Profesor' && (int) $clase->profesor_id === (int) $user->persona_id;
+        $esSuya = (int) $clase->profesor_id === (DocenteDelUsuario::id($user) ?? -1);
 
         if (! $esSuya && ! Actividad::esDirectivo($user)) {
             abort(403, 'Esa clase no es tuya.');
@@ -849,7 +852,7 @@ class ActividadesController extends Controller
                 abort(422, 'Esa clase no existe en este año.');
             }
 
-            $esSuya = ($user->tipo ?? '') === 'Profesor' && (int) $clase->profesor_id === (int) $user->persona_id;
+            $esSuya = (int) $clase->profesor_id === (DocenteDelUsuario::id($user) ?? -1);
 
             if (! $esSuya && ! Actividad::esDirectivo($user)) {
                 abort(403, 'Esa clase no es tuya.');
