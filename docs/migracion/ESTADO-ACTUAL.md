@@ -12,7 +12,7 @@
 >
 > El rescate del 21 sep les había puesto `nota_default`, que en coljordan es 0. Repuestas desde
 > la copia del 20 sep 03:16 ([43](43-lo-que-todavia-no-se-ha-calificado.md), «coljordan, 28 sep»).
-> **Falta:** recalcular definitivas del P3 y mirar las 95 `manual`. **Y la pregunta que abre:**
+> P4 también: 1.227 repuestas. Causa: `putCopiar` no escribe `updated_by`. **Falta:** recalcular definitivas P3 y P4, mirar las 95 `manual`, y copias del 20 sep de fortul, arauca_maranatha, la_hermosa y bethel. **Y la pregunta que abre:**
 > cuánto falló el mismo rescate en los otros trece colegios; la copia del 20 sep caduca hacia el
 > **20 oct**.
 

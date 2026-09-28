@@ -241,6 +241,15 @@ la copia de desarrollo, no los dieciséis.**
 > **Esto dice cuánto falló el rescate del 21 donde el colegio no siembra el máximo**, y la copia
 > del 20 sep es la única que lo arregla: caduca hacia el **20 oct**. El volcado de MariaDB empieza
 > por `/*!999999\- enable the sandbox mode */`, que MySQL 8 rechaza: se quita esa línea al cargarlo.
+>
+> **La causa, encontrada el mismo 28:** esas casillas las crea `PUT periodos/copiar`
+> (`PeriodosController::putCopiar`, «Copiar notas» marcado de serie, mismo grupo): subunidad y notas
+> por Eloquent en el mismo segundo, con `created_by` y **sin `updated_by`**. En la copia, 6.361 de las
+> 9.746 son idénticas a la nota del mismo alumno en la subunidad homónima de otro periodo. Sigue igual
+> hoy. **P4 (`periodo_id=37`, abierto el 20 sep) repuesto igual**: reserva de 2.089 (sin tocar y con
+> valor = `nota_default`, así que cubre también el 100 sembrado), **1.227 repuestas**, comprobadas en
+> producción. Censo de sospechosas por copia en los demás (mínimo, con falsos positivos por originales
+> corregidos después): arauca_maranatha P4 306, la_hermosa P2 244, fortul P3 220, bethel P2 21.
 
 ---
 
