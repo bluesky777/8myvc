@@ -1287,6 +1287,9 @@ class HorarioController extends Controller
             abort(404, 'Esa versión del horario no existe en este año.');
         }
 
+        // `orden_grado` y `orden_grupo` (28 sep 2026): la parrilla de la web ordenaba las columnas
+        // por `grupo_id`, y un grupo creado tarde --Prejardín, Segundo B-- salía al final en vez
+        // de en su sitio. Es el orden de la pantalla de grupos: el grado y, dentro, el grupo.
         // Una fila por (pieza × asignación), que es como están guardadas: la misa es
         // UNA pieza y N asignaciones (§5.1). Las columnas van nombradas una a una —un
         // `SELECT hl.*` traería de paso lo que se añada mañana a la tabla, y esta ruta
@@ -1296,11 +1299,13 @@ class HorarioController extends Controller
                     hl.salon, hl.salon_capacidad_grupos,
                     hl.asignatura_id, a.creditos, a.orden,
                     m.materia, m.alias AS alias_materia,
-                    g.id AS grupo_id, g.nombre AS nombre_grupo, g.abrev AS abrev_grupo
+                    g.id AS grupo_id, g.nombre AS nombre_grupo, g.abrev AS abrev_grupo,
+                    gra.orden AS orden_grado, g.orden AS orden_grupo
                FROM horario_lecciones hl
                LEFT JOIN asignaturas a ON a.id = hl.asignatura_id
                LEFT JOIN materias m ON m.id = a.materia_id
                LEFT JOIN grupos g ON g.id = a.grupo_id
+               LEFT JOIN grados gra ON gra.id = g.grado_id
               WHERE hl.version_id = ?
               ORDER BY hl.dia, hl.franja, hl.id',
             [$versionId]
@@ -1366,6 +1371,10 @@ class HorarioController extends Controller
             'grupo_id' => $f->grupo_id === null ? null : (int) $f->grupo_id,
             'nombre_grupo' => $f->nombre_grupo,
             'abrev_grupo' => $f->abrev_grupo,
+            // El orden de la pantalla de grupos, para las columnas de la parrilla: por grado y,
+            // dentro, por grupo. `null` con la asignación borrada, como el grupo.
+            'orden_grado' => $f->orden_grado === null ? null : (int) $f->orden_grado,
+            'orden_grupo' => $f->orden_grupo === null ? null : (int) $f->orden_grupo,
             // **No viaja `salon_id`**: no hay tabla de salones (§4), así que un campo
             // que sale `null` siempre sólo entrena al cliente a ignorarlo. Lo que hay
             // es el nombre que mandó la subida, y el catálogo dice que no hay ids.
