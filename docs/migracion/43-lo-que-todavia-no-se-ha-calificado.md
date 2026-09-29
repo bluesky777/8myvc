@@ -265,6 +265,7 @@ la copia de desarrollo, no los dieciséis.**
 > Y bethel 2.062, la_hermosa 531, colbosque 364, amiguitos 914, semillitas 284, caz_zaragoza 347: comparadas contra producción en el docker, un fichero por colegio con (id, valor de hoy, valor del 20 sep); las 4.502 comprobadas repuestas.
 > quibdó comparado con su copia: limpio (sólo tenía abierto el P3 de 2026). **lalvirtual** (`micolevi`): 1.289 repuestas en 2019, 2021 y 2 del P4 de 2026.
 > coab_saravena: 10 (P3 de 2018, valores del paso 2 del rescate, no del `nota_default`: el censo por copias no los ve). coal_bucara comparado: limpio.
+> cads_itagui 269 (262 + 7 que hoy estaban NULL: al bajar las notas el `\N` llegó como 0 y la guarda del `UPDATE` las dejó fuera; en los demás colegios comprobado que no quedó ninguna así). simonbolivar comparado: limpio. **Con esto, los diecisiete comparados contra su copia del 20 sep.**
 
 ---
 
