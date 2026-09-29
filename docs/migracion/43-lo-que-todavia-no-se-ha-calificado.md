@@ -263,6 +263,7 @@ la copia de desarrollo, no los dieciséis.**
 > semillitas, caz_zaragoza.
 > **28 sep, más tarde:** fortul 7.883 y comad_san_andres 2.804 repuestas, comprobadas (0 sin tocar distintas de la copia).
 > Y bethel 2.062, la_hermosa 531, colbosque 364, amiguitos 914, semillitas 284, caz_zaragoza 347: comparadas contra producción en el docker, un fichero por colegio con (id, valor de hoy, valor del 20 sep); las 4.502 comprobadas repuestas.
+> quibdó comparado con su copia: limpio (sólo tenía abierto el P3 de 2026). **lalvirtual** (`micolevi`): 1.289 repuestas en 2019, 2021 y 2 del P4 de 2026.
 
 ---
 
