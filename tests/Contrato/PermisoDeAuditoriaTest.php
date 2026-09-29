@@ -309,4 +309,87 @@ class PermisoDeAuditoriaTest extends CasoDeContrato
 
         $this->assertSame(2, $filas, 'La segunda pasada duplicó el reparto.');
     }
+
+    // ─────────────────────────────────────────────────────────────────────
+    //  EL DOCENTE VE EL HISTORIAL DE SUS ASIGNATURAS, SIN EL PERMISO
+    //  (`Autoriza::daLaAsignatura`, decisión del 2026-09-29). Y sólo de ésas.
+    // ─────────────────────────────────────────────────────────────────────
+
+    /** Una nota viva, su asignatura, y el usuario del profesor que la da. */
+    private function notaConSuDocente(): object
+    {
+        $fila = DB::selectOne('SELECT n.id AS nota_id, n.alumno_id, a.id AS asignatura_id, u.username, p.id AS profesor_id
+            FROM notas n
+            INNER JOIN subunidades s ON s.id = n.subunidad_id
+            INNER JOIN unidades un ON un.id = s.unidad_id
+            INNER JOIN asignaturas a ON a.id = un.asignatura_id AND a.deleted_at IS NULL
+            INNER JOIN profesores p ON p.id = a.profesor_id
+            INNER JOIN users u ON u.id = p.user_id AND u.tipo = "Profesor" AND u.is_active = 1 AND u.deleted_at IS NULL
+            WHERE n.deleted_at IS NULL ORDER BY n.id LIMIT 1');
+
+        $this->assertNotNull($fila, 'El seed necesita una nota de una asignatura con docente.');
+
+        return $fila;
+    }
+
+    /** Otro profesor, que NO da esa asignatura. */
+    private function otroDocente(int $distintoDe): object
+    {
+        $fila = DB::selectOne('SELECT u.username FROM users u INNER JOIN profesores p ON p.user_id = u.id
+            WHERE u.tipo = "Profesor" AND u.is_active = 1 AND u.deleted_at IS NULL AND p.id <> ?
+            ORDER BY u.id LIMIT 1', [$distintoDe]);
+
+        $this->assertNotNull($fila, 'El seed necesita dos profesores.');
+
+        return $fila;
+    }
+
+    public function test_el_docente_ve_quien_cambio_una_nota_de_su_asignatura(): void
+    {
+        $caso = $this->notaConSuDocente();
+
+        $this->withToken($this->tokenDe($caso->username))
+            ->putJson('/api/historiales/nota-detalle', ['nota_id' => $caso->nota_id])
+            ->assertStatus(200);
+    }
+
+    public function test_otro_docente_no_ve_quien_cambio_esa_nota(): void
+    {
+        $caso = $this->notaConSuDocente();
+
+        $this->withToken($this->tokenDe($this->otroDocente((int) $caso->profesor_id)->username))
+            ->putJson('/api/historiales/nota-detalle', ['nota_id' => $caso->nota_id])
+            ->assertStatus(403);
+    }
+
+    public function test_el_docente_ve_la_columna_historial_de_su_planilla(): void
+    {
+        $caso = $this->notaConSuDocente();
+        $cuerpo = ['entidades' => ['nota', 'nota_final', 'ausencia'], 'asignatura_id' => $caso->asignatura_id, 'alumno_id' => $caso->alumno_id];
+
+        $this->withToken($this->tokenDe($caso->username))
+            ->putJson('/api/auditoria/alcance/lineas', $cuerpo)
+            ->assertStatus(200);
+    }
+
+    public function test_otro_docente_no_ve_la_columna_historial_de_esa_planilla(): void
+    {
+        $caso = $this->notaConSuDocente();
+        $cuerpo = ['entidades' => ['nota'], 'asignatura_id' => $caso->asignatura_id, 'alumno_id' => $caso->alumno_id];
+
+        $this->withToken($this->tokenDe($this->otroDocente((int) $caso->profesor_id)->username))
+            ->putJson('/api/auditoria/alcance/lineas', $cuerpo)
+            ->assertStatus(403);
+    }
+
+    /** Lo que no se acota a una asignatura (comportamiento, libro rojo…) sigue pidiendo el permiso. */
+    public function test_el_docente_no_saca_por_su_asignatura_lo_que_no_es_de_ella(): void
+    {
+        $caso = $this->notaConSuDocente();
+        $cuerpo = ['entidades' => ['comportamiento', 'dis_libro_rojo'], 'asignatura_id' => $caso->asignatura_id, 'alumno_id' => $caso->alumno_id];
+
+        $this->withToken($this->tokenDe($caso->username))
+            ->putJson('/api/auditoria/alcance/lineas', $cuerpo)
+            ->assertStatus(422);
+    }
 }

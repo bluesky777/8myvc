@@ -303,12 +303,15 @@ class AuditoriaController extends Controller
     /** @return array{0: string[], 1: array<string, int>} */
     private function alcance(Request $peticion): array
     {
+        // Sin el permiso, el docente de la asignatura: sólo lo acotado a ESA asignatura.
+        $conPermiso = Autoriza::puedeVerAuditoria($this->user);
         Autoriza::exigir(
-            Autoriza::puedeVerAuditoria($this->user),
+            $conPermiso || Autoriza::daLaAsignatura($this->user, (int) $peticion->input('asignatura_id')),
             'No tiene permiso para ver la auditoría'
         );
+        $permitidas = $conPermiso ? AlcanceAcademico::entidades() : AlcanceAcademico::entidadesDeAsignatura();
 
-        $entidades = array_values(array_intersect((array) $peticion->input('entidades', []), AlcanceAcademico::entidades()));
+        $entidades = array_values(array_intersect((array) $peticion->input('entidades', []), $permitidas));
         abort_if(! $entidades, 422, 'Ninguna entidad del alcance');
 
         $filtros = [];

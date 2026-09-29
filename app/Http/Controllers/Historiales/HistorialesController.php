@@ -29,8 +29,10 @@ class HistorialesController extends Controller {
 		// dejar de poder**. Es el endurecimiento buscado, no un efecto colateral.
 		// Si un colegio quiere que sigan entrando, se les siembra el permiso; la
 		// respuesta no es quitar esta línea.
+		// Salvo el docente que da la asignatura de esa nota: ve toda su historia
+		// (`Autoriza::daLaAsignatura`, decisión del 2026-09-29).
 		Autoriza::exigir(
-			Autoriza::puedeVerAuditoria($user),
+			Autoriza::puedeVerAuditoria($user) || Autoriza::daLaAsignaturaDeLaNota($user, (int) $nota_id),
 			'No tiene permiso para ver la auditoría de otras personas'
 		);
 
@@ -109,8 +111,10 @@ class HistorialesController extends Controller {
 		// Misma regla y mismo motivo que `putNotaDetalle`: la pregunta es por una
 		// definitiva, no por una persona, así que no hay mitad «lo tuyo» que
 		// dejar abierta. AUD-5, decisión 4 de 18-auditoria.md.
+		// Salvo el docente que da la asignatura de esa definitiva: ve toda su
+		// historia (`Autoriza::daLaAsignatura`, decisión del 2026-09-29).
 		Autoriza::exigir(
-			Autoriza::puedeVerAuditoria($user),
+			Autoriza::puedeVerAuditoria($user) || Autoriza::daLaAsignatura($user, (int) DB::table('notas_finales')->where('id', (int) $nf_id)->value('asignatura_id')),
 			'No tiene permiso para ver la auditoría de otras personas'
 		);
 

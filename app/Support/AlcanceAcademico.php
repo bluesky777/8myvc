@@ -117,6 +117,18 @@ final class AlcanceAcademico
     }
 
     /**
+     * Las que se pueden acotar a UNA asignatura. Son las únicas que ve el docente que la da
+     * sin el permiso de auditoría (`AuditoriaController::alcance`): las demás —comportamiento,
+     * libro rojo, PIAR…— no tienen asignatura y abrirlas sería enseñarle el grupo entero.
+     *
+     * @return string[]
+     */
+    public static function entidadesDeAsignatura(): array
+    {
+        return array_keys(array_filter(self::ENTIDADES, fn ($def) => isset($def['filtros']['asignatura_id'])));
+    }
+
+    /**
      * Una subconsulta de `auditoria.id` (alias `x.id`) y `alumno_id` con las líneas del
      * alcance, para los alumnos dados.
      *

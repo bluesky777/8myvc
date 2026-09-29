@@ -985,6 +985,47 @@ class Autoriza
     }
 
     /**
+     * EL DOCENTE VE EL HISTORIAL DE SUS ASIGNATURAS, sin el permiso de auditoría.
+     *
+     * Decisión de Joseth del 2026-09-29, que corrige la 4 de `18-auditoria.md` para este caso:
+     * en la planilla de una asignatura suya, el profesor ve TODO lo que se le hizo a esas notas
+     * —también lo que cambió coordinación o un administrador—, con nombre y hora. Es lo que le
+     * deja saber quién tocó lo suyo. Fuera de sus asignaturas sigue mandando el permiso.
+     *
+     * Exige `tipo === 'Profesor'` por lo mismo que `puedeEscribirDesempenos`: `persona_id` de
+     * un administrativo es un `users.id` y casaría con la ficha de otro profesor.
+     */
+    public static function daLaAsignatura($user, int $asignaturaId): bool
+    {
+        if (($user->tipo ?? null) !== 'Profesor' || ($user->persona_id ?? null) === null || $asignaturaId <= 0) {
+            return false;
+        }
+
+        return DB::selectOne(
+            'SELECT 1 AS si FROM asignaturas WHERE id = ? AND profesor_id = ? AND deleted_at IS NULL',
+            [$asignaturaId, (int) $user->persona_id]
+        ) !== null;
+    }
+
+    /** La asignatura de una nota es la de su unidad: nota → subunidad → unidad. */
+    public static function daLaAsignaturaDeLaNota($user, int $notaId): bool
+    {
+        if (($user->tipo ?? null) !== 'Profesor' || ($user->persona_id ?? null) === null || $notaId <= 0) {
+            return false;
+        }
+
+        return DB::selectOne(
+            'SELECT 1 AS si FROM notas n
+               INNER JOIN subunidades s ON s.id = n.subunidad_id
+               INNER JOIN unidades u ON u.id = s.unidad_id
+               INNER JOIN asignaturas a ON a.id = u.asignatura_id AND a.deleted_at IS NULL
+              WHERE n.id = ? AND a.profesor_id = ?
+              LIMIT 1',
+            [$notaId, (int) $user->persona_id]
+        ) !== null;
+    }
+
+    /**
      * Editar la **plantilla de notas del colegio** — las nueve rutas de
      * `plantilla-notas`, §5.1.b de
      * [28](../../docs/migracion/28-competencias-e-indicadores.md).
