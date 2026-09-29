@@ -261,6 +261,7 @@ la copia de desarrollo, no los dieciséis.**
 > <1 punto medidas en 2025). **Pendientes con copia del 20 sep:** fortul (~4.200 en el censo),
 > comad_san_andres (~2.000), bethel (~770), la_hermosa (~340), y menores colbosque, amiguitos,
 > semillitas, caz_zaragoza.
+> **28 sep, más tarde:** fortul 7.883 y comad_san_andres 2.804 repuestas, comprobadas (0 sin tocar distintas de la copia).
 
 ---
 
