@@ -78,6 +78,30 @@ class OperacionesMasivasTest extends CasoDeContrato
     }
 
     /**
+     * El recuento que la pantalla enseña antes de pulsar es el de cuentas que el
+     * `UPDATE` toca de verdad, y pedirlo no cambia nada. Un profesor no lo ve.
+     */
+    public function test_revisar_cuenta_las_mismas_que_se_cambiarian(): void
+    {
+        $token = $this->tokenDelSuperusuario();
+        $antes = DB::table('users')->where('tipo', 'Alumno')->orderBy('id')->pluck('password')->all();
+
+        foreach (['alumnos' => 'Alumno', 'acudientes' => 'Acudiente'] as $destino => $tipo) {
+            $this->withToken($token)->putJson('/api/cambiar-usuarios/revisar-password-todos', ['destino' => $destino])
+                ->assertStatus(200)
+                ->assertExactJson(['cuentas' => DB::table('users')->where('tipo', $tipo)->count()]);
+        }
+
+        $this->withToken($token)->putJson('/api/cambiar-usuarios/revisar-password-todos', ['destino' => 'profesores'])
+            ->assertStatus(422);
+        $this->assertSame($antes, DB::table('users')->where('tipo', 'Alumno')->orderBy('id')->pluck('password')->all());
+
+        $profe = $this->tokenDe($this->usuarioDeTipo('Profesor')->username);
+        $this->withToken($profe)->putJson('/api/cambiar-usuarios/revisar-password-todos', ['destino' => 'alumnos'])
+            ->assertStatus(403);
+    }
+
+    /**
      * El nombre de usuario pasa a ser el documento, y solo de quien lo tenga.
      *
      * La consulta filtra `documento > 0 and is not null and != ''` y usa

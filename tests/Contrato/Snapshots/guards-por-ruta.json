@@ -380,6 +380,7 @@
         "PUT api/cambiar-usuarios/poner-password-todos-acudientes",
         "PUT api/cambiar-usuarios/poner-password-todos-alumnos",
         "PUT api/cambiar-usuarios/revisar-documento-como-username",
+        "PUT api/cambiar-usuarios/revisar-password-todos",
         "PUT api/cartera/alumnos",
         "PUT api/cartera/solo-deudores",
         "PUT api/censo/{id}/grupos",

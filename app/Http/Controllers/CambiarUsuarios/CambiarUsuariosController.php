@@ -177,6 +177,30 @@ class CambiarUsuariosController extends Controller {
 	}
 
 
+	/*
+	 * CUÁNTAS CUENTAS CAMBIARÍA la contraseña igual para todos. No escribe nada.
+	 *
+	 * Existe para que la pantalla diga el número exacto ANTES de pulsar: las dos rutas
+	 * de arriba son un `UPDATE users` de todo el colegio y la contraseña vieja no se
+	 * recupera. El `WHERE` es el mismo que el de ellas, a propósito —sin `deleted_at`—:
+	 * lo que se cuenta es lo que se va a tocar, no lo que parece vivo.
+	 */
+	public function putRevisarPasswordTodos()
+	{
+		Autoriza::exigir(Autoriza::esAdministrativo($this->user),
+			'Solo un administrativo puede cambiar las cuentas de todo el colegio.');
+
+		$tipos = ['alumnos' => 'Alumno', 'acudientes' => 'Acudiente'];
+		$destino = Request::input('destino');
+
+		if (! is_string($destino) || ! isset($tipos[$destino])) {
+			abort(422, 'El destino tiene que ser alumnos o acudientes.');
+		}
+
+		return ['cuentas' => DB::table('users')->where('tipo', $tipos[$destino])->count()];
+	}
+
+
 	/* ── El documento como nombre de usuario, sabiendo a quién le toca ──────────────────── */
 
 	/*

@@ -517,6 +517,7 @@
     "PUT api/cambiar-usuarios/poner-password-todos-acudientes": "App\\Http\\Controllers\\CambiarUsuarios\\CambiarUsuariosController@putPonerPasswordTodosAcudientes",
     "PUT api/cambiar-usuarios/poner-password-todos-alumnos": "App\\Http\\Controllers\\CambiarUsuarios\\CambiarUsuariosController@putPonerPasswordTodosAlumnos",
     "PUT api/cambiar-usuarios/revisar-documento-como-username": "App\\Http\\Controllers\\CambiarUsuarios\\CambiarUsuariosController@putRevisarDocumentoComoUsername",
+    "PUT api/cambiar-usuarios/revisar-password-todos": "App\\Http\\Controllers\\CambiarUsuarios\\CambiarUsuariosController@putRevisarPasswordTodos",
     "PUT api/cartera/alumnos": "App\\Http\\Controllers\\CarteraController@putAlumnos",
     "PUT api/cartera/solo-deudores": "App\\Http\\Controllers\\CarteraController@putSoloDeudores",
     "PUT api/censo/{id}/grupos": "App\\Http\\Controllers\\VtCensoController@putGrupos",

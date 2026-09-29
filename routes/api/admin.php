@@ -35,6 +35,7 @@ Route::put('users/usernames-check', [UsersController::class, 'putUsernamesCheck'
 // ha migrado y porque `OperacionesMasivasTest` fija su JSON exacto. Lo nuevo va por
 // `documento-como-username`, que acepta destino (alumnos/acudientes/profesores), un
 // `grupo_id` opcional, y devuelve el desglose — con `revisar-…` para verlo sin escribir.
+Route::put('cambiar-usuarios/revisar-password-todos', [CambiarUsuariosController::class, 'putRevisarPasswordTodos'])->middleware('auth.personal');
 Route::put('cambiar-usuarios/revisar-documento-como-username', [CambiarUsuariosController::class, 'putRevisarDocumentoComoUsername'])->middleware('auth.personal');
 Route::put('cambiar-usuarios/documento-como-username', [CambiarUsuariosController::class, 'putDocumentoComoUsername'])->middleware('auth.personal');
 Route::put('cambiar-usuarios/poner-documento-como-username-acudientes', [CambiarUsuariosController::class, 'putPonerDocumentoComoUsernameAcudientes'])->middleware('auth.personal');
