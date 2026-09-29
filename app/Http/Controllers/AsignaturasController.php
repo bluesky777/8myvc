@@ -139,12 +139,34 @@ class AsignaturasController extends Controller {
 
 		$consulta 		= 'SELECT * FROM asignaturas WHERE deleted_at is null and grupo_id=?';
 		$asignaturas 	= DB::select($consulta, [Request::input('grupo_id_origen')]);
-		
+
+		/*
+		 * **LO QUE EL DESTINO YA TIENE NO SE COPIA.** Antes se insertaban todas otra vez:
+		 * copiar dos veces —o copiar a un grupo que ya tenía su plan— dejaba cada materia
+		 * repetida, con sus notas repartidas entre dos asignaturas. Se compara por
+		 * `materia_id` contra las vivas del destino; las borradas no cuentan.
+		 */
+		$yaTiene = DB::table('asignaturas')
+			->where('grupo_id', Request::input('grupo_id_destino'))
+			->whereNull('deleted_at')
+			->pluck('materia_id')
+			->map(fn ($m) => (int) $m)
+			->all();
+
+		$copiadas = 0;
+		$saltadas = 0;
+
 		for ($i=0; $i < count($asignaturas); $i++) { 
+
+			if (in_array((int) $asignaturas[$i]->materia_id, $yaTiene, true)) {
+				$saltadas++;
+				continue;
+			}
 
 			$consulta 		= 'INSERT INTO asignaturas(materia_id, grupo_id, profesor_id, nuevo_responsable_id, creditos, orden) VALUES(?,?,?, ?,?,?)';
 			DB::insert($consulta, [ $asignaturas[$i]->materia_id, Request::input('grupo_id_destino'), $asignaturas[$i]->profesor_id, $asignaturas[$i]->nuevo_responsable_id, $asignaturas[$i]->creditos, $asignaturas[$i]->orden ]);
-			
+			$yaTiene[] = (int) $asignaturas[$i]->materia_id;
+			$copiadas++;
 		}
 
 		/*
@@ -159,11 +181,12 @@ class AsignaturasController extends Controller {
 		Auditoria::registrar()
 			->crear('asignatura')
 			->en(grupo: (int) Request::input('grupo_id_destino'))
-			->a(['desde_grupo' => Request::input('grupo_id_origen'), 'cuantas' => count($asignaturas)])
-			->resumen('Copió '.count($asignaturas).' asignaturas del grupo '.Request::input('grupo_id_origen'))
+			->a(['desde_grupo' => Request::input('grupo_id_origen'), 'cuantas' => $copiadas, 'saltadas' => $saltadas])
+			->resumen('Copió '.$copiadas.' asignaturas del grupo '.Request::input('grupo_id_origen')
+				.($saltadas ? ' ('.$saltadas.' ya estaban)' : ''))
 			->guardar();
 
-		return 'Asignaturas copiadas';
+		return ['copiadas' => $copiadas, 'saltadas' => $saltadas];
 	}
 
 	

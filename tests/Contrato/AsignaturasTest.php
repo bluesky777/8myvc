@@ -433,11 +433,8 @@ class AsignaturasTest extends CasoDeContrato
     /**
      * Copiar las asignaturas de un grupo a otro las copia todas y no borra nada.
      *
-     * Es un `INSERT` por asignatura sin mirar lo que ya hay en el destino, así
-     * que llamarlo dos veces **duplica**. Se fija así: no es un fallo que se vaya
-     * a arreglar a ciegas —quien copia sobre un grupo con asignaturas está
-     * pidiendo algo que el endpoint no sabe resolver— pero tampoco es lo que
-     * parece desde el nombre.
+     * Lo que el destino ya tiene (misma materia, viva) se salta: llamarlo dos
+     * veces ya no duplica. Hasta el 29 sep 2026 duplicaba, y este test lo fijaba.
      */
     public function test_copiar_asignaturas_a_otro_grupo(): void
     {
@@ -463,7 +460,8 @@ class AsignaturasTest extends CasoDeContrato
 
         $this->withToken($token)->postJson('/api/asignaturas/copiar',
             ['grupo_id_origen' => $origen->id, 'grupo_id_destino' => $destino->id])
-            ->assertStatus(200);
+            ->assertStatus(200)
+            ->assertExactJson(['copiadas' => (int) $origen->cuantas, 'saltadas' => 0]);
 
         $this->assertSame((int) $origen->cuantas,
             DB::table('asignaturas')->where('grupo_id', $destino->id)->count(),
@@ -473,14 +471,15 @@ class AsignaturasTest extends CasoDeContrato
             DB::table('asignaturas')->where('grupo_id', $origen->id)->whereNull('deleted_at')->count(),
             'Copiar no debe tocar el grupo de origen.');
 
-        // Segunda pasada: duplica, y queda escrito.
+        // Segunda pasada: todas ya estaban, no se copia ninguna.
         $this->withToken($token)->postJson('/api/asignaturas/copiar',
             ['grupo_id_origen' => $origen->id, 'grupo_id_destino' => $destino->id])
-            ->assertStatus(200);
+            ->assertStatus(200)
+            ->assertExactJson(['copiadas' => 0, 'saltadas' => (int) $origen->cuantas]);
 
-        $this->assertSame((int) $origen->cuantas * 2,
+        $this->assertSame((int) $origen->cuantas,
             DB::table('asignaturas')->where('grupo_id', $destino->id)->count(),
-            'Copiar dos veces duplica: el endpoint no mira lo que ya hay en el destino.');
+            'Copiar dos veces duplicó: el destino ya tenía esas materias.');
     }
 
     /**
