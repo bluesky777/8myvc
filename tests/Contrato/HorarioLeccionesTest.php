@@ -72,7 +72,7 @@ class HorarioLeccionesTest extends CasoDeContrato
     private const CLAVES_DE_UNA_LECCION = [
         'id', 'pieza_id', 'dia', 'franja', 'duracion',
         'asignatura_id', 'ih', 'materia', 'alias_materia',
-        'grupo_id', 'nombre_grupo', 'abrev_grupo',
+        'grupo_id', 'nombre_grupo', 'abrev_grupo', 'orden_grado', 'orden_grupo',
         'nombre_salon', 'salon_capacidad_grupos', 'docentes',
     ];
 
@@ -313,6 +313,30 @@ class HorarioLeccionesTest extends CasoDeContrato
             'Un catálogo sin su renglón en `catalogos` es un error del servidor, no un catálogo vacío: '
             .'es lo único que impide que una lista corta se lea como una lista completa.');
         $this->assertSame(1, $r->json('total_lecciones'));
+    }
+
+    /**
+     * **La lección trae el orden de su grupo**: el del grado y el del grupo, los mismos
+     * de la pantalla de grupos. Sin ellos la parrilla de la web ordenaba por `grupo_id`
+     * y un grupo creado tarde salía al final (Joseth, 28 sep 2026).
+     */
+    #[Test]
+    public function la_leccion_trae_el_orden_de_su_grado_y_de_su_grupo(): void
+    {
+        $anio = $this->anioDelSujeto();
+        $asignacion = $this->asignacionDe($anio);
+        $version = $this->versionEn($anio);
+        $this->leccionEn($version, (int) $asignacion->id, 'a1-0', 4, 2);
+
+        $grupo = DB::selectOne('SELECT g.orden, gra.orden AS orden_grado
+            FROM asignaturas a JOIN grupos g ON g.id = a.grupo_id JOIN grados gra ON gra.id = g.grado_id
+            WHERE a.id = ?', [$asignacion->id]);
+        DB::table('grupos')->where('id', DB::table('asignaturas')->where('id', $asignacion->id)->value('grupo_id'))
+            ->update(['orden' => 77]);
+
+        $r = $this->leer($version)->assertStatus(200);
+        $this->assertSame(77, $r->json('lecciones.0.orden_grupo'));
+        $this->assertSame($grupo->orden_grado === null ? null : (int) $grupo->orden_grado, $r->json('lecciones.0.orden_grado'));
     }
 
     /**
