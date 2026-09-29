@@ -215,4 +215,41 @@ class AceptarCambiosTest extends CasoDeContrato
         $this->assertEquals(7, $fila->creditos,
             'Los créditos salieron del cuerpo y no del pedido.');
     }
+
+    /**
+     * **Aprobar un pedido que baja la IH acota las horas fuera del horario**, en vez de
+     * rechazar el pedido o dejar más horas fuera que horas (decisión de Joseth, 28 sep 2026).
+     */
+    public function test_aceptar_un_pedido_acota_las_horas_fuera_a_la_ih_nueva(): void
+    {
+        $asignatura = DB::selectOne('SELECT a.id, a.materia_id, a.grupo_id, a.profesor_id
+            FROM asignaturas a WHERE a.deleted_at IS NULL AND a.materia_id IS NOT NULL
+            ORDER BY a.id LIMIT 1');
+        DB::table('asignaturas')->where('id', $asignatura->id)->update(['creditos' => 5, 'horas_fuera_del_horario' => 4]);
+
+        $solicitante = DB::selectOne('SELECT id, user_id FROM profesores
+            WHERE deleted_at IS NULL AND user_id IS NOT NULL AND id <> ?
+            ORDER BY id LIMIT 1', [$asignatura->profesor_id]);
+        $year = DB::selectOne('SELECT id FROM years WHERE actual = 1 AND deleted_at IS NULL LIMIT 1');
+
+        $assignmentId = DB::table('change_asked_assignment')->insertGetId([
+            'materia_to_add_id' => $asignatura->materia_id,
+            'grupo_to_add_id' => $asignatura->grupo_id,
+            'creditos_new' => 2,
+        ]);
+        $askedId = DB::table('change_asked')->insertGetId([
+            'asked_by_user_id' => $solicitante->user_id,
+            'tipo_user' => 'Profesor',
+            'assignment_id' => $assignmentId,
+            'year_asked_id' => $year->id,
+        ]);
+
+        $this->withToken($this->tokenDe($this->usuarioDeTipo('Profesor')->username))
+            ->putJson('/api/ChangesAsked/aceptar-asignatura', ['pedido' => ['asked_id' => $askedId]])
+            ->assertStatus(200);
+
+        $fila = DB::table('asignaturas')->where('id', $asignatura->id)->first();
+        $this->assertEquals(2, $fila->creditos);
+        $this->assertEquals(2, $fila->horas_fuera_del_horario, 'Quedaron más horas fuera que horas.');
+    }
 }

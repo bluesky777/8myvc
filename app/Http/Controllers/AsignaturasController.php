@@ -30,8 +30,12 @@ class AsignaturasController extends Controller {
 		// asignaturas de un mismo (grupo, área) para saber cuáles se reparten el 100 %
 		// y cuáles están solas. `nombre_area` ya venía, pero un NOMBRE no sirve para
 		// agrupar --dos áreas pueden llamarse igual tras un renombrado-- y el id sí.
+		//
+		// `a.horas_fuera_del_horario` (28 sep 2026): de la IH, cuántas horas se dictan
+		// en otra jornada. La lee con ESE nombre el importador del programa de horarios
+		// y la edita la pantalla de Asignaturas; ver la migración que la crea.
 		$consulta = 'SELECT a.id, a.materia_id, a.grupo_id, a.profesor_id, a.creditos, a.orden, a.domingo, a.lunes, a.martes, a.miercoles, a.jueves, a.viernes, a.sabado,
-						a.porcentaje_area,
+						a.porcentaje_area, a.horas_fuera_del_horario,
 						a.created_by, a.updated_by, a.created_at, a.updated_at, ar.nombre as nombre_area, ar.alias as alias_area,
 						m.area_id, m.materia as nombre_asignatura
 					FROM asignaturas a
@@ -292,6 +296,44 @@ class AsignaturasController extends Controller {
 
 				$asignatura->porcentaje_area = (int) $peso;
 			}
+		}
+
+		/*
+		 * LAS HORAS QUE SE DICTAN FUERA DEL HORARIO (28 sep 2026). Entero entre 0 y la
+		 * IH: no puede haber más horas fuera que horas. Se compara contra los
+		 * `creditos` que quedan DESPUÉS de este mismo cuerpo, porque la pantalla manda
+		 * los dos juntos y bajar la IH y las horas fuera a la vez tiene que poder
+		 * pasar. Con la IH vacía no hay contra qué comparar y el tope es 40, que
+		 * ninguna asignatura semanal alcanza.
+		 *
+		 * Vacío o null NO es «quitar»: la columna es `NOT NULL DEFAULT 0`, y ahí
+		 * «ninguna» ya se escribe 0. Un null se rechaza en vez de guardarse como 0
+		 * en silencio.
+		 *
+		 * `updated_at` lo mueve el `save()` de Eloquent, y tiene que moverse: la
+		 * huella de `GET sincronizacion/huella` detecta los cambios de asignaturas
+		 * por `MAX(a.updated_at)`, y sin eso el programa de horarios no se entera.
+		 */
+		if ($vinieron->trae('horas_fuera_del_horario')) {
+			$fuera = Request::input('horas_fuera_del_horario');
+			$tope = $asignatura->creditos === null ? 40 : (int) $asignatura->creditos;
+
+			if (!is_numeric($fuera) || (int) $fuera != $fuera || (int) $fuera < 0 || (int) $fuera > $tope) {
+				abort(422, '`horas_fuera_del_horario` tiene que ser un entero entre 0 y '.$tope
+					.($asignatura->creditos === null ? ' (la asignatura no tiene IH)' : ' (la IH de la asignatura)')
+					.'. Llegó: '.json_encode($fuera));
+			}
+
+			$asignatura->horas_fuera_del_horario = (int) $fuera;
+		}
+
+		// Y LA OTRA MITAD: bajar la IH por debajo de las horas fuera, sin tocarlas, tampoco.
+		// Decisión de Joseth (28 sep 2026): «la tabla web no puede permitir un número mayor para
+		// excluir que su IH». Sin esto, la IH de 4 con 3 fuera bajaba a 2 y quedaban 3 horas fuera
+		// de 2 --un dato que ninguna lectura sabe interpretar--.
+		if ($asignatura->creditos !== null && (int) $asignatura->horas_fuera_del_horario > (int) $asignatura->creditos) {
+			abort(422, 'La IH ('.(int) $asignatura->creditos.') no puede quedar por debajo de las horas fuera del horario ('
+				.(int) $asignatura->horas_fuera_del_horario.'). Baja primero las horas fuera del horario, o en el mismo cambio.');
 		}
 
 		AuditarModelo::guardar($asignatura, 'asignatura');

@@ -16,6 +16,24 @@
 > cuánto falló el mismo rescate en los otros trece colegios; la copia del 20 sep caduca hacia el
 > **20 oct**.
 
+> ## 🟡 `asignaturas.horas_fuera_del_horario` (28 sep 2026), FUNDIDO Y SIN DESPLEGAR
+>
+> Rama `feat/horas-fuera-del-horario`. Decisión de Joseth: de la IH (`creditos`), cuántas horas
+> se dictan en otra jornada y NO entran en el horario. Migración
+> `2026_09_28_110000_horas_fuera_del_horario` (`tinyint unsigned NOT NULL DEFAULT 0`), **ya
+> corrida en la base de desarrollo** (`lalvirtual_25sep_1851`): quien regenere el seed desde
+> ella se lleva la columna, y un árbol sin esta migración no lo carga. **Lectura**: `GET
+> asignaturas` la trae con ese nombre (la leen el importador de horarios y la pantalla de
+> Asignaturas; `muestreo-asignaturas.json` sólo gana la clave). **Escritura**: `PUT
+> asignaturas/update/{id}` con `horas_fuera_del_horario` en el cuerpo, entero 0..`creditos`
+> (0..40 si la IH es NULL, contra la IH que queda tras el mismo cuerpo), si no 422; mueve
+> `updated_at` y con él la huella de sincronización. **Sin ruta nueva.** **Año nuevo**: se
+> copia en `postStore`. **Subida de horarios**: Σ colocadas contra `max(0, creditos − fuera)`
+> en las dos reglas —la blanda (completa) y **la dura** (422 `suma-mayor-que-la-ih`)—, y cada
+> renglón gana `fuera_del_horario` y `a_colocar`. Tests en `AsignaturasTest` (4),
+> `YearsTest` (1) y `HorarioSubidaTest` (4), cada uno con su mutante en rojo. **La suite entera
+> no se ha corrido** (hay migración: no hay subconjunto que la cubra).
+
 > ## 🟡 `GET horario/anterior/proyecto`: EL OFICIAL DEL AÑO PASADO (28 sep 2026), SIN FUNDIR
 >
 > Autorizada por Joseth hoy. `HorarioController::getProyectoAnterior`, `auth.personal` +

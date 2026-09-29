@@ -1315,6 +1315,55 @@ class YearsTest extends CasoDeContrato
     }
 
     /**
+     * **Las horas que se dictan fuera del horario viajan con la IH al año nuevo.**
+     *
+     * `asignaturas.horas_fuera_del_horario` (28 sep 2026) se guarda en MyVC para que
+     * sobreviva a reimportar y se copie al crear el año —decisión de Joseth—. Si se
+     * quedara en 0, en enero el programa de horarios pediría para Física de Décimo
+     * cuatro casillas donde el colegio da una.
+     *
+     * Valores DISTINTOS por asignatura y comparados por materia, no un mismo número en
+     * todas: con uno solo, un bucle que copiara el de la primera fila a todas pasaría.
+     */
+    public function test_el_ano_nuevo_copia_las_horas_fuera_del_horario(): void
+    {
+        $ultimo = DB::selectOne('SELECT id, year FROM years WHERE deleted_at IS NULL ORDER BY year DESC LIMIT 1');
+
+        $grupo = DB::selectOne('SELECT id, nombre FROM grupos WHERE year_id=? AND deleted_at IS NULL ORDER BY id LIMIT 1',
+            [$ultimo->id]);
+        $this->assertNotNull($grupo, 'El año de partida tiene que traer grupos, o esto no copia nada.');
+
+        $asignaturas = DB::table('asignaturas')->where('grupo_id', $grupo->id)->whereNull('deleted_at')
+            ->orderBy('id')->get(['id', 'materia_id']);
+        $this->assertGreaterThan(1, count($asignaturas),
+            'El grupo de partida tiene que traer al menos dos asignaturas para que los valores difieran.');
+
+        $esperado = [];
+        foreach ($asignaturas as $i => $a) {
+            $horas = ($i % 3) + 1;
+            DB::table('asignaturas')->where('id', $a->id)
+                ->update(['creditos' => 5, 'horas_fuera_del_horario' => $horas]);
+            $esperado[(int) $a->materia_id] = $horas;
+        }
+        $this->assertCount(count($asignaturas), $esperado,
+            'Dos asignaturas del grupo comparten materia: la comparación por materia no las distingue.');
+
+        $nuevo = $this->crearElAnioSiguiente();
+
+        $copiadas = DB::select('SELECT a.materia_id, a.horas_fuera_del_horario FROM asignaturas a
+            INNER JOIN grupos g ON g.id=a.grupo_id
+            WHERE g.year_id=? AND g.nombre=? AND a.deleted_at IS NULL AND g.deleted_at IS NULL', [$nuevo, $grupo->nombre]);
+
+        $this->assertCount(count($esperado), $copiadas);
+
+        foreach ($copiadas as $a) {
+            $this->assertSame($esperado[(int) $a->materia_id], (int) $a->horas_fuera_del_horario,
+                'La asignatura del año nuevo perdió sus horas fuera del horario: en enero el '.
+                'programa de horarios pediría casillas que el colegio no da en esa jornada.');
+        }
+    }
+
+    /**
      * El grupo del año nuevo se lleva su intensidad horaria, y con ella el aviso de
      * descuadre llega vivo a enero.
      *
