@@ -47,10 +47,10 @@ class PlanillasController extends Controller {
 			// A cada alumno le daremos los periodos y la definitiva de cada periodo
 			foreach ($alumnos as $keyAl => $alumno) {
 				
-				$consulta = 'SELECT  CAST(nf1.nota AS DOUBLE) as nota_final_per1, nf1.id as nf_id_1,
-								CAST(nf2.nota AS DOUBLE) as nota_final_per2, nf2.id as nf_id_2,
-								CAST(nf3.nota AS DOUBLE) as nota_final_per3, nf3.id as nf_id_3,
-								CAST(nf4.nota AS DOUBLE) as nota_final_per4, nf4.id as nf_id_4
+				$consulta = 'SELECT  CAST(nf1.nota AS DOUBLE) as nota_final_per1, nf1.id as nf_id_1, nf1.manual as manual_1,
+								CAST(nf2.nota AS DOUBLE) as nota_final_per2, nf2.id as nf_id_2, nf2.manual as manual_2,
+								CAST(nf3.nota AS DOUBLE) as nota_final_per3, nf3.id as nf_id_3, nf3.manual as manual_3,
+								CAST(nf4.nota AS DOUBLE) as nota_final_per4, nf4.id as nf_id_4, nf4.manual as manual_4
 							FROM notas_finales nf1 
 							left join notas_finales nf2 on nf2.alumno_id=:alu1 and nf2.asignatura_id=:asi1 and nf2.periodo=2
 							left join notas_finales nf3 on nf3.alumno_id=:alu2 and nf3.asignatura_id=:asi2 and nf3.periodo=3
@@ -137,6 +137,14 @@ class PlanillasController extends Controller {
 
 				$periodosTemp = Periodo::where('year_id', $user->year_id)->get();
 
+				// La definitiva que el docente puso A MANO manda sobre la calculada: es la
+				// que el recálculo de `notas_finales` conserva y la que imprime el boletín.
+				$manuales = DB::table('notas_finales')
+					->where('alumno_id', $alumno->alumno_id)
+					->where('asignatura_id', $asignatura->asignatura_id)
+					->where('manual', 1)
+					->pluck('nota', 'periodo_id');
+
 				foreach ($periodosTemp as $keyPer => $periodo) {
 
 					// Unidades y subunidades de la asignatura en el periodo
@@ -170,6 +178,11 @@ class PlanillasController extends Controller {
 					// absolutamente todo.
 					$periodo->nota_parcial = $asignaturaTemp->nota_parcial;
 					$periodo->cobertura = $asignaturaTemp->cobertura;
+
+					if (isset($manuales[$periodo->id])) {
+						$periodo->nota_asignatura = (float) $manuales[$periodo->id];
+						$periodo->manual = true;
+					}
 
 					unset($asignaturaTemp);
 				}

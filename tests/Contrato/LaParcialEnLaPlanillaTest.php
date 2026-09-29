@@ -405,6 +405,35 @@ class LaParcialEnLaPlanillaTest extends CasoDeContrato
     }
 
     /**
+     * **La definitiva puesta a mano manda sobre la calculada** en la planilla del docente,
+     * y se marca `manual` para que el papel lo diga.
+     */
+    public function test_la_planilla_del_profesor_imprime_la_definitiva_manual(): void
+    {
+        $ctx = $this->laPlanillaDelLienzo();
+
+        $profesorId = DB::table('asignaturas')->where('id', $ctx['asignatura'])->value('profesor_id');
+
+        DB::table('notas_finales')->insert([
+            'alumno_id' => $ctx['alumno'], 'asignatura_id' => $ctx['asignatura'],
+            'periodo_id' => $ctx['periodo'],
+            'periodo' => DB::table('periodos')->where('id', $ctx['periodo'])->value('numero'),
+            'nota' => 42, 'manual' => 1,
+        ]);
+
+        $r = $this->withToken($this->tokenDelPersonalDe($ctx['year']))
+            ->getJson('/api/planillas/show-profesor/'.$profesorId);
+
+        $r->assertStatus(200);
+
+        $periodo = $this->periodoDelLienzoEnLaRespuesta($r->json(), $ctx);
+
+        $this->assertEqualsWithDelta(42, (float) $periodo['nota_asignatura'], 0.001,
+            'La planilla del docente imprime la calculada (47,6) encima de la manual.');
+        $this->assertTrue($periodo['manual'] ?? false);
+    }
+
+    /**
      * La asignatura calculada **como la cargan los seis lectores**, y no de otra forma.
      *
      * Los seis hacen exactamente estas tres líneas: `Unidad::deAsignatura`,
