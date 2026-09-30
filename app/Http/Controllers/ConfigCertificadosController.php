@@ -189,6 +189,14 @@ class ConfigCertificadosController extends Controller {
 			$escritos++;
 		}
 
+		// La frase legal de debajo de la tabla («Ley general de educación de 1994…»). Hasta
+		// el 30 sep 2026 ninguna pantalla la escribía: sólo se copiaba al crear el año.
+		// Como el encabezado, puede vaciarse: es opcional y `NULL` en la base.
+		if (Request::has('frase_final_certificado')) {
+			$year->frase_final_certificado = Request::input('frase_final_certificado');
+			$escritos++;
+		}
+
 		// La lista sale de `Year::TITULOS_POR_DEFECTO` y no se reescribe aquí: es la
 		// misma que el test cruza con `SHOW COLUMNS`, así que un título nuevo entra por
 		// un sitio y queda validado en éste sin que nadie se acuerde de venir.
