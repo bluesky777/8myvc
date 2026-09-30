@@ -389,7 +389,7 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
         $alumno = $this->conTodasLasClaves($fila);
 
         $antes = count($this->fixer->avisos);
-        $this->fixer->conservarVacias = $this->respuestas?->columnasAConservar() ?? [];
+        $this->fixer->conservarVacias = $this->respuestas->columnasAConservar();
         $this->fixer->verificar($alumno, $this->year);
 
         // Los avisos del traductor no saben en qué fila del libro estaban: los

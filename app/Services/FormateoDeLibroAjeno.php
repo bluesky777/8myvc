@@ -276,7 +276,7 @@ class FormateoDeLibroAjeno
         $bytes = file_get_contents($tmp);
         @unlink($tmp);
 
-        return $bytes;
+        return $bytes === false ? '' : $bytes;
     }
 
     // ───────────────────────────── lectura del libro ajeno ─────────────────────────────
@@ -742,7 +742,7 @@ class FormateoDeLibroAjeno
             $docParecido = $doc !== null && $docA !== null && levenshtein($doc, $docA) <= 2;
             // Mismos nombres y un apellido que es el comienzo del otro: «JUAN SEBASTIAN QUIÑONEZ» en
             // MyVc y «JUAN SEBASTIAN QUIÑONEZ MONROY» en el archivo (CAZ, 29 sep 2026).
-            $apellidoRecortado = $juntoF === $juntoA && $aa !== '' && $fa !== ''
+            $apellidoRecortado = $juntoF === $juntoA
                 && (str_starts_with($fa.' ', $aa.' ') || str_starts_with($aa.' ', $fa.' '));
             if ($apellidoRecortado || ($mismosApellidos && ($nombreParecido || $docParecido))) {
                 $seguros[] = $a;
@@ -805,7 +805,7 @@ class FormateoDeLibroAjeno
      */
     public static function dividirNombre(string $completo, string $orden): array
     {
-        $palabras = preg_split('/\s+/u', trim($completo));
+        $palabras = preg_split('/\s+/u', trim($completo)) ?: [];
         $unidades = [];
         $pendiente = '';
         foreach ($palabras as $p) {
@@ -894,7 +894,7 @@ class FormateoDeLibroAjeno
     {
         $unidades = [];
         $pendiente = '';
-        foreach (preg_split('/\s+/u', trim($texto), -1, PREG_SPLIT_NO_EMPTY) as $p) {
+        foreach (preg_split('/\s+/u', trim($texto), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $p) {
             if (in_array(self::normalizar($p), self::PARTICULAS, true)) {
                 $pendiente .= $p.' ';
 
