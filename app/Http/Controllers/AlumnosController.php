@@ -1054,6 +1054,9 @@ class AlumnosController extends Controller
 
             $alumno = Alumno::findOrFail($id);
 
+            // La ficha y su cuenta como estaban, para la línea de auditoría del `finally`.
+            $filasAntes = $this->filasDeLaFicha((int) $alumno->id);
+
             // ANTES del primer `sanar*`, que hace `Request::merge()`: después,
             // `Request::has()` ya no distingue lo que mandó el cliente. 05 §68.
             $vinieron = CamposQueVinieron::capturar();
@@ -1199,6 +1202,18 @@ class AlumnosController extends Controller
                 return $alumno;
             } catch (\Exception $e) {
                 abort(422, 'Datos incorrectos');
+            } finally {
+                /*
+                 * **En el `finally`, y no antes del `return`**: la ficha y la cuenta se
+                 * guardan antes de matricular, y si la matrícula revienta el método
+                 * contesta 422 con las dos ya escritas. Lo que se apunta es lo que quedó
+                 * en la base, conteste lo que conteste. La matrícula deja su propia línea
+                 * en `Matricula::matricularUno()`.
+                 *
+                 * Sin `username` en el cuerpo no hay `save()` (§118): se comparan las
+                 * filas, así que ese camino no deja línea, que es lo que ocurrió.
+                 */
+                $this->auditarFicha((int) $alumno->id, $filasAntes);
             }
         } else {
             // El mensaje decía «eliminar alumnos definitivamente», copiado del
@@ -1208,6 +1223,104 @@ class AlumnosController extends Controller
             // `puedeBorrarAlumnos`. Salió del barrido de cobertura del 21 ago 2026,
             // que fue el primero que leyó lo que responde esta ruta. Ver 05 §54.
             return abort(403, 'No tienes permiso para editar alumnos.');
+        }
+    }
+
+    /** Lo que no cuenta como cambio de la ficha: los sellos, y lo que no puede ir en claro. */
+    private const NO_SE_COMPARA = ['id', 'created_at', 'updated_at', 'created_by', 'updated_by', 'deleted_by', 'password', 'remember_token'];
+
+    /**
+     * La fila del alumno y la de su cuenta, en crudo. Por la tabla y no por el modelo:
+     * `putUpdate` asigna sobre el modelo antes de guardar, y lo que interesa es la base.
+     *
+     * @return array{alumno: array<string, mixed>|null, usuario: array<string, mixed>|null}
+     */
+    private function filasDeLaFicha(int $alumnoId): array
+    {
+        $alumno = DB::selectOne('SELECT * FROM alumnos WHERE id = ?', [$alumnoId]);
+        $usuario = $alumno && $alumno->user_id ? DB::selectOne('SELECT * FROM users WHERE id = ?', [$alumno->user_id]) : null;
+
+        return ['alumno' => $alumno ? (array) $alumno : null, 'usuario' => $usuario ? (array) $usuario : null];
+    }
+
+    /**
+     * Las líneas de `putUpdate`: **una por fila que cambió**, con sólo las columnas que
+     * cambiaron en `de` y en `a`. Es el idioma de `AuditarFila`, que no se usa tal cual
+     * porque no rellena `alumno_id`, y sin él `auditoria/alumno/{id}` no encuentra el
+     * cambio de su propia ficha.
+     *
+     * La contraseña no entra nunca (ver `Auditoria::ENTIDADES`, grupo 8): de ella se dice
+     * que cambió, no a qué.
+     *
+     * **Se traga sus errores**: corre en un `finally`, y una excepción aquí pisaría la
+     * respuesta de una ficha que ya se guardó.
+     *
+     * @param  array{alumno: array<string, mixed>|null, usuario: array<string, mixed>|null}  $antes
+     */
+    private function auditarFicha(int $alumnoId, array $antes): void
+    {
+        try {
+            $despues = $this->filasDeLaFicha($alumnoId);
+            if ($despues['alumno'] === null) {
+                return;
+            }
+
+            $nombre = trim($despues['alumno']['nombres'].' '.$despues['alumno']['apellidos']);
+            $fuera = array_flip(self::NO_SE_COMPARA);
+            $cambios = function (?array $a, array $d) use ($fuera): array {
+                $a = array_diff_key($a ?? [], $fuera);
+                $d = array_diff_key($d, $fuera);
+                $cols = array_keys(array_filter($d, fn ($v, $k) => (string) ($a[$k] ?? '') !== (string) ($v ?? ''), ARRAY_FILTER_USE_BOTH));
+
+                return [array_intersect_key($a, array_flip($cols)), array_intersect_key($d, array_flip($cols))];
+            };
+
+            [$de, $a] = $cambios($antes['alumno'], $despues['alumno']);
+            if ($a) {
+                Auditoria::registrar()
+                    ->editar('alumno', $alumnoId)
+                    ->deAlumno($alumnoId, $nombre)
+                    ->de($de)
+                    ->a($a)
+                    ->resumen('Cambió '.implode(', ', array_keys($a)).' en la ficha del alumno')
+                    ->guardar();
+            }
+
+            $cuenta = $despues['usuario'];
+            if ($cuenta === null) {
+                return;
+            }
+
+            $cuentaAntes = $antes['usuario'] !== null && (int) $antes['usuario']['id'] === (int) $cuenta['id'] ? $antes['usuario'] : null;
+
+            if ($cuentaAntes === null) {
+                Auditoria::registrar()
+                    ->crear('usuario', (int) $cuenta['id'])
+                    ->deAlumno($alumnoId, $nombre)
+                    ->a(array_diff_key($cuenta, $fuera))
+                    ->resumen('Le creó la cuenta de usuario «'.$cuenta['username'].'» al alumno')
+                    ->guardar();
+
+                return;
+            }
+
+            [$de, $a] = $cambios($cuentaAntes, $cuenta);
+            $clave = (string) $cuentaAntes['password'] !== (string) $cuenta['password'];
+            if ($a || $clave) {
+                $que = array_keys($a);
+                if ($clave) {
+                    $que[] = 'la contraseña';
+                }
+                Auditoria::registrar()
+                    ->editar('usuario', (int) $cuenta['id'])
+                    ->deAlumno($alumnoId, $nombre)
+                    ->de($de)
+                    ->a($a)
+                    ->resumen('Cambió '.implode(', ', $que).' en la cuenta del alumno')
+                    ->guardar();
+            }
+        } catch (\Throwable $e) {
+            Log::error('Auditoría de la ficha del alumno no escrita: '.$e->getMessage(), ['alumno_id' => $alumnoId]);
         }
     }
 
@@ -1359,12 +1472,45 @@ class AlumnosController extends Controller
 
         $decisiones = Request::input('decisiones', []);
 
-        return FusionDeAlumnos::fusionar(
+        $hecho = FusionDeAlumnos::fusionar(
             (int) Request::input('origen_id'),
             (int) Request::input('destino_id'),
             is_array($decisiones) ? $decisiones : [],
             $this->user->user_id ?? null,
         );
+
+        /*
+         * **Dos líneas, una en cada ficha**, porque el historial se lee por alumno: la del
+         * origen dice a dónde fue su expediente y la del destino de dónde le llegó. Van
+         * después de la transacción de `fusionar()`: si ésta se deshace, no hay nada que
+         * apuntar. Las líneas viejas del origen se quedan con su `alumno_id`
+         * (`FusionDeAlumnos::NO_TOCAR`).
+         */
+        $o = $hecho['origen'];
+        $d = $hecho['destino'];
+        $nombreO = trim($o->nombres.' '.$o->apellidos);
+        $nombreD = trim($d->nombres.' '.$d->apellidos);
+        $cuanto = ['movidas' => $hecho['movidas'], 'resueltos' => $hecho['resueltos']];
+
+        Auditoria::registrar()
+            ->borrar('alumno', (int) $o->id)
+            ->deAlumno((int) $o->id, $nombreO)
+            ->de(['id' => (int) $o->id, 'documento' => $o->documento, 'username' => $o->username])
+            ->a(['unida_en' => (int) $d->id] + $cuanto)
+            ->resumen('Unió esta ficha en la de «'.$nombreD.'» (alumno '.$d->id.'): movió '
+                .$hecho['movidas'].' filas y esta ficha fue a la papelera')
+            ->guardar();
+
+        Auditoria::registrar()
+            ->editar('alumno', (int) $d->id)
+            ->deAlumno((int) $d->id, $nombreD)
+            ->de(['id' => (int) $d->id, 'documento' => $d->documento, 'username' => $d->username])
+            ->a(['recibio_de' => (int) $o->id] + $cuanto)
+            ->resumen('Le unió la ficha de «'.$nombreO.'» (alumno '.$o->id.'): recibió '
+                .$hecho['movidas'].' filas')
+            ->guardar();
+
+        return $hecho;
     }
 
     public function putAlumnosParecidos()
@@ -1514,6 +1660,8 @@ class AlumnosController extends Controller
                 return abort(400, 'Alumno no existe o está en Papelera.');
             }
 
+            self::auditarPapelera('borrar', $alumno, 'Mandó al alumno a la papelera');
+
             return $alumno;
         } else {
             return abort(400, 'No tiene permisos');
@@ -1525,7 +1673,12 @@ class AlumnosController extends Controller
         if (Autoriza::puedeBorrarAlumnos($this->user)) {
             $alumno = Alumno::onlyTrashed()->findOrFail($id);
 
+            // La fila, leída ANTES: después del `DELETE` la línea es lo único que queda de ella.
+            $fila = (array) DB::selectOne('SELECT * FROM alumnos WHERE id = ?', [$alumno->id]);
+
             $alumno->forceDelete();
+
+            self::auditarBorradoDefinitivo($fila);
 
             return $alumno;
         } else {
@@ -1537,13 +1690,44 @@ class AlumnosController extends Controller
     {
         if (Autoriza::puedeEditarAlumnos($this->user)) {
             $alumno = Alumno::onlyTrashed()->findOrFail($id);
+            $borradoEn = $alumno->deleted_at;
 
             $alumno->restore();
+
+            self::auditarPapelera('restaurar', $alumno, 'Sacó al alumno de la papelera', $borradoEn);
 
             return $alumno;
         } else {
             return abort(400, 'No tiene permisos');
         }
+    }
+
+    /**
+     * La entrada o la salida de la papelera: lo que cambia es `deleted_at`, y es lo que va
+     * en `de` y en `a`. La ficha no, que sigue en su fila. El gemelo vive en
+     * `EditnotaController`, que borra y restaura ALUMNOS por otra ruta.
+     */
+    private static function auditarPapelera(string $accion, Alumno $alumno, string $resumen, mixed $borradoEn = null): void
+    {
+        $linea = Auditoria::registrar();
+        $accion === 'restaurar'
+            ? $linea->restaurar('alumno', (int) $alumno->id)->de(['deleted_at' => (string) $borradoEn])->a(['deleted_at' => null])
+            : $linea->borrar('alumno', (int) $alumno->id)->de(['deleted_at' => null])->a(['deleted_at' => (string) $alumno->deleted_at]);
+
+        $linea->deAlumno((int) $alumno->id, trim($alumno->nombres.' '.$alumno->apellidos))
+            ->resumen($resumen)
+            ->guardar();
+    }
+
+    /** El borrado físico: la fila entera en `de`, porque después no queda en ninguna otra parte. */
+    private static function auditarBorradoDefinitivo(array $fila): void
+    {
+        Auditoria::registrar()
+            ->borrar('alumno', (int) $fila['id'])
+            ->deAlumno((int) $fila['id'], trim($fila['nombres'].' '.$fila['apellidos']))
+            ->de(array_diff_key($fila, array_flip(['id', 'created_at', 'updated_at', 'created_by', 'updated_by', 'deleted_by', 'deleted_at'])))
+            ->resumen('Borró definitivamente al alumno, que estaba en la papelera')
+            ->guardar();
     }
 
     public function getTrashed()

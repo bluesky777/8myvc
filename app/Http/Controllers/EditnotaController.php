@@ -18,6 +18,7 @@ use App\Models\Ausencia;
 use App\Models\FraseAsignatura;
 use App\Models\NotaComportamiento;
 use App\Models\DefinicionComportamiento;
+use App\Services\Auditoria;
 use App\Services\BoletinIndependiente;
 
 use \stdClass;
@@ -575,6 +576,9 @@ class EditnotaController extends Controller {
 		}else{
 			return abort(404, 'Alumno no existe o está en Papelera.');
 		}
+
+		self::auditarPapelera('borrar', $alumno, 'Mandó al alumno a la papelera');
+
 		return $alumno;
 	
 	}	
@@ -592,8 +596,19 @@ class EditnotaController extends Controller {
 			'No tienes permiso para eliminar alumnos definitivamente.');
 
 		$alumno = Alumno::onlyTrashed()->findOrFail($id);
-		
+
+		// La fila, leída ANTES: después del `DELETE` la línea es lo único que queda de ella.
+		$fila = (array) DB::selectOne('SELECT * FROM alumnos WHERE id = ?', [$alumno->id]);
+
 		$alumno->forceDelete();
+
+		Auditoria::registrar()
+			->borrar('alumno', (int) $fila['id'])
+			->deAlumno((int) $fila['id'], trim($fila['nombres'].' '.$fila['apellidos']))
+			->de(array_diff_key($fila, array_flip(['id', 'created_at', 'updated_at', 'created_by', 'updated_by', 'deleted_by', 'deleted_at'])))
+			->resumen('Borró definitivamente al alumno, que estaba en la papelera')
+			->guardar();
+
 		return $alumno;
 	
 	}
@@ -605,9 +620,29 @@ class EditnotaController extends Controller {
 			'No tienes permiso para restaurar un alumno.');
 
 		$alumno = Alumno::onlyTrashed()->findOrFail($id);
+		$borradoEn = $alumno->deleted_at;
 
 		$alumno->restore();
+
+		self::auditarPapelera('restaurar', $alumno, 'Sacó al alumno de la papelera', $borradoEn);
+
 		return $alumno;
+	}
+
+	/**
+	 * Gemelo de `AlumnosController::auditarPapelera`: las mismas líneas, con entidad
+	 * `alumno`, para que el historial del alumno no dependa de por qué ruta lo borraron.
+	 */
+	private static function auditarPapelera(string $accion, Alumno $alumno, string $resumen, mixed $borradoEn = null): void
+	{
+		$linea = Auditoria::registrar();
+		$accion === 'restaurar'
+			? $linea->restaurar('alumno', (int) $alumno->id)->de(['deleted_at' => (string) $borradoEn])->a(['deleted_at' => null])
+			: $linea->borrar('alumno', (int) $alumno->id)->de(['deleted_at' => null])->a(['deleted_at' => (string) $alumno->deleted_at]);
+
+		$linea->deAlumno((int) $alumno->id, trim($alumno->nombres.' '.$alumno->apellidos))
+			->resumen($resumen)
+			->guardar();
 	}
 
 
