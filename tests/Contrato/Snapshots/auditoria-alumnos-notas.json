@@ -1,0 +1,53 @@
+{
+    "acciones": [
+        {
+            "accion": "string",
+            "actor_foto": "null",
+            "actor_intentado": "null",
+            "actor_nombre": "string",
+            "actor_tipo": "string",
+            "actor_user_id": "int",
+            "alumno_foto": "null",
+            "alumno_id": "int",
+            "alumno_nombre": "string",
+            "anio": "null",
+            "asignatura_id": "null",
+            "asignatura_nombre": "null",
+            "atribucion": "string",
+            "detalle": "null",
+            "entidad": "string",
+            "entidad_id": "int",
+            "grupo_id": "null",
+            "grupo_nombre": "null",
+            "hecho_desde": {
+                "navegador": "null",
+                "origen": "null",
+                "plataforma": "null"
+            },
+            "historial_id": "null",
+            "hueco": "bool",
+            "id": "int",
+            "ip": "null",
+            "ocurrido_en": "string",
+            "periodo_id": "null",
+            "periodo_numero": "null",
+            "resumen": "null",
+            "ruta": "null",
+            "sesion_id": "null",
+            "tipo": "string",
+            "valor_anterior": "string",
+            "valor_anterior_num": "int",
+            "valor_nuevo": "string",
+            "valor_nuevo_num": "int",
+            "year_id": "null"
+        }
+    ],
+    "familia": "string",
+    "pagina": "int",
+    "por_pagina": "int",
+    "resumen": {
+        "actores": "int",
+        "alumnos": "int"
+    },
+    "total": "int"
+}

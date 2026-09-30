@@ -99,6 +99,8 @@
     "GET api/aspirantes": "App\\Http\\Controllers\\Matriculas\\AspirantesController@getIndex",
     "GET api/aspirantes/{id}": "App\\Http\\Controllers\\Matriculas\\AspirantesController@getFicha",
     "GET api/auditoria/alumno/{id}": "App\\Http\\Controllers\\Auditoria\\AuditoriaController@getAlumno",
+    "GET api/auditoria/alumnos/actores": "App\\Http\\Controllers\\Auditoria\\AuditoriaController@getAlumnosActores",
+    "GET api/auditoria/alumnos/{familia}": "App\\Http\\Controllers\\Auditoria\\AuditoriaController@getAlumnos",
     "GET api/auditoria/anio/{year_id}": "App\\Http\\Controllers\\Auditoria\\AuditoriaController@getAnio",
     "GET api/auditoria/entidad/{tipo}/{id}": "App\\Http\\Controllers\\Auditoria\\AuditoriaController@getEntidad",
     "GET api/auditoria/ficha/{tipo}/{id}": "App\\Http\\Controllers\\Auditoria\\AuditoriaController@getFicha",

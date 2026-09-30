@@ -61,6 +61,11 @@ Route::get('auditoria/anio/{year_id}', [AuditoriaController::class, 'getAnio'])-
 Route::get('auditoria/entidad/{tipo}/{id}', [AuditoriaController::class, 'getEntidad'])->middleware('auth.personal');
 Route::get('auditoria/ingresos', [AuditoriaController::class, 'getIngresos'])->middleware('auth.personal');
 Route::get('auditoria/ingresos/{id}', [AuditoriaController::class, 'getIngreso'])->middleware('auth.personal');
+// Los listados de auditoría de alumnos, por familia (contrato de la pantalla de app2).
+// `actores` va antes que `{familia}`, que la captaría; una familia que no existe es 404
+// en el método, después del token (sin `where`: con él, sin token daría 404 y no 401).
+Route::get('auditoria/alumnos/actores', [AuditoriaController::class, 'getAlumnosActores'])->middleware('auth.personal');
+Route::get('auditoria/alumnos/{familia}', [AuditoriaController::class, 'getAlumnos'])->middleware('auth.personal');
 
 // HistorialesController
 Route::put('historiales/de-usuario', [HistorialesController::class, 'putDeUsuario'])->middleware('auth.personal');

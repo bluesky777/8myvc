@@ -148,15 +148,20 @@ class AuditoriaEscritorUnicoTest extends CasoDeContrato
      * mitad se midió con la tabla poblada y vive en el documento del lote — decir
      * aquí que se comprueba sería exactamente el tipo de afirmación de más contra
      * la que este repositorio escribe sus detectores.
+     *
+     * **30 sep 2026: `aud_sesion` sale y entra `aud_entidad_fecha`.** «Qué hizo en
+     * este ingreso» (`getIngreso`) se contesta por `historial_id`, no por
+     * `sesion_id`, así que `aud_sesion` no lo usaba ninguna consulta; el nuevo es el
+     * de los listados de alumnos. Ver la migración `indice_de_los_listados_de_auditoria`.
      */
     public function test_los_cinco_indices_de_las_cinco_preguntas_siguen_ahi(): void
     {
         $esperados = [
-            'aud_sesion' => 'qué hizo en este ingreso',
             'aud_actor' => 'qué ha hecho este profe',
             'aud_alumno' => 'qué le han hecho a este alumno',
             'aud_entidad' => 'quién cambió esta nota',
             'aud_fecha' => 'barrido por rango, para la retención',
+            'aud_entidad_fecha' => 'los listados de alumnos, por familia y fecha',
         ];
 
         $presentes = array_column(DB::select(

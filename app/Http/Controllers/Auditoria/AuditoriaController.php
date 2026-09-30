@@ -8,6 +8,7 @@ use App\Services\Auditoria;
 use App\Support\AlcanceAcademico;
 use App\Support\Autoriza;
 use App\Support\FichaEditada;
+use App\Support\ListadoDeAuditoria;
 use App\Support\Reloj;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -269,6 +270,81 @@ class AuditoriaController extends Controller
             'acciones' => $acciones,
             'hay_mas' => $hayMas,
         ]);
+    }
+
+    /**
+     * LOS LISTADOS DE AUDITORÍA DE ALUMNOS: lo cambiado en los datos, las notas o la
+     * convivencia de todos los alumnos, paginado y con filtros. La consulta y lo que se
+     * añade a cada línea viven en `ListadoDeAuditoria`; aquí, el permiso y la entrada.
+     *
+     * A diferencia de las demás rutas no hay tope: hay página y `total`, porque es un
+     * listado que se recorre y no el historial de una cosa. Con `solo_total=1` viene el
+     * `total` y el `resumen` con `acciones: []`.
+     */
+    public function getAlumnos(Request $peticion, string $familia): JsonResponse
+    {
+        if (! isset(ListadoDeAuditoria::FAMILIAS[$familia])) {
+            return response()->json(['message' => 'Esa familia no existe'], 404);
+        }
+
+        Autoriza::exigir(
+            Autoriza::puedeVerAuditoria($this->user),
+            'No tiene permiso para ver la auditoría'
+        );
+
+        foreach (['desde', 'hasta'] as $clave) {
+            $fecha = $peticion->query($clave);
+            if ($fecha !== null && $fecha !== '' && (! is_string($fecha) || ! self::esFecha($fecha))) {
+                return response()->json(['message' => "La fecha '$clave' tiene que ser AAAA-MM-DD"], 422);
+            }
+        }
+
+        $pagina = max(1, (int) $peticion->query('pagina', 1));
+        $porPagina = (int) $peticion->query('por_pagina', 25);
+        $porPagina = in_array($porPagina, [25, 50, 100], true) ? $porPagina : 25;
+
+        [$donde, $parametros] = ListadoDeAuditoria::filtro($familia, $peticion->query());
+        $totales = ListadoDeAuditoria::totales($donde, $parametros);
+        // `solo_total=1`: los contadores de las pestañas, sin leer página.
+        $ids = $peticion->boolean('solo_total')
+            ? []
+            : ListadoDeAuditoria::pagina($donde, $parametros, ($pagina - 1) * $porPagina, $porPagina);
+
+        $acciones = [];
+        if ($ids !== []) {
+            [$acciones] = $this->lineas(
+                'a.id IN ('.implode(',', array_fill(0, count($ids), '?')).')',
+                $ids,
+                'a.ocurrido_en DESC, a.id DESC'
+            );
+            ListadoDeAuditoria::completar($acciones, $familia);
+        }
+
+        return response()->json([
+            'familia' => $familia,
+            'pagina' => $pagina,
+            'por_pagina' => $porPagina,
+            'total' => $totales['total'],
+            'resumen' => ['alumnos' => $totales['alumnos'], 'actores' => $totales['actores']],
+            'acciones' => $acciones,
+        ]);
+    }
+
+    /** Quién aparece como actor en los listados de alumnos: el desplegable «Cambiado por». */
+    public function getAlumnosActores(): JsonResponse
+    {
+        Autoriza::exigir(
+            Autoriza::puedeVerAuditoria($this->user),
+            'No tiene permiso para ver la auditoría'
+        );
+
+        return response()->json(ListadoDeAuditoria::actores());
+    }
+
+    private static function esFecha(string $fecha): bool
+    {
+        return preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $fecha, $m) === 1
+            && checkdate((int) $m[2], (int) $m[3], (int) $m[1]);
     }
 
     /**

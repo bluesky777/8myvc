@@ -80,6 +80,8 @@
         "GET api/aspirantes",
         "GET api/aspirantes/{id}",
         "GET api/auditoria/alumno/{id}",
+        "GET api/auditoria/alumnos/actores",
+        "GET api/auditoria/alumnos/{familia}",
         "GET api/auditoria/anio/{year_id}",
         "GET api/auditoria/entidad/{tipo}/{id}",
         "GET api/auditoria/ficha/{tipo}/{id}",
