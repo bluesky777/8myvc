@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
+use App\Services\Auditoria;
 use App\Support\Autoriza;
 use App\Support\Reloj;
 use Illuminate\Support\Facades\DB;
@@ -275,12 +276,17 @@ class CompromisosDeLaFamiliaController extends Controller
 
         $ahora = Reloj::ahoraTexto();
 
+        $firma = ['acuse_at', 'acuse_por', 'acuse_canal'];
+        $antes = $this->columnasDe((int) $compromiso->id, $firma);
+
         DB::update(
             'UPDATE compromisos
                 SET acuse_at = ?, acuse_por = ?, acuse_canal = ?, updated_at = ?
               WHERE id = ? AND acuse_at IS NULL',
             [$ahora, $acudiente_id, self::CANAL_DE_LA_FIRMA, $ahora, (int) $compromiso->id]
         );
+
+        $this->auditarFirma($compromiso, $antes, $firma, 'Aceptó el compromiso académico');
 
         // **El `estado` no se toca**, y es a propósito: `borrador → entregado → cerrado
         // → notificado` es lo que hace el COLEGIO con el expediente, y el acuse es lo
@@ -367,6 +373,9 @@ class CompromisosDeLaFamiliaController extends Controller
         $vencio = $compromiso->reclamacion_vence !== null
             && Reloj::ahora()->toDateString() > $compromiso->reclamacion_vence;
 
+        $firma = ['resultado_acuse_at', 'resultado_acuse_por', 'resultado_acuse_tipo', 'reclamacion_texto'];
+        $antes = $this->columnasDe((int) $compromiso->id, $firma);
+
         DB::update(
             'UPDATE compromisos
                 SET resultado_acuse_at = ?, resultado_acuse_por = ?, resultado_acuse_tipo = ?,
@@ -374,6 +383,10 @@ class CompromisosDeLaFamiliaController extends Controller
               WHERE id = ? AND resultado_acuse_at IS NULL',
             [$ahora, $acudiente_id, $tipo, $texto, $ahora, (int) $compromiso->id]
         );
+
+        $this->auditarFirma($compromiso, $antes, $firma, $tipo === 'reclama'
+            ? 'Reclamó el resultado del compromiso académico'.($vencio ? ', fuera de plazo' : '')
+            : 'Firmó el resultado del compromiso académico');
 
         $frase = $tipo === 'reclama'
             ? 'Su reclamación quedó registrada el '.$this->humana($ahora).'.'
@@ -448,6 +461,42 @@ class CompromisosDeLaFamiliaController extends Controller
         Autoriza::exigir($acudiente_id > 0, 'Su cuenta no tiene ficha de acudiente asociada.');
 
         return $acudiente_id;
+    }
+
+    /**
+     * Las columnas de una firma, tal como están en la fila.
+     *
+     * @param  list<string>  $columnas  nombres fijos de este fichero, nunca del cuerpo
+     * @return array<string, mixed>
+     */
+    private function columnasDe(int $id, array $columnas): array
+    {
+        return (array) DB::selectOne('SELECT '.implode(', ', $columnas).' FROM compromisos WHERE id = ?', [$id]);
+    }
+
+    /**
+     * La línea de una firma de la familia. El actor —el acudiente, con `actor_tipo`
+     * `Acudiente` y su `acudientes.id` en `actor_persona_id`— lo pone `Auditoria` desde la
+     * sesión. El después se relee: con dos pestañas a la vez, la segunda no escribe nada
+     * (`AND … IS NULL`) y su línea sale con `de` igual a `a`.
+     *
+     * @param  array<string, mixed>  $antes
+     * @param  list<string>  $columnas
+     */
+    private function auditarFirma(object $compromiso, array $antes, array $columnas, string $resumen): void
+    {
+        $alumno = DB::selectOne('SELECT TRIM(CONCAT(nombres, " ", apellidos)) AS nombre, c.year_id
+            FROM compromisos c INNER JOIN alumnos a ON a.id = ?
+            WHERE c.id = ?', [(int) $compromiso->alumno_id, (int) $compromiso->id]);
+
+        Auditoria::registrar()
+            ->editar('compromiso', (int) $compromiso->id)
+            ->deAlumno((int) $compromiso->alumno_id, $alumno->nombre ?? null)
+            ->en(year: isset($alumno->year_id) ? (int) $alumno->year_id : null)
+            ->de($antes)
+            ->a($this->columnasDe((int) $compromiso->id, $columnas))
+            ->resumen($resumen)
+            ->guardar();
     }
 
     /**

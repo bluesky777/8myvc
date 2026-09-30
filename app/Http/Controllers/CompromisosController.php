@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Mail\CompromisoAcademico;
+use App\Services\Auditoria;
 use App\Support\Autoriza;
 use App\Support\CorreoDeLaCuenta;
 use App\Support\PlantillaDelCompromiso;
@@ -439,6 +440,20 @@ class CompromisosController extends Controller
                         ]);
                 }
 
+                // Sin el `texto`: es el papel entero y ya está congelado en su fila. La
+                // línea dice quién lo abrió, a quién y con cuántas perdidas.
+                Auditoria::registrar()
+                    ->crear('compromiso', $compromiso_id)
+                    ->deAlumno((int) $candidato['alumno_id'], $candidato['alumno'])
+                    ->en(year: $year_id)
+                    ->a([
+                        'matricula_id' => $matricula_id, 'periodo' => $periodo, 'regla' => $regla,
+                        'cantidad_perdidas' => $cantidad, 'renglones' => count($candidato['perdidas']),
+                        'plazo_desde' => $plazo_desde, 'plazo_hasta' => $plazo_hasta, 'estado' => 'borrador',
+                    ])
+                    ->resumen('Abrió el compromiso académico del periodo '.$periodo.' con '.$cantidad.' perdidas')
+                    ->guardar();
+
                 $creados[] = $compromiso_id;
             }
         });
@@ -623,6 +638,9 @@ class CompromisosController extends Controller
             WHERE id=? AND entregado_at IS NULL',
             [$ahora, $canal, 'entregado', $ahora, $id]);
 
+        $this->auditarPaso($compromiso, ['estado', 'entregado_at', 'entrega_canal'],
+            'Entregó el compromiso académico por '.$canal);
+
         $this->avisarALaFamilia($id, CompromisoAcademico::ENTREGA);
 
         return 'Entregado';
@@ -685,6 +703,9 @@ class CompromisosController extends Controller
             WHERE id=? AND cerrado_at IS NULL',
             [$ahora, $user->user_id, 'cerrado', $ahora, $id]);
 
+        $this->auditarPaso($compromiso, ['estado', 'cerrado_at', 'cerrado_por'],
+            'Cerró el compromiso académico'.($faltan > 0 ? ' con '.$faltan.' de '.$total.' renglones sin veredicto' : ''));
+
         if ($faltan > 0) {
             return 'Cerrado con '.$faltan.' de '.$total
                 .' renglones sin veredicto: quedan como «sin contestar» y así saldrán en el papel.';
@@ -740,6 +761,9 @@ class CompromisosController extends Controller
             SET resultado_entregado_at=?, resultado_canal=?, reclamacion_vence=?, estado=?, updated_at=?
             WHERE id=? AND resultado_entregado_at IS NULL',
             [$ahora, $canal, $vence, 'notificado', $ahora, $id]);
+
+        $this->auditarPaso($compromiso, ['estado', 'resultado_entregado_at', 'resultado_canal', 'reclamacion_vence'],
+            'Notificó el resultado del compromiso académico por '.$canal);
 
         $this->avisarALaFamilia($id, CompromisoAcademico::RESULTADO);
 
@@ -2030,6 +2054,31 @@ class CompromisosController extends Controller
         }
 
         return $fila;
+    }
+
+    /**
+     * La línea de un paso del expediente —entregar, cerrar, notificar—, con el antes que
+     * ya leyó `compromisoOFalla` y el después **leído de la fila**, no de lo que se mandó
+     * escribir: el `UPDATE` lleva `AND … IS NULL`, y en una doble pulsación la segunda no
+     * cambia nada y la línea tiene que decirlo con `de` igual a `a`.
+     *
+     * @param  list<string>  $columnas  nombres fijos de este fichero, nunca del cuerpo
+     */
+    private function auditarPaso(object $antes, array $columnas, string $resumen): void
+    {
+        $despues = DB::selectOne('SELECT '.implode(', ', $columnas).' FROM compromisos WHERE id=?', [(int) $antes->id]);
+        $alumno = DB::selectOne('SELECT a.id, TRIM(CONCAT(a.nombres, " ", a.apellidos)) AS nombre
+            FROM matriculas ma INNER JOIN alumnos a ON a.id = ma.alumno_id
+            WHERE ma.id = ?', [(int) $antes->matricula_id]);
+
+        Auditoria::registrar()
+            ->editar('compromiso', (int) $antes->id)
+            ->deAlumno($alumno ? (int) $alumno->id : null, $alumno->nombre ?? null)
+            ->en(year: (int) $antes->year_id)
+            ->de(array_intersect_key((array) $antes, array_flip($columnas)))
+            ->a((array) $despues)
+            ->resumen($resumen)
+            ->guardar();
     }
 
     /* ══════════════════════════════════════════════════════════════════════════════

@@ -232,6 +232,8 @@ final class Auditoria
         'config_certificado' => 'config_certificados',
         'config_compromiso' => 'config_compromiso',
         'compromiso_bloque' => 'compromiso_bloques',
+        'compromiso' => 'compromisos',
+        'compromiso_item' => 'compromiso_items',
         'piar' => 'piars_alumnos',
         'antecedente' => 'antecedentes',
         'registro_enfermeria' => 'registros_enfermeria',

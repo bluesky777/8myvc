@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResuelveElUsuario;
+use App\Services\Auditoria;
 use App\Services\Nivelacion;
 use App\Support\Autoriza;
 use App\Support\EscalaDeNotas;
@@ -339,6 +340,8 @@ class CompromisosDelDocenteController extends Controller
 
         $ahora = Reloj::ahoraTexto();
 
+        $antes = $this->veredictoDe((int) $item->id);
+
         // R3: `veredicto_por` y `veredicto_at` se escriben **siempre**, incluso cuando el
         // veredicto no cambia de valor. La pregunta que esas dos columnas contestan no es
         // «qué dice» sino «quién lo dijo y cuándo», y un reguardado es alguien firmando
@@ -353,6 +356,22 @@ class CompromisosDelDocenteController extends Controller
                 $veredicto['observacion'], $profesor_id, $ahora, $ahora, (int) $item->id,
             ]
         );
+
+        // Un reguardado también deja línea, por lo mismo que R3 reescribe `veredicto_at`.
+        $alumno = DB::selectOne('SELECT a.id, TRIM(CONCAT(a.nombres, " ", a.apellidos)) AS nombre
+            FROM compromisos c
+            INNER JOIN matriculas ma ON ma.id = c.matricula_id
+            INNER JOIN alumnos a ON a.id = ma.alumno_id
+            WHERE c.id = ?', [(int) $item->compromiso_id]);
+
+        Auditoria::registrar()
+            ->editar('compromiso_item', (int) $item->id)
+            ->deAlumno($alumno ? (int) $alumno->id : null, $alumno->nombre ?? null)
+            ->en(year: (int) $item->year_id)
+            ->de($antes)
+            ->a($this->veredictoDe((int) $item->id))
+            ->resumen(($suyo ? 'Puso' : 'Puso como titular').' el veredicto del compromiso '.$item->compromiso_id)
+            ->guardar();
 
         $frase = $suyo
             ? 'Veredicto guardado.'
@@ -410,6 +429,18 @@ class CompromisosDelDocenteController extends Controller
         $asociado = (int) ($user->profesor_id ?? 0);
 
         return $asociado > 0 ? $asociado : null;
+    }
+
+    /**
+     * Las columnas del veredicto de un renglón, para el antes y el después de su línea.
+     *
+     * @return array<string, mixed>
+     */
+    private function veredictoDe(int $id): array
+    {
+        return (array) DB::selectOne('SELECT asistio, resultado, nota_al_cerrar, observacion,
+                veredicto_por, veredicto_at
+            FROM compromiso_items WHERE id = ?', [$id]);
     }
 
     /**
