@@ -354,6 +354,7 @@
     "POST api/ia/texto/revisar": "App\\Http\\Controllers\\IaController@postTexto",
     "POST api/importar/algo/{year}": "App\\Http\\Controllers\\Alumnos\\ImportarController@postAlgo",
     "POST api/importar/alumnos/ensayo/{year}": "App\\Http\\Controllers\\Alumnos\\ImportarController@postEnsayo",
+    "POST api/importar/alumnos/formatear/{year}": "App\\Http\\Controllers\\Alumnos\\ImportarController@postFormatear",
     "POST api/importar/cartera": "App\\Http\\Controllers\\Alumnos\\ImportarController@postCartera",
     "POST api/informes-recientes": "App\\Http\\Controllers\\Informes\\InformesRecientesController@postStore",
     "POST api/informes/formularios-inscripcion": "App\\Http\\Controllers\\Informes\\FormulariosInscripcionController@postAcunar",

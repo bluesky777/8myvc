@@ -9,6 +9,8 @@ use App\Models\Debugging;
 use App\Models\Matricula;
 use App\Models\Role;
 use App\Services\EnsayoDeLaImportacion;
+use App\Services\FormateoDeLibroAjeno;
+use App\Services\LibroNoReconocido;
 use App\Services\PuntoDeControlDeImportacion;
 use App\Services\RespuestasDeLaImportacion;
 use App\Support\EstadosDeMatricula;
@@ -414,7 +416,10 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
      */
     private function procesarFila($alumno, $grupo, $abrev, $now)
     {
-
+        $this->fixer->conservarVacias = $this->respuestas->columnasAConservar();
+        // Qué celdas venían vacías ANTES de que el traductor las rellene: el parentesco vacío sale de
+        // `verificar` como «Madre» y el sexo del acudiente como «M», y así no se podría conservar.
+        $this->celdasVacias = array_keys(array_filter($alumno, fn ($v) => $v === null || trim((string) $v) === ''));
         $res = $this->fixer->verificar($alumno, $this->year);
         $alumno['ciudad_docu_acud1'] = $res['ciudad_id_A1'];
         $alumno['ciudad_docu_acud2'] = $res['ciudad_id_A2'];
@@ -482,6 +487,10 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
             // valor viejo —eso exigiría leerlo antes y sería otra consulta por
             // fila—: simplemente **no se toca**, que es más barato y no puede
             // equivocarse.
+            // Lo que hay hoy, para no perder el segundo nombre o el segundo apellido cuando su celda
+            // viene vacía y la decisión es conservar. Ver `componerConLoQueHay`.
+            $actual = DB::selectOne('SELECT nombres, apellidos FROM alumnos WHERE id=?', [$alumno['id']]);
+
             $columnas = [
                 // **`no_matricula` se escribía DOS VECES en el mismo `SET`** —una
                 // con `$alumno['no_matricula']` y otra con
@@ -493,8 +502,8 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
                 // escribía primero: cambiar cuál gana mientras se reordena una
                 // consulta sería colar una decisión dentro de un refactor.
                 'numero_matricula' => ['no_matricula', $alumno['numero_matricula']],
-                'primer_nombre' => ['nombres', trim($alumno['primer_nombre'].' '.$alumno['segundo_nombre'])],
-                'primer_apellido' => ['apellidos', trim($alumno['primer_apellido'].' '.$alumno['segundo_apellido'])],
+                'primer_nombre' => ['nombres', $this->componerConLoQueHay($alumno, 'primer_nombre', 'segundo_nombre', $actual->nombres ?? '')],
+                'primer_apellido' => ['apellidos', $this->componerConLoQueHay($alumno, 'primer_apellido', 'segundo_apellido', $actual->apellidos ?? '')],
                 'sexo' => ['sexo', $alumno['sexo']],
                 'fecha_de_nacim' => ['fecha_nac', $alumno['fecha_de_nacim']],
                 'tipo_de_documento' => ['tipo_doc', $alumno['tipo_doc']],
@@ -515,7 +524,11 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
             $valores = [];
 
             foreach ($columnas as $deLaHoja => [$enLaBase, $valor]) {
-                $vacia = $valor === null || trim((string) $valor) === '';
+                // Vacía es la CELDA, no el valor ya traducido: `tipo_doc` nunca llega vacío porque el
+                // traductor le pone Tarjeta de identidad, y así una celda vacía machacaba el tipo de
+                // documento con «conservar» elegido (comprobado importando el 29 sep 2026).
+                $celda = array_key_exists($deLaHoja, $alumno) ? $alumno[$deLaHoja] : $valor;
+                $vacia = $celda === null || trim((string) $celda) === '';
 
                 if ($vacia && in_array($deLaHoja, $aConservar, true)) {
                     $this->hechos['columnas_conservadas']++;
@@ -566,11 +579,11 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
             $existe = $cabe && EstadosDeMatricula::existe($estadoCrudo);
 
             if ($cabe && $existe) {
-                DB::update('UPDATE matriculas m INNER JOIN grupos g ON g.id=m.grupo_id and g.year_id=? and g.deleted_at is null SET m.nuevo=?, m.estado=?, m.updated_at=? WHERE m.alumno_id=? and m.deleted_at is null', [$grupo->year_id, $alumno['es_nuevo'], $alumno['estado_matricula'], $now, $alumno['id']]);
+                $this->actualizarMatriculaDelAno($grupo, $alumno, $now, $alumno['estado_matricula']);
             } else {
                 // `nuevo` si se escribe: no tiene nada que ver con el estado y
                 // descartarlo tambien seria castigar dos columnas por una.
-                DB::update('UPDATE matriculas m INNER JOIN grupos g ON g.id=m.grupo_id and g.year_id=? and g.deleted_at is null SET m.nuevo=?, m.updated_at=? WHERE m.alumno_id=? and m.deleted_at is null', [$grupo->year_id, $alumno['es_nuevo'], $now, $alumno['id']]);
+                $this->actualizarMatriculaDelAno($grupo, $alumno, $now, null);
 
                 $this->fixer->avisos[] = [
                     'fila' => $alumno['numero_matricula'] ?? null,
@@ -773,6 +786,109 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
         return $fila === null ? null : (int) $fila->id;
     }
 
+    /** Las celdas de la fila que venían vacías en la hoja (ver `procesarFila`). */
+    private array $celdasVacias = [];
+
+    /**
+     * El acudiente que ya existe (fila con su ID y su nombre): se escribe lo que trae la hoja, y una
+     * celda VACÍA con «conservar» no toca ese campo. Antes el UPDATE escribía las once columnas y un
+     * celular vacío borraba el celular; el parentesco vacío se volvía «Madre» (29 sep 2026).
+     */
+    private function actualizarAcudiente(array $alumno, int $n, $now, string $consulta): void
+    {
+        $s = 'acud'.$n;
+        $aConservar = $this->respuestas->columnasAConservar();
+        $conserva = fn (string $col) => in_array($col, $this->celdasVacias, true) && in_array($col, $aConservar, true);
+
+        $campos = [
+            'nombres' => ['nombres_'.$s, $alumno['nombres_'.$s]],
+            'apellidos' => ['apellidos_'.$s, $alumno['apellidos_'.$s]],
+            'sexo' => ['sexo_'.$s, $alumno['sexo_'.$s]],
+            'tipo_doc' => ['tipo_docu_'.$s, $alumno['tipo_docu_'.$s]],
+            'documento' => ['documento_'.$s, $alumno['documento_'.$s]],
+            'is_acudiente' => ['es_el_acudiente_'.$s, $alumno['is_acudiente'.$n] ?: 1],
+            'telefono' => ['telefono_'.$s, $alumno['telefono_'.$s]],
+            'celular' => ['celular_'.$s, $alumno['celular_'.$s]],
+            'ocupacion' => ['ocupacion_'.$s, $alumno['ocupacion_'.$s]],
+            'direccion' => ['direccion_'.$s, $alumno['direccion_'.$s]],
+            'email' => ['email_'.$s, $alumno['email_'.$s]],
+        ];
+        $sets = [];
+        $valores = [];
+        foreach ($campos as $enLaBase => [$deLaHoja, $valor]) {
+            if ($conserva($deLaHoja)) {
+                $this->hechos['columnas_conservadas']++;
+
+                continue;
+            }
+            $sets[] = $enLaBase.'=?';
+            $valores[] = $valor;
+        }
+        $sets[] = 'updated_at=?';
+        $valores[] = $now;
+        $valores[] = $alumno['id_'.$s];
+        DB::update('UPDATE acudientes SET '.implode(', ', $sets).$consulta.' WHERE id=?', $valores);
+
+        $setsP = [];
+        $valoresP = [$alumno['id'], $alumno['id_'.$s]];
+        foreach (['parentesco' => 'parentesco_'.$s, 'observaciones' => 'observaciones_'.$s] as $enLaBase => $deLaHoja) {
+            if ($conserva($deLaHoja)) {
+                continue;
+            }
+            $setsP[] = 'p.'.$enLaBase.'=?';
+            $valoresP[] = $alumno[$deLaHoja];
+        }
+        $setsP[] = 'p.updated_at=?';
+        $valoresP[] = $now;
+        DB::update('UPDATE parentescos p INNER JOIN acudientes a ON a.id=p.acudiente_id and p.alumno_id=? and p.acudiente_id=? and p.deleted_at is null and a.deleted_at is null
+            SET '.implode(', ', $setsP), $valoresP);
+    }
+
+    /**
+     * `nombres` es «primer nombre + segundo nombre». Con el segundo vacío y la decisión de conservar,
+     * el segundo es el que ya tenía: antes se guardaba sólo el primero y «CINDY PAOLA» quedaba en
+     * «CINDY» aunque la pantalla prometiera que no se tocaba (comprobado importando el 29 sep 2026).
+     */
+    private function componerConLoQueHay(array $alumno, string $primero, string $segundo, string $actual): string
+    {
+        $uno = trim((string) ($alumno[$primero] ?? ''));
+        $dos = trim((string) ($alumno[$segundo] ?? ''));
+        if ($dos === '' && in_array($segundo, $this->respuestas->columnasAConservar(), true)) {
+            $partes = preg_split('/[\s\x{00A0}]+/u', $actual, -1, PREG_SPLIT_NO_EMPTY);
+            $dos = implode(' ', array_slice($partes, 1));
+        }
+
+        return trim($uno.' '.$dos);
+    }
+
+    /**
+     * La matrícula del año: `nuevo` y `estado`, pero **sólo lo que trae la hoja**. Una celda vacía no
+     * es un estado ni un «no es nuevo»: antes dejaba la matrícula con estado '' —fuera de todas las
+     * listas— y `nuevo` a 0 (comprobado importando el 29 sep 2026).
+     */
+    private function actualizarMatriculaDelAno($grupo, array $alumno, $now, $estado): void
+    {
+        $sets = [];
+        $valores = [$grupo->year_id];
+        if (trim((string) ($alumno['nuevo'] ?? '')) !== '') {
+            $sets[] = 'm.nuevo=?';
+            $valores[] = $alumno['es_nuevo'];
+        }
+        if ($estado !== null && trim((string) $estado) !== '') {
+            $sets[] = 'm.estado=?';
+            $valores[] = $estado;
+        }
+        if ($sets === []) {
+            return;
+        }
+        $sets[] = 'm.updated_at=?';
+        $valores[] = $now;
+        $valores[] = $alumno['id'];
+
+        DB::update('UPDATE matriculas m INNER JOIN grupos g ON g.id=m.grupo_id and g.year_id=? and g.deleted_at is null SET '
+            .implode(', ', $sets).' WHERE m.alumno_id=? and m.deleted_at is null', $valores);
+    }
+
     /**
      * Matricula al alumno en el grupo de la pestaña si no lo estaba ya en ese
      * año.
@@ -832,12 +948,7 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
         if ($alumno['id_acud1'] > 0 && (! (is_null($alumno['nombres_acud1']) || $alumno['nombres_acud1'] == ''))) {
 
             // Si tiene código y tiene nombre escrito, sólo quiere modificarlo
-            DB::update('UPDATE acudientes SET nombres=?, apellidos=?, sexo=?, tipo_doc=?, documento=?, is_acudiente=?, telefono=?, celular=?, ocupacion=?, direccion=?, email=?, updated_at=?'.$consulta.' WHERE id=?',
-                [$alumno['nombres_acud1'], $alumno['apellidos_acud1'], $alumno['sexo_acud1'], $alumno['tipo_docu_acud1'], $alumno['documento_acud1'], ($alumno['is_acudiente1'] ? $alumno['is_acudiente1'] : 1),
-                    $alumno['telefono_acud1'], $alumno['celular_acud1'], $alumno['ocupacion_acud1'], $alumno['direccion_acud1'], $alumno['email_acud1'], $now, $alumno['id_acud1']]);
-
-            DB::update('UPDATE parentescos p INNER JOIN acudientes a ON a.id=p.acudiente_id and p.alumno_id=? and p.acudiente_id=? and p.deleted_at is null and a.deleted_at is null 
-				SET p.parentesco=?, p.observaciones=?, p.updated_at=?', [$alumno['id'], $alumno['id_acud1'], $alumno['parentesco_acud1'], $alumno['observaciones_acud1'], $now]);
+            $this->actualizarAcudiente($alumno, 1, $now, $consulta);
 
         } elseif ($alumno['id_acud1'] > 0 && (is_null($alumno['nombres_acud1']) || $alumno['nombres_acud1'] == '')) {
 
@@ -864,12 +975,7 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
         if ($alumno['id_acud2'] > 0 && (! (is_null($alumno['nombres_acud2']) || $alumno['nombres_acud2'] == ''))) {
 
             // Si tiene código y tiene nombre escrito, sólo quiere modificarlo
-            DB::update('UPDATE acudientes SET nombres=?, apellidos=?, sexo=?, tipo_doc=?, documento=?, is_acudiente=?, telefono=?, celular=?, ocupacion=?, direccion=?, email=?, updated_at=?'.$consulta.' WHERE id=?',
-                [$alumno['nombres_acud2'], $alumno['apellidos_acud2'], $alumno['sexo_acud2'], $alumno['tipo_docu_acud2'], $alumno['documento_acud2'], ($alumno['is_acudiente2'] ? $alumno['is_acudiente2'] : 1),
-                    $alumno['telefono_acud2'], $alumno['celular_acud2'], $alumno['ocupacion_acud2'], $alumno['direccion_acud2'], $alumno['email_acud2'], $now, $alumno['id_acud2']]);
-
-            DB::update('UPDATE parentescos p INNER JOIN acudientes a ON a.id=p.acudiente_id and p.alumno_id=? and p.acudiente_id=? and p.deleted_at is null and a.deleted_at is null 
-				SET p.parentesco=?, p.observaciones=?, p.updated_at=?', [$alumno['id'], $alumno['id_acud2'], $alumno['parentesco_acud2'], $alumno['observaciones_acud2'], $now]);
+            $this->actualizarAcudiente($alumno, 2, $now, $consulta);
 
         } elseif ($alumno['id_acud2'] > 0 && (is_null($alumno['nombres_acud2']) || $alumno['nombres_acud2'] == '')) {
 
@@ -1100,6 +1206,54 @@ class ImportarController extends Controller
         // rama de «no me mandaste fichero», y los cuatro llamadores mandan uno
         // siempre.
         return 'No se encontró archivo.';
+    }
+
+    /**
+     * UN LIBRO QUE NO ES LA PLANTILLA SE DEVUELVE CONVERTIDO EN ELLA — sin escribir nada.
+     *
+     * La pantalla lo llama antes del ensayo. Si el libro ya es la plantilla contesta `ajeno: false` y
+     * todo sigue como siempre; si no, devuelve el libro formateado en base64 con un resumen, para que
+     * la persona lo baje, lo revise y suba ESE. Si no se puede estar seguro de cómo leerlo (sobre todo
+     * de cuál es la columna del documento), 422 con el motivo: adivinar ahí es crear duplicados.
+     *
+     * Ver `App\Services\FormateoDeLibroAjeno`.
+     */
+    public function postFormatear($year)
+    {
+        if (! Request::hasFile('file')) {
+            return response()->json(['ok' => false, 'msg' => 'No se encontró archivo.'], 422);
+        }
+        $fichero = request()->file('file');
+
+        try {
+            $libro = \PhpOffice\PhpSpreadsheet\IOFactory::load($fichero->getRealPath());
+        } catch (\Throwable $e) {
+            return response()->json([
+                'ok' => false,
+                'msg' => 'No se pudo leer el archivo.',
+                'detalle' => class_basename($e).': '.$this->sinRutasDelServidor($e->getMessage()),
+            ], 422);
+        }
+        if (FormateoDeLibroAjeno::esPlantilla($libro)) {
+            return response()->json(['ok' => true, 'ajeno' => false]);
+        }
+
+        $formateo = new FormateoDeLibroAjeno((int) $year);
+        try {
+            $formateado = $formateo->formatear($fichero->getRealPath());
+        } catch (LibroNoReconocido $e) {
+            return response()->json(['ok' => false, 'ajeno' => true, 'msg' => $e->getMessage()], 422);
+        }
+
+        $base = pathinfo($fichero->getClientOriginalName(), PATHINFO_FILENAME);
+
+        return response()->json([
+            'ok' => true,
+            'ajeno' => true,
+            'nombre' => $base.' (formateado para MyVc).xlsx',
+            'archivo' => base64_encode(FormateoDeLibroAjeno::escribir($formateado)),
+            'resumen' => $formateo->resumen,
+        ]);
     }
 
     /**
@@ -1355,12 +1509,13 @@ class ImportarController extends Controller
                 // plausible que afirma algo que nadie comprobó— cometido en la
                 // respuesta que viene a evitarlo. Así que el campo dice lo que
                 // pasa y no un número que no significa lo que parece.
+                // Desde el 29 sep 2026 el ensayo SÍ los cuenta, con la regla de la subida: crear,
+                // actualizar (y si de verdad cambia algo) y unir uno que ya existe.
                 'acudientes' => [
-                    'los_estudia_el_ensayo' => false,
+                    'los_estudia_el_ensayo' => true,
                     'los_escribe_la_subida' => true,
-                    'nota' => 'La v1 del ensayo sólo estudia alumnos. Al importar SÍ se crean y '
-                            .'actualizan acudientes y parentescos, y eso no está en este plan.',
-                ],
+                    'nota' => 'Al importar se crean, actualizan o unen acudientes según estas cuentas.',
+                ] + $ensayo->acudientes,
             ],
 
             // Cambia el texto de la pantalla y el front no lo puede saber: en el

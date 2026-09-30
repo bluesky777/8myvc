@@ -38,6 +38,9 @@ class ImporterFixer
      */
     public $avisos = [];
 
+    /** Columnas cuya celda vacía hay que conservar (lo decide la persona en «Celdas vacías»). */
+    public array $conservarVacias = [];
+
     /**
      * Compara como compara una persona: sin tildes y sin mayusculas.
      *
@@ -299,7 +302,13 @@ class ImporterFixer
         }
 
         // SISBEN
-        if ($this->normalizar($alumno['sisben'] ?? null) == 'no aplica' || $this->normalizar($alumno['sisben'] ?? null) == '') {
+        // Una celda de SISBEN VACÍA con «conservar» no toca nada; «No aplica» sí lo borra. Antes las dos
+        // cosas eran lo mismo y la ficha perdía su SISBEN (comprobado importando el 29 sep 2026).
+        $conservaSisben = in_array('sisben', $this->conservarVacias, true);
+        $conservaSisben3 = in_array('sisben_3', $this->conservarVacias, true);
+        if ($conservaSisben && $this->normalizar($alumno['sisben'] ?? null) == '') {
+            // se queda como está
+        } elseif ($this->normalizar($alumno['sisben'] ?? null) == 'no aplica' || $this->normalizar($alumno['sisben'] ?? null) == '') {
             $cons .= ', has_sisben=0, nro_sisben=null';
         } else {
             $cons .= ', has_sisben=1, nro_sisben=?';
@@ -307,7 +316,9 @@ class ImporterFixer
         }
 
         // SISBEN 3
-        if ($this->normalizar($alumno['sisben_3'] ?? null) == 'no aplica' || $this->normalizar($alumno['sisben_3'] ?? null) == '') {
+        if ($conservaSisben3 && $this->normalizar($alumno['sisben_3'] ?? null) == '') {
+            // se queda como está
+        } elseif ($this->normalizar($alumno['sisben_3'] ?? null) == 'no aplica' || $this->normalizar($alumno['sisben_3'] ?? null) == '') {
             $cons .= ', has_sisben_3=0, nro_sisben_3=null';
         } else {
             $cons .= ', has_sisben_3=1, nro_sisben_3=?';

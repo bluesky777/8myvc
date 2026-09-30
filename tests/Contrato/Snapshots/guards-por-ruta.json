@@ -265,6 +265,7 @@
         "POST api/ia/texto/revisar",
         "POST api/importar/algo/{year}",
         "POST api/importar/alumnos/ensayo/{year}",
+        "POST api/importar/alumnos/formatear/{year}",
         "POST api/importar/cartera",
         "POST api/informes-recientes",
         "POST api/informes/formularios-inscripcion",

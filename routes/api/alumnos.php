@@ -108,6 +108,9 @@ Route::get('importar/alumnos/pendiente/{year}', [ImportarController::class, 'get
 // subida y ningún permiso dentro: darle menos alcance que a `importar/algo`
 // empujaría a la gente a subir para enterarse, que es lo que viene a evitar.
 Route::post('importar/alumnos/ensayo/{year}', [ImportarController::class, 'postEnsayo'])->middleware('auth.personal');
+// EL FORMATEO: un libro que no es la plantilla (la lista de otro sistema) vuelve
+// convertido en ella para revisarlo y subirlo. Tampoco escribe nada.
+Route::post('importar/alumnos/formatear/{year}', [ImportarController::class, 'postFormatear'])->middleware('auth.personal');
 
 // FoliosController
 // Un `UPDATE matriculas` sobre todas las del año actual sin número de folio, sin

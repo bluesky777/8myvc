@@ -580,8 +580,14 @@ class EnsayoDeLaImportacionTest extends CasoDeContrato
         $this->assertArrayNotHasKey('acudientes_tocados', $colaterales,
             'Un cero ahí afirma que no se tocan, y la subida sí los escribe.');
 
-        $this->assertFalse($colaterales['acudientes']['los_estudia_el_ensayo']);
+        // Desde el 29 sep 2026 SÍ los mira: los cuenta con la regla de la subida. Una exportación
+        // recién sacada, subida tal cual, no le cambia nada a ningún acudiente.
+        $this->assertTrue($colaterales['acudientes']['los_estudia_el_ensayo']);
         $this->assertTrue($colaterales['acudientes']['los_escribe_la_subida']);
+        foreach (['crear', 'actualizar', 'sin_cambios', 'unir'] as $clave) {
+            $this->assertIsInt($colaterales['acudientes'][$clave], $clave);
+        }
+        $this->assertSame(0, $colaterales['acudientes']['actualizar'], 'La exportación tal cual no puede modificar acudientes.');
     }
 
     /**

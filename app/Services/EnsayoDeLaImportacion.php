@@ -117,7 +117,78 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
             'si_falta' => 'Se BORRA la que hubiera.'],
         'religion' => ['etiqueta' => 'Religión', 'obligatoria' => false, 'tipo' => 'texto', 'longitud' => 100,
             'si_falta' => 'Se BORRA la que hubiera.'],
+        // Las que el importador SÍ lee pero se escriben aparte (`ImporterFixer`), y que por no estar
+        // aquí la pantalla decía que «MyVc no las usa». Vacías no tocan nada: la ciudad sólo se
+        // escribe si se reconoce, «Urbana» sólo con SI o NO, y «Nuevo» sólo si trae algo.
+        'lugar_de_expedicion_ciudad' => ['etiqueta' => 'Ciudad de expedición del documento', 'obligatoria' => false, 'tipo' => 'texto', 'longitud' => null,
+            'si_falta' => 'Se queda la que tenía.'],
+        'ciudad_nacimiento' => ['etiqueta' => 'Ciudad de nacimiento', 'obligatoria' => false, 'tipo' => 'texto', 'longitud' => null,
+            'si_falta' => 'Se queda la que tenía.'],
+        'ciudad_residencia' => ['etiqueta' => 'Ciudad de residencia', 'obligatoria' => false, 'tipo' => 'texto', 'longitud' => null,
+            'si_falta' => 'Se queda la que tenía.'],
+        'urbana' => ['etiqueta' => 'Urbana', 'obligatoria' => false, 'tipo' => 'texto', 'longitud' => null,
+            'si_falta' => 'Se queda como estaba.'],
+        'sisben_3' => ['etiqueta' => 'SISBEN 3', 'obligatoria' => false, 'tipo' => 'texto', 'longitud' => 50,
+            'si_falta' => 'Se BORRA el que hubiera.'],
+        'nuevo' => ['etiqueta' => 'Nuevo en el colegio', 'obligatoria' => false, 'tipo' => 'texto', 'longitud' => null,
+            'si_falta' => 'La matrícula conserva lo que tenía; una nueva nace como no nueva.'],
     ];
+
+    /**
+     * Los campos del acudiente que un vacío podría borrar al ACTUALIZARLO (fila con su ID y su
+     * nombre), con lo que guardaba el importador en su lugar. No son `COLUMNAS` porque no se estudian
+     * fila a fila: sólo entran en «Celdas vacías». Se repiten con `_acud1` y `_acud2`.
+     *
+     * @var array<string, array{0: string, 1: string, 2: string, 3: string}> sufijo => [etiqueta, tabla, campo, queda]
+     */
+    private const CAMPOS_DE_ACUDIENTE = [
+        'apellidos' => ['Apellidos', 'a', 'apellidos', ''],
+        'sexo' => ['Sexo', 'a', 'sexo', 'M'],
+        'tipo_docu' => ['Tipo de documento', 'a', 'tipo_doc', ''],
+        'documento' => ['Documento', 'a', 'documento', ''],
+        'telefono' => ['Teléfono', 'a', 'telefono', ''],
+        'celular' => ['Celular', 'a', 'celular', ''],
+        'ocupacion' => ['Ocupación', 'a', 'ocupacion', ''],
+        'direccion' => ['Dirección', 'a', 'direccion', ''],
+        'email' => ['Email', 'a', 'email', ''],
+        'parentesco' => ['Parentesco', 'p', 'parentesco', 'Madre'],
+        'observaciones' => ['Observaciones', 'p', 'observaciones', ''],
+    ];
+
+    /** La etiqueta de una columna, sea del alumno o del acudiente («Celular (acudiente 1)»). */
+    private static function etiquetaDe(string $columna): string
+    {
+        if (isset(self::COLUMNAS[$columna])) {
+            return self::COLUMNAS[$columna]['etiqueta'];
+        }
+        if (preg_match('/^(.+)_acud([12])$/', $columna, $m) && isset(self::CAMPOS_DE_ACUDIENTE[$m[1]])) {
+            return self::CAMPOS_DE_ACUDIENTE[$m[1]][0].' (acudiente '.$m[2].')';
+        }
+
+        return $columna;
+    }
+
+    private static function siFaltaDe(string $columna): string
+    {
+        if (isset(self::COLUMNAS[$columna])) {
+            return self::COLUMNAS[$columna]['si_falta'];
+        }
+        if (preg_match('/^(.+)_acud[12]$/', $columna, $m) && isset(self::CAMPOS_DE_ACUDIENTE[$m[1]])) {
+            $queda = self::CAMPOS_DE_ACUDIENTE[$m[1]][3];
+
+            return $queda === '' ? 'Se BORRA el que hubiera.' : 'Se cambia por «'.$queda.'».';
+        }
+
+        return 'Se BORRA el que hubiera.';
+    }
+
+    /**
+     * Columnas de la PLANTILLA que el importador no lee a propósito, y que por eso no son «tuyas sin
+     * usar»: el número de fila, el usuario (no se cambia importando), los departamentos (salen de la
+     * ciudad: la base guarda sólo la ciudad, y la ciudad sabe su departamento) y la columna que añade
+     * el formateo de un libro ajeno.
+     */
+    private const DE_LA_PLANTILLA = ['no', 'usuario', 'lugar_de_expedicion_departamento', 'departam_nacimiento', 'que_pasara'];
 
     /**
      * El estado de la matrícula va aparte de las demás porque **no vive en
@@ -186,6 +257,14 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
 
     /** Cuántas celdas vienen vacías en cada columna. Columna => veces. */
     private array $vacios = [];
+
+    /** Lo que la subida hará con los acudientes, contado como lo hace `modificar_acudienteN`. */
+    public array $acudientes = ['crear' => 0, 'actualizar' => 0, 'sin_cambios' => 0, 'unir' => 0];
+
+    /** @var array<string, list<array<string, mixed>>> las filas de cada vacío que borraría algo */
+    private array $vaciosPorFila = [];
+
+    private const TOPE_DETALLE_VACIOS = 300;
 
     /** Caché de `documento` => id, para no repetir la misma consulta por fila. */
     private array $idPorDocumento = [];
@@ -310,6 +389,7 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
         $alumno = $this->conTodasLasClaves($fila);
 
         $antes = count($this->fixer->avisos);
+        $this->fixer->conservarVacias = $this->respuestas?->columnasAConservar() ?? [];
         $this->fixer->verificar($alumno, $this->year);
 
         // Los avisos del traductor no saben en qué fila del libro estaban: los
@@ -329,7 +409,6 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
         // del front conduciendo `estado_matricula`, que es el campo donde se
         // nota porque el otro sí desaparecía.
         $this->anotarTruncados($alumno, $hoja, $indice);
-        $this->anotarVacios($fila);
 
         $documento = $fila['nro_de_documento'] ?? null;
         $nombreCompleto = trim(($fila['primer_nombre'] ?? '').' '.($fila['segundo_nombre'] ?? ''));
@@ -358,6 +437,11 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
         }
 
         $existente = $id ? $this->fichaDe((int) $id) : null;
+        $this->anotarVacios($fila, $existente, $hoja, $indice);
+        // Sin primer nombre y sin alumno que actualizar, el importador salta la fila: sus acudientes tampoco.
+        if ($existente !== null || trim((string) ($fila['primer_nombre'] ?? '')) !== '') {
+            $this->contarAcudientes($fila, $existente);
+        }
 
         // Sin primer nombre el importador salta la fila entera y no escribe
         // nada. Es una tercera acción y no un «crear» con avisos: la pantalla
@@ -689,15 +773,188 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
      * como TARJETA DE IDENTIDAD» sin convertir la pantalla en una lista de
      * huecos. Lo pidió la Fase 2 dibujando el escenario 3.
      */
-    private function anotarVacios(array $fila): void
+    private function anotarVacios(array $fila, ?object $existente, string $hoja = '', int $indice = 0): void
     {
+        // **Sólo cuenta el vacío que BORRARÍA algo** (pedido por Joseth el 29 sep 2026): una fila que
+        // crea alumno no tiene nada que borrar, y una celda vacía sobre un campo que en la ficha
+        // también está vacío no cambia nada. Contarlas llenaba la pantalla de decisiones sin objeto.
+        if ($existente === null) {
+            return;
+        }
         foreach (array_keys(self::COLUMNAS) as $columna) {
             $valor = $fila[$columna] ?? null;
 
-            if ($valor === null || trim((string) $valor) === '') {
+            if (($valor === null || trim((string) $valor) === '') && $this->laFichaTiene($columna, $existente)) {
                 $this->vacios[$columna] = ($this->vacios[$columna] ?? 0) + 1;
+                // Quién es y qué perdería: la pantalla lo enseña al pulsar la cifra. Con tope, que un
+                // libro de 800 filas sin barrio no infle la respuesta.
+                if (count($this->vaciosPorFila[$columna] ?? []) < self::TOPE_DETALLE_VACIOS) {
+                    [$campo, $resultado] = $this->loQueSeBorraria($columna, $existente);
+                    $this->vaciosPorFila[$columna][] = [
+                        'hoja' => $hoja,
+                        'fila_del_libro' => $indice + 3,
+                        'id' => (int) $existente->id,
+                        'alumno' => implode(' ', preg_split('/[\s\x{00A0}]+/u', $existente->nombres.' '.$existente->apellidos, -1, PREG_SPLIT_NO_EMPTY)),
+                        'en_myvc' => $campo,
+                        'si_se_borra' => $resultado,
+                    ];
+                }
             }
         }
+
+        // Los acudientes que se van a ACTUALIZAR: con ID y con nombre en la hoja.
+        foreach ([1, 2] as $n) {
+            $idAcud = (int) ($fila['id_acud'.$n] ?? 0);
+            if ($idAcud <= 0 || trim((string) ($fila['nombres_acud'.$n] ?? '')) === '') {
+                continue;
+            }
+            $ac = DB::selectOne('SELECT a.*, p.parentesco, p.observaciones, t.tipo AS tipo_nombre FROM acudientes a
+                LEFT JOIN parentescos p ON p.acudiente_id=a.id AND p.alumno_id=? AND p.deleted_at IS NULL
+                LEFT JOIN tipos_documentos t ON t.id=a.tipo_doc
+                WHERE a.id=? AND a.deleted_at IS NULL', [$existente->id, $idAcud]);
+            if (! $ac) {
+                continue;
+            }
+            foreach (self::CAMPOS_DE_ACUDIENTE as $sufijo => [, , $campo, $queda]) {
+                $columna = $sufijo.'_acud'.$n;
+                $celda = $fila[$columna] ?? null;
+                $enMyvc = $campo === 'tipo_doc' ? ($ac->tipo_nombre ?? $ac->tipo_doc) : $ac->{$campo};
+                if (($celda !== null && trim((string) $celda) !== '') || $enMyvc === null || trim((string) $enMyvc) === ''
+                    || (string) $enMyvc === $queda) {
+                    continue;
+                }
+                $this->vacios[$columna] = ($this->vacios[$columna] ?? 0) + 1;
+                if (count($this->vaciosPorFila[$columna] ?? []) < self::TOPE_DETALLE_VACIOS) {
+                    $this->vaciosPorFila[$columna][] = [
+                        'hoja' => $hoja,
+                        'fila_del_libro' => $indice + 3,
+                        'id' => (int) $existente->id,
+                        'alumno' => implode(' ', preg_split('/[\s\x{00A0}]+/u', $existente->nombres.' '.$existente->apellidos, -1, PREG_SPLIT_NO_EMPTY)),
+                        'acudiente' => trim($ac->nombres.' '.$ac->apellidos),
+                        'en_myvc' => (string) $enMyvc,
+                        'si_se_borra' => $queda,
+                    ];
+                }
+            }
+        }
+    }
+
+    /**
+     * Qué pasa con los dos acudientes de la fila, con la misma regla que la subida: con ID y nombre se
+     * actualiza ese acudiente (y se mira si de verdad le cambia algo); con ID sin nombre se une al
+     * alumno uno que ya existe; sin ID y con nombre se crea.
+     */
+    private function contarAcudientes(array $fila, ?object $existente): void
+    {
+        $aConservar = $this->respuestas->columnasAConservar();
+        foreach ([1, 2] as $n) {
+            $id = (int) ($fila['id_acud'.$n] ?? 0);
+            $nombres = trim((string) ($fila['nombres_acud'.$n] ?? ''));
+            if ($id > 0 && $nombres === '') {
+                $this->acudientes['unir']++;
+            } elseif ($id <= 0 && $nombres !== '') {
+                $this->acudientes['crear']++;
+            } elseif ($id > 0) {
+                $this->acudientes[$this->acudienteCambia($fila, $n, $id, $existente, $aConservar) ? 'actualizar' : 'sin_cambios']++;
+            }
+        }
+    }
+
+    private function acudienteCambia(array $fila, int $n, int $id, ?object $existente, array $aConservar): bool
+    {
+        $ac = DB::selectOne('SELECT a.*, p.parentesco, p.observaciones, t.tipo AS tipo_nombre, t.abrev AS tipo_abrev FROM acudientes a
+            LEFT JOIN parentescos p ON p.acudiente_id=a.id AND p.alumno_id=? AND p.deleted_at IS NULL
+            LEFT JOIN tipos_documentos t ON t.id=a.tipo_doc
+            WHERE a.id=? AND a.deleted_at IS NULL', [$existente->id ?? 0, $id]);
+        if (! $ac) {
+            return true;
+        }
+        $igual = fn ($a, $b) => mb_strtolower(trim((string) $a)) === mb_strtolower(trim((string) $b));
+        $campos = ['nombres' => 'nombres'] + array_map(fn ($c) => $c[2], self::CAMPOS_DE_ACUDIENTE);
+        foreach ($campos as $sufijo => $campo) {
+            $columna = $sufijo.'_acud'.$n;
+            $celda = $fila[$columna] ?? null;
+            $enMyvc = $ac->{$campo} ?? null;
+            if ($celda === null || trim((string) $celda) === '') {
+                if (in_array($columna, $aConservar, true) || $enMyvc === null || trim((string) $enMyvc) === '') {
+                    continue;
+                }
+
+                return true;
+            }
+            if ($campo === 'tipo_doc') {
+                if ($igual($celda, $ac->tipo_nombre) || $igual($celda, $ac->tipo_abrev) || $igual($celda, $ac->tipo_doc)) {
+                    continue;
+                }
+
+                return true;
+            }
+            if (! $igual($celda, $enMyvc)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Lo que la ficha tiene en esa columna y cómo quedaría si el vacío borrara. En los segundos nombres
+     * y apellidos se enseña el campo entero, porque es lo que se guarda: «CINDY PAOLA» → «CINDY».
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function loQueSeBorraria(string $columna, object $a): array
+    {
+        $palabras = fn ($v) => preg_split('/[\s\x{00A0}]+/u', (string) $v, -1, PREG_SPLIT_NO_EMPTY);
+
+        return match ($columna) {
+            'segundo_nombre' => [implode(' ', $palabras($a->nombres)), $palabras($a->nombres)[0] ?? ''],
+            'segundo_apellido' => [implode(' ', $palabras($a->apellidos)), $palabras($a->apellidos)[0] ?? ''],
+            'tipo_de_documento' => [(string) (DB::table('tipos_documentos')->where('id', $a->tipo_doc)->value('tipo') ?? $a->tipo_doc), 'TARJETA DE IDENTIDAD'],
+            'sisben' => [$a->nro_sisben ? (string) $a->nro_sisben : 'Tiene SISBEN', ''],
+            'sisben_3' => [$a->nro_sisben_3 ? (string) $a->nro_sisben_3 : 'Tiene SISBEN 3', ''],
+            default => [(string) ($a->{[
+                'nro_de_documento' => 'documento', 'primer_apellido' => 'apellidos', 'primer_nombre' => 'nombres',
+                'numero_matricula' => 'no_matricula', 'direccion_residencia' => 'direccion', 'barrio' => 'barrio',
+                'telefono' => 'telefono', 'celular' => 'celular', 'estrato' => 'estrato', 'fecha_de_nacim' => 'fecha_nac',
+                'sexo' => 'sexo', 'rh' => 'tipo_sangre', 'eps' => 'eps', 'religion' => 'religion',
+            ][$columna] ?? 'id'} ?? ''), ''],
+        };
+    }
+
+    /**
+     * Si la ficha tiene algo que una celda vacía de esa columna podría borrar. Las columnas que el
+     * importador sólo escribe cuando traen algo (ID, estado, ciudades, urbana, nuevo) no borran nunca.
+     */
+    private function laFichaTiene(string $columna, object $a): bool
+    {
+        $lleno = fn ($v) => $v !== null && trim((string) $v) !== '';
+        // Por palabras y no con `trim`: CAZ guarda nombres con espacios duros («SAMUEL\u{A0}»), que
+        // `trim` no quita y que contaban como un segundo nombre vacío.
+        $segunda = fn ($v) => count(preg_split('/[\s\x{00A0}]+/u', (string) $v, -1, PREG_SPLIT_NO_EMPTY)) > 1;
+
+        return match ($columna) {
+            'tipo_de_documento' => $lleno($a->tipo_doc) && (int) $a->tipo_doc !== 3,
+            'nro_de_documento' => $lleno($a->documento),
+            'primer_apellido' => $lleno($a->apellidos),
+            'segundo_apellido' => $segunda($a->apellidos),
+            'primer_nombre' => $lleno($a->nombres),
+            'segundo_nombre' => $segunda($a->nombres),
+            'numero_matricula' => $lleno($a->no_matricula),
+            'direccion_residencia' => $lleno($a->direccion),
+            'barrio' => $lleno($a->barrio),
+            'telefono' => $lleno($a->telefono),
+            'celular' => $lleno($a->celular),
+            'estrato' => $lleno($a->estrato),
+            'sisben' => (bool) $a->has_sisben || $lleno($a->nro_sisben),
+            'sisben_3' => (bool) $a->has_sisben_3 || $lleno($a->nro_sisben_3),
+            'fecha_de_nacim' => $lleno($a->fecha_nac),
+            'sexo' => $lleno($a->sexo),
+            'rh' => $lleno($a->tipo_sangre),
+            'eps' => $lleno($a->eps),
+            'religion' => $lleno($a->religion),
+            default => false,
+        };
     }
 
     /**
@@ -721,13 +978,14 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
 
             $salida[] = [
                 'columna' => $columna,
-                'etiqueta' => self::COLUMNAS[$columna]['etiqueta'],
+                'etiqueta' => self::etiquetaDe($columna),
                 'veces' => $veces,
                 'decision' => $decision,
                 'consecuencia' => $conserva
                     ? 'No se toca: conserva lo que ya hubiera en la ficha.'
-                    : self::COLUMNAS[$columna]['si_falta'],
-                'consecuencia_por_defecto' => self::COLUMNAS[$columna]['si_falta'],
+                    : self::siFaltaDe($columna),
+                'consecuencia_por_defecto' => self::siFaltaDe($columna),
+                'filas' => $this->vaciosPorFila[$columna] ?? [],
             ];
         }
 
@@ -884,7 +1142,7 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
      */
     private function loQueNoSeEstudia(array $encabezados): array
     {
-        $fuera = array_values(array_diff($encabezados, array_keys(self::COLUMNAS)));
+        $fuera = array_values(array_diff($encabezados, array_keys(self::COLUMNAS), self::DE_LA_PLANTILLA));
 
         $deAcudiente = array_values(array_filter(
             $fuera,
