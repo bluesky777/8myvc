@@ -28,6 +28,7 @@ use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 use Maatwebsite\Excel\Events\BeforeSheet;
 use Maatwebsite\Excel\Facades\Excel;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class AlumnoSheetImport implements ToCollection, WithHeadingRow
 {
@@ -1226,7 +1227,7 @@ class ImportarController extends Controller
         $fichero = request()->file('file');
 
         try {
-            $libro = \PhpOffice\PhpSpreadsheet\IOFactory::load($fichero->getRealPath());
+            $libro = IOFactory::load($fichero->getRealPath());
         } catch (\Throwable $e) {
             return response()->json([
                 'ok' => false,

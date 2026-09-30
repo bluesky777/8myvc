@@ -4,6 +4,7 @@ namespace Tests\Contrato;
 
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx as EscritorXlsx;
@@ -189,7 +190,7 @@ class LibroAjenoYVaciosTest extends CasoDeContrato
         $col = [];
         foreach ($hoja->getRowIterator(2, 2) as $fila) {
             foreach ($fila->getCellIterator() as $c) {
-                $col[trim((string) $c->getValue())] = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($c->getColumn());
+                $col[trim((string) $c->getValue())] = Coordinate::columnIndexFromString($c->getColumn());
             }
         }
 

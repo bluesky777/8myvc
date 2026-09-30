@@ -7,7 +7,9 @@ use App\Models\Matricula;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\RichText\RichText;
 use PhpOffice\PhpSpreadsheet\Shared\Date as FechaExcel;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
@@ -94,9 +96,7 @@ class FormateoDeLibroAjeno
 
     public array $resumen = [];
 
-    public function __construct(private int $year)
-    {
-    }
+    public function __construct(private int $year) {}
 
     public static function normalizar($texto): string
     {
@@ -232,7 +232,7 @@ class FormateoDeLibroAjeno
                         continue;
                     }
                     // Todo como texto: un documento con ceros delante o una fecha no deben reinterpretarse.
-                    $hoja->setCellValueExplicit([$i + 1, $r], (string) $v, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                    $hoja->setCellValueExplicit([$i + 1, $r], (string) $v, DataType::TYPE_STRING);
                 }
                 foreach ($notas as $cab => $nota) {
                     $col = array_search($cab, self::CABECERAS, true);
@@ -350,7 +350,7 @@ class FormateoDeLibroAjeno
     /** Las celdas con formato llegan como `RichText`, no como cadena. */
     private static function plano($v)
     {
-        return $v instanceof \PhpOffice\PhpSpreadsheet\RichText\RichText ? $v->getPlainText() : $v;
+        return $v instanceof RichText ? $v->getPlainText() : $v;
     }
 
     private function valorDeCelda(Worksheet $hoja, int $c, int $r)
