@@ -28,6 +28,7 @@ use App\Http\Controllers\Perfiles\Publicaciones;
 use Carbon\Carbon;
 use \DateTime;
 use \Log;
+use App\Support\CierreDeAsignatura;
 use App\Support\RepartoDeLaNota;
 
 
@@ -570,110 +571,173 @@ class ChangeAskedController extends Controller {
 		
 		}
 		
-		$cant = count($profes_actuales);			
-		
-		for ($i=0; $i < $cant; $i++) { 
-			
-			if ($profes_actuales[$i]->cant_asignaturas) {
-				// El avance del docente mide **la estructura del grupo**, y por eso el
-				// `u.alumno_id is null` de más abajo.
-				//
-				// `uni_correctas` es `sum(u.porcentaje) = 100` por asignatura. Con un
-				// independiente en el grupo eso suma **el reparto del grupo más el suyo**
-				// —100 + 100 = 200—, la asignatura deja de contar como correcta y **el
-				// porcentaje del docente baja sin que él haya hecho nada mal**. Es el mismo
-				// fallo que se le arregló a `DefinitivasDeAsignatura::porcentajeDeLasUnidades`:
-				// «¿suman 100?» con dos boletines no tiene una sola respuesta. Aquí no hay
-				// que preguntar de cuál: esta pantalla es la del grupo, y no recibe alumno.
-				//
-				// La condición va **sólo en la `u` de fuera**: la derivada `r` entra por
-				// `r.unidad_id=u.id`, así que ya sólo puede emparejar unidades que hayan
-				// pasado este filtro. Repetirla dentro no cambiaría una fila.
-				// **Y la mitad de las SUBUNIDADES deja de medir nada en modo promedio**,
-				// que es el mismo fallo que el párrafo de arriba por el otro lado: el
-				// avance del docente baja sin que él haya hecho nada mal.
-				//
-				// `sub_correctas` pregunta si las subunidades de cada unidad suman 100.
-				// Con `years.reparto_subunidades = 'promedio'` ese reparto **no lo
-				// mantiene nadie** —es justo lo que la Entrega 5 le quita de encima al
-				// docente (28 §5.5)— y `subunidades.porcentaje` es `int NULL DEFAULT 0`,
-				// así que cada subunidad nueva entra con **0** y la unidad deja de sumar
-				// 100 para siempre. La mitad de esta cuenta se quedaría clavada en cero y
-				// **el colegio entero aparecería al 50 % como techo**, sin una sola
-				// pantalla que dijera por qué.
-				//
-				// En promedio la pregunta no tiene sentido, así que **no puede estar
-				// mal**: cuenta como correcta. No se toca `porc_uni`, que sigue siendo de
-				// unidades y las unidades no cambian de modo — es la nota del doc 28
-				// *«`porcentaje_unidades` sigue valiendo»*, que es cierta y que hizo que
-				// esta otra mitad no se mirara.
-				//
-				// Lo levantó `myvc_front` barriendo los llamantes de
-				// `RepartoDeLaNota::porcentajeParaPintar` (15 sep 2026), y es de los que
-				// el front **no podía tapar**: los demás son rótulos y éste es un juicio
-				// sobre el trabajo de una persona.
-				$subCorrectas = RepartoDeLaNota::modoDelAnio($user->year_id) === RepartoDeLaNota::PROMEDIO
-					? '1'
-					: 'IF(count(r.porc_unidad)>0, 0, 1)';
+		[$avance, $pendientes] = $this->avance_de_las_asignaturas($user);
 
-				$porcentaje = DB::select('SELECT sum(if( r2.porc_uni=100, 1, 0)) uni_correctas, SUM(r2.sub_correctas) sub_correctas
-										FROM (
-											SELECT  sum(u.porcentaje) porc_uni, u.asignatura_id, '.$subCorrectas.' sub_correctas, a.profesor_id
-											FROM unidades u
-											inner join asignaturas a ON a.id=u.asignatura_id and a.deleted_at is null
-											inner join grupos g ON g.id=a.grupo_id and g.deleted_at is null and g.year_id=?
-											left join (
-												SELECT sum(s.porcentaje) as porc_unidad, s.unidad_id
-												FROM subunidades s
-												inner join unidades u ON u.id=s.unidad_id and s.deleted_at is null and u.deleted_at is null
-												group by s.unidad_id having sum(s.porcentaje) < 100 or sum(s.porcentaje) > 100 
-											)r on r.unidad_id=u.id
-											where u.periodo_id=? and u.deleted_at is null and u.alumno_id is null and a.profesor_id=?
-											group by u.asignatura_id
-										)r2', 
-									[ $user->year_id, $user->periodo_id, $profes_actuales[$i]->profesor_id ]);
-								
-				$avance_comport = DB::select('SELECT COUNT(*) as cant_grupos_comport, sum(r2.con_notas) as cant_grupos_con_notas
-											from (SELECT g.id as grupo_id, g.nombre, r.con_notas 
-																from grupos g
-																inner join grados gra on gra.id=g.grado_id and g.year_id=?
-																inner join profesores p on p.id=g.titular_id and g.titular_id = ?
-																left join (
-																	select IF(count(n.id)>0, 1, 0) as con_notas, g.id as grupo_id 
-																	from nota_comportamiento n
-																	inner join matriculas m ON m.alumno_id=n.alumno_id and (m.estado="MATR" or m.estado="ASIS") and m.deleted_at is null
-																	inner join grupos g ON g.id=m.grupo_id and g.deleted_at is null and titular_id=? and g.year_id=?
-																	where n.periodo_id=?
-																	group by g.id
-																)r on r.grupo_id=g.id
-																where g.deleted_at is null
-											)r2', [ $user->year_id, $profes_actuales[$i]->profesor_id, $profes_actuales[$i]->profesor_id, $user->year_id, $user->periodo_id ]);					
-									
-				if (count($porcentaje) > 0) {
-					
-					$profes_actuales[$i]->porcentaje = ($porcentaje[0]->uni_correctas*100 / $profes_actuales[$i]->cant_asignaturas)/2 + ($porcentaje[0]->sub_correctas*100 / $profes_actuales[$i]->cant_asignaturas)/2;
-					
-					if (count($avance_comport) > 0) {
-						$avance_comport = $avance_comport[0];
-						$diffe = ($avance_comport->cant_grupos_comport - $avance_comport->cant_grupos_con_notas) * 5;
-						$profes_actuales[$i]->porcentaje = $profes_actuales[$i]->porcentaje - $diffe;
-						
-						if ($profes_actuales[$i]->porcentaje < 0) {
-							$profes_actuales[$i]->porcentaje = 0;
-						}
-					}
-					
-				}else{
-					$profes_actuales[$i]->porcentaje = 0;
-				}
-				
-			}else{
-				$profes_actuales[$i]->porcentaje = 100;
-			}
-			
-			
+		// Sin asignaturas ni titularía no hay nada que le falte.
+		foreach ($profes_actuales as $profe) {
+			$profe->porcentaje = $avance[(int) $profe->profesor_id] ?? 100;
+			$profe->pendientes = $pendientes[(int) $profe->profesor_id] ?? [];
 		}
+
 		return $profes_actuales;
+	}
+
+
+	/**
+	 * **Cuánto le falta a cada docente**, por `profesor_id`: la media de sus asignaturas,
+	 * y cada asignatura es la media de lo que se le pide en el periodo del usuario.
+	 *
+	 * 1. **Unidades**: las del grupo (`u.alumno_id is null`) suman 100.
+	 * 2. **Subunidades**: las de cada unidad suman 100 (en modo promedio, siempre bien).
+	 * 3. **Notas**: la parte de casillas calificadas (`CierreDeAsignatura::ES_FALTANTE`,
+	 *    la misma cuenta que el diálogo de cerrar). **Una asignatura cerrada a mano cuenta
+	 *    entera** aunque deje casillas vacías: lo que se hace con ellas lo decide el cierre.
+	 * 4. **Competencias**, sólo con `years.modelo_evaluacion = 'competencias'`: al menos
+	 *    una escrita en `desempenos_por_defecto` para su materia, su grado (o todos) y el
+	 *    periodo. En ponderado no se mira.
+ *
+ * Cada grupo del que es **titular** entra como una asignatura más: la parte de sus
+ * alumnos matriculados con nota de comportamiento en el periodo. Sustituye al viejo
+ * «−5 por grupo sin ninguna nota», que se daba por bueno con una sola.
+	 *
+	 * Así una asignatura sólo llega a 100 cuando se cumple todo — ninguna queda completa
+	 * con el plan bien repartido y la planilla vacía, que es lo que dejaba pasar la
+	 * cuenta vieja desde que la casilla vacía es `NULL` (doc 43).
+	 *
+	 * Una asignatura sin unidades en el periodo no tiene plan ni casillas: 0 en las tres
+	 * primeras, como antes.
+	 *
+	 * Lo de las unidades y subunidades — por qué `u.alumno_id is null` y por qué el modo
+	 * promedio no puede estar mal:
+	 *
+	 * `uni_correctas` es `sum(u.porcentaje) = 100` por asignatura. Con un independiente en
+	 * el grupo eso suma **el reparto del grupo más el suyo** —100 + 100 = 200—, la
+	 * asignatura deja de contar como correcta y **el porcentaje del docente baja sin que él
+	 * haya hecho nada mal**. Es el mismo fallo que se le arregló a
+	 * `DefinitivasDeAsignatura::porcentajeDeLasUnidades`. La condición va **sólo en la `u`
+	 * de fuera**: la derivada `r` entra por `r.unidad_id=u.id`.
+	 *
+	 * Con `years.reparto_subunidades = 'promedio'` el reparto de las subunidades **no lo
+	 * mantiene nadie** (28 §5.5) y `subunidades.porcentaje` entra con 0, así que esa parte
+	 * se quedaría clavada en cero para todo el colegio. En promedio la pregunta no tiene
+	 * sentido, así que cuenta como correcta. Lo levantó `myvc_front` barriendo los
+	 * llamantes de `RepartoDeLaNota::porcentajeParaPintar` (15 sep 2026).
+	 *
+	 * Devuelve también, por docente, **lo que le falta**: «Química 10B», «Comportamiento 10B».
+	 *
+	 * @return array{0: array<int, float>, 1: array<int, list<string>>} [profesor_id => porcentaje (0-100), profesor_id => pendientes]
+	 */
+	private function avance_de_las_asignaturas($user): array
+	{
+		$periodoId = (int) $user->periodo_id;
+
+		$asignaturas = DB::select('SELECT a.id, a.profesor_id, m.materia, IFNULL(g.abrev, g.nombre) AS grupo FROM asignaturas a
+									INNER JOIN grupos g ON g.id=a.grupo_id and g.deleted_at is null and g.year_id=?
+									LEFT JOIN materias m ON m.id=a.materia_id
+									WHERE a.deleted_at is null and a.profesor_id is not null', [ $user->year_id ]);
+
+		$subCorrectas = RepartoDeLaNota::modoDelAnio($user->year_id) === RepartoDeLaNota::PROMEDIO
+			? '1'
+			: 'IF(count(r.porc_unidad)>0, 0, 1)';
+
+		$plan = [];
+		foreach (DB::select('SELECT u.asignatura_id, sum(u.porcentaje) porc_uni, '.$subCorrectas.' sub_correctas
+								FROM unidades u
+								inner join asignaturas a ON a.id=u.asignatura_id and a.deleted_at is null
+								inner join grupos g ON g.id=a.grupo_id and g.deleted_at is null and g.year_id=?
+								left join (
+									SELECT sum(s.porcentaje) as porc_unidad, s.unidad_id
+									FROM subunidades s
+									inner join unidades u ON u.id=s.unidad_id and s.deleted_at is null and u.deleted_at is null
+									group by s.unidad_id having sum(s.porcentaje) < 100 or sum(s.porcentaje) > 100 
+								)r on r.unidad_id=u.id
+								where u.periodo_id=? and u.deleted_at is null and u.alumno_id is null
+								group by u.asignatura_id', [ $user->year_id, $periodoId ]) as $f) {
+			$plan[(int) $f->asignatura_id] = $f;
+		}
+
+		$casillas = [];
+		foreach (DB::select('SELECT u.asignatura_id, COUNT(*) AS total, SUM(IF('.CierreDeAsignatura::ES_FALTANTE.', 1, 0)) AS faltan
+								FROM notas n
+								INNER JOIN subunidades s ON s.id = n.subunidad_id AND s.deleted_at IS NULL
+								INNER JOIN unidades u ON u.id = s.unidad_id AND u.deleted_at IS NULL
+								WHERE u.periodo_id = ? AND n.deleted_at IS NULL
+								GROUP BY u.asignatura_id', [ $periodoId ]) as $f) {
+			$casillas[(int) $f->asignatura_id] = $f;
+		}
+
+		$cierres = $periodoId ? CierreDeAsignatura::delPeriodo($periodoId) : [];
+
+		$porCompetencias = DB::table('years')->where('id', $user->year_id)->value('modelo_evaluacion') === 'competencias';
+		$conCompetencias = [];
+		if ($porCompetencias) {
+			foreach (DB::select('SELECT DISTINCT a.id FROM asignaturas a
+									INNER JOIN grupos g ON g.id=a.grupo_id and g.deleted_at is null and g.year_id=?
+									INNER JOIN desempenos_por_defecto d ON d.materia_id=a.materia_id and d.year_id=g.year_id
+										and d.periodo_id=? and (d.grado_id is null or d.grado_id=g.grado_id)
+										and d.deleted_at is null and TRIM(d.definicion) <> ""
+									WHERE a.deleted_at is null', [ $user->year_id, $periodoId ]) as $f) {
+				$conCompetencias[(int) $f->id] = true;
+			}
+		}
+
+		$suma = [];
+		$cuantas = [];
+		$pendientes = [];
+		foreach ($asignaturas as $a) {
+			$id = (int) $a->id;
+			$p = $plan[$id] ?? null;
+			$c = $casillas[$id] ?? null;
+
+			$criterios = [
+				$p && (int) $p->porc_uni === 100 ? 1 : 0,
+				$p ? (int) $p->sub_correctas : 0,
+			];
+
+			if (($cierres[$id]['estado'] ?? null) === CierreDeAsignatura::CERRADA) {
+				$criterios[] = 1;
+			} elseif (! $p) {
+				$criterios[] = 0;
+			} else {
+				$criterios[] = $c && $c->total > 0 ? ($c->total - $c->faltan) / $c->total : 1;
+			}
+
+			if ($porCompetencias) {
+				$criterios[] = isset($conCompetencias[$id]) ? 1 : 0;
+			}
+
+			$profe = (int) $a->profesor_id;
+			$avance = array_sum($criterios) / count($criterios);
+			$suma[$profe] = ($suma[$profe] ?? 0) + $avance;
+			if ($avance < 1) {
+				$pendientes[$profe][] = trim(($a->materia ?? 'Asignatura').' '.$a->grupo);
+			}
+			$cuantas[$profe] = ($cuantas[$profe] ?? 0) + 1;
+		}
+
+		// La titularía cuenta como una asignatura más: la parte de alumnos matriculados
+		// que tienen nota de comportamiento en el periodo.
+		foreach (DB::select('SELECT g.titular_id, IFNULL(g.abrev, g.nombre) AS grupo, COUNT(DISTINCT m.alumno_id) AS total, COUNT(DISTINCT n.alumno_id) AS con_nota
+								FROM grupos g
+								INNER JOIN matriculas m ON m.grupo_id=g.id and (m.estado="MATR" or m.estado="ASIS") and m.deleted_at is null
+								LEFT JOIN nota_comportamiento n ON n.alumno_id=m.alumno_id and n.periodo_id=? and n.deleted_at is null
+								WHERE g.year_id=? and g.deleted_at is null and g.titular_id is not null
+								GROUP BY g.id, g.titular_id, g.abrev, g.nombre', [ $periodoId, $user->year_id ]) as $f) {
+			$profe = (int) $f->titular_id;
+			$avance = $f->total > 0 ? $f->con_nota / $f->total : 1;
+			$suma[$profe] = ($suma[$profe] ?? 0) + $avance;
+			if ($avance < 1) {
+				$pendientes[$profe][] = 'Comportamiento '.$f->grupo;
+			}
+			$cuantas[$profe] = ($cuantas[$profe] ?? 0) + 1;
+		}
+
+		$salida = [];
+		foreach ($suma as $profe => $s) {
+			$salida[$profe] = round($s * 100 / $cuantas[$profe], 1);
+		}
+
+		return [$salida, $pendientes];
 	}
 
 

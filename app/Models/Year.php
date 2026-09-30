@@ -160,6 +160,10 @@ use App\Models\Periodo;
  * Así que si alguien viene a «arreglar» esta columna sin lector, lo que tiene que
  * saber es que el lector está en los cuatro fronts.
  *
+ * **Una excepción, que no decide acceso** (30 sep 2026): el avance de los docentes
+ * (`ChangeAskedController::avance_de_las_asignaturas`) pide en `competencias` al menos
+ * una competencia escrita por asignatura y periodo. Es un juicio, no un candado.
+ *
  * @property string $modelo_evaluacion
  * @property string $desempeno_displayname
  * @property string $desempenos_displayname
