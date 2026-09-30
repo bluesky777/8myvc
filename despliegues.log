@@ -133,3 +133,22 @@ micolev1	HECHO	lal	f1579d3d	cecc434f	1 migracion(es), respaldo /home/micolev1/re
 micolev1	HECHO	maranathaarauca	f1579d3d	cecc434f	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_arauca_maranatha_db-2026-09-29-125419-cecc434f.sql.gz
 micolev1	HECHO	semillitasdedios	f1579d3d	cecc434f	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_semillitas-2026-09-29-125430-cecc434f.sql.gz
 micolevi	HECHO	public_html	f1579d3d	cecc434f	1 migracion(es), respaldo /home/micolevi/respaldos/antes-de-migrar/micolevi_lalvirtual-2026-09-29-125437-cecc434f.sql.gz
+== 2026-09-29 22:45:00 -0500 · 18 desplegado(s), 0 sin desplegar · a mano con composer install (composer.lock: laravel 13.34, flysystem 3.36)
+micolev1	HECHO	amiguitosdejesus	f80e9fb1	f1579d3d	0 migracion(es), composer install, respaldo vendor borrado tras comprobar
+micolev1	HECHO	bethelexplora	f80e9fb1	f1579d3d	0 migracion(es), composer install, respaldo vendor borrado tras comprobar
+micolev1	HECHO	cads-itagui	f80e9fb1	f1579d3d	0 migracion(es), composer install, respaldo vendor borrado tras comprobar
+micolev1	HECHO	casb-medellin	f80e9fb1	f1579d3d	0 migracion(es), composer install, respaldo vendor borrado tras comprobar
+micolev1	HECHO	caz-zaragoza	f80e9fb1	f1579d3d	0 migracion(es), composer install, respaldo vendor borrado tras comprobar
+micolev1	HECHO	coabsaravena	f80e9fb1	f1579d3d	0 migracion(es), composer install, respaldo vendor borrado tras comprobar
+micolev1	HECHO	coal	f80e9fb1	f1579d3d	0 migracion(es), composer install, respaldo vendor borrado tras comprobar
+micolev1	HECHO	colbosque	f80e9fb1	f1579d3d	0 migracion(es), composer install, respaldo vendor borrado tras comprobar
+micolev1	HECHO	coljordan	f80e9fb1	f1579d3d	0 migracion(es), composer install, respaldo vendor borrado tras comprobar
+micolev1	HECHO	comad-san-andres	f80e9fb1	f1579d3d	0 migracion(es), composer install, respaldo vendor borrado tras comprobar
+micolev1	HECHO	demo	f80e9fb1	f1579d3d	0 migracion(es), composer install, respaldo vendor borrado tras comprobar
+micolev1	HECHO	eal	f80e9fb1	f1579d3d	0 migracion(es), composer install, respaldo vendor borrado tras comprobar
+micolev1	HECHO	fortul	f80e9fb1	f1579d3d	0 migracion(es), composer install, respaldo vendor borrado tras comprobar
+micolev1	HECHO	inseaq	f80e9fb1	f1579d3d	0 migracion(es), composer install, respaldo vendor borrado tras comprobar
+micolev1	HECHO	lal	f80e9fb1	f1579d3d	0 migracion(es), composer install, respaldo vendor borrado tras comprobar
+micolev1	HECHO	maranathaarauca	f80e9fb1	f1579d3d	0 migracion(es), composer install, respaldo vendor borrado tras comprobar
+micolev1	HECHO	semillitasdedios	f80e9fb1	f1579d3d	0 migracion(es), composer install, respaldo vendor borrado tras comprobar
+micolevi	HECHO	public_html	f80e9fb1	f1579d3d	0 migracion(es), composer install, respaldo vendor borrado tras comprobar
