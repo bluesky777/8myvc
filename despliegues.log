@@ -114,3 +114,22 @@ micolev1	HECHO	lal	cecc434f	2e26b050	1 migracion(es), respaldo /home/micolev1/re
 micolev1	HECHO	maranathaarauca	cecc434f	2e26b050	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_arauca_maranatha_db-2026-09-28-121648-2e26b050.sql.gz
 micolev1	HECHO	semillitasdedios	cecc434f	2e26b050	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_semillitas-2026-09-28-121658-2e26b050.sql.gz
 micolevi	HECHO	public_html	cecc434f	2e26b050	1 migracion(es), respaldo /home/micolevi/respaldos/antes-de-migrar/micolevi_lalvirtual-2026-09-28-121708-2e26b050.sql.gz
+== 2026-09-29 11:54:55 -0500 · 18 desplegado(s), 0 sin desplegar
+micolev1	HECHO	amiguitosdejesus	f1579d3d	cecc434f	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_amiguitosdejesus-2026-09-29-125157-cecc434f.sql.gz
+micolev1	HECHO	bethelexplora	f1579d3d	cecc434f	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_bethel_arauquita_db-2026-09-29-125200-cecc434f.sql.gz
+micolev1	HECHO	cads-itagui	f1579d3d	cecc434f	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_cads_itagui_db-2026-09-29-125206-cecc434f.sql.gz
+micolev1	HECHO	casb-medellin	f1579d3d	cecc434f	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_simonbolivar_medellin-2026-09-29-125216-cecc434f.sql.gz
+micolev1	HECHO	caz-zaragoza	f1579d3d	cecc434f	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_caz_zaragoza_db-2026-09-29-125228-cecc434f.sql.gz
+micolev1	HECHO	coabsaravena	f1579d3d	cecc434f	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_coab_saravena_db-2026-09-29-125234-cecc434f.sql.gz
+micolev1	HECHO	coal	f1579d3d	cecc434f	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_coal_bucara-2026-09-29-125252-cecc434f.sql.gz
+micolev1	HECHO	colbosque	f1579d3d	cecc434f	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_colbosque_tame-2026-09-29-125304-cecc434f.sql.gz
+micolev1	HECHO	coljordan	f1579d3d	cecc434f	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_coljordan_db-2026-09-29-125308-cecc434f.sql.gz
+micolev1	HECHO	comad-san-andres	f1579d3d	cecc434f	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_comad_san_andres_db-2026-09-29-125316-cecc434f.sql.gz
+micolev1	HECHO	demo	f1579d3d	cecc434f	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_demo_db-2026-09-29-125322-cecc434f.sql.gz
+micolev1	HECHO	eal	f1579d3d	cecc434f	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_la_hermosa-2026-09-29-125328-cecc434f.sql.gz
+micolev1	HECHO	fortul	f1579d3d	cecc434f	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_fortul_adventista_db-2026-09-29-125331-cecc434f.sql.gz
+micolev1	HECHO	inseaq	f1579d3d	cecc434f	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_quibdo_db-2026-09-29-125337-cecc434f.sql.gz
+micolev1	HECHO	lal	f1579d3d	cecc434f	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_lal_db-2026-09-29-125359-cecc434f.sql.gz
+micolev1	HECHO	maranathaarauca	f1579d3d	cecc434f	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_arauca_maranatha_db-2026-09-29-125419-cecc434f.sql.gz
+micolev1	HECHO	semillitasdedios	f1579d3d	cecc434f	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_semillitas-2026-09-29-125430-cecc434f.sql.gz
+micolevi	HECHO	public_html	f1579d3d	cecc434f	1 migracion(es), respaldo /home/micolevi/respaldos/antes-de-migrar/micolevi_lalvirtual-2026-09-29-125437-cecc434f.sql.gz
