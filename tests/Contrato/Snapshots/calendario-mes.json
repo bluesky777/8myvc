@@ -2,6 +2,7 @@
     "desde": "string",
     "eventos": [
         {
+            "abrev_grupo": "null|string",
             "allDay": "int",
             "clave": "string",
             "created_by_nombres": "null|string",
@@ -15,7 +16,9 @@
                 }
             ],
             "end": "null|string",
+            "foto_nombre": "null|string",
             "id": "int|null",
+            "nombre_completo": "null|string",
             "origen": "string",
             "persona_id": "int|null",
             "recordatorio_minutos": "int|null",

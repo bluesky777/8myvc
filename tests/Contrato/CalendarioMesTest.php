@@ -494,6 +494,16 @@ class CalendarioMesTest extends CasoDeContrato
         $this->assertArrayHasKey('hasta', $cuerpo);
         $this->assertIsArray($cuerpo['eventos']);
 
+        // Los cumpleaños traen nombre, grupo y foto en campos propios (30 sep 2026): «lo que viene»
+        // los nombra y enseña la foto sin sacarlos del título.
+        foreach ($cuerpo['eventos'] as $e) {
+            if (str_starts_with((string) ($e['origen'] ?? ''), 'cumple_')) {
+                $this->assertArrayHasKey('nombre_completo', $e);
+                $this->assertArrayHasKey('abrev_grupo', $e);
+                $this->assertArrayHasKey('foto_nombre', $e);
+            }
+        }
+
         $this->olvidarControladores();
         $this->withToken($token)->putJson('/api/calendario/proximos', ['dias' => 0])->assertStatus(422);
     }
@@ -510,7 +520,8 @@ class CalendarioMesTest extends CasoDeContrato
         $eventos = $this->mes($this->tokenDe($this->usuarioDeTipo('Profesor')->username), 2026, 9)['eventos'];
 
         $campos = ['clave', 'origen', 'id', 'persona_id', 'title', 'descripcion', 'start', 'end',
-            'allDay', 'solo_profes', 'url', 'recordatorio_minutos', 'created_by_nombres', 'destinatarios'];
+            'allDay', 'solo_profes', 'url', 'recordatorio_minutos', 'created_by_nombres', 'destinatarios',
+            'nombre_completo', 'abrev_grupo', 'foto_nombre'];
 
         $huboCumple = false;
 

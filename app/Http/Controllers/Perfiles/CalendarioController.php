@@ -536,6 +536,10 @@ class CalendarioController extends Controller
                 'recordatorio_minutos' => $fila->recordatorio_minutos === null ? null : (int) $fila->recordatorio_minutos,
                 'created_by_nombres' => $fila->created_by_nombres,
                 'destinatarios' => $suyos,
+                // Los tres del cumpleaños, en nulo: todos los items llevan los mismos campos.
+                'nombre_completo' => null,
+                'abrev_grupo' => null,
+                'foto_nombre' => null,
             ];
         }
 
@@ -752,18 +756,28 @@ class CalendarioController extends Controller
      */
     private function cumplesDelRango(object $user, Carbon $desde, Carbon $hasta): array
     {
-        $alumnos = DB::select('SELECT a.id, a.nombres, a.apellidos, a.fecha_nac, MIN(g.abrev) AS abrev
+        // La foto va con el cumpleaños (30 sep 2026): «lo que viene» la enseña al pasar el ratón.
+        // La oficial (`foto_id`) manda sobre la que la persona se puso en su usuario.
+        $alumnos = DB::select('SELECT a.id, a.nombres, a.apellidos, a.fecha_nac, MIN(g.abrev) AS abrev,
+                                      MIN(COALESCE(fo.nombre, fu.nombre)) AS foto_nombre
                                  FROM alumnos a
                                 INNER JOIN matriculas m ON m.alumno_id = a.id AND m.deleted_at IS NULL
                                 INNER JOIN grupos g ON g.id = m.grupo_id AND g.deleted_at IS NULL
                                        AND g.year_id = ?
+                                 LEFT JOIN images fo ON fo.id = a.foto_id AND fo.deleted_at IS NULL
+                                 LEFT JOIN users u ON u.id = a.user_id AND u.deleted_at IS NULL
+                                 LEFT JOIN images fu ON fu.id = u.imagen_id AND fu.deleted_at IS NULL
                                 WHERE a.deleted_at IS NULL AND a.fecha_nac IS NOT NULL
                                 GROUP BY a.id, a.nombres, a.apellidos, a.fecha_nac', [$user->year_id]);
 
-        $profesores = DB::select('SELECT p.id, p.nombres, p.apellidos, p.fecha_nac
+        $profesores = DB::select('SELECT p.id, p.nombres, p.apellidos, p.fecha_nac,
+                                         MIN(COALESCE(fo.nombre, fu.nombre)) AS foto_nombre
                                     FROM profesores p
                                    INNER JOIN contratos c ON c.profesor_id = p.id AND c.deleted_at IS NULL
                                           AND c.year_id = ?
+                                    LEFT JOIN images fo ON fo.id = p.foto_id AND fo.deleted_at IS NULL
+                                    LEFT JOIN users u ON u.id = p.user_id AND u.deleted_at IS NULL
+                                    LEFT JOIN images fu ON fu.id = u.imagen_id AND fu.deleted_at IS NULL
                                    WHERE p.deleted_at IS NULL AND p.fecha_nac IS NOT NULL
                                    GROUP BY p.id, p.nombres, p.apellidos, p.fecha_nac', [$user->year_id]);
 
@@ -772,14 +786,16 @@ class CalendarioController extends Controller
         foreach ($alumnos as $alumno) {
             foreach ($this->cumplesEnElRango((string) $alumno->fecha_nac, $desde, $hasta) as $cuando) {
                 $eventos[] = $this->itemDeCumple('cumple_alumno', (int) $alumno->id,
-                    $alumno->nombres.' '.$alumno->apellidos, '('.$alumno->abrev.')', $cuando);
+                    $alumno->nombres.' '.$alumno->apellidos, '('.$alumno->abrev.')', $cuando)
+                    + ['nombre_completo' => trim($alumno->nombres).' '.trim($alumno->apellidos), 'abrev_grupo' => $alumno->abrev, 'foto_nombre' => $alumno->foto_nombre];
             }
         }
 
         foreach ($profesores as $profesor) {
             foreach ($this->cumplesEnElRango((string) $profesor->fecha_nac, $desde, $hasta) as $cuando) {
                 $eventos[] = $this->itemDeCumple('cumple_profe', (int) $profesor->id,
-                    $profesor->nombres.' '.$profesor->apellidos, '(docente)', $cuando);
+                    $profesor->nombres.' '.$profesor->apellidos, '(docente)', $cuando)
+                    + ['nombre_completo' => trim($profesor->nombres).' '.trim($profesor->apellidos), 'abrev_grupo' => null, 'foto_nombre' => $profesor->foto_nombre];
             }
         }
 
