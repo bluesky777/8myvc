@@ -42,6 +42,9 @@ final class ListadoDeAuditoria
             'matricula' => ['matricula'],
             'acudientes' => ['acudiente', 'parentesco'],
             'antecedentes' => ['antecedente'],
+            // No es una entidad de `auditoria`: son las líneas que salen de
+            // `importaciones.cambios`, una por alumno cambiado. Ver `deImportaciones()`.
+            'importacion' => [self::IMPORTACION],
         ],
         'notas' => [
             'nota' => ['nota'],
@@ -57,6 +60,9 @@ final class ListadoDeAuditoria
             'compromiso' => ['compromiso', 'compromiso_item'],
         ],
     ];
+
+    /** La entidad de las líneas que salen de `importaciones.cambios`, y su chip. */
+    public const IMPORTACION = 'importacion';
 
     /** Las entidades con valor numérico: las únicas en las que se mira el `hueco`. */
     private const NUMERICAS = ['nota', 'nota_final', 'recuperacion_final'];
@@ -253,6 +259,275 @@ final class ListadoDeAuditoria
     }
 
     /**
+     * LAS LÍNEAS DE LA IMPORTACIÓN DE ALUMNOS, que no están en `auditoria`: la importación
+     * guarda lo que cambió en su propia fila (`importaciones.cambios`, decisión de Joseth
+     * del 30 sep 2026) y aquí se abre en una línea por alumno cambiado, con la misma forma
+     * que las de `auditoria` para que la pantalla no las distinga.
+     *
+     * Se leen enteras y se filtran en PHP porque son pocas —una fila por importación, y
+     * los colegios importan a principios de año—. El único filtro en SQL es el que
+     * descarta importaciones enteras: quién, cuándo y, con `alumno_id`, si el alumno está
+     * dentro del JSON (`JSON_CONTAINS_PATH`, que tienen MySQL 8 y MariaDB 10.5 sobre un
+     * `longtext`).
+     *
+     * El `id` es NEGATIVO y no choca con ninguno de `auditoria`: `-(importación × 10⁷ +
+     * alumno)`. `entidad_id` es `null` para que la pantalla no abra el historial de una
+     * entidad que no existe; `importacion_id` dice de qué importación sale.
+     *
+     * Ordenadas como la página: `ocurrido_en DESC`, y dentro, importación y alumno DESC.
+     *
+     * @param  array<string, mixed>  $entrada
+     * @return list<object>
+     */
+    public static function deImportaciones(array $entrada): array
+    {
+        $texto = fn (string $clave) => is_scalar($entrada[$clave] ?? null) ? trim((string) $entrada[$clave]) : '';
+        $entero = fn (string $clave) => max(0, (int) $texto($clave));
+
+        $pedidos = array_values(array_intersect(
+            array_map('trim', explode(',', $texto('tipos'))),
+            array_keys(self::FAMILIAS['datos'])
+        ));
+        if ($pedidos !== [] && ! in_array(self::IMPORTACION, $pedidos, true)) {
+            return [];
+        }
+
+        $donde = ["i.tipo = 'alumnos'", 'i.cambios IS NOT NULL'];
+        $parametros = [];
+        $delAlumno = $entero('alumno_id');
+        if ($delAlumno) {
+            $donde[] = "JSON_CONTAINS_PATH(i.cambios, 'one', ?)";
+            $parametros[] = '$."'.$delAlumno.'"';
+        }
+        if ($id = $entero('actor_user_id')) {
+            $donde[] = 'i.created_by = ?';
+            $parametros[] = $id;
+        }
+        if (($desde = $texto('desde')) !== '') {
+            $donde[] = 'COALESCE(i.fin, i.inicio) >= ?';
+            $parametros[] = $desde.' 00:00:00';
+        }
+        if (($hasta = $texto('hasta')) !== '') {
+            $donde[] = 'COALESCE(i.fin, i.inicio) < ?';
+            $parametros[] = date('Y-m-d', (int) strtotime($hasta.' +1 day')).' 00:00:00';
+        }
+
+        $importaciones = DB::select(
+            'SELECT i.id, i.archivo, i.cambios, i.created_by, y.id AS year_id, u.tipo AS actor_tipo,
+                    COALESCE(i.fin, i.inicio) AS ocurrido_en,
+                    COALESCE(NULLIF(TRIM(CONCAT(COALESCE(p.nombres, ""), " ", COALESCE(p.apellidos, ""))), ""), u.username) AS actor_nombre
+               FROM importaciones i
+               LEFT JOIN years y ON y.year = i.year AND y.deleted_at IS NULL
+               LEFT JOIN users u ON u.id = i.created_by
+               LEFT JOIN profesores p ON p.user_id = u.id AND p.deleted_at IS NULL
+              WHERE '.implode(' AND ', $donde),
+            $parametros
+        );
+
+        $cambiosDe = [];
+        foreach ($importaciones as $i) {
+            $cambios = json_decode((string) $i->cambios, true);
+            foreach (is_array($cambios) ? $cambios : [] as $alumno => $campos) {
+                if ((int) $alumno > 0 && is_array($campos) && $campos !== [] && (! $delAlumno || (int) $alumno === $delAlumno)) {
+                    $cambiosDe[(int) $i->id][(int) $alumno] = $campos;
+                }
+            }
+        }
+        $alumnos = array_values(array_unique(array_merge([], ...array_map('array_keys', $cambiosDe))));
+        if ($alumnos === []) {
+            return [];
+        }
+
+        // Los nombres, y de paso los filtros que miran al alumno: el grupo (como en
+        // `auditoria`, haber estado matriculado en él) y el texto (nombre o documento).
+        $donde = [];
+        $parametros = $alumnos;
+        if ($id = $entero('grupo_id')) {
+            $donde[] = 'al.id IN (SELECT m.alumno_id FROM matriculas m WHERE m.grupo_id = ? AND m.deleted_at IS NULL)';
+            $parametros[] = $id;
+        }
+        if (($q = $texto('q')) !== '') {
+            $como = '%'.addcslashes($q, '\\%_').'%';
+            $donde[] = "(CONCAT_WS(' ', al.nombres, al.apellidos) LIKE ? OR al.documento LIKE ?)";
+            array_push($parametros, $como, $como);
+        }
+        $nombres = [];
+        foreach (DB::select(
+            'SELECT al.id, al.nombres, al.apellidos FROM alumnos al WHERE al.id IN ('.self::marcas($alumnos).')'
+            .($donde ? ' AND '.implode(' AND ', $donde) : ''),
+            $parametros
+        ) as $a) {
+            $nombres[(int) $a->id] = trim($a->nombres.' '.$a->apellidos);
+        }
+
+        $lineas = [];
+        foreach ($importaciones as $i) {
+            foreach ($cambiosDe[(int) $i->id] ?? [] as $alumno => $campos) {
+                if (! isset($nombres[$alumno])) {
+                    continue;
+                }
+                [$antes, $despues] = self::enDosColumnas($campos);
+                $lineas[] = (object) [
+                    'id' => -((int) $i->id * 10_000_000 + $alumno),
+                    'accion' => empty($campos['_creado']) ? 'editar' : 'crear',
+                    'entidad' => self::IMPORTACION,
+                    'entidad_id' => null,
+                    'importacion_id' => (int) $i->id,
+                    'actor_user_id' => $i->created_by === null ? null : (int) $i->created_by,
+                    'actor_nombre' => $i->actor_nombre,
+                    'actor_tipo' => $i->actor_tipo,
+                    'actor_intentado' => null,
+                    'alumno_id' => $alumno,
+                    'alumno_nombre' => $nombres[$alumno],
+                    'grupo_id' => null,
+                    'asignatura_id' => null,
+                    'periodo_id' => null,
+                    'year_id' => $i->year_id === null ? null : (int) $i->year_id,
+                    'valor_anterior' => $antes === [] ? null : json_encode($antes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                    'valor_nuevo' => $despues === [] ? null : json_encode($despues, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                    'valor_anterior_num' => null,
+                    'valor_nuevo_num' => null,
+                    'resumen' => 'Importación de '.($i->archivo ?: 'un archivo sin nombre'),
+                    'ip' => null,
+                    'ruta' => 'importar/algo',
+                    'atribucion' => null,
+                    'ocurrido_en' => $i->ocurrido_en,
+                    'sesion_id' => null,
+                    'historial_id' => null,
+                    'detalle' => null,
+                ];
+            }
+        }
+
+        usort($lineas, fn ($a, $b) => [$b->ocurrido_en, $b->importacion_id, $b->alumno_id]
+            <=> [$a->ocurrido_en, $a->importacion_id, $a->alumno_id]);
+
+        return $lineas;
+    }
+
+    /**
+     * `{campo: [antes, después]}` en las dos columnas de una línea, como las de la ficha:
+     * `{campo: antes}` y `{campo: después}`. Lo del acudiente va con su id delante
+     * (`acudiente_57_celular`), y el acudiente que la fila sólo vinculó, como
+     * `acudiente_57_vinculado`.
+     *
+     * @param  array<string, mixed>  $campos
+     * @return array{0: array<string, mixed>, 1: array<string, mixed>}
+     */
+    private static function enDosColumnas(array $campos): array
+    {
+        $antes = [];
+        $despues = [];
+        $poner = function (string $prefijo, array $deQuien) use (&$antes, &$despues) {
+            $creado = ! empty($deQuien['_creado']);
+            if (! empty($deQuien['_vinculado'])) {
+                $despues[$prefijo.'vinculado'] = true;
+            }
+            foreach ($deQuien as $campo => $valor) {
+                if (! is_array($valor) || str_starts_with((string) $campo, '_') || $campo === 'acudientes') {
+                    continue;
+                }
+                if (! $creado && array_key_exists(0, $valor)) {
+                    $antes[$prefijo.$campo] = $valor[0];
+                }
+                $despues[$prefijo.$campo] = $valor[1] ?? null;
+            }
+        };
+
+        $poner('', $campos);
+        foreach (is_array($campos['acudientes'] ?? null) ? $campos['acudientes'] : [] as $acudiente => $deQuien) {
+            if (is_array($deQuien)) {
+                $poner('acudiente_'.$acudiente.'_', $deQuien);
+            }
+        }
+
+        return [$antes, $despues];
+    }
+
+    /**
+     * La página cuando hay líneas de importación: las dos fuentes mezcladas en el orden de
+     * la pantalla, sin leer `auditoria` entera.
+     *
+     * Con `V` líneas de importación, en las posiciones `[desde, desde + cuantas)` sólo
+     * pueden caer las de `auditoria` de `OFFSET desde − V` a `desde + cuantas`: delante de
+     * cada una hay, como mucho, las `V`. Se lee esa ventana —`id` y fecha, del índice— y
+     * se cuenta la posición de cada línea de las dos fuentes: la de una de `auditoria` es
+     * su `OFFSET` más las de importación que van antes; la de una de importación, su
+     * puesto entre ellas más las de la ventana que van antes y las que había delante de la
+     * ventana. Una de importación más nueva que la ventana cae antes de `desde`, y una más
+     * vieja que una ventana llena, después de la página: las dos se quedan fuera, que es
+     * lo correcto. En un empate de fecha va primero la de importación.
+     *
+     * @param  list<mixed>  $parametros
+     * @param  list<object>  $deImportacion  ordenadas como `deImportaciones()`
+     * @return list<int|object> el `id` de cada línea de `auditoria`, o la de importación
+     */
+    public static function paginaMezclada(string $donde, array $parametros, array $deImportacion, int $desde, int $cuantas): array
+    {
+        $v = count($deImportacion);
+        $inicio = max(0, $desde - $v);
+        $cuantasLeer = $cuantas + min($desde, $v);
+        $ventana = DB::select(
+            "SELECT a.id, a.ocurrido_en FROM auditoria a WHERE $donde
+              ORDER BY a.ocurrido_en DESC, a.id DESC
+              LIMIT $cuantasLeer OFFSET $inicio",
+            $parametros
+        );
+
+        // `auditoria.ocurrido_en` lleva milisegundos y `importaciones.fin` no: se comparan
+        // con la fracción rellena, para que el mismo segundo sea un empate de verdad.
+        $clave = fn ($t) => str_pad(strlen((string) $t) === 19 ? $t.'.' : (string) $t, 26, '0');
+        $enPosicion = [];
+        foreach ($ventana as $k => $a) {
+            $antes = count(array_filter($deImportacion, fn ($l) => $clave($l->ocurrido_en) >= $clave($a->ocurrido_en)));
+            $enPosicion[$inicio + $k + $antes] = (int) $a->id;
+        }
+        foreach ($deImportacion as $j => $l) {
+            $antes = count(array_filter($ventana, fn ($a) => $clave($a->ocurrido_en) > $clave($l->ocurrido_en)));
+            $enPosicion[$j + $inicio + $antes] = $l;
+        }
+
+        ksort($enPosicion);
+
+        return array_values(array_filter(
+            $enPosicion,
+            fn ($posicion) => $posicion >= $desde && $posicion < $desde + $cuantas,
+            ARRAY_FILTER_USE_KEY
+        ));
+    }
+
+    /**
+     * Los totales de `totales()` con las líneas de importación sumadas: cada línea cuenta,
+     * y un alumno o un actor que ya salía en `auditoria` no se cuenta dos veces.
+     *
+     * @param  list<mixed>  $parametros
+     * @param  list<object>  $deImportacion
+     * @param  array{total: int, alumnos: int, actores: int}  $totales
+     * @return array{total: int, alumnos: int, actores: int}
+     */
+    public static function conImportaciones(string $donde, array $parametros, array $deImportacion, array $totales): array
+    {
+        if ($deImportacion === []) {
+            return $totales;
+        }
+
+        $alumnos = self::ids(array_column($deImportacion, 'alumno_id'));
+        $actores = self::ids(array_column($deImportacion, 'actor_user_id'));
+        $repetidos = DB::selectOne(
+            'SELECT COUNT(DISTINCT CASE WHEN a.alumno_id IN ('.self::marcas($alumnos).') THEN a.alumno_id END) AS alumnos,
+                    COUNT(DISTINCT CASE WHEN a.actor_user_id IN ('.($actores ? self::marcas($actores) : 'NULL').') THEN a.actor_user_id END) AS actores
+               FROM auditoria a WHERE '.$donde,
+            [...$alumnos, ...$actores, ...$parametros]
+        );
+
+        return [
+            'total' => $totales['total'] + count($deImportacion),
+            'alumnos' => $totales['alumnos'] + count($alumnos) - (int) ($repetidos->alumnos ?? 0),
+            'actores' => $totales['actores'] + count($actores) - (int) ($repetidos->actores ?? 0),
+        ];
+    }
+
+    /**
      * Añade a cada línea de la página lo que la pantalla pinta y la línea no guarda.
      *
      * @param  array<int, object>  $filas
@@ -345,15 +620,27 @@ final class ListadoDeAuditoria
               GROUP BY a.actor_user_id',
             [...$entidades, ...$deAlcance]
         ));
-        if ($ultimas === []) {
-            return [];
-        }
 
-        $lineas = DB::select(
+        $lineas = $ultimas === [] ? [] : DB::select(
             'SELECT actor_user_id AS user_id, actor_nombre AS nombre, actor_tipo AS tipo
                FROM auditoria WHERE id IN ('.self::marcas($ultimas).')',
             $ultimas
         );
+
+        // Y quien importó alumnos, que sale en datos sin línea en `auditoria` (el docente
+        // no ve datos: a él no se le añade).
+        if ($alcance === null) {
+            $ya = array_map(fn ($l) => (int) $l->user_id, $lineas);
+            foreach (self::deImportaciones([]) as $l) {
+                if ($l->actor_user_id !== null && ! in_array($l->actor_user_id, $ya, true)) {
+                    $ya[] = $l->actor_user_id;
+                    $lineas[] = (object) ['user_id' => $l->actor_user_id, 'nombre' => $l->actor_nombre, 'tipo' => $l->actor_tipo];
+                }
+            }
+        }
+        if ($lineas === []) {
+            return [];
+        }
 
         return self::personas($lineas);
     }

@@ -335,13 +335,115 @@ class PuntoDeControlDeImportacion
         );
     }
 
-    /** Escribe de una vez la marca que `apuntar()` fue moviendo. */
+    /**
+     * Escribe de una vez la marca que `apuntar()` fue moviendo — y, si el lote cambió
+     * algún alumno, **lo que cambió, en el mismo `UPDATE`**.
+     *
+     * Los cambios van con la marca y no al final de la petición por lo mismo que la
+     * marca va con las filas: el lote se confirma entero o no se confirma. Si se
+     * guardaran sólo al terminar, un corte de PHP (el fatal por tiempo no pasa por
+     * ningún `catch`) dejaría lotes escritos y marcados **sin su rastro**, y al
+     * reanudar esas filas ya no se vuelven a mirar: el rastro no volvería nunca.
+     */
     public function volcar(): void
     {
+        if ($this->cambiosPorEscribir) {
+            DB::update(
+                'UPDATE importaciones SET avance = ?, filas = ?, cambios = ?, updated_at = ? WHERE id = ?',
+                [json_encode($this->avance, JSON_UNESCAPED_UNICODE), $this->filas,
+                    json_encode($this->cambios, JSON_UNESCAPED_UNICODE), Reloj::ahora(), $this->id]
+            );
+            $this->cambiosPorEscribir = false;
+
+            return;
+        }
+
         DB::update(
             'UPDATE importaciones SET avance = ?, filas = ?, updated_at = ? WHERE id = ?',
             [json_encode($this->avance, JSON_UNESCAPED_UNICODE), $this->filas, Reloj::ahora(), $this->id]
         );
+    }
+
+    /**
+     * Lo que la importación cambió, `{alumno_id: {campo: [antes, después]}}`: lo que ya
+     * había en la fila (de las tandas anteriores) fundido con lo de ésta. `null` hasta
+     * que el primer cambio obliga a leerlo.
+     *
+     * @var array<int|string, mixed>|null
+     */
+    private ?array $cambios = null;
+
+    private bool $cambiosPorEscribir = false;
+
+    /**
+     * Anota en memoria lo que una fila cambió; lo escribe el `volcar()` del lote.
+     *
+     * **Funde, no pisa**, como los avisos: una importación reanudada tiene los cambios de
+     * todas sus tandas. Lo de las anteriores se lee UNA vez, al primer cambio de ésta —el
+     * cerrojo impide que otra petición escriba la misma fila mientras tanto—.
+     *
+     * @param  array<int|string, mixed>  $deLaFila
+     */
+    public function anotarCambios(array $deLaFila): void
+    {
+        if ($deLaFila === []) {
+            return;
+        }
+
+        if ($this->cambios === null) {
+            $fila = DB::selectOne('SELECT cambios FROM importaciones WHERE id = ?', [$this->id]);
+            $previos = json_decode((string) ($fila->cambios ?? ''), true);
+            $this->cambios = is_array($previos) ? $previos : [];
+        }
+
+        $this->cambios = self::fundirCambios($this->cambios, $deLaFila);
+        $this->cambiosPorEscribir = true;
+    }
+
+    /**
+     * Junta dos mapas de cambios. Un campo que ya estaba conserva su «antes» y toma el
+     * «después» nuevo; si los dos quedan iguales, el campo se va. `_creado` se queda en
+     * cuanto lo fue una vez, y los acudientes se funden igual, uno por uno.
+     *
+     * @param  array<int|string, mixed>  $previos
+     * @param  array<int|string, mixed>  $nuevos
+     * @return array<int|string, mixed>
+     */
+    public static function fundirCambios(array $previos, array $nuevos): array
+    {
+        foreach ($nuevos as $id => $campos) {
+            $junto = $previos[$id] ?? [];
+            foreach ($campos as $campo => $valor) {
+                if ($campo === 'acudientes') {
+                    $junto['acudientes'] = self::fundirCambios($junto['acudientes'] ?? [], $valor);
+                    if ($junto['acudientes'] === []) {
+                        unset($junto['acudientes']);
+                    }
+                } elseif (str_starts_with((string) $campo, '_')) {
+                    $junto[$campo] = ($junto[$campo] ?? false) || $valor;
+                } elseif (isset($junto[$campo])) {
+                    $junto[$campo] = [$junto[$campo][0], $valor[1]];
+                    if (empty($junto['_creado']) && self::mismoValor($junto[$campo][0], $junto[$campo][1])) {
+                        unset($junto[$campo]);
+                    }
+                } else {
+                    $junto[$campo] = $valor;
+                }
+            }
+            if ($junto === []) {
+                unset($previos[$id]);
+            } else {
+                $previos[$id] = $junto;
+            }
+        }
+
+        return $previos;
+    }
+
+    /** Como compara el importador: sin los blancos de los lados, y vacío es lo mismo que `null`. */
+    public static function mismoValor(mixed $a, mixed $b): bool
+    {
+        return trim((string) ($a ?? '')) === trim((string) ($b ?? ''));
     }
 
     public function completar(): void

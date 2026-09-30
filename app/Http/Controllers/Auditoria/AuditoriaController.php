@@ -366,21 +366,39 @@ class AuditoriaController extends Controller
             $donde = "$donde AND {$alcance[0]}";
             array_push($parametros, ...$alcance[1]);
         }
-        $totales = ListadoDeAuditoria::totales($donde, $parametros);
+        // Datos lleva además las líneas de la importación de alumnos, que viven en
+        // `importaciones.cambios` y no en `auditoria` (ver `ListadoDeAuditoria::deImportaciones`).
+        $deImportacion = $familia === 'datos' && $alcance === null
+            ? ListadoDeAuditoria::deImportaciones($peticion->query())
+            : [];
+        $totales = ListadoDeAuditoria::conImportaciones($donde, $parametros, $deImportacion,
+            ListadoDeAuditoria::totales($donde, $parametros));
         // `solo_total=1`: los contadores de las pestañas, sin leer página.
-        $ids = $peticion->boolean('solo_total')
-            ? []
-            : ListadoDeAuditoria::pagina($donde, $parametros, ($pagina - 1) * $porPagina, $porPagina);
+        $desde = ($pagina - 1) * $porPagina;
+        $enLaPagina = match (true) {
+            $peticion->boolean('solo_total') => [],
+            $deImportacion === [] => ListadoDeAuditoria::pagina($donde, $parametros, $desde, $porPagina),
+            default => ListadoDeAuditoria::paginaMezclada($donde, $parametros, $deImportacion, $desde, $porPagina),
+        };
 
-        $acciones = [];
+        $ids = array_values(array_filter($enLaPagina, 'is_int'));
+        $deAuditoria = [];
         if ($ids !== []) {
-            [$acciones] = $this->lineas(
+            [$lineas] = $this->lineas(
                 'a.id IN ('.implode(',', array_fill(0, count($ids), '?')).')',
                 $ids,
                 'a.ocurrido_en DESC, a.id DESC'
             );
-            ListadoDeAuditoria::completar($acciones, $familia);
+            foreach ($lineas as $l) {
+                $deAuditoria[(int) $l->id] = $l;
+            }
         }
+        // En el orden de la página, que ya viene mezclado.
+        $acciones = array_values(array_filter(array_map(
+            fn ($x) => is_int($x) ? ($deAuditoria[$x] ?? null) : $x,
+            $enLaPagina
+        )));
+        ListadoDeAuditoria::completar($acciones, $familia);
 
         return response()->json([
             'familia' => $familia,

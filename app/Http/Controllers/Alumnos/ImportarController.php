@@ -346,7 +346,10 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
                     }
 
                     $this->hechos['filas']++;
+                    $this->cambiosDeLaFila = [];
                     $this->procesarFila($results[$f], $grupo, $abrev, $now);
+                    // Lo que la fila cambió va con su marca: lo escribe el mismo `volcar()`.
+                    $this->punto->anotarCambios($this->cambiosDeLaFila);
                     $this->punto->apuntar($abrev, $f);
                     $huboAlguna = true;
                 }
@@ -495,7 +498,8 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
             // equivocarse.
             // Lo que hay hoy, para no perder el segundo nombre o el segundo apellido cuando su celda
             // viene vacía y la decisión es conservar. Ver `componerConLoQueHay`.
-            $actual = DB::selectOne('SELECT nombres, apellidos FROM alumnos WHERE id=?', [$alumno['id']]);
+            // Es también el «antes» de lo que la importación cambió (`importaciones.cambios`).
+            $actual = DB::selectOne(self::fichaDelAlumno(), [$alumno['id']]);
 
             $columnas = [
                 // **`no_matricula` se escribía DOS VECES en el mismo `SET`** —una
@@ -555,6 +559,13 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
             $consulta = 'UPDATE alumnos SET '.implode(', ', $sets).$res['consulta'].' WHERE id=?';
 
             DB::update($consulta, array_merge($valores, $res['valores'], [$alumno['id']]));
+
+            // El «después» se LEE y no se deduce de lo escrito: el `SET` junta lo de la hoja
+            // con el fragmento del traductor (ciudades, sisben, zona) y las fechas llegan en
+            // varias formas. Comparar la fila consigo misma es lo único que no da cambios
+            // falsos. Una consulta por alumno por el primary key.
+            $this->anotarCambiosDelAlumno((int) $alumno['id'],
+                self::diferencia($actual, DB::selectOne(self::fichaDelAlumno(), [$alumno['id']]), self::CAMPOS_DEL_ALUMNO));
 
             // `matriculas.estado` es varchar(4), y lo que llega aqui es texto de
             // una hoja de calculo. Un «Activo» se guardaba como «Acti», que NO
@@ -697,6 +708,11 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
                 $alumno->user_id = $usuario->id;
                 $alumno->save();
 
+                // El alumno nuevo, con lo que quedó escrito (leído, como el «después» de los que
+                // se actualizan). Del usuario no va nada: lleva la contraseña.
+                $this->anotarCambiosDelAlumno((int) $alumno->id, ['_creado' => true] + self::diferencia(
+                    (object) [], DB::selectOne(self::fichaDelAlumno(), [$alumno->id]), self::CAMPOS_DEL_ALUMNO));
+
                 $matricula = new Matricula;
                 $matricula->alumno_id = $alumno->id;
                 $matricula->grupo_id = $grupo->id;
@@ -836,6 +852,7 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
         $sets[] = 'updated_at=?';
         $valores[] = $now;
         $valores[] = $alumno['id_'.$s];
+        $antes = DB::selectOne(self::fichaDelAcudiente(), [$alumno['id'], $alumno['id_'.$s]]);
         DB::update('UPDATE acudientes SET '.implode(', ', $sets).$consulta.' WHERE id=?', $valores);
 
         $setsP = [];
@@ -851,6 +868,106 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
         $valoresP[] = $now;
         DB::update('UPDATE parentescos p INNER JOIN acudientes a ON a.id=p.acudiente_id and p.alumno_id=? and p.acudiente_id=? and p.deleted_at is null and a.deleted_at is null
             SET '.implode(', ', $setsP), $valoresP);
+
+        $this->anotarCambiosDelAcudiente((int) $alumno['id'], (int) $alumno['id_'.$s], self::diferencia(
+            $antes, DB::selectOne(self::fichaDelAcudiente(), [$alumno['id'], $alumno['id_'.$s]]), self::CAMPOS_DEL_ACUDIENTE));
+    }
+
+    /**
+     * LO QUE LA IMPORTACIÓN CAMBIÓ, fila a fila: `{alumno_id: {campo: [antes, después]}}`,
+     * con los acudientes bajo `acudientes`. Lo recoge `procesarFila` y lo pasa al punto de
+     * control, que lo guarda con la marca del lote en `importaciones.cambios` (decisión de
+     * Joseth del 30 sep 2026: un registro por importación, no una línea de `auditoria` por
+     * alumno).
+     *
+     * @var array<int, array<string, mixed>>
+     */
+    private array $cambiosDeLaFila = [];
+
+    /** Las columnas de `alumnos` que la importación escribe, las del `SET` y las del traductor. */
+    public const CAMPOS_DEL_ALUMNO = [
+        'no_matricula', 'nombres', 'apellidos', 'sexo', 'fecha_nac', 'tipo_doc', 'documento',
+        'direccion', 'barrio', 'telefono', 'celular', 'estrato', 'tipo_sangre', 'eps', 'religion',
+        'ciudad_doc', 'ciudad_nac', 'ciudad_resid', 'is_urbana',
+        'has_sisben', 'nro_sisben', 'has_sisben_3', 'nro_sisben_3',
+    ];
+
+    /** Las de `acudientes` y las de su `parentescos` con este alumno. */
+    public const CAMPOS_DEL_ACUDIENTE = [
+        'nombres', 'apellidos', 'sexo', 'tipo_doc', 'documento', 'is_acudiente', 'telefono', 'celular',
+        'ocupacion', 'direccion', 'email', 'ciudad_doc', 'parentesco', 'observaciones',
+    ];
+
+    private static function fichaDelAlumno(): string
+    {
+        return 'SELECT '.implode(', ', self::CAMPOS_DEL_ALUMNO).' FROM alumnos WHERE id=?';
+    }
+
+    private static function fichaDelAcudiente(): string
+    {
+        return 'SELECT '.implode(', ', array_map(
+            fn ($c) => in_array($c, ['parentesco', 'observaciones'], true) ? 'p.'.$c : 'a.'.$c,
+            self::CAMPOS_DEL_ACUDIENTE
+        )).' FROM acudientes a
+             LEFT JOIN parentescos p ON p.acudiente_id=a.id and p.alumno_id=? and p.deleted_at is null
+            WHERE a.id=? ORDER BY p.id LIMIT 1';
+    }
+
+    /**
+     * Los campos que cambiaron entre dos lecturas de la misma fila, como compara el
+     * importador: sin blancos a los lados y con vacío igual a `null`.
+     *
+     * @param  list<string>  $campos
+     * @return array<string, array{0: mixed, 1: mixed}>
+     */
+    private static function diferencia(?object $antes, ?object $despues, array $campos): array
+    {
+        if ($antes === null || $despues === null) {
+            return [];
+        }
+
+        $cambios = [];
+        foreach ($campos as $campo) {
+            $a = $antes->{$campo} ?? null;
+            $d = $despues->{$campo} ?? null;
+            if (! PuntoDeControlDeImportacion::mismoValor($a, $d)) {
+                $cambios[$campo] = [$a, $d];
+            }
+        }
+
+        return $cambios;
+    }
+
+    /** @param  array<string, mixed>  $cambios */
+    private function anotarCambiosDelAlumno(int $alumnoId, array $cambios): void
+    {
+        if ($cambios !== []) {
+            $this->cambiosDeLaFila[$alumnoId] = $cambios + ($this->cambiosDeLaFila[$alumnoId] ?? []);
+        }
+    }
+
+    /** @param  array<string, mixed>  $cambios */
+    private function anotarCambiosDelAcudiente(int $alumnoId, int $acudienteId, array $cambios): void
+    {
+        if ($cambios !== []) {
+            $this->cambiosDeLaFila[$alumnoId]['acudientes'][$acudienteId] = $cambios;
+        }
+    }
+
+    /**
+     * El acudiente que la fila crea, con lo que se le escribió.
+     *
+     * @param  array<string, mixed>  $valores  columna => valor, tal como van en el INSERT
+     */
+    private function anotarAcudienteCreado(int $alumnoId, int $acudienteId, array $valores): void
+    {
+        $creado = ['_creado' => true];
+        foreach ($valores as $campo => $valor) {
+            if (! PuntoDeControlDeImportacion::mismoValor($valor, null)) {
+                $creado[$campo] = [null, $valor];
+            }
+        }
+        $this->anotarCambiosDelAcudiente($alumnoId, $acudienteId, $creado);
     }
 
     /**
@@ -963,6 +1080,11 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
 
             // Si tiene código y NO tiene nombre escrito, quiere añadirlo como nuevo acudiente de este alumno, NO modificarlo
             DB::insert('INSERT INTO parentescos(acudiente_id, alumno_id, parentesco, observaciones, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?)', [$alumno['id_acud1'], $alumno['id'], $alumno['parentesco_acud1'], $alumno['observaciones_acud1'], $now, $now]);
+            $this->anotarCambiosDelAcudiente((int) $alumno['id'], (int) $alumno['id_acud1'], array_filter([
+                '_vinculado' => true,
+                'parentesco' => [null, $alumno['parentesco_acud1']],
+                'observaciones' => [null, $alumno['observaciones_acud1']],
+            ], fn ($v) => $v === true || ! PuntoDeControlDeImportacion::mismoValor($v[1], null)));
 
         } else {
             if (! (is_null($alumno['nombres_acud1']) || $alumno['nombres_acud1'] == '')) {
@@ -972,6 +1094,13 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
 
                 $last_id = DB::getPdo()->lastInsertId();
                 DB::insert('INSERT INTO parentescos(acudiente_id, alumno_id, parentesco, observaciones, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?)', [$last_id, $alumno['id'], $alumno['parentesco_acud1'], $alumno['observaciones_acud1'], $now, $now]);
+                $this->anotarAcudienteCreado((int) $alumno['id'], (int) $last_id, [
+                    'nombres' => $alumno['nombres_acud1'], 'apellidos' => $alumno['apellidos_acud1'], 'sexo' => $alumno['sexo_acud1'],
+                    'tipo_doc' => $alumno['tipo_docu_acud1'], 'documento' => $alumno['documento_acud1'],
+                    'telefono' => $alumno['telefono_acud1'], 'celular' => $alumno['celular_acud1'], 'ocupacion' => $alumno['ocupacion_acud1'],
+                    'direccion' => $alumno['direccion_acud1'], 'email' => $alumno['email_acud1'], 'ciudad_doc' => $alumno['ciudad_docu_acud1'],
+                    'parentesco' => $alumno['parentesco_acud1'], 'observaciones' => $alumno['observaciones_acud1'],
+                ]);
             }
         }
     }
@@ -990,6 +1119,11 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
 
             // Si tiene código y NO tiene nombre escrito, quiere añadirlo como nuevo acudiente de este alumno, NO modificarlo
             DB::insert('INSERT INTO parentescos(acudiente_id, alumno_id, parentesco, observaciones, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?)', [$alumno['id_acud2'], $alumno['id'], $alumno['parentesco_acud2'], $alumno['observaciones_acud2'], $now, $now]);
+            $this->anotarCambiosDelAcudiente((int) $alumno['id'], (int) $alumno['id_acud2'], array_filter([
+                '_vinculado' => true,
+                'parentesco' => [null, $alumno['parentesco_acud2']],
+                'observaciones' => [null, $alumno['observaciones_acud2']],
+            ], fn ($v) => $v === true || ! PuntoDeControlDeImportacion::mismoValor($v[1], null)));
 
         } else {
             if (! (is_null($alumno['nombres_acud2']) || $alumno['nombres_acud2'] == '')) {
@@ -999,6 +1133,13 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
 
                 $last_id = DB::getPdo()->lastInsertId();
                 DB::insert('INSERT INTO parentescos(acudiente_id, alumno_id, parentesco, observaciones, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?)', [$last_id, $alumno['id'], $alumno['parentesco_acud2'], $alumno['observaciones_acud2'], $now, $now]);
+                $this->anotarAcudienteCreado((int) $alumno['id'], (int) $last_id, [
+                    'nombres' => $alumno['nombres_acud2'], 'apellidos' => $alumno['apellidos_acud2'], 'sexo' => $alumno['sexo_acud2'],
+                    'tipo_doc' => $alumno['tipo_docu_acud2'], 'documento' => $alumno['documento_acud2'],
+                    'telefono' => $alumno['telefono_acud2'], 'celular' => $alumno['celular_acud2'], 'ocupacion' => $alumno['ocupacion_acud2'],
+                    'direccion' => $alumno['direccion_acud2'], 'email' => $alumno['email_acud2'], 'ciudad_doc' => $alumno['ciudad_docu_acud2'],
+                    'parentesco' => $alumno['parentesco_acud2'], 'observaciones' => $alumno['observaciones_acud2'],
+                ]);
             }
         }
     }
