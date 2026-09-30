@@ -14,6 +14,7 @@ use App\Models\Parentesco;
 use App\Models\Role;
 use App\Models\Year;
 use App\Services\Auditoria;
+use App\Support\AuditarFila;
 use App\Support\Autoriza;
 use App\Support\CorreoDeLaCuenta;
 use App\Support\FichaEditada;
@@ -429,6 +430,13 @@ where id in (
             $acudiente->user_id = $usuario->id;
             $acudiente->save();
 
+            // Dos líneas y no una: la ficha es del acudiente —sin alumno, por lo que dice
+            // `GuardarAlumno::valorAcudiente`— y el parentesco sí es de este alumno. La
+            // cuenta va en el resumen y sin `a()`, que lleva una contraseña dentro.
+            AuditarFila::creada('acudiente', 'acudientes', (int) $acudiente->id, null,
+                'Creó el acudiente {nombres} {apellidos}, con la cuenta de usuario '.$usuario->id);
+            $this->anotarParentesco(Auditoria::CREAR, $parentesco, null, 'Le añadió un acudiente al alumno');
+
             // Traemos el acudiente con todos los datos organizados
             $acudiente = DB::select($this->consulta_pariente, [$parentesco->id]);
 
@@ -521,6 +529,9 @@ where id in (
         $parentesco->save();
         $parentesco->delete();
 
+        $this->anotarParentesco(Auditoria::BORRAR, $parentesco, $this->datosDelParentesco($parentesco),
+            'Le quitó un acudiente al alumno');
+
         return $parentesco;
     }
 
@@ -543,9 +554,12 @@ where id in (
      */
     public function putSeleccionarParentesco()
     {
+        $antes = null;
+
         if (Request::has('parentesco_acudiente_cambiar_id')) {
             $parentesco = Parentesco::findOrFail(Request::input('parentesco_acudiente_cambiar_id'));
             $parentesco->updated_by = $this->user->user_id;
+            $antes = $this->datosDelParentesco($parentesco);
         } else {
             $parentesco = new Parentesco;
             $parentesco->created_by = $this->user->user_id;
@@ -557,9 +571,50 @@ where id in (
         $parentesco->observaciones = Request::input('observaciones', $parentesco->observaciones);
         $parentesco->save();
 
+        if ($antes === null) {
+            $this->anotarParentesco(Auditoria::CREAR, $parentesco, null, 'Le añadió un acudiente al alumno');
+        } elseif ($antes != $this->datosDelParentesco($parentesco)) {
+            $this->anotarParentesco(Auditoria::EDITAR, $parentesco, $antes, 'Cambió el parentesco de un acudiente del alumno');
+        }
+
         $acudiente = DB::select($this->consulta_pariente, [$parentesco->id]);
 
         return (array) $acudiente[0];
+    }
+
+    /** Lo que dice un parentesco: quién es de quién, y qué es. */
+    private function datosDelParentesco(Parentesco $parentesco): array
+    {
+        return [
+            'acudiente_id' => $parentesco->acudiente_id ? (int) $parentesco->acudiente_id : null,
+            'alumno_id' => $parentesco->alumno_id ? (int) $parentesco->alumno_id : null,
+            'parentesco' => $parentesco->parentesco,
+            'observaciones' => $parentesco->observaciones,
+        ];
+    }
+
+    /**
+     * Un parentesco SÍ cuelga del alumno, al revés que la ficha del acudiente.
+     *
+     * `GuardarAlumno::valorAcudiente` deja sin `deAlumno()` los cambios de la ficha
+     * porque «colgar esto de un alumno cualquiera de los suyos diría que se le cambió
+     * algo a él». Aquí no es un alumno cualquiera: la fila es la unión de este
+     * acudiente con **este** alumno, y quitarle o ponerle un acudiente es un cambio
+     * suyo, así que tiene que salir en `auditoria/alumno/{id}`.
+     */
+    private function anotarParentesco(string $accion, Parentesco $parentesco, ?array $antes, string $resumen): void
+    {
+        $despues = $accion === Auditoria::BORRAR ? null : $this->datosDelParentesco($parentesco);
+        $alumnoId = ($despues ?? $antes)['alumno_id'] ?? null;
+
+        $linea = Auditoria::registrar();
+        $linea = match ($accion) {
+            Auditoria::CREAR => $linea->crear('parentesco', (int) $parentesco->id),
+            Auditoria::BORRAR => $linea->borrar('parentesco', (int) $parentesco->id),
+            default => $linea->editar('parentesco', (int) $parentesco->id),
+        };
+
+        $linea->deAlumno($alumnoId)->de($antes)->a($despues)->resumen($resumen)->guardar();
     }
 
     public function deleteDestroy($id)

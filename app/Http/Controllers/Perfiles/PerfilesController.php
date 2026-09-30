@@ -9,6 +9,7 @@ use App\Models\Grado;
 use App\Models\Grupo;
 use App\Models\ImageModel;
 use App\Models\Profesor;
+use App\Services\Auditoria;
 use App\Support\AuditarModelo;
 use App\Support\Autoriza;
 use App\Support\CamposQueVinieron;
@@ -353,7 +354,7 @@ class PerfilesController extends Controller
                 $fichaAntes = $perfil->email;
                 $perfil->email = Request::input('email_persona', $perfil->email);
 
-                $perfil->save();
+                AuditarModelo::guardar($perfil, 'profesor');
 
                 // El correo de la ficha llega también a la cuenta si ésta no tenía uno
                 // propio: es el único que lee la recuperación de contraseña. Decisión
@@ -379,7 +380,7 @@ class PerfilesController extends Controller
                 $fichaAntes = $perfil->email;
                 $perfil->email = Request::input('email', $perfil->email);
 
-                $perfil->save();
+                $this->guardarLaFichaDelAlumno($perfil);
 
                 // El correo de la ficha llega también a la cuenta si ésta no tenía uno
                 // propio: es el único que lee la recuperación de contraseña. Decisión
@@ -404,7 +405,7 @@ class PerfilesController extends Controller
                 $perfil->celular = Request::input('celular', $perfil->celular);
                 $perfil->email = Request::input('email', $perfil->email);
 
-                $perfil->save();
+                AuditarModelo::guardar($perfil, 'acudiente');
 
                 return $perfil;
             } catch (\Exception $e) {
@@ -422,6 +423,8 @@ class PerfilesController extends Controller
                 $perfil->celular = Request::input('celular', $perfil->celular);
                 $perfil->email = Request::input('email', $perfil->email);
 
+                // Sin rastro a propósito: esta rama escribe sobre el acudiente que tenga el
+                // id de la cuenta (05 §65.2). Anotarla afirmaría un cambio que nadie pidió.
                 $perfil->save();
 
                 return $perfil;
@@ -697,6 +700,49 @@ class PerfilesController extends Controller
 
         $persona->user_id = $newU->id;
         $persona->save();
+
+        // Una línea por cuenta creada: el bucle de arriba ya hace cuatro escrituras por
+        // persona, y así cada cuenta nueva sale en el historial de su dueño. Sin
+        // contraseña que esconder: esta cuenta nace sin ella.
+        Auditoria::registrar()
+            ->crear('usuario', (int) $newU->id)
+            ->deAlumno($tipo === 'Alumno' ? (int) $persona->id : null)
+            ->a(['username' => $newU->username, 'tipo' => $tipo, 'persona_id' => (int) $persona->id])
+            ->resumen('Le creó la cuenta de usuario '.$newU->username.' ('.$tipo.' '.$persona->id.')')
+            ->guardar();
+    }
+
+    /**
+     * `AuditarModelo::guardar` con el alumno puesto: aquél sólo lo busca para la
+     * entidad `usuario`, y la ficha de un alumno editada aquí tiene que salir en
+     * `auditoria/alumno/{id}` como la que se edita desde la rejilla.
+     */
+    private function guardarLaFichaDelAlumno(Alumno $perfil): void
+    {
+        $sucios = array_diff_key($perfil->getDirty(), array_flip(['updated_at', 'updated_by']));
+        $antes = $perfil->getOriginal();
+
+        $perfil->save();
+
+        foreach ($sucios as $columna => $valor) {
+            Auditoria::registrar()
+                ->editar('alumno', (int) $perfil->id)
+                ->deAlumno((int) $perfil->id)
+                ->de($antes[$columna] ?? null)
+                ->a($valor)
+                ->resumen('Cambió '.$columna.' en alumnos')
+                ->guardar();
+        }
+    }
+
+    /** El nombre del fichero, que es lo que se lee en una línea; la imagen no entra. */
+    private function nombreDeImagen($imagenId): ?string
+    {
+        if (! $imagenId) {
+            return null;
+        }
+
+        return DB::selectOne('SELECT nombre FROM images WHERE id = ?', [$imagenId])?->nombre;
     }
 
     /**
@@ -735,6 +781,11 @@ class PerfilesController extends Controller
         $grupo = Grupo::findOrFail($id);
         $grupo->delete();
 
+        // Con entidad `grupo`, que es lo que se borra: justo aquí, donde el botón de la
+        // rejilla de Usuarios lo dispara con un `user_id` (§100), la línea es lo único
+        // que dice qué grupo se fue a la papelera.
+        AuditarModelo::borrado('grupo', (int) $grupo->id);
+
         return $grupo;
     }
 
@@ -753,6 +804,13 @@ class PerfilesController extends Controller
         $grupo = Grupo::onlyTrashed()->findOrFail($id);
 
         $grupo->forceDelete();
+
+        // El nombre viaja en la línea: después del borrado físico no queda fila que leer.
+        Auditoria::registrar()
+            ->borrar('grupo', (int) $grupo->id)
+            ->en(year: (int) $grupo->year_id)
+            ->resumen('Borró definitivamente el grupo '.$grupo->nombre)
+            ->guardar();
 
         return $grupo;
 
@@ -776,6 +834,12 @@ class PerfilesController extends Controller
         $grupo = Grupo::onlyTrashed()->findOrFail($id);
 
         $grupo->restore();
+
+        Auditoria::registrar()
+            ->restaurar('grupo', (int) $grupo->id)
+            ->en(year: (int) $grupo->year_id)
+            ->resumen('Sacó de la papelera el grupo '.$grupo->nombre)
+            ->guardar();
 
         return $grupo;
     }
@@ -923,8 +987,17 @@ class PerfilesController extends Controller
             'No tienes permiso para cambiar la imagen de otra persona.');
 
         $alumno = Alumno::findOrFail($alumnoElegido);
+        $fotoAntes = $alumno->foto_id;
         $alumno->foto_id = Request::input('imgOficialAlumno');
         $alumno->save();
+
+        Auditoria::registrar()
+            ->editar('alumno', (int) $alumno->id)
+            ->deAlumno((int) $alumno->id)
+            ->de($this->nombreDeImagen($fotoAntes))
+            ->a($this->nombreDeImagen($alumno->foto_id))
+            ->resumen('Cambió la foto oficial del alumno')
+            ->guardar();
 
         return $alumno;
     }

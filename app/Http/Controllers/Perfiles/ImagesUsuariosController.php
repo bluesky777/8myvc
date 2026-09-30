@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Intervention\Image\Laravel\Facades\Image;
 
+use App\Services\Auditoria;
 use App\Support\Autoriza;
 use App\User;
 use App\Models\ImageModel;
@@ -108,8 +109,12 @@ class ImagesUsuariosController extends Controller {
 		$this->exigeQueLaImagenSeaSuyaODelColegio($user, Request::input('imagen_id'));
 
 		$usu 				= User::findOrFail($user_id);
+		$imagenAntes 		= $usu->imagen_id;
 		$usu->imagen_id 	= Request::input('imagen_id');
 		$usu->save();
+
+		$this->anotarLaImagen('usuario', (int) $usu->id, $this->alumnoDeLaCuenta($usu->id), $imagenAntes, $usu->imagen_id,
+			'Cambió la imagen de perfil de la cuenta');
 
 		$img 				= ImageModel::find($usu->imagen_id);
 		if ($img) {
@@ -167,8 +172,14 @@ class ImagesUsuariosController extends Controller {
 
 		$img 				= ImageModel::find($img_id);
 
+		$fotoAntes = $persona->foto_id;
 		$persona->foto_id = $img_id ? $img_id : null;
 		$persona->save();
+
+		// La entidad es la ficha que se escribió, y sólo la del alumno cuelga de él.
+		$entidad = strtolower($usu->tipo);
+		$this->anotarLaImagen($entidad, (int) $persona->id, $entidad === 'alumno' ? (int) $persona->id : null,
+			$fotoAntes, $persona->foto_id, 'Cambió la foto oficial');
 
 		if ($img){
 			$img->user_id 		= $user_id;
@@ -238,11 +249,17 @@ class ImagesUsuariosController extends Controller {
 		$image_id 	= Request::input('imagen_id');
 
 		if ($user->is_superuser) {
+			$imagenAntes = $usu->imagen_id;
 			$usu->imagen_id = $image_id;
 			$usu->save();
+
+			$this->anotarLaImagen('usuario', (int) $usu->id, $this->alumnoDeLaCuenta($usu->id), $imagenAntes, $usu->imagen_id,
+				'Cambió la imagen de perfil de la cuenta');
+
 			return $usu;
 		}else{
 			$pedido = ChangeAsked::verificar_pedido_actual($user_id, $user->year_id, $user->tipo);
+			$pedidoAntes = $pedido;
 
 			if ($pedido->data_id) {
 				$consulta = 'UPDATE change_asked_data SET image_id_new=:image_id WHERE id=:data_id';
@@ -260,7 +277,11 @@ class ImagesUsuariosController extends Controller {
 				$pedido 	= ChangeAsked::verificar_pedido_actual($user_id, $user->year_id, $user->tipo);
 			
 			}
-			
+
+			// Sin superusuario no se cambia nada todavía: se pide. La línea es del pedido,
+			// como las de `ChangeAskedController`, y quien lo acepte deja la suya.
+			$this->anotarLaImagen('pedido_de_cambio', (int) $pedidoAntes->asked_id, null,
+				$pedidoAntes->image_id_new ?? null, $image_id, 'Pidió cambiar su imagen de perfil');
 
 			return ['pedido' => $pedido];
 		}
@@ -281,6 +302,7 @@ class ImagesUsuariosController extends Controller {
 		$usu = User::findOrFail($user_id);
 
 		$pedido = ChangeAsked::verificar_pedido_actual($user_id, $user->year_id, $user->tipo);
+		$pedidoAntes = $pedido;
 
 		if ($pedido->data_id) {
 			$consulta = 'UPDATE change_asked_data SET foto_id_new=:foto_id WHERE id=:data_id';
@@ -299,6 +321,8 @@ class ImagesUsuariosController extends Controller {
 		
 		}
 
+		$this->anotarLaImagen('pedido_de_cambio', (int) $pedidoAntes->asked_id, null,
+			$pedidoAntes->foto_id_new ?? null, $foto_id, 'Pidió cambiar su foto oficial');
 
 		return ['pedido' => $pedido];
 	}
@@ -433,6 +457,38 @@ class ImagesUsuariosController extends Controller {
 	 * botón y su propia lista—, y `cambiar-imagen-perfil`, que escribe
 	 * `users.imagen_id` sin cambiar de dueño a nadie. Queda anotado.
 	 */
+	/**
+	 * Una línea por imagen cambiada. Antes y después van con el NOMBRE del fichero,
+	 * que es lo que alguien puede buscar en `images/perfil/`; la imagen no entra.
+	 */
+	private function anotarLaImagen(string $entidad, int $id, ?int $alumnoId, $antes, $despues, string $resumen): void
+	{
+		Auditoria::registrar()
+			->editar($entidad, $id)
+			->deAlumno($alumnoId)
+			->de($this->nombreDeImagen($antes))
+			->a($this->nombreDeImagen($despues))
+			->resumen($resumen)
+			->guardar();
+	}
+
+	private function nombreDeImagen($imagenId): ?string
+	{
+		if (! $imagenId) {
+			return null;
+		}
+
+		return DB::selectOne('SELECT nombre FROM images WHERE id = ?', [$imagenId])?->nombre;
+	}
+
+	/** La misma consulta que `AuditarModelo`: una cuenta cuelga del alumno que la tiene. */
+	private function alumnoDeLaCuenta($userId): ?int
+	{
+		$alumno = DB::selectOne('SELECT id FROM alumnos WHERE user_id = ? AND deleted_at IS NULL', [$userId]);
+
+		return $alumno ? (int) $alumno->id : null;
+	}
+
 	private function exigeQueLaImagenSeaSuyaODelColegio(object $user, $imagenId): void
 	{
 		// Sin imagen no hay nada que comprobar: el cuerpo vacío significa «quitar»,

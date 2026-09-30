@@ -44,9 +44,21 @@ class CambiarUsuariosController extends Controller {
 			INNER JOIN alumnos a ON a.user_id=u.id and a.deleted_at is null and u.tipo="Alumno"
 			SET u.username=a.documento
 			WHERE a.documento>0 and a.documento is not null and a.documento!="" and u.deleted_at is null';
-		
-		$res = DB::select($consulta);
-		
+
+		// `DB::update` y no `DB::select`: la sentencia es la misma y así devuelve a
+		// cuántas cuentas alcanzó.
+		$cambiados = DB::update($consulta);
+
+		/*
+		 * Una línea por el acto y no una por cuenta, como las contraseñas de abajo: es
+		 * un solo `UPDATE` sobre el colegio entero, y una línea por cuenta obligaría a
+		 * leerlas todas antes para tener el usuario de antes. El alcance va en el resumen.
+		 */
+		Auditoria::registrar()
+			->editar('usuario')
+			->resumen('Puso el documento como usuario de '.$cambiados.' cuentas de alumnos')
+			->guardar();
+
 		return [ 'resultado' => 'Usernames cambiados.' ];
 	}
 
@@ -78,9 +90,16 @@ class CambiarUsuariosController extends Controller {
 			INNER JOIN acudientes a ON a.user_id=u.id and a.deleted_at is null and u.tipo="Acudiente"
 			SET u.username=a.documento
 			WHERE a.documento>0 and a.documento is not null and a.documento!="" and u.deleted_at is null';
-		
-		$res = DB::select($consulta);
-		
+
+		// `DB::update` y no `DB::select`: la sentencia es la misma y así devuelve a
+		// cuántas cuentas alcanzó.
+		$cambiados = DB::update($consulta);
+
+		Auditoria::registrar()
+			->editar('usuario')
+			->resumen('Puso el documento como usuario de '.$cambiados.' cuentas de acudientes')
+			->guardar();
+
 		return [ 'resultado' => 'Usernames cambiados.' ];
 	}
 
@@ -233,7 +252,19 @@ class CambiarUsuariosController extends Controller {
 	{
 		[$destino, $grupoId] = $this->destinoYGrupo();
 
-		return DocumentoComoUsuario::aplicar($destino, $grupoId, $this->user->user_id ?? null);
+		$resumen = DocumentoComoUsuario::aplicar($destino, $grupoId, $this->user->user_id ?? null);
+
+		// Una línea por el acto, como las dos viejas: `aplicar` escribe por lotes y sólo
+		// devuelve el recuento. Los conflictos no entran, que llevan nombres y documentos.
+		Auditoria::registrar()
+			->editar('usuario')
+			->en(grupo: $grupoId)
+			->a(['destino' => $destino, 'grupo_id' => $grupoId, 'cambiados' => $resumen['cambiados']])
+			->resumen('Puso el documento como usuario de '.$resumen['cambiados'].' cuentas de '.$destino
+				.($grupoId ? ' del grupo '.$grupoId : ''))
+			->guardar();
+
+		return $resumen;
 	}
 
 
