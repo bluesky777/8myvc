@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Services\Auditoria;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -107,8 +108,9 @@ class NotasAlCambiarDeGrupo
 
         $creadas = 0;
         $pisadas = 0;
+        $lineas = [];
 
-        DB::transaction(function () use ($filas, $periodos, $alumnoId, $quien, &$creadas, &$pisadas) {
+        DB::transaction(function () use ($filas, $periodos, $alumnoId, $quien, &$creadas, &$pisadas, &$lineas) {
             foreach ($filas as $f) {
                 if ($f->asig_destino === null) {
                     continue;
@@ -122,11 +124,12 @@ class NotasAlCambiarDeGrupo
                         'nota' => $f->nota, 'manual' => 1, 'updated_by' => $quien, 'updated_at' => Reloj::ahora(),
                     ]);
                     $pisadas++;
+                    $lineas[] = [Auditoria::EDITAR, (int) $f->nota_destino_id, $f, $f->nota_destino];
 
                     continue;
                 }
 
-                DB::table('notas_finales')->insert([
+                $id = DB::table('notas_finales')->insertGetId([
                     'alumno_id' => $alumnoId,
                     'asignatura_id' => $f->asig_destino,
                     'periodo_id' => $f->periodo_id,
@@ -138,8 +141,28 @@ class NotasAlCambiarDeGrupo
                     'updated_at' => Reloj::ahora(),
                 ]);
                 $creadas++;
+                $lineas[] = [Auditoria::CREAR, (int) $id, $f, null];
             }
         });
+
+        /*
+         * Una línea por definitiva, pisada o nueva, como las que deja
+         * `DefinitivasPeriodosController` al tocar una a mano: la pantalla de
+         * auditoría las busca por su id, y una línea por alumno no diría qué nota
+         * había debajo. Después del `COMMIT`, para no anotar lo que se deshizo.
+         */
+        $nombre = $lineas === [] ? null : NombreDelAlumno::de($alumnoId);
+
+        foreach ($lineas as [$accion, $id, $f, $antes]) {
+            $linea = Auditoria::registrar();
+            $linea = $accion === Auditoria::CREAR ? $linea->crear('nota_final', $id) : $linea->editar('nota_final', $id)->de($antes);
+
+            $linea->deAlumno($alumnoId, $nombre)
+                ->en(asignatura: (int) $f->asig_destino, periodo: (int) $f->periodo_id)
+                ->a($f->nota)
+                ->resumen('Trajo la definitiva del grupo anterior')
+                ->guardar();
+        }
 
         return ['creadas' => $creadas, 'pisadas' => $pisadas, 'total' => $creadas + $pisadas];
     }

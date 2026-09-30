@@ -2,6 +2,7 @@
 
 use App\Services\Auditoria;
 use App\Services\DefinitivasDeAsignatura;
+use App\Support\NombreDelAlumno;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -216,12 +217,38 @@ class DetallesController extends Controller {
 		User::pueden_editar_notas($user, $periodo_id ? (int) $periodo_id : null,
 			$asignaturasDelGrupo === [] ? null : $asignaturasDelGrupo);
 
+		// **Se leen antes, porque después no hay de dónde**: el borrado es físico. Es el
+		// mismo trato que `NotasController::deleteDestroy` da a una sola nota, aquí
+		// con las mismas ligaduras que el `DELETE` para que se anote lo que se borra.
+		$borradas = DB::select('SELECT n.id, n.nota, a.id AS asignatura_id FROM notas n
+						inner join subunidades s on s.id=n.subunidad_id
+						inner join unidades u on u.id=s.unidad_id and u.periodo_id=:periodo_id
+						inner join asignaturas a on a.id=u.asignatura_id and a.grupo_id=:grupo_id
+						where n.alumno_id=:alumno_id', [':periodo_id' => $periodo_id, ':grupo_id' => $grupo_id, ':alumno_id' => $alumno_id]);
+
 		$consulta 	= 'DELETE n FROM notas n
 						inner join subunidades s on s.id=n.subunidad_id
 						inner join unidades u on u.id=s.unidad_id and u.periodo_id=:periodo_id
 						inner join asignaturas a on a.id=u.asignatura_id and a.grupo_id=:grupo_id
 						where n.alumno_id=:alumno_id';
 		$eliminados = DB::delete($consulta, [':periodo_id' => $periodo_id, ':grupo_id' => $grupo_id, ':alumno_id' => $alumno_id]);
+
+		// Una línea por nota, como el borrado de una sola: la pantalla de auditoría
+		// busca por la nota, y una línea resumen por alumno no diría qué valor tenía
+		// cada una. `Auditoria` no escribe por lotes, así que son N `INSERT`.
+		if ($eliminados > 0) {
+			$alumnoDeLaLinea = (int) $alumno_id;
+			$nombre = NombreDelAlumno::de($alumnoDeLaLinea);
+
+			foreach ($borradas as $nota) {
+				Auditoria::registrar()
+					->borrar('nota', (int) $nota->id)
+					->deAlumno($alumnoDeLaLinea, $nombre)
+					->en(asignatura: (int) $nota->asignatura_id, periodo: $periodo_id ? (int) $periodo_id : null)
+					->de($nota->nota)
+					->guardar();
+			}
+		}
 
 		// **Borrado físico: el sello no se entera**, así que la definitiva que se hizo
 		// con estas notas se quedaba puesta y dada por buena. Sólo su fila: a los
