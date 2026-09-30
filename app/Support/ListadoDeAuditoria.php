@@ -147,17 +147,9 @@ final class ListadoDeAuditoria
         }
 
         if ($familia === 'notas' && ($id = $entero('asignatura_id'))) {
-            $vias = ['a.asignatura_id = ?'];
-            $parametros[] = $id;
-            foreach (self::ASIGNATURA_DE as $entidad => $sql) {
-                if (! in_array($entidad, $entidades, true)) {
-                    continue;
-                }
-                $columna = $entidad === 'nota' ? 'u.asignatura_id' : 't.asignatura_id';
-                $vias[] = "(a.entidad = ? AND a.entidad_id IN (SELECT x.id FROM ($sql WHERE $columna = ?) x))";
-                array_push($parametros, $entidad, $id);
-            }
-            $donde[] = '('.implode(' OR ', $vias).')';
+            [$sql, $deAsignatura] = self::porAsignatura($entidades, '= ?', [$id]);
+            $donde[] = $sql;
+            array_push($parametros, ...$deAsignatura);
         }
 
         if ($familia !== 'datos') {
@@ -194,6 +186,32 @@ final class ListadoDeAuditoria
         }
 
         return [implode(' AND ', $donde), $parametros];
+    }
+
+    /**
+     * La condición «la asignatura de la línea cumple `$comparacion`»: la columna de la
+     * línea, o la de la fila de su entidad (la nota por su unidad). La usan el filtro de
+     * asignatura (`= ?`) y el alcance del docente (`IN (sus asignaturas)`), para que las
+     * dos deriven la asignatura igual.
+     *
+     * @param  list<string>  $entidades
+     * @param  list<mixed>  $valores  los parámetros de `$comparacion`
+     * @return array{0: string, 1: list<mixed>}
+     */
+    public static function porAsignatura(array $entidades, string $comparacion, array $valores): array
+    {
+        $vias = ["a.asignatura_id $comparacion"];
+        $parametros = $valores;
+        foreach (self::ASIGNATURA_DE as $entidad => $sql) {
+            if (! in_array($entidad, $entidades, true)) {
+                continue;
+            }
+            $columna = $entidad === 'nota' ? 'u.asignatura_id' : 't.asignatura_id';
+            $vias[] = "(a.entidad = ? AND a.entidad_id IN (SELECT x.id FROM ($sql WHERE $columna $comparacion) x))";
+            array_push($parametros, $entidad, ...$valores);
+        }
+
+        return ['('.implode(' OR ', $vias).')', $parametros];
     }
 
     /**
@@ -306,27 +324,54 @@ final class ListadoDeAuditoria
      * `tipo` es el de la cuenta tal como lo guarda la línea (`Profesor`, `Usuario`…);
      * `rol`, el legible para agrupar el desplegable (Docente, Secretaría, Coordinación…).
      *
+     * Con `$alcance` (el del docente, `AlcanceDelDocente::condicion()`), sólo las
+     * entidades de notas y sólo las líneas que caen dentro: el desplegable no enseña a
+     * nadie que no salga en su listado.
+     *
+     * @param  array{0: string, 1: list<mixed>}|null  $alcance
      * @return list<array{user_id: int, nombre: string|null, tipo: string|null, rol: string|null, foto: string|null}>
      */
-    public static function actores(): array
+    public static function actores(?array $alcance = null): array
     {
-        $entidades = array_merge(...array_map(fn ($f) => self::entidadesDe($f), array_keys(self::FAMILIAS)));
+        $entidades = $alcance === null
+            ? array_merge(...array_map(fn ($f) => self::entidadesDe($f), array_keys(self::FAMILIAS)))
+            : self::entidadesDe('notas');
+        [$acotado, $deAlcance] = $alcance ?? ['1 = 1', []];
 
         $ultimas = array_map(fn ($f) => (int) $f->ultima, DB::select(
             'SELECT MAX(a.id) AS ultima FROM auditoria a
               WHERE a.entidad IN ('.self::marcas($entidades).') AND a.actor_user_id IS NOT NULL
+                AND '.$acotado.'
               GROUP BY a.actor_user_id',
-            $entidades
+            [...$entidades, ...$deAlcance]
         ));
         if ($ultimas === []) {
             return [];
         }
 
         $lineas = DB::select(
-            'SELECT actor_user_id, actor_nombre, actor_tipo FROM auditoria WHERE id IN ('.self::marcas($ultimas).')',
+            'SELECT actor_user_id AS user_id, actor_nombre AS nombre, actor_tipo AS tipo
+               FROM auditoria WHERE id IN ('.self::marcas($ultimas).')',
             $ultimas
         );
-        $ids = array_map(fn ($l) => (int) $l->actor_user_id, $lineas);
+
+        return self::personas($lineas);
+    }
+
+    /**
+     * Las personas de un desplegable —`user_id`, `nombre`, `tipo`— con su rol legible y su
+     * foto, ordenadas por nombre sin que la tilde mande. Lo usan «Cambiado por» y el
+     * selector de persona de los ingresos (`GET auditoria/ingresos/personas`).
+     *
+     * @param  array<int, \stdClass>  $lineas
+     * @return list<array{user_id: int, nombre: string|null, tipo: string|null, rol: string|null, foto: string|null}>
+     */
+    public static function personas(array $lineas): array
+    {
+        if ($lineas === []) {
+            return [];
+        }
+        $ids = array_map(fn ($l) => (int) $l->user_id, $lineas);
 
         $roles = [];
         foreach (DB::select(
@@ -350,12 +395,12 @@ final class ListadoDeAuditoria
 
         $salida = [];
         foreach ($lineas as $l) {
-            $id = (int) $l->actor_user_id;
+            $id = (int) $l->user_id;
             $salida[] = [
                 'user_id' => $id,
-                'nombre' => $l->actor_nombre,
-                'tipo' => $l->actor_tipo,
-                'rol' => self::rolLegible($roles[$id] ?? [], $cuentas[$id] ?? null, $l->actor_tipo),
+                'nombre' => $l->nombre,
+                'tipo' => $l->tipo,
+                'rol' => self::rolLegible($roles[$id] ?? [], $cuentas[$id] ?? null, $l->tipo),
                 'foto' => $fotos[$id] ?? null,
             ];
         }
@@ -385,7 +430,8 @@ final class ListadoDeAuditoria
     }
 
     /**
-     * Desde dónde se hizo, por el ingreso de la línea (`historiales`, que llena
+     * Desde dónde se hizo, por el ingreso de la línea —o el propio ingreso, en la pestaña
+     * Ingresos— (`historiales`, que llena
      * `Services/Login.php` con el User-Agent). `Bot` con navegador `Unknown` es la app:
      * es una inferencia —Dart no se reconoce y cae ahí—, la que documenta
      * `myvc_front/AUDITORIA-DE-ALUMNOS.md`. `App` todavía no lo escribe nadie: se acepta
@@ -393,7 +439,7 @@ final class ListadoDeAuditoria
      *
      * @return array{origen: string|null, navegador: string|null, plataforma: string|null}
      */
-    private static function hechoDesde(?object $ingreso): array
+    public static function hechoDesde(?object $ingreso): array
     {
         if ($ingreso === null) {
             return ['origen' => null, 'navegador' => null, 'plataforma' => null];

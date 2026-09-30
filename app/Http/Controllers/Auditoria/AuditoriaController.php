@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\ResuelveElUsuario;
 use App\Http\Controllers\Controller;
 use App\Services\Auditoria;
 use App\Support\AlcanceAcademico;
+use App\Support\AlcanceDelDocente;
 use App\Support\Autoriza;
 use App\Support\FichaEditada;
 use App\Support\ListadoDeAuditoria;
@@ -118,6 +119,12 @@ class AuditoriaController extends Controller
         $desde = $peticion->input('desde') ?: Reloj::ahora()->subDays(30)->toDateString();
         $hasta = $peticion->input('hasta') ?: Reloj::ahora()->toDateString();
 
+        // Con `pagina` o `por_pagina`, la pestaña Ingresos de `/auditoria`: página y
+        // `total` en vez del tope. Sin ninguno de los dos, la respuesta de siempre.
+        if ($peticion->filled('pagina') || $peticion->filled('por_pagina')) {
+            return $this->ingresosPaginados($peticion, $deQuien, $desde, $hasta);
+        }
+
         $ingresos = DB::select(
             'SELECT h.id, h.tipo, h.ip, h.created_at AS entro_en, h.logout_at,
                     h.browser_name, h.browser_version, h.platform_name, h.device_family,
@@ -142,6 +149,55 @@ class AuditoriaController extends Controller
             'hasta' => $hasta,
             'ingresos' => $ingresos,
             'hay_mas' => $hayMas,
+        ]);
+    }
+
+    /**
+     * Los ingresos de `getIngresos`, por páginas de 25, 50 o 100, y cada uno con su
+     * `hecho_desde` (app, web desde el celular o desde el computador). El `total` sale de
+     * `historiales` sola —el `LEFT JOIN` no cambia cuántos ingresos hay—, y `hay_mas`
+     * sigue viajando para quien ya lo lea. Sin `pagina` ni `por_pagina` no llega nada de
+     * esto: la respuesta de siempre no cambia.
+     */
+    private function ingresosPaginados(Request $peticion, int $deQuien, string $desde, string $hasta): JsonResponse
+    {
+        [$pagina, $porPagina] = self::paginacion($peticion);
+        $filtro = 'h.user_id = ? AND h.deleted_at IS NULL
+                   AND h.created_at >= ? AND h.created_at < DATE_ADD(?, INTERVAL 1 DAY)';
+        $parametros = [$deQuien, $desde, $hasta];
+
+        $total = (int) DB::selectOne("SELECT COUNT(*) AS total FROM historiales h WHERE $filtro", $parametros)->total;
+
+        $ingresos = DB::select(
+            "SELECT h.id, h.tipo, h.ip, h.created_at AS entro_en, h.logout_at,
+                    h.browser_name, h.browser_version, h.platform_name, h.device_family,
+                    h.entorno, h.browser_family, h.platform_family,
+                    COUNT(a.id) AS acciones
+               FROM historiales h
+               LEFT JOIN auditoria a ON a.historial_id = h.id
+              WHERE $filtro
+              GROUP BY h.id
+              ORDER BY h.id DESC
+              LIMIT $porPagina OFFSET ".(($pagina - 1) * $porPagina),
+            $parametros
+        );
+
+        // `hecho_desde` con la regla del listado de alumnos; las tres columnas de las que
+        // sale no viajan, para que la fila sea la de siempre más ese campo.
+        foreach ($ingresos as $h) {
+            $h->hecho_desde = ListadoDeAuditoria::hechoDesde($h);
+            unset($h->entorno, $h->browser_family, $h->platform_family);
+        }
+
+        return response()->json([
+            'user_id' => $deQuien,
+            'desde' => $desde,
+            'hasta' => $hasta,
+            'pagina' => $pagina,
+            'por_pagina' => $porPagina,
+            'total' => $total,
+            'ingresos' => $ingresos,
+            'hay_mas' => $pagina * $porPagina < $total,
         ]);
     }
 
@@ -202,8 +258,12 @@ class AuditoriaController extends Controller
             return response()->json(['message' => 'Ese tipo de entidad no se audita'], 404);
         }
 
+        // Sin el permiso, el docente: si alguna línea de esa nota, definitiva, nivelación o
+        // ausencia cae en su alcance, la historia entera de la entidad; si no, `403`.
+        $profesor = AlcanceDelDocente::profesorDe($this->user);
         Autoriza::exigir(
-            Autoriza::puedeVerAuditoria($this->user),
+            Autoriza::puedeVerAuditoria($this->user)
+                || ($profesor !== null && AlcanceDelDocente::incluyeEntidad($profesor, $tipo, $id)),
             'No tiene permiso para ver la auditoría'
         );
 
@@ -287,10 +347,9 @@ class AuditoriaController extends Controller
             return response()->json(['message' => 'Esa familia no existe'], 404);
         }
 
-        Autoriza::exigir(
-            Autoriza::puedeVerAuditoria($this->user),
-            'No tiene permiso para ver la auditoría'
-        );
+        // El docente sin permiso sólo tiene la familia de notas; datos y convivencia, `403`.
+        $alcance = $this->alcanceDelListado();
+        Autoriza::exigir($alcance === null || $familia === 'notas', 'No tiene permiso para ver la auditoría');
 
         foreach (['desde', 'hasta'] as $clave) {
             $fecha = $peticion->query($clave);
@@ -299,11 +358,14 @@ class AuditoriaController extends Controller
             }
         }
 
-        $pagina = max(1, (int) $peticion->query('pagina', 1));
-        $porPagina = (int) $peticion->query('por_pagina', 25);
-        $porPagina = in_array($porPagina, [25, 50, 100], true) ? $porPagina : 25;
+        [$pagina, $porPagina] = self::paginacion($peticion);
 
         [$donde, $parametros] = ListadoDeAuditoria::filtro($familia, $peticion->query());
+        // El alcance va con `AND` sobre el filtro: ningún filtro de la URL lo ensancha.
+        if ($alcance !== null) {
+            $donde = "$donde AND {$alcance[0]}";
+            array_push($parametros, ...$alcance[1]);
+        }
         $totales = ListadoDeAuditoria::totales($donde, $parametros);
         // `solo_total=1`: los contadores de las pestañas, sin leer página.
         $ids = $peticion->boolean('solo_total')
@@ -330,15 +392,202 @@ class AuditoriaController extends Controller
         ]);
     }
 
-    /** Quién aparece como actor en los listados de alumnos: el desplegable «Cambiado por». */
+    /**
+     * Quién aparece como actor en los listados de alumnos: el desplegable «Cambiado por».
+     * Al docente, sólo quien aparece en su alcance.
+     */
     public function getAlumnosActores(): JsonResponse
+    {
+        return response()->json(ListadoDeAuditoria::actores($this->alcanceDelListado()));
+    }
+
+    /**
+     * QUÉ PESTAÑAS DE `/auditoria` VE QUIEN PREGUNTA, para que el front no lo adivine.
+     *
+     * Con el permiso, todo. El docente sin él, las notas de su alcance (`AlcanceDelDocente`)
+     * y sus propios ingresos. El resto del personal sin permiso, sólo sus ingresos: la
+     * entrada del menú es de todo el personal y la pestaña de lo propio no pide nada.
+     */
+    public function getPermisos(): JsonResponse
+    {
+        $todo = Autoriza::puedeVerAuditoria($this->user);
+        $docente = ! $todo && AlcanceDelDocente::profesorDe($this->user) !== null;
+
+        return response()->json([
+            'familias' => $todo ? array_keys(ListadoDeAuditoria::FAMILIAS) : ($docente ? ['notas'] : []),
+            'ingresos_de_otros' => $todo,
+            'bitacora' => $todo,
+            'alcance' => $todo ? 'todo' : ($docente ? 'docente' : 'ninguno'),
+        ]);
+    }
+
+    /**
+     * LA BITÁCORA ANTERIOR, paginada: la tabla `bitacoras`, el rastro de antes de
+     * `auditoria`, para la pestaña «Bitácora anterior». `GET bitacoras/{user_id?}` no se
+     * toca: devuelve la tabla entera de una persona y la leen otros clientes.
+     *
+     * `created_by` es el `users.id` de quien lo hizo; `affected_person_*`, sobre quién
+     * (`affected_person_type`: `Al`, `Pr`…); `affected_element_*`, qué cosa y sus valores
+     * viejo y nuevo, en número o en texto según la escribió cada controlador. Lo borrado
+     * (`deleted_at`) no sale, como en `BitacorasController`. Las fechas van como están:
+     * la tabla las tiene en dos zonas sin nada en la fila que diga cuál
+     * (`create_auditoria_table` §4.1), y convertirlas sería inventar.
+     */
+    public function getBitacoraAnterior(Request $peticion): JsonResponse
     {
         Autoriza::exigir(
             Autoriza::puedeVerAuditoria($this->user),
             'No tiene permiso para ver la auditoría'
         );
 
-        return response()->json(ListadoDeAuditoria::actores());
+        foreach (['desde', 'hasta'] as $clave) {
+            $fecha = $peticion->query($clave);
+            if ($fecha !== null && $fecha !== '' && (! is_string($fecha) || ! self::esFecha($fecha))) {
+                return response()->json(['message' => "La fecha '$clave' tiene que ser AAAA-MM-DD"], 422);
+            }
+        }
+
+        [$pagina, $porPagina] = self::paginacion($peticion);
+        $texto = fn (string $clave) => is_scalar($peticion->query($clave)) ? trim((string) $peticion->query($clave)) : '';
+
+        $donde = ['b.deleted_at IS NULL'];
+        $parametros = [];
+        if (($id = (int) $texto('user_id')) > 0) {
+            $donde[] = 'b.created_by = ?';
+            $parametros[] = $id;
+        }
+        if (($desde = $texto('desde')) !== '') {
+            $donde[] = 'b.created_at >= ?';
+            $parametros[] = $desde.' 00:00:00';
+        }
+        if (($hasta = $texto('hasta')) !== '') {
+            $donde[] = 'b.created_at < ?';
+            $parametros[] = date('Y-m-d', (int) strtotime($hasta.' +1 day')).' 00:00:00';
+        }
+        if (($q = $texto('q')) !== '') {
+            $como = '%'.addcslashes($q, '\\%_').'%';
+            $donde[] = '(b.descripcion LIKE ? OR b.affected_person_name LIKE ?)';
+            array_push($parametros, $como, $como);
+        }
+        $donde = implode(' AND ', $donde);
+
+        $total = (int) DB::selectOne("SELECT COUNT(*) AS total FROM bitacoras b WHERE $donde", $parametros)->total;
+
+        // Quien lo hizo (`created_by`) y, si fue sobre un alumno, el alumno
+        // (`affected_user_id` → `alumnos.user_id`), con nombre y foto en la misma consulta.
+        [$deQuien, $nombre] = self::nombreDeCuenta('u', 'b.created_by');
+        $filas = DB::select(
+            "SELECT b.id, b.created_by, b.historial_id, b.descripcion,
+                    b.affected_user_id, b.affected_person_id, b.affected_person_name, b.affected_person_type,
+                    b.affected_element_type, b.affected_element_id,
+                    b.affected_element_old_value_int, b.affected_element_new_value_int,
+                    b.affected_element_old_value_string, b.affected_element_new_value_string,
+                    b.periodo_id, b.created_at,
+                    $nombre AS actor_nombre, u.tipo AS actor_tipo,
+                    COALESCE(ipu.nombre, iu.nombre) AS actor_foto,
+                    NULLIF(TRIM(CONCAT_WS(' ', afe.nombres, afe.apellidos)), '') AS alumno_nombre,
+                    ia.nombre AS alumno_foto
+               FROM bitacoras b
+               $deQuien
+               LEFT JOIN images ipu ON ipu.id = p_u.foto_id AND ipu.deleted_at IS NULL
+               LEFT JOIN images iu ON iu.id = u.imagen_id AND iu.deleted_at IS NULL
+               LEFT JOIN alumnos afe ON afe.id = (SELECT MIN(a3.id) FROM alumnos a3
+                                                   WHERE a3.user_id = b.affected_user_id AND a3.deleted_at IS NULL)
+               LEFT JOIN images ia ON ia.id = afe.foto_id AND ia.deleted_at IS NULL
+              WHERE $donde
+              ORDER BY b.id DESC
+              LIMIT $porPagina OFFSET ".(($pagina - 1) * $porPagina),
+            $parametros
+        );
+
+        return response()->json([
+            'pagina' => $pagina,
+            'por_pagina' => $porPagina,
+            'total' => $total,
+            'filas' => $filas,
+        ]);
+    }
+
+    /**
+     * Las personas con al menos un ingreso: el selector de persona de la pestaña Ingresos.
+     * `[{user_id, nombre, tipo, rol, foto}]` por nombre, como «Cambiado por». Sin tope de
+     * fechas: en la copia de caz (30 sep 2026) son 321 personas de 13.270 ingresos, y el
+     * `DISTINCT` sale del índice `historiales_user_id_foreign`.
+     */
+    public function getIngresosPersonas(): JsonResponse
+    {
+        Autoriza::exigir(
+            Autoriza::puedeVerAuditoria($this->user),
+            'No tiene permiso para ver la auditoría de otras personas'
+        );
+
+        [$deQuien, $nombre] = self::nombreDeCuenta('u', 'h.user_id');
+
+        return response()->json(ListadoDeAuditoria::personas(DB::select(
+            "SELECT h.user_id, $nombre AS nombre, u.tipo
+               FROM (SELECT DISTINCT user_id FROM historiales WHERE deleted_at IS NULL AND user_id IS NOT NULL) h
+               $deQuien
+              WHERE u.id IS NOT NULL"
+        )));
+    }
+
+    /**
+     * El nombre de una cuenta por su ficha —docente, alumno o acudiente— o, sin ficha (las
+     * cuentas de administración), su `username`. Devuelve los `LEFT JOIN` desde `$columna`
+     * (alias `$u` para `users`, `p_$u`, `al_$u` y `ac_$u` para las fichas) y la expresión.
+     * La ficha es la de id más bajo: una cuenta con dos no duplica la fila.
+     *
+     * @return array{0: string, 1: string}
+     */
+    private static function nombreDeCuenta(string $u, string $columna): array
+    {
+        $ficha = fn (string $tabla, string $alias) => "LEFT JOIN $tabla {$alias}_$u ON {$alias}_$u.id = (
+            SELECT MIN(x.id) FROM $tabla x WHERE x.user_id = $u.id AND x.deleted_at IS NULL)";
+
+        return [
+            "LEFT JOIN users $u ON $u.id = $columna
+             ".$ficha('profesores', 'p').'
+             '.$ficha('alumnos', 'al').'
+             '.$ficha('acudientes', 'ac'),
+            "COALESCE(NULLIF(TRIM(CONCAT_WS(' ', p_$u.nombres, p_$u.apellidos)), ''),
+                      NULLIF(TRIM(CONCAT_WS(' ', al_$u.nombres, al_$u.apellidos)), ''),
+                      NULLIF(TRIM(CONCAT_WS(' ', ac_$u.nombres, ac_$u.apellidos)), ''),
+                      $u.username)",
+        ];
+    }
+
+    /**
+     * El alcance de los listados de alumnos para quien pregunta: `null` si lo ve todo, la
+     * condición de `AlcanceDelDocente` si es docente sin el permiso, y `403` si no es
+     * ninguna de las dos.
+     *
+     * @return array{0: string, 1: list<mixed>}|null
+     */
+    private function alcanceDelListado(): ?array
+    {
+        if (Autoriza::puedeVerAuditoria($this->user)) {
+            return null;
+        }
+
+        $profesor = AlcanceDelDocente::profesorDe($this->user);
+        Autoriza::exigir($profesor !== null, 'No tiene permiso para ver la auditoría');
+
+        return AlcanceDelDocente::condicion($profesor);
+    }
+
+    /**
+     * `pagina` (1..) y `por_pagina` (25|50|100; otro valor, 25), como en los listados.
+     *
+     * @return array{0: int, 1: int}
+     */
+    private static function paginacion(Request $peticion): array
+    {
+        $porPagina = (int) $peticion->query('por_pagina', 25);
+
+        return [
+            max(1, (int) $peticion->query('pagina', 1)),
+            in_array($porPagina, [25, 50, 100], true) ? $porPagina : 25,
+        ];
     }
 
     private static function esFecha(string $fecha): bool
