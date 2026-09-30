@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auditoria\AuditoriaController;
+use App\Http\Controllers\Auditoria\AuditoriaLimpiezaController;
 use App\Http\Controllers\ConfigCertificadosController;
 use App\Http\Controllers\Historiales\HistorialesController;
 use App\Http\Controllers\Informes\ActasEvaluacionController;
@@ -74,6 +75,10 @@ Route::get('auditoria/alumnos/{familia}', [AuditoriaController::class, 'getAlumn
 // La página `/auditoria` de app2: qué pestañas ve quien pregunta, y la bitácora vieja paginada.
 Route::get('auditoria/permisos', [AuditoriaController::class, 'getPermisos'])->middleware('auth.personal');
 Route::get('auditoria/bitacora-anterior', [AuditoriaController::class, 'getBitacoraAnterior'])->middleware('auth.personal');
+// La pestaña «Limpieza»: borrar el historial hasta una fecha. Sólo el superusuario (dentro).
+Route::get('auditoria/limpieza/previa', [AuditoriaLimpiezaController::class, 'getPrevia'])->middleware('auth.personal');
+Route::get('auditoria/limpieza/historial', [AuditoriaLimpiezaController::class, 'getHistorial'])->middleware('auth.personal');
+Route::post('auditoria/limpieza', [AuditoriaLimpiezaController::class, 'postLimpiar'])->middleware('auth.personal');
 
 // HistorialesController
 Route::put('historiales/de-usuario', [HistorialesController::class, 'putDeUsuario'])->middleware('auth.personal');

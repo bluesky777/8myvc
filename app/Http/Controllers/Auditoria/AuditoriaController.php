@@ -492,6 +492,8 @@ class AuditoriaController extends Controller
             'ingresos_de_otros' => $todo,
             'bitacora' => $todo,
             'alcance' => $todo ? 'todo' : ($docente ? 'docente' : 'ninguno'),
+            // La pestaña «Limpieza»: sólo el superusuario, como `AuditoriaLimpiezaController`.
+            'limpieza' => Autoriza::esSuperusuario($this->user),
         ]);
     }
 

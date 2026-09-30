@@ -258,6 +258,11 @@ class AuditoriaEscritorUnicoTest extends CasoDeContrato
      * Eso sólo se cierra quitándole al usuario de MySQL los permisos de `UPDATE` y
      * `DELETE` sobre esta tabla, que es una decisión de los dieciséis hostings.
      * Queda dicho para que nadie lo cuente como cerrado.
+     *
+     * **La excepción, una y con nombre**: `Support\LimpiezaDeAuditoria`, la pestaña
+     * «Limpieza» del contrato 4 (30 sep 2026), que borra hasta una fecha por decisión de
+     * Joseth, sólo el superusuario y dejando su propia constancia. Va en una lista y no en
+     * el patrón para que un segundo sitio que borre siga saliendo aquí.
      */
     public function test_ningun_sitio_de_app_edita_ni_borra_la_auditoria(): void
     {
@@ -281,7 +286,8 @@ class AuditoriaEscritorUnicoTest extends CasoDeContrato
         foreach ($this->ficherosPhpDe(base_path('app')) as $fichero) {
             $revisados++;
 
-            if (preg_match($patron, (string) file_get_contents($fichero))) {
+            $relativo = str_replace(base_path().'/', '', $fichero);
+            if ($relativo !== 'app/Support/LimpiezaDeAuditoria.php' && preg_match($patron, (string) file_get_contents($fichero))) {
                 $culpables[] = str_replace(base_path().'/', '', $fichero);
             }
         }

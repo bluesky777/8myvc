@@ -247,6 +247,9 @@ final class Auditoria
         'envio_estacion' => 'envios_estacion',
         'nota_estacion' => 'notas_estacion',
         'bitacora' => 'bitacoras',
+        // `AuditoriaLimpiezaController`: alguien borró el historial hasta una fecha. La fila
+        // de `auditoria_limpiezas` dice cuánto; ninguna limpieza borra estas líneas.
+        'limpieza' => 'auditoria_limpiezas',
 
         // Sin tabla, y declarado: no son filas, son sucesos o recursos.
         'intento_login' => null,      // `Services\Login`: un login fallido. Sin actor.

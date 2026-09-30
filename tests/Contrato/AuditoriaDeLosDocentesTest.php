@@ -245,17 +245,19 @@ class AuditoriaDeLosDocentesTest extends CasoDeContrato
     {
         $this->withToken($this->tokenDocente)->getJson('/api/auditoria/permisos')->assertStatus(200)->assertExactJson([
             'familias' => ['notas'], 'ingresos_de_otros' => false, 'bitacora' => false, 'alcance' => 'docente',
+            'limpieza' => false,
         ]);
 
         $llano = $this->usuarioLlanoDelPersonal();
         $this->withToken($this->tokenDe($llano->username))->getJson('/api/auditoria/permisos')->assertExactJson([
             'familias' => [], 'ingresos_de_otros' => false, 'bitacora' => false, 'alcance' => 'ninguno',
+            'limpieza' => false,
         ]);
 
         $this->darPermisoDeAuditoria((int) $llano->id);
         $this->withToken($this->tokenDe($llano->username))->getJson('/api/auditoria/permisos')->assertExactJson([
             'familias' => ['datos', 'notas', 'convivencia'], 'ingresos_de_otros' => true, 'bitacora' => true,
-            'alcance' => 'todo',
+            'alcance' => 'todo', 'limpieza' => false,
         ]);
 
         // Con el permiso, el docente lo ve todo como cualquiera.
