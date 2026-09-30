@@ -64,6 +64,13 @@ final class ListadoDeAuditoria
     /** La entidad de las líneas que salen de `importaciones.cambios`, y su chip. */
     public const IMPORTACION = 'importacion';
 
+    /**
+     * La «familia» de la pestaña Por persona: las tres a la vez, con todos sus tipos (las
+     * claves de tipo no se repiten entre familias). No está en `FAMILIAS` a propósito:
+     * `auditoria/permisos` enseña sus claves y no puede cambiar.
+     */
+    public const TODAS = 'todas';
+
     /** Las entidades con valor numérico: las únicas en las que se mira el `hueco`. */
     private const NUMERICAS = ['nota', 'nota_final', 'recuperacion_final'];
 
@@ -104,7 +111,17 @@ final class ListadoDeAuditoria
     /** @return list<string> */
     public static function entidadesDe(string $familia): array
     {
-        return array_merge(...array_values(self::FAMILIAS[$familia]));
+        return array_merge(...array_values(self::tiposDe($familia)));
+    }
+
+    /**
+     * Los tipos de una familia —clave → entidades—, o los de las tres para `TODAS`.
+     *
+     * @return array<string, list<string>>
+     */
+    public static function tiposDe(string $familia): array
+    {
+        return $familia === self::TODAS ? array_merge(...array_values(self::FAMILIAS)) : self::FAMILIAS[$familia];
     }
 
     /**
@@ -121,7 +138,7 @@ final class ListadoDeAuditoria
         $texto = fn (string $clave) => is_scalar($entrada[$clave] ?? null) ? trim((string) $entrada[$clave]) : '';
         $entero = fn (string $clave) => max(0, (int) $texto($clave));
 
-        $tipos = self::FAMILIAS[$familia];
+        $tipos = self::tiposDe($familia);
         $pedidos = array_values(array_intersect(
             array_map('trim', explode(',', $texto('tipos'))),
             array_keys($tipos)
@@ -152,7 +169,8 @@ final class ListadoDeAuditoria
             array_push($parametros, $id, $id, $id);
         }
 
-        if ($familia === 'notas' && ($id = $entero('asignatura_id'))) {
+        // En `todas`, también: la asignatura de una observación de asignatura sale igual.
+        if (in_array($familia, ['notas', self::TODAS], true) && ($id = $entero('asignatura_id'))) {
             [$sql, $deAsignatura] = self::porAsignatura($entidades, '= ?', [$id]);
             $donde[] = $sql;
             array_push($parametros, ...$deAsignatura);
@@ -276,17 +294,21 @@ final class ListadoDeAuditoria
      *
      * Ordenadas como la página: `ocurrido_en DESC`, y dentro, importación y alumno DESC.
      *
+     * Con `$familia = TODAS` los tipos pedidos son los de las tres familias, y los filtros
+     * que en datos se ignoran sí cuentan: una línea de importación no tiene asignatura ni
+     * periodo —con uno de los dos no sale— y su año es el de la importación.
+     *
      * @param  array<string, mixed>  $entrada
      * @return list<object>
      */
-    public static function deImportaciones(array $entrada): array
+    public static function deImportaciones(array $entrada, string $familia = 'datos'): array
     {
         $texto = fn (string $clave) => is_scalar($entrada[$clave] ?? null) ? trim((string) $entrada[$clave]) : '';
         $entero = fn (string $clave) => max(0, (int) $texto($clave));
 
         $pedidos = array_values(array_intersect(
             array_map('trim', explode(',', $texto('tipos'))),
-            array_keys(self::FAMILIAS['datos'])
+            array_keys(self::tiposDe($familia))
         ));
         if ($pedidos !== [] && ! in_array(self::IMPORTACION, $pedidos, true)) {
             return [];
@@ -294,6 +316,15 @@ final class ListadoDeAuditoria
 
         $donde = ["i.tipo = 'alumnos'", 'i.cambios IS NOT NULL'];
         $parametros = [];
+        if ($familia === self::TODAS) {
+            if ($entero('asignatura_id') || $entero('periodo_id')) {
+                return [];
+            }
+            if ($id = $entero('year_id')) {
+                $donde[] = 'y.id = ?';
+                $parametros[] = $id;
+            }
+        }
         $delAlumno = $entero('alumno_id');
         if ($delAlumno) {
             $donde[] = "JSON_CONTAINS_PATH(i.cambios, 'one', ?)";
@@ -528,6 +559,266 @@ final class ListadoDeAuditoria
     }
 
     /**
+     * EL RANKING DE LA PESTAÑA «POR PERSONA»: quién hizo cambios en las tres familias en el
+     * rango de fechas, con cuántos en cada una, del que más al que menos. Las líneas de
+     * importación cuentan en datos, con quien importó de actor: una por alumno cambiado,
+     * como en el listado.
+     *
+     * Se agrupa por `actor_user_id` sobre `aud_entidad_fecha (entidad, ocurrido_en,
+     * alumno_id, actor_user_id)`, que cubre la consulta: no se lee ninguna fila. El nombre
+     * y el tipo son los de la última línea de cada uno, como en «Cambiado por»; el rol y la
+     * foto, los de `personas()`. `$rol` filtra por ese rol legible (`Docente`,
+     * `Coordinación`…) o por el tipo de la cuenta (`Profesor`, `Usuario`), sin tildes ni
+     * mayúsculas; vacío, todos. Quien no tiene `actor_user_id` no sale.
+     *
+     * Orden: total DESC, y en un empate, el último cambio más reciente y el nombre.
+     *
+     * @param  array<string, mixed>  $entrada  `desde` y `hasta`, ya validadas
+     * @return list<array{user_id: int, nombre: string|null, tipo: string|null, rol: string|null, foto: string|null,
+     *     total: int, por_familia: array{datos: int, notas: int, convivencia: int}, primero: string, ultimo: string}>
+     */
+    public static function personasConCambios(array $entrada, string $rol = ''): array
+    {
+        $fechas = array_intersect_key($entrada, ['desde' => 1, 'hasta' => 1]);
+        [$donde, $parametros] = self::filtro(self::TODAS, $fechas);
+
+        $porFamilia = [];
+        $deFamilia = [];
+        foreach (array_keys(self::FAMILIAS) as $familia) {
+            $entidades = self::entidadesDe($familia);
+            $porFamilia[] = 'SUM(CASE WHEN a.entidad IN ('.self::marcas($entidades).") THEN 1 ELSE 0 END) AS $familia";
+            array_push($deFamilia, ...$entidades);
+        }
+
+        $cuentas = [];
+        foreach (DB::select(
+            'SELECT a.actor_user_id AS user_id, COUNT(*) AS total, '.implode(', ', $porFamilia).',
+                    MIN(a.ocurrido_en) AS primero, MAX(a.ocurrido_en) AS ultimo, MAX(a.id) AS ultima
+               FROM auditoria a
+              WHERE '.$donde.' AND a.actor_user_id IS NOT NULL
+              GROUP BY a.actor_user_id',
+            [...$deFamilia, ...$parametros]
+        ) as $f) {
+            $cuentas[(int) $f->user_id] = [
+                'total' => (int) $f->total,
+                'por_familia' => ['datos' => (int) $f->datos, 'notas' => (int) $f->notas, 'convivencia' => (int) $f->convivencia],
+                'primero' => (string) $f->primero,
+                'ultimo' => (string) $f->ultimo,
+                'ultima' => (int) $f->ultima,
+            ];
+        }
+
+        $lineas = [];
+        $ultimas = array_column($cuentas, 'ultima');
+        if ($ultimas !== []) {
+            foreach (DB::select(
+                'SELECT actor_user_id AS user_id, actor_nombre AS nombre, actor_tipo AS tipo
+                   FROM auditoria WHERE id IN ('.self::marcas($ultimas).')',
+                $ultimas
+            ) as $l) {
+                $lineas[(int) $l->user_id] = $l;
+            }
+        }
+
+        // `auditoria.ocurrido_en` lleva milisegundos y `importaciones.fin` no: se comparan
+        // con la fracción rellena, como en `paginaMezclada()`.
+        $clave = fn ($t) => str_pad(strlen((string) $t) === 19 ? $t.'.' : (string) $t, 26, '0');
+        foreach (self::deImportaciones($fechas, self::TODAS) as $l) {
+            if ($l->actor_user_id === null) {
+                continue;
+            }
+            $id = $l->actor_user_id;
+            $c = $cuentas[$id] ?? ['total' => 0, 'por_familia' => ['datos' => 0, 'notas' => 0, 'convivencia' => 0],
+                'primero' => $l->ocurrido_en, 'ultimo' => $l->ocurrido_en];
+            $c['total']++;
+            $c['por_familia']['datos']++;
+            if ($clave($l->ocurrido_en) < $clave($c['primero'])) {
+                $c['primero'] = $l->ocurrido_en;
+            }
+            if ($clave($l->ocurrido_en) > $clave($c['ultimo'])) {
+                $c['ultimo'] = $l->ocurrido_en;
+            }
+            $cuentas[$id] = $c;
+            $lineas[$id] ??= (object) ['user_id' => $id, 'nombre' => $l->actor_nombre, 'tipo' => $l->actor_tipo];
+        }
+
+        $legible = fn ($v) => Str::lower(Str::ascii(trim((string) $v)));
+        $salida = [];
+        foreach (self::personas(array_values($lineas)) as $p) {
+            if ($rol !== '' && ! in_array($legible($rol), [$legible($p['rol']), $legible($p['tipo'])], true)) {
+                continue;
+            }
+            $c = $cuentas[$p['user_id']];
+            $salida[] = $p + [
+                'total' => $c['total'],
+                'por_familia' => $c['por_familia'],
+                'primero' => $c['primero'],
+                'ultimo' => $c['ultimo'],
+            ];
+        }
+
+        usort($salida, fn ($a, $b) => $b['total'] <=> $a['total']
+            ?: strcmp($clave($b['ultimo']), $clave($a['ultimo']))
+            ?: strcmp(Str::lower(Str::ascii((string) $a['nombre'])), Str::lower(Str::ascii((string) $b['nombre'])))
+            ?: $a['user_id'] <=> $b['user_id']);
+
+        return $salida;
+    }
+
+    /**
+     * EL RESUMEN DE UNA PERSONA en la pestaña «Por persona»: lo que hizo en las tres
+     * familias en el rango de fechas, sobre el mismo filtro que el listado `todas` con
+     * `actor_user_id`, importaciones incluidas.
+     *
+     * - `total` y `alumnos`: los de `totales()` + `conImportaciones()`, como el listado.
+     * - `dias` y `dia_max`: por el día de `ocurrido_en` tal como está guardado —el mismo que
+     *   pintan los separadores—; en un empate, el día más reciente. Sin cambios, `null`.
+     * - `por_tipo`: por familia y clave de tipo, de más a menos.
+     * - `por_asignatura`: la asignatura de cada línea como la pinta `completar()` —la suya,
+     *   si no la de la fila de su entidad, `ASIGNATURA_DE`—, de más a menos. Las líneas sin
+     *   asignatura no cuentan; `asignaturas` es cuántas salen.
+     *
+     * @param  array<string, mixed>  $entrada  `desde` y `hasta`, ya validadas
+     *                                         - `persona`: quién es, como una fila de «Cambiado por»; `null` si no hay ni cuenta
+     *                                         ni línea suya.
+     * @return array{persona: array{user_id: int, nombre: string|null, tipo: string|null, rol: string|null, foto: string|null}|null,
+     *     total: int, alumnos: int, asignaturas: int, dias: int, dia_max: array{fecha: string, total: int}|null,
+     *     por_tipo: list<array{familia: string, tipo: string, total: int}>,
+     *     por_asignatura: list<array{asignatura_id: int, asignatura_nombre: string|null, grupo_nombre: string|null, total: int}>}
+     */
+    public static function resumenDePersona(int $userId, array $entrada): array
+    {
+        $filtro = array_intersect_key($entrada, ['desde' => 1, 'hasta' => 1]) + ['actor_user_id' => $userId];
+        [$donde, $parametros] = self::filtro(self::TODAS, $filtro);
+        $deImportacion = self::deImportaciones($filtro, self::TODAS);
+        $totales = self::conImportaciones($donde, $parametros, $deImportacion, self::totales($donde, $parametros));
+
+        // Por día.
+        $porDia = [];
+        foreach (DB::select(
+            "SELECT DATE(a.ocurrido_en) AS dia, COUNT(*) AS total FROM auditoria a WHERE $donde GROUP BY DATE(a.ocurrido_en)",
+            $parametros
+        ) as $d) {
+            $porDia[(string) $d->dia] = (int) $d->total;
+        }
+        foreach ($deImportacion as $l) {
+            $dia = substr((string) $l->ocurrido_en, 0, 10);
+            $porDia[$dia] = ($porDia[$dia] ?? 0) + 1;
+        }
+        $diaMax = null;
+        foreach ($porDia as $dia => $total) {
+            if ($diaMax === null || $total > $diaMax['total'] || ($total === $diaMax['total'] && $dia > $diaMax['fecha'])) {
+                $diaMax = ['fecha' => (string) $dia, 'total' => $total];
+            }
+        }
+
+        // Por tipo, en el orden de los chips para el empate.
+        $tipoDe = [];
+        /** @var array<string, int> $orden */
+        $orden = [];
+        foreach (self::FAMILIAS as $familia => $tipos) {
+            foreach ($tipos as $tipo => $entidades) {
+                $orden["$familia.$tipo"] = count($orden);
+                foreach ($entidades as $entidad) {
+                    $tipoDe[$entidad] = [$familia, $tipo];
+                }
+            }
+        }
+        $porTipo = [];
+        $sumar = function (string $entidad, int $total) use (&$porTipo, $tipoDe) {
+            if (! isset($tipoDe[$entidad])) {
+                return;
+            }
+            [$familia, $tipo] = $tipoDe[$entidad];
+            $porTipo["$familia.$tipo"] ??= ['familia' => $familia, 'tipo' => $tipo, 'total' => 0];
+            $porTipo["$familia.$tipo"]['total'] += $total;
+        };
+        foreach (DB::select("SELECT a.entidad, COUNT(*) AS total FROM auditoria a WHERE $donde GROUP BY a.entidad", $parametros) as $e) {
+            $sumar((string) $e->entidad, (int) $e->total);
+        }
+        if ($deImportacion !== []) {
+            $sumar(self::IMPORTACION, count($deImportacion));
+        }
+        $porTipo = array_values($porTipo);
+        usort($porTipo, fn ($a, $b) => $b['total'] <=> $a['total']
+            ?: $orden[$a['familia'].'.'.$a['tipo']] <=> $orden[$b['familia'].'.'.$b['tipo']]);
+
+        // Por asignatura.
+        [$asignatura, $deAsignatura] = self::asignaturaDeLaLinea();
+        $porAsignatura = DB::select(
+            "SELECT t.asignatura_id, m.materia AS asignatura_nombre, g.nombre AS grupo_nombre, t.total
+               FROM (SELECT x.asignatura_id, COUNT(*) AS total
+                       FROM (SELECT $asignatura AS asignatura_id FROM auditoria a WHERE $donde) x
+                      WHERE x.asignatura_id IS NOT NULL
+                      GROUP BY x.asignatura_id) t
+               LEFT JOIN asignaturas asg ON asg.id = t.asignatura_id
+               LEFT JOIN materias m ON m.id = asg.materia_id
+               LEFT JOIN grupos g ON g.id = asg.grupo_id
+              ORDER BY t.total DESC, m.materia, g.nombre, t.asignatura_id",
+            [...$deAsignatura, ...$parametros]
+        );
+
+        return [
+            'persona' => self::persona($userId),
+            'total' => $totales['total'],
+            'alumnos' => $totales['alumnos'],
+            'asignaturas' => count($porAsignatura),
+            'dias' => count($porDia),
+            'dia_max' => $diaMax,
+            'por_tipo' => $porTipo,
+            'por_asignatura' => array_values(array_map(fn ($f) => [
+                'asignatura_id' => (int) $f->asignatura_id,
+                'asignatura_nombre' => $f->asignatura_nombre,
+                'grupo_nombre' => $f->grupo_nombre,
+                'total' => (int) $f->total,
+            ], $porAsignatura)),
+        ];
+    }
+
+    /**
+     * La persona del resumen: su nombre y su tipo de su última línea de `auditoria` (por
+     * `aud_actor`), como «Cambiado por»; sin línea, los de su cuenta.
+     *
+     * @return array{user_id: int, nombre: string|null, tipo: string|null, rol: string|null, foto: string|null}|null
+     */
+    private static function persona(int $userId): ?array
+    {
+        $linea = DB::selectOne(
+            'SELECT actor_user_id AS user_id, actor_nombre AS nombre, actor_tipo AS tipo FROM auditoria
+              WHERE id = (SELECT MAX(q.id) FROM auditoria q WHERE q.actor_user_id = ?)',
+            [$userId]
+        ) ?? DB::selectOne(
+            "SELECT u.id AS user_id, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', p.nombres, p.apellidos)), ''), u.username) AS nombre, u.tipo
+               FROM users u
+               LEFT JOIN profesores p ON p.id = (SELECT MIN(x.id) FROM profesores x WHERE x.user_id = u.id AND x.deleted_at IS NULL)
+              WHERE u.id = ?",
+            [$userId]
+        );
+
+        return $linea === null ? null : self::personas([$linea])[0];
+    }
+
+    /**
+     * La asignatura de una línea de `auditoria a` como expresión de SQL: la de la línea,
+     * si no la de la fila de su entidad (`ASIGNATURA_DE`), con una lectura por clave
+     * primaria. Es lo mismo que hace `asignaturas()` en PHP para la página, y lo que
+     * `porAsignatura()` compara.
+     *
+     * @return array{0: string, 1: list<string>}
+     */
+    private static function asignaturaDeLaLinea(): array
+    {
+        $casos = [];
+        $parametros = [];
+        foreach (self::ASIGNATURA_DE as $entidad => $sql) {
+            $casos[] = "WHEN ? THEN (SELECT x.asignatura_id FROM ($sql) x WHERE x.id = a.entidad_id)";
+            $parametros[] = $entidad;
+        }
+
+        return ['COALESCE(NULLIF(a.asignatura_id, 0), CASE a.entidad '.implode(' ', $casos).' END)', $parametros];
+    }
+
+    /**
      * Añade a cada línea de la página lo que la pantalla pinta y la línea no guarda.
      *
      * @param  array<int, object>  $filas
@@ -539,7 +830,7 @@ final class ListadoDeAuditoria
         }
 
         $tipoDe = [];
-        foreach (self::FAMILIAS[$familia] as $tipo => $entidades) {
+        foreach (self::tiposDe($familia) as $tipo => $entidades) {
             foreach ($entidades as $entidad) {
                 $tipoDe[$entidad] = $tipo;
             }
@@ -575,8 +866,19 @@ final class ListadoDeAuditoria
             array_column($filas, 'historial_id'));
         $huecos = self::huecos($filas);
 
+        $familiaDe = [];
+        foreach (self::FAMILIAS as $deFamilia => $tipos) {
+            foreach (array_merge(...array_values($tipos)) as $entidad) {
+                $familiaDe[$entidad] = $deFamilia;
+            }
+        }
+
         foreach ($filas as $f) {
             $f->tipo = $tipoDe[$f->entidad] ?? null;
+            // Sólo en `todas`: en las otras la familia es la del listado, y su forma no cambia.
+            if ($familia === self::TODAS) {
+                $f->familia = $familiaDe[$f->entidad] ?? null;
+            }
             $f->grupo_nombre = $grupos[(int) $grupoDe[$f->id]]->nombre ?? null;
             $f->asignatura_nombre = $asignaturas[$asignaturaDe[$f->id] ?? 0]->nombre ?? null;
             $f->anio = isset($anios[(int) $anioDe[$f->id]]) ? (int) $anios[(int) $anioDe[$f->id]]->year : null;

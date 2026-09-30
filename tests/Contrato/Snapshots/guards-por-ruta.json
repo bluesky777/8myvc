@@ -81,6 +81,8 @@
         "GET api/aspirantes/{id}",
         "GET api/auditoria/alumno/{id}",
         "GET api/auditoria/alumnos/actores",
+        "GET api/auditoria/alumnos/personas-con-cambios",
+        "GET api/auditoria/alumnos/resumen-de-persona/{user_id}",
         "GET api/auditoria/alumnos/{familia}",
         "GET api/auditoria/anio/{year_id}",
         "GET api/auditoria/bitacora-anterior",

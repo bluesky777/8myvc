@@ -100,6 +100,8 @@
     "GET api/aspirantes/{id}": "App\\Http\\Controllers\\Matriculas\\AspirantesController@getFicha",
     "GET api/auditoria/alumno/{id}": "App\\Http\\Controllers\\Auditoria\\AuditoriaController@getAlumno",
     "GET api/auditoria/alumnos/actores": "App\\Http\\Controllers\\Auditoria\\AuditoriaController@getAlumnosActores",
+    "GET api/auditoria/alumnos/personas-con-cambios": "App\\Http\\Controllers\\Auditoria\\AuditoriaController@getPersonasConCambios",
+    "GET api/auditoria/alumnos/resumen-de-persona/{user_id}": "App\\Http\\Controllers\\Auditoria\\AuditoriaController@getResumenDePersona",
     "GET api/auditoria/alumnos/{familia}": "App\\Http\\Controllers\\Auditoria\\AuditoriaController@getAlumnos",
     "GET api/auditoria/anio/{year_id}": "App\\Http\\Controllers\\Auditoria\\AuditoriaController@getAnio",
     "GET api/auditoria/bitacora-anterior": "App\\Http\\Controllers\\Auditoria\\AuditoriaController@getBitacoraAnterior",

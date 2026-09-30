@@ -340,10 +340,13 @@ class AuditoriaController extends Controller
      * A diferencia de las demás rutas no hay tope: hay página y `total`, porque es un
      * listado que se recorre y no el historial de una cosa. Con `solo_total=1` viene el
      * `total` y el `resumen` con `acciones: []`.
+     *
+     * `todas` es la lista de la pestaña «Por persona»: las tres familias mezcladas, con
+     * los tipos de las tres y las importaciones. Sólo con el permiso: al docente, `403`.
      */
     public function getAlumnos(Request $peticion, string $familia): JsonResponse
     {
-        if (! isset(ListadoDeAuditoria::FAMILIAS[$familia])) {
+        if (! isset(ListadoDeAuditoria::FAMILIAS[$familia]) && $familia !== ListadoDeAuditoria::TODAS) {
             return response()->json(['message' => 'Esa familia no existe'], 404);
         }
 
@@ -368,8 +371,8 @@ class AuditoriaController extends Controller
         }
         // Datos lleva además las líneas de la importación de alumnos, que viven en
         // `importaciones.cambios` y no en `auditoria` (ver `ListadoDeAuditoria::deImportaciones`).
-        $deImportacion = $familia === 'datos' && $alcance === null
-            ? ListadoDeAuditoria::deImportaciones($peticion->query())
+        $deImportacion = in_array($familia, ['datos', ListadoDeAuditoria::TODAS], true) && $alcance === null
+            ? ListadoDeAuditoria::deImportaciones($peticion->query(), $familia)
             : [];
         $totales = ListadoDeAuditoria::conImportaciones($donde, $parametros, $deImportacion,
             ListadoDeAuditoria::totales($donde, $parametros));
@@ -417,6 +420,59 @@ class AuditoriaController extends Controller
     public function getAlumnosActores(): JsonResponse
     {
         return response()->json(ListadoDeAuditoria::actores($this->alcanceDelListado()));
+    }
+
+    /**
+     * EL RANKING DE LA PESTAÑA «POR PERSONA»: quién hizo cambios en el rango, del que más
+     * al que menos, con su reparto por familia (`ListadoDeAuditoria::personasConCambios`).
+     * `rol` filtra por el rol legible (`Docente`, `Coordinación`…). Paginado como los
+     * listados; `total` es cuántas personas. Sólo con el permiso.
+     */
+    public function getPersonasConCambios(Request $peticion): JsonResponse
+    {
+        Autoriza::exigir(Autoriza::puedeVerAuditoria($this->user), 'No tiene permiso para ver la auditoría');
+        if ($error = self::fechasMalas($peticion)) {
+            return $error;
+        }
+
+        [$pagina, $porPagina] = self::paginacion($peticion);
+        $rol = is_scalar($peticion->query('rol')) ? trim((string) $peticion->query('rol')) : '';
+        $todas = ListadoDeAuditoria::personasConCambios($peticion->query(), $rol);
+
+        return response()->json([
+            'pagina' => $pagina,
+            'por_pagina' => $porPagina,
+            'total' => count($todas),
+            'filas' => array_slice($todas, ($pagina - 1) * $porPagina, $porPagina),
+        ]);
+    }
+
+    /**
+     * EL RESUMEN DE UNA PERSONA en la pestaña «Por persona»: sus tarjetas, sus chips de
+     * tipo y su lista de asignaturas (`ListadoDeAuditoria::resumenDePersona`). Sólo con el
+     * permiso.
+     */
+    public function getResumenDePersona(Request $peticion, int $userId): JsonResponse
+    {
+        Autoriza::exigir(Autoriza::puedeVerAuditoria($this->user), 'No tiene permiso para ver la auditoría');
+        if ($error = self::fechasMalas($peticion)) {
+            return $error;
+        }
+
+        return response()->json(ListadoDeAuditoria::resumenDePersona($userId, $peticion->query()));
+    }
+
+    /** El `422` de un `desde` o `hasta` que no es AAAA-MM-DD, como en los listados. */
+    private static function fechasMalas(Request $peticion): ?JsonResponse
+    {
+        foreach (['desde', 'hasta'] as $clave) {
+            $fecha = $peticion->query($clave);
+            if ($fecha !== null && $fecha !== '' && (! is_string($fecha) || ! self::esFecha($fecha))) {
+                return response()->json(['message' => "La fecha '$clave' tiene que ser AAAA-MM-DD"], 422);
+            }
+        }
+
+        return null;
     }
 
     /**
