@@ -1245,7 +1245,8 @@ class ImportarController extends Controller
             return response()->json(['ok' => false, 'ajeno' => true, 'msg' => $e->getMessage()], 422);
         }
 
-        $base = pathinfo($fichero->getClientOriginalName(), PATHINFO_FILENAME);
+        // El nombre del cliente, saneado por `SafeUpload` como en el resto (GuardsDestructivosTest).
+        $base = pathinfo((string) SafeUpload::nombreParaGuardar($fichero), PATHINFO_FILENAME);
 
         return response()->json([
             'ok' => true,
