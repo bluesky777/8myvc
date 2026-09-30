@@ -176,10 +176,10 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
         if (preg_match('/^(.+)_acud[12]$/', $columna, $m) && isset(self::CAMPOS_DE_ACUDIENTE[$m[1]])) {
             $queda = self::CAMPOS_DE_ACUDIENTE[$m[1]][3];
 
-            return $queda === '' ? 'Se BORRA el que hubiera.' : 'Se cambia por «'.$queda.'».';
+            return $queda === '' ? 'Se ignora: se queda el que tenía.' : 'Se cambia por «'.$queda.'».';
         }
 
-        return 'Se BORRA el que hubiera.';
+        return 'Se ignora: se queda el que tenía.';
     }
 
     /**
@@ -274,6 +274,9 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
 
     /** Lo que la persona decidió. Nunca null: sin ella, los defectos de siempre. */
     private RespuestasDeLaImportacion $respuestas;
+
+    /** Las columnas que la fila que se está estudiando no escribe. Ver `ignoradasEn`. @var list<string> */
+    private array $ignoradas = [];
 
     public function __construct(private int $year, private ImporterFixer $fixer, ?float $segundos = null,
         ?RespuestasDeLaImportacion $respuestas = null)
@@ -386,10 +389,12 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
         // las lee sin comprobar. Rellenar con null lo que falte es lo que
         // permite estudiar una hoja incompleta en vez de reventar con ella —
         // que es exactamente lo que hoy le pasa a la importación de verdad.
+        $this->ignoradas = self::ignoradasEn($fila, $this->respuestas);
+        $fila = self::prepararFila($fila, $this->ignoradas);
         $alumno = $this->conTodasLasClaves($fila);
 
         $antes = count($this->fixer->avisos);
-        $this->fixer->conservarVacias = $this->respuestas->columnasAConservar();
+        $this->fixer->conservarVacias = array_values(array_unique(array_merge($this->respuestas->columnasAConservar(), $this->ignoradas)));
         $this->fixer->verificar($alumno, $this->year);
 
         // Los avisos del traductor no saben en qué fila del libro estaban: los
@@ -414,13 +419,14 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
         $nombreCompleto = trim(($fila['primer_nombre'] ?? '').' '.($fila['segundo_nombre'] ?? ''));
         $apellidos = trim(($fila['primer_apellido'] ?? '').' '.($fila['segundo_apellido'] ?? ''));
 
-        if ($documento === null || trim((string) $documento) === '') {
+        // Con ID no hace falta el documento para reconocer al alumno: no es una fila sin documento.
+        if (($documento === null || trim((string) $documento) === '') && empty($fila['id'])) {
             $this->filasSinDocumento[] = [
                 'hoja' => $hoja,
                 'fila_del_libro' => $indice + 3,
                 'nombre' => trim($nombreCompleto.' '.$apellidos),
             ];
-        } else {
+        } elseif ($documento !== null && trim((string) $documento) !== '') {
             $this->documentosVistos[(string) $documento][] = [
                 'hoja' => $hoja, 'fila_del_libro' => $indice + 3,
                 'nombre' => trim($nombreCompleto.' '.$apellidos), 'grupo' => $hoja,
@@ -540,7 +546,22 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
 
         $cambios = [];
 
+        // Lo ignorado no se escribe, así que tampoco es un cambio.
+        $noSeTocan = [];
+        foreach (['nombres' => ['primer_nombre', 'segundo_nombre'], 'apellidos' => ['primer_apellido', 'segundo_apellido'],
+            'sexo' => ['sexo'], 'fecha_nac' => ['fecha_de_nacim'], 'tipo_doc' => ['tipo_de_documento'],
+            'documento' => ['nro_de_documento'], 'no_matricula' => ['numero_matricula'], 'direccion' => ['direccion_residencia'],
+            'barrio' => ['barrio'], 'telefono' => ['telefono'], 'celular' => ['celular'], 'estrato' => ['estrato'],
+            'tipo_sangre' => ['rh'], 'eps' => ['eps'], 'religion' => ['religion'], 'nro_sisben' => ['sisben']] as $campo => $deLaHoja) {
+            if (array_intersect($deLaHoja, $this->ignoradas)) {
+                $noSeTocan[$campo] = true;
+            }
+        }
+
         foreach (self::COMPARABLES as $columna => $etiqueta) {
+            if (isset($noSeTocan[$columna])) {
+                continue;
+            }
             $ahora = $existente->{$columna} ?? null;
             $luego = $futuro[$columna] ?? null;
 
@@ -782,6 +803,10 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
             return;
         }
         foreach (array_keys(self::COLUMNAS) as $columna) {
+            // Una columna ignorada no borra nada: no se escribe.
+            if (in_array($columna, $this->ignoradas, true)) {
+                continue;
+            }
             $valor = $fila[$columna] ?? null;
 
             if (($valor === null || trim((string) $valor) === '') && $this->laFichaTiene($columna, $existente)) {
@@ -1153,6 +1178,64 @@ class EnsayoDeLaImportacion implements ToArray, WithEvents, WithHeadingRow
             'sobran' => array_values(array_diff($fuera, $deAcudiente)),
             'de_acudiente' => $deAcudiente,
         ];
+    }
+
+    /**
+     * Qué pasa cuando una columna se ignora --porque falta o porque se pidió--, para la pantalla de
+     * columnas. Es otra cosa que `si_falta`, que es lo que hace una celda VACÍA de una columna que
+     * sí se importa. Las que no salen aquí dicen «No se toca: se queda lo que tenía».
+     */
+    public const SI_SE_IGNORA = [
+        'id' => 'Se busca al alumno por su documento; si tampoco está, se crea uno nuevo.',
+        'tipo_de_documento' => 'No se toca en los que ya existen; un alumno nuevo nace con TARJETA DE IDENTIDAD.',
+        'nro_de_documento' => 'No se toca en los que ya existen. Una fila sin ID crea un alumno nuevo sin documento.',
+        'primer_apellido' => 'No se toca en los que ya existen; un alumno nuevo queda sin apellidos.',
+        'primer_nombre' => 'No se toca en los que ya existen. Una fila sin ID ni documento conocido no crea alumno.',
+        'sexo' => 'No se toca en los que ya existen; un alumno nuevo nace M.',
+        'estado_matricula' => 'La matrícula conserva el estado que ya tenía; una nueva nace MATR.',
+        'nuevo' => 'La matrícula conserva lo que tenía; una nueva nace como no nueva.',
+    ];
+
+    /**
+     * Las columnas que esta fila NO escribe: las que la persona ignoró y las que la hoja no trae.
+     *
+     * Una columna ausente se ignora siempre. Antes el ensayo la contaba como vacía --«Se BORRA la
+     * que hubiera»-- y la importación de verdad reventaba con un 500 al leerla; ninguna de las dos
+     * cosas es lo que quiere quien sube un Excel con sólo el ID y los acudientes.
+     *
+     * @return list<string>
+     */
+    public static function ignoradasEn(array $fila, RespuestasDeLaImportacion $respuestas): array
+    {
+        $ausentes = array_values(array_filter(array_keys(self::COLUMNAS), fn ($c) => ! array_key_exists($c, $fila)));
+
+        return array_values(array_unique(array_merge($respuestas->columnasIgnoradas(), $ausentes)));
+    }
+
+    /**
+     * La fila con sus columnas ignoradas vaciadas y todas las claves que lee el traductor puestas.
+     *
+     * @param  list<string>  $ignoradas
+     */
+    public static function prepararFila(array $fila, array $ignoradas): array
+    {
+        foreach ($ignoradas as $columna) {
+            $fila[$columna] = null;
+        }
+
+        foreach (array_keys(self::COLUMNAS) as $clave) {
+            $fila[$clave] ??= null;
+        }
+
+        foreach ([1, 2] as $n) {
+            foreach (['id_acud', 'nombres_acud', 'apellidos_acud', 'sexo_acud', 'tipo_docu_acud', 'documento_acud',
+                'telefono_acud', 'celular_acud', 'ocupacion_acud', 'direccion_acud', 'email_acud',
+                'parentesco_acud', 'observaciones_acud', 'es_el_acudiente_acud', 'ciudad_docu_acud', 'is_acudiente'] as $campo) {
+                $fila[$campo.$n] ??= null;
+            }
+        }
+
+        return $fila;
     }
 
     private function conTodasLasClaves(array $fila): array

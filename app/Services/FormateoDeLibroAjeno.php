@@ -109,6 +109,10 @@ class FormateoDeLibroAjeno
     /**
      * ¿Es ya la plantilla? La fila 2 trae «Nro de documento» y «Primer nombre», que es lo único que el
      * importador necesita para leerla. Si cualquier pestaña lo trae, el libro no se toca.
+     *
+     * O trae el «ID» del alumno y columnas de acudiente de MyVc («ID Acud1», «Nombres Acud2»…): es la
+     * exportación recortada para subir sólo acudientes, y con el ID no hacen falta ni documento ni
+     * nombres (30 sep 2026). Un libro ajeno no nombra así sus columnas.
      */
     public static function esPlantilla(Spreadsheet $libro): bool
     {
@@ -120,6 +124,9 @@ class FormateoDeLibroAjeno
                 }
             }
             if (in_array('nro de documento', $fila, true) && in_array('primer nombre', $fila, true)) {
+                return true;
+            }
+            if (in_array('id', $fila, true) && preg_grep('/ acud[12]$/', $fila)) {
                 return true;
             }
         }

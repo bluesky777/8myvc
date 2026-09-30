@@ -521,9 +521,12 @@ class EnsayoDeLaImportacionTest extends CasoDeContrato
         $this->assertGreaterThan(0, $r->json('totales.filas'),
             'Con una columna menos el ensayo tiene que seguir estudiando las filas, no rendirse.');
 
-        // Y la consecuencia de que falte, que es lo que la pantalla enseña.
+        // Y la consecuencia de que falte, que es lo que la pantalla enseña: desde el 30 sep 2026 la
+        // columna que falta se ignora --no se toca--, y ya no cuenta como celda vacía que borra.
         $columna = collect($r->json('columnas_destino'))->firstWhere('clave', 'fecha_de_nacim');
-        $this->assertStringContainsString('BORRA', $columna['si_falta']);
+        $this->assertStringContainsString('No se toca', $columna['si_se_ignora']);
+        $this->assertNull(collect($r->json('vacios'))->firstWhere('columna', 'fecha_de_nacim'),
+            'La columna que falta se ignora: no es una celda vacía que vaya a borrar la fecha.');
     }
 
     /**

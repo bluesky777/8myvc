@@ -44,7 +44,7 @@ class RespuestasDeLaImportacion
      *
      * @var list<string>
      */
-    private const APLICADAS = ['vocabularios', 'vacios', 'repetidos', 'duplicados', 'hojas'];
+    private const APLICADAS = ['vocabularios', 'vacios', 'repetidos', 'duplicados', 'hojas', 'ignoradas'];
 
     /**
      * Las que se aceptarían y no se interpretarían, con el motivo que la
@@ -192,6 +192,29 @@ class RespuestasDeLaImportacion
         foreach ($this->seccion('vacios') as $renglon) {
             if (($renglon['decision'] ?? null) === self::VACIO_CONSERVAR
                 && is_string($renglon['columna'] ?? null)) {
+                $columnas[] = $renglon['columna'];
+            }
+        }
+
+        return array_values(array_unique($columnas));
+    }
+
+    /**
+     * Las columnas que la persona pidió **ignorar** aunque vengan en el fichero: `[{columna}]`.
+     *
+     * Ignorar es «no tocar»: la celda se lee como vacía y la columna se conserva, así que en un
+     * alumno que ya existe no se escribe, y en uno nuevo nace sin ella. Las que el fichero no trae se
+     * ignoran siempre, sin que nadie lo pida (ver `EnsayoDeLaImportacion::ignoradasEn`). Entró el
+     * 30 sep 2026 para subir un Excel sólo de acudientes: con el ID basta, sin nombres ni documento.
+     *
+     * @return list<string>
+     */
+    public function columnasIgnoradas(): array
+    {
+        $columnas = [];
+
+        foreach ($this->seccion('ignoradas') as $renglon) {
+            if (is_string($renglon['columna'] ?? null)) {
                 $columnas[] = $renglon['columna'];
             }
         }

@@ -417,7 +417,12 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
      */
     private function procesarFila($alumno, $grupo, $abrev, $now)
     {
-        $this->fixer->conservarVacias = $this->respuestas->columnasAConservar();
+        // Lo que la persona ignoró y lo que la hoja no trae se lee como vacío y se conserva: no se
+        // toca. Antes una columna ausente era un 500 con `Undefined array key`.
+        $ignoradas = EnsayoDeLaImportacion::ignoradasEn($alumno, $this->respuestas);
+        $alumno = EnsayoDeLaImportacion::prepararFila($alumno, $ignoradas);
+        $this->aConservar = array_values(array_unique(array_merge($this->respuestas->columnasAConservar(), $ignoradas)));
+        $this->fixer->conservarVacias = $this->aConservar;
         // Qué celdas venían vacías ANTES de que el traductor las rellene: el parentesco vacío sale de
         // `verificar` como «Madre» y el sexo del acudiente como «M», y así no se podría conservar.
         $this->celdasVacias = array_keys(array_filter($alumno, fn ($v) => $v === null || trim((string) $v) === ''));
@@ -520,7 +525,7 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
                 'sisben' => ['nro_sisben', $alumno['sisben']],
             ];
 
-            $aConservar = $this->respuestas->columnasAConservar();
+            $aConservar = $this->aConservar;
             $sets = [];
             $valores = [];
 
@@ -790,6 +795,9 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
     /** Las celdas de la fila que venían vacías en la hoja (ver `procesarFila`). */
     private array $celdasVacias = [];
 
+    /** Las columnas que la fila en curso no escribe si su celda viene vacía: las conservadas y las ignoradas. @var list<string> */
+    private array $aConservar = [];
+
     /**
      * El acudiente que ya existe (fila con su ID y su nombre): se escribe lo que trae la hoja, y una
      * celda VACÍA con «conservar» no toca ese campo. Antes el UPDATE escribía las once columnas y un
@@ -798,7 +806,7 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
     private function actualizarAcudiente(array $alumno, int $n, $now, string $consulta): void
     {
         $s = 'acud'.$n;
-        $aConservar = $this->respuestas->columnasAConservar();
+        $aConservar = $this->aConservar;
         $conserva = fn (string $col) => in_array($col, $this->celdasVacias, true) && in_array($col, $aConservar, true);
 
         $campos = [
@@ -854,7 +862,7 @@ class ExcelUtils implements ToArray, WithEvents, WithHeadingRow
     {
         $uno = trim((string) ($alumno[$primero] ?? ''));
         $dos = trim((string) ($alumno[$segundo] ?? ''));
-        if ($dos === '' && in_array($segundo, $this->respuestas->columnasAConservar(), true)) {
+        if ($dos === '' && in_array($segundo, $this->aConservar, true)) {
             $partes = preg_split('/[\s\x{00A0}]+/u', $actual, -1, PREG_SPLIT_NO_EMPTY);
             $dos = implode(' ', array_slice($partes, 1));
         }
@@ -1617,7 +1625,8 @@ class ImportarController extends Controller
         $columnas = [];
 
         foreach (EnsayoDeLaImportacion::COLUMNAS as $clave => $meta) {
-            $columnas[] = ['clave' => $clave, 'valor_por_defecto' => $this->valorPorDefecto($clave)] + $meta;
+            $columnas[] = ['clave' => $clave, 'valor_por_defecto' => $this->valorPorDefecto($clave),
+                'si_se_ignora' => EnsayoDeLaImportacion::SI_SE_IGNORA[$clave] ?? 'No se toca: se queda lo que tenía.'] + $meta;
         }
 
         return $columnas;
