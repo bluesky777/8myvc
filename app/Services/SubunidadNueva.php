@@ -7,7 +7,6 @@ use App\Models\Subunidad;
 use App\Support\AsignaturaDeLaFila;
 use App\Support\PeriodoDeLaFila;
 use App\User;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -16,7 +15,7 @@ use Illuminate\Support\Facades\DB;
  * Es el cuerpo de `SubunidadesController::postIndex` sacado a un servicio **sin cambiar nada**, para
  * que el módulo de actividades (`App\Services\Act\Planilla`, contrato §2.8) cree el indicador de una
  * tarea o un cuestionario calificable por el mismo camino: permiso `pueden_editar_notas` del periodo
- * de la unidad, una transacción, la línea de `bitacoras`, la de `Auditoria`, las notas del grupo y el
+ * de la unidad, una transacción, la línea de `Auditoria`, las notas del grupo y el
  * recálculo. El porqué de cada paso sigue escrito en el controlador, donde lo leerá quien lo busque.
  *
  * `$datos` trae lo que el cuerpo de `subunidades/store` traía: `unidad_id`, `definicion`,
@@ -28,7 +27,6 @@ class SubunidadNueva
 {
     public static function crear(object $user, array $datos): Subunidad
     {
-        $now = Carbon::now('America/Bogota');
         // La subunidad todavía no existe: nace colgada de `unidad_id`, así que el
         // periodo al que se escribe es el de esa unidad. §27.
         User::pueden_editar_notas($user, PeriodoDeLaFila::deUnidad(($datos['unidad_id'] ?? null)), AsignaturaDeLaFila::deUnidad(($datos['unidad_id'] ?? null)));
@@ -41,7 +39,7 @@ class SubunidadNueva
         //
         // `recalcularPorSubunidad` abre la suya dentro; Laravel la resuelve con un
         // savepoint y no hay que hacer nada.
-        return DB::transaction(function () use ($user, $now, $datos) {
+        return DB::transaction(function () use ($user, $datos) {
 
             $cant = Subunidad::where('unidad_id', ($datos['unidad_id'] ?? null))->count();
 
@@ -69,28 +67,13 @@ class SubunidadNueva
 
             $subunidad->save();
 
-            // El ingreso sale del token (fase 2 de 18-auditoria.md), no del último
-            // login de esta persona. Y de paso se va un `[0]` que reventaba con
-            // "Undefined array key 0" para quien no tuviera ninguna sesión anotada.
-            $bit_by = $user->user_id;
-            $bit_hist = isset($user->historial_id) && is_numeric($user->historial_id)
-                ? (int) $user->historial_id
-                : null;
-            $bit_new = $subunidad->definicion.' -- '.$subunidad->porcentaje.'%'; 	// Guardo la nota nueva
-            $bit_per = $user->periodo_id;
-
-            $consulta = 'INSERT INTO bitacoras (created_by, historial_id, affected_element_type, affected_element_id, affected_element_new_value_string, created_at) 
-					VALUES (?, ?, "Nueva subunidad", ?, ?, ?)';
-
-            DB::insert($consulta, [$bit_by, $bit_hist, $subunidad->id, $bit_new, $now]);
-
-            // El rastro nuevo, al lado del viejo (18 §4). `crear` y no `editar`: es el
-            // único de los diez que da de alta una fila, y `bitacoras` lo escribía con
+            // Desde el 30 sep 2026 el rastro va sólo a `auditoria` (contrato 5). `crear` y
+            // no `editar`: es el único de los diez que da de alta una fila, y `bitacoras` lo escribía con
             // `affected_element_type = "Nueva subunidad"` —texto libre, tercera
             // convención de nombre de las tres que conviven en esa columna—.
             //
-            // El valor va como estructura y no como la cadena `'X -- 30%'` que arma
-            // `$bit_new`: `valor_nuevo` es `json`, y una definición y un porcentaje son
+            // El valor va como estructura y no como la cadena `'X -- 30%'` que armaba
+            // `bitacoras`: `valor_nuevo` es `json`, y una definición y un porcentaje son
             // dos cosas. Pegadas con ` -- ` no se pueden volver a separar cuando la
             // definición lleva un guión dentro, que es texto escrito a mano.
             Auditoria::registrar()

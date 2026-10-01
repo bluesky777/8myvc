@@ -1725,14 +1725,16 @@ class PlanillaOfflineImportarTest extends CasoDeContrato
         }
 
         // …ni se repitió ninguna. Una fila reprocesada dejaría **dos** líneas de
-        // bitácora para la misma nota, y es la única forma de verlo desde fuera.
+        // auditoría para la misma nota, y es la única forma de verlo desde fuera.
+        // (`auditoria` y no `bitacoras`: desde el 30 sep 2026 el rastro va sólo ahí,
+        // contrato 5.)
         $notaId = DB::selectOne(
             'SELECT id FROM notas WHERE alumno_id = ? AND subunidad_id = ? AND deleted_at IS NULL',
             [$caso['alumno_id'], $caso['subunidad_id']]
         );
 
         $lineas = DB::selectOne(
-            'SELECT COUNT(*) AS n FROM bitacoras WHERE affected_element_type = "Nota" AND affected_element_id = ?',
+            'SELECT COUNT(*) AS n FROM auditoria WHERE entidad = "nota" AND entidad_id = ?',
             [$notaId->id]
         );
 

@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\TokenDeSesion;
-use App\Support\Reloj;
 use App\Support\VersionMinimaDeLaApp;
 use App\User;
 use Illuminate\Http\Request;
@@ -506,33 +505,11 @@ class Sesion
             'user_id' => $token->tokenable_id,
         ]);
 
-        DB::insert(
-            'INSERT INTO bitacoras (descripcion, affected_person_name, affected_element_type, created_at, created_by)
-             VALUES (?, ?, "refresco_reutilizado", ?, ?)',
-            [
-                'Refresco ya rotado presentado de nuevo. Sesión: '.$token->name,
-                '',
-                // La ÚNICA de este fichero que cambia de reloj, y por eso lleva nota:
-                // las demás `Carbon::now()` de aquí gobiernan expiraciones que sólo
-                // se comparan consigo mismas y pueden seguir en UTC. Ésta escribe
-                // en `bitacoras.created_at`, que es de todos. Ver 18 §1.1.
-                //
-                // Y el motivo por el que las otras se QUEDAN, que es lo que impide
-                // que alguien las «unifique» dentro de seis meses (lo apuntó
-                // `8myvc-d2`): `last_used_at` se compara contra
-                // `Carbon::now()->subMinutes(5)` **en el mismo proceso**, así que
-                // moverla a Bogotá no cambiaría nada hoy — pero rompería la
-                // comparación el día que uno de los dos lados se lea de la base.
-                Reloj::ahora(),
-                (int) $token->tokenable_id,
-            ]
-        );
-
         /*
-         * El rastro nuevo, al lado del viejo (18 §4). Y la decisión que hay
-         * detrás de `sinActor`, que es lo único no obvio de esta línea:
+         * Desde el 30 sep 2026 el rastro va sólo a `auditoria` (contrato 5). Y la
+         * decisión que hay detrás de `sinActor`, que es lo único no obvio de esta línea:
          *
-         * `bitacoras` escribe arriba `created_by = $token->tokenable_id`, o sea
+         * `bitacoras` escribía `created_by = $token->tokenable_id`, o sea
          * **afirma que el dueño del token fue quien lo presentó**. Eso es
          * exactamente lo contrario de lo que este suceso significa: un refresco ya
          * rotado presentado de nuevo es la señal de que el token **puede estar en

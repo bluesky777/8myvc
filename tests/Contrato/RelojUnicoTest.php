@@ -105,7 +105,8 @@ class RelojUnicoTest extends TestCase
         // `last_used_at`, la gracia del refresco y el barrido de caducados).
         // Sólo se comparan con columnas escritas por ellas mismas, y ninguna
         // sale por pantalla. La sexta de este fichero SÍ se movió: escribía en
-        // `bitacoras.created_at`, que es de todos.
+        // `bitacoras.created_at`, que es de todos (y desde el 30 sep 2026 ya no
+        // existe: el rastro va sólo a `auditoria`, contrato 5).
         'app/Services/Sesion.php' => 5,
 
         // El TTL de la caché del token de FCM. Relativo (55 minutos desde
@@ -358,12 +359,14 @@ class RelojUnicoTest extends TestCase
     }
 
     #[Test]
-    public function los_tres_escritores_de_bitacora_usan_el_reloj(): void
+    public function los_tres_escritores_de_bitacora_dejan_la_hora_al_servicio(): void
     {
-        // El corazón de la fase 1: los tres que escribían `bitacoras.created_at`
-        // con el reloj equivocado. Comprobar el reparto global no basta —alguien
-        // podría devolverlos a `now()` y ajustar PERMITIDOS de paso—, así que
-        // estos tres se nombran uno a uno.
+        // El corazón de la fase 1 eran los tres que escribían `bitacoras.created_at`
+        // con el reloj equivocado; se movieron a `Reloj::ahora()`. Desde el 30 sep
+        // 2026 ya no escriben en `bitacoras` (contrato 5) y su rastro va por
+        // `Auditoria`, que pone la hora con el `Reloj` sin que quien llama decida
+        // (18 §4.5). Se siguen nombrando uno a uno para que ninguno vuelva a poner
+        // la fecha a mano en una tabla compartida.
         $movidos = [
             'app/Http/Middleware/ExigirPersonaPropia.php',
             'app/Http/Middleware/ExigirBoletinPropio.php',
@@ -373,12 +376,10 @@ class RelojUnicoTest extends TestCase
         foreach ($movidos as $fichero) {
             $codigo = (string) file_get_contents(base_path($fichero));
 
-            $this->assertStringContainsString(
-                'Reloj::ahora()',
-                $codigo,
-                "{$fichero} ya no usa `Reloj::ahora()`. Escribe en `bitacoras.created_at`, ".
-                'que es una columna compartida con otros siete escritores en hora de Bogotá.'
-            );
+            $this->assertStringContainsString('Auditoria::registrar()', $codigo,
+                "{$fichero} ya no deja su línea en `auditoria`.");
+            $this->assertDoesNotMatchRegularExpression('/INSERT\s+INTO\s+bitacoras\s*\(/i', $codigo,
+                "{$fichero} vuelve a escribir en `bitacoras`, que dejó de alimentarse el 30 sep 2026.");
         }
     }
 

@@ -6,7 +6,8 @@ use App\Services\Auditoria;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Los diez escritores de `bitacoras`, ahora también en `auditoria`.
+ * Los diez escritores de `bitacoras`, ahora en `auditoria` (y sólo ahí desde el 30 sep 2026,
+ * contrato 5).
  *
  * Es la primera mitad de la fase 4 de
  * [18-auditoria.md](../../docs/migracion/18-auditoria.md), y el criterio de estos
@@ -103,33 +104,61 @@ class AuditoriaDeLosDiezEscritoresTest extends CasoDeContrato
     }
 
     /**
-     * **El rastro viejo sigue escribiéndose.**
+     * **`bitacoras` ya no crece por ningún camino principal.**
      *
-     * Esto no es una redundancia con el caso de arriba: es la mitad del encargo
-     * que se puede romper sin que ningún otro test se entere. `bitacoras` la
-     * siguen leyendo dos pantallas del front (`historiales/nota-detalle` y su
-     * gemela de definitivas) en los dieciséis colegios, y `app/` es **copia real
-     * en cada uno**, así que retirar el `INSERT` viejo el día que se funda esto
-     * dejaría esas pantallas vacías durante todo el despliegue. La retirada va
-     * detrás del front (JUB-1), no delante.
+     * Desde el 30 sep 2026 el rastro va sólo a `auditoria` (contrato 5). Antes este
+     * caso comprobaba lo contrario —que el INSERT viejo seguía al lado del nuevo—,
+     * y ésa era la mitad que se podía romper sin que nadie se enterara; ahora la
+     * mitad frágil es la vuelta atrás. El centinela de
+     * `CentinelaDeLosEscritoresDeBitacoraTest` mira el código; éste mira la tabla,
+     * después de recorrer de verdad seis de los caminos que escribían en ella:
+     * teclear una nota, una definitiva por su id, una nivelación de definitiva, un
+     * indicador nuevo, un login fallido y una ficha ajena.
      */
-    public function test_el_rastro_viejo_sigue_escribiendose_al_lado_del_nuevo(): void
+    public function test_los_caminos_que_escribian_en_bitacoras_ya_no_la_tocan(): void
     {
+        $antes = DB::table('bitacoras')->count();
+        $lineasAntes = DB::table('auditoria')->count();
+
         $token = $this->tokenDeSuperusuario();
 
         $nota = DB::selectOne('SELECT id, nota FROM notas WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
-
-        $antes = DB::table('bitacoras')->count();
-
         $this->withToken($token)->putJson('/api/notas/update/'.$nota->id,
             ['nota' => (float) $nota->nota == 4.2 ? 3.1 : 4.2])->assertStatus(200);
 
-        $this->assertSame($antes + 1, DB::table('bitacoras')->count(),
-            'El INSERT viejo de `bitacoras` dejó de escribirse. Añadir el rastro nuevo sí; '.
-            'quitar el viejo va detrás del front y del despliegue.');
+        $nf = DB::selectOne('SELECT nf.id, nf.nota FROM notas_finales nf
+            INNER JOIN periodos p ON p.id = nf.periodo_id AND p.deleted_at IS NULL
+            ORDER BY nf.id LIMIT 1');
+        $this->withToken($token)->putJson('/api/definitivas_periodos/update', [
+            'nf_id' => $nf->id, 'nota' => (float) $nf->nota == 4.0 ? 3.0 : 4.0,
+        ])->assertStatus(200);
+        $this->withToken($token)->putJson('/api/definitivas_periodos/nivelar',
+            ['nf_id' => $nf->id, 'nota_nivelacion' => 40])->assertStatus(200);
 
-        $this->assertCount(1, $this->lineasDe('nota', (int) $nota->id),
-            'Y el nuevo tampoco está: no se escribió ninguno de los dos.');
+        $unidad = DB::selectOne('SELECT u.id FROM unidades u
+            INNER JOIN asignaturas a ON a.id = u.asignatura_id AND a.deleted_at IS NULL
+            WHERE u.deleted_at IS NULL ORDER BY u.id LIMIT 1');
+        $this->assertContains($this->withToken($token)->postJson('/api/subunidades', [
+            'unidad_id' => $unidad->id, 'definicion' => 'Sin bitácora', 'porcentaje' => 10, 'nota_default' => 0,
+        ])->status(), [200, 201]);
+
+        $this->postJson('/api/auth/login', [
+            'username' => 'nadie-de-este-colegio', 'password' => 'lo-que-sea',
+        ])->assertStatus(400);
+
+        $alumno = $this->usuarioDeTipo('Alumno');
+        $otro = DB::selectOne('SELECT username FROM users
+            WHERE id <> ? AND deleted_at IS NULL AND username <> "" ORDER BY id LIMIT 1', [$alumno->id]);
+        $this->withToken($this->tokenDe($alumno->username))
+            ->getJson('/api/perfiles/username/'.rawurlencode($otro->username))
+            ->assertStatus(403);
+
+        $this->assertSame($antes, DB::table('bitacoras')->count(),
+            '`bitacoras` volvió a crecer. Dejó de alimentarse el 30 sep 2026 (contrato 5): '.
+            'el rastro va sólo a `auditoria`.');
+
+        $this->assertGreaterThanOrEqual($lineasAntes + 6, DB::table('auditoria')->count(),
+            'Y `auditoria` no recibió las seis líneas: se quitó el rastro viejo sin el nuevo.');
     }
 
     /**

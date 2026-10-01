@@ -4,7 +4,6 @@ namespace App\Http\Middleware;
 
 use App\Services\Auditoria;
 use App\Support\NombreDelAlumno;
-use App\Support\Reloj;
 use App\User;
 use Closure;
 use Illuminate\Http\Request;
@@ -29,8 +28,8 @@ use Illuminate\Support\Facades\DB;
  * Por eso está aquí y no en un método: son once rutas en cuatro controladores, y
  * en el archivo de rutas se ve cuáles.
  *
- * Los `bitacoras` que insertaba el código original se conservan: son el rastro
- * que mira el colegio cuando alguien reclama.
+ * El rastro de cada rechazo es el que mira el colegio cuando alguien reclama; desde
+ * el 30 sep 2026 va sólo a `auditoria` (contrato 5).
  *
  * **El modo `sin-paz-y-salvo` (19 ago 2026).** La misma comprobación de
  * propiedad hacía falta en dos sitios donde retener por deuda NO aplica, y por
@@ -150,46 +149,13 @@ class ExigirBoletinPropio
     }
 
     /**
-     * Deja constancia del intento en `bitacoras`.
-     *
-     * `historial_id` puede quedar en null: el código original lo sacaba de
-     * `DB::select(...)[0]` y reventaba si el usuario no tenía ninguna sesión
-     * registrada — lo tapaba el mismo catch que anulaba la comprobación. Que
-     * falte el historial no puede impedir que se rechace la petición.
+     * Deja constancia del intento en `auditoria` (sólo ahí desde el 30 sep 2026,
+     * contrato 5). El ingreso lo pone el servicio desde el contexto del token, o
+     * null si el token es anterior: que falte no puede impedir que se rechace.
      */
     private function anotar(object $usuario, string $tipo, ?int $alumnoId = null): void
     {
-        // **El ingreso sale del token, no del último login de esta persona.**
-        // Era `order by id desc limit 1` sobre `historiales`, que con el refresco
-        // viviendo catorce días puede señalar un ingreso de hace meses (fase 2 de
-        // 18-auditoria.md). Ahora viene en el contexto que ya resolvió
-        // `auth.token`, y **no cuesta ninguna consulta**.
-        //
-        // Null si el token es anterior a la migración: NULL dice «no se sabe», y
-        // la adivinanza decía «fue ése» y se equivocaba sin avisar.
-        $historialId = isset($usuario->historial_id) && is_numeric($usuario->historial_id)
-            ? (int) $usuario->historial_id
-            : null;
-
-        DB::insert(
-            'INSERT INTO bitacoras (created_by, historial_id, affected_user_id, affected_person_type,
-                affected_element_type, created_at)
-             VALUES (?, ?, ?, "Al", ?, ?)',
-            [
-                $usuario->user_id,
-                $historialId,
-                $alumnoId,
-                $tipo,
-                // Ver el mismo comentario en ExigirPersonaPropia: `now()` es UTC y
-                // esta columna la escriben otros siete en Bogotá. 18 §1.1.
-                Reloj::ahora(),
-            ]
-        );
-
         /*
-         * Igual que en `ExigirPersonaPropia`: se añade el rastro nuevo y **no se
-         * retira el viejo**.
-         *
          * `$alumnoId` puede ser null —las dos rutas `-group` piden el grupo
          * entero y no nombran a nadie—, y ahí `deAlumno(null)` es la respuesta
          * honesta: se pidió de más, no se pidió de alguien.

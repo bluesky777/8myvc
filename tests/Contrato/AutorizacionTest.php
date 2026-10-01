@@ -247,19 +247,23 @@ class AutorizacionTest extends CasoDeContrato
             ->assertJsonPath('message', 'No está a paz y salvo. Lo siento.');
     }
 
-    /** El rechazo deja rastro: es lo que mira el colegio cuando alguien reclama. */
-    public function test_el_intento_rechazado_queda_en_bitacoras(): void
+    /**
+     * El rechazo deja rastro: es lo que mira el colegio cuando alguien reclama.
+     * Desde el 30 sep 2026 va sólo a `auditoria` (contrato 5).
+     */
+    public function test_el_intento_rechazado_queda_en_auditoria(): void
     {
         [$token, $mio, $otro] = $this->alumnoYCompanero();
 
-        $antes = DB::table('bitacoras')->where('affected_element_type', 'AlumnoVerBoletin')->count();
+        $rechazos = fn () => DB::table('auditoria')->where('accion', 'denegado')->where('entidad', 'boletin')
+            ->where('entidad_id', $otro->alumno_id)->where('resumen', 'AlumnoVerBoletin')->count();
+        $antes = $rechazos();
 
         $this->pedir($token, 'boletines', $mio->grupo_id,
             ['alumno_id' => $otro->alumno_id, 'matricula_id' => $otro->matricula_id])
             ->assertStatus(403);
 
-        $this->assertSame($antes + 1,
-            DB::table('bitacoras')->where('affected_element_type', 'AlumnoVerBoletin')->count(),
+        $this->assertSame($antes + 1, $rechazos(),
             'El intento de ver el boletín de otro no quedó registrado.');
     }
 

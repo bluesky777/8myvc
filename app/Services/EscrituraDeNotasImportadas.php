@@ -333,24 +333,9 @@ class EscrituraDeNotasImportadas
             [$valor, $this->usuario->user_id, $ahora, (int) $nota->id]
         );
 
-        $historialId = isset($this->usuario->historial_id) && is_numeric($this->usuario->historial_id)
-            ? (int) $this->usuario->historial_id
-            : null;
-
-        // El rastro viejo, exactamente como lo escribe `putLote`: los cuatro clientes
-        // leen `bitacoras` y una importación que no dejara su línea sería la única
-        // forma de cambiar una nota sin que la pantalla de historial lo cuente.
-        DB::insert(
-            'INSERT INTO bitacoras (created_by, historial_id, affected_user_id, affected_person_type,
-                affected_element_type, affected_element_id, affected_element_new_value_int,
-                affected_element_old_value_int, created_at)
-             VALUES (?, ?, ?, "Al", "Nota", ?, ?, ?, ?)',
-            [$this->usuario->user_id, $historialId, $alumnoId, (int) $nota->id, $valor, $anterior, $ahora]
-        );
-
-        // Y el rastro nuevo (18 §4), **dentro de la transacción de la fila**: si la
-        // fila se deshace, las líneas se deshacen con ella. Una línea por nota y no
-        // una por archivo: la pregunta que la tabla contesta es «quién tocó ESTA
+        // Desde el 30 sep 2026 el rastro va sólo a `auditoria` (contrato 5), **dentro de
+        // la transacción de la fila**: si la fila se deshace, las líneas se deshacen con
+        // ella. Una línea por nota y no una por archivo: la pregunta que la tabla contesta es «quién tocó ESTA
         // nota», y la respuesta tiene que poder ser «una planilla de Excel».
         $this->porCuentaDe(
             Auditoria::registrar()
@@ -634,17 +619,7 @@ class EscrituraDeNotasImportadas
 
             $id = (int) DB::getPdo()->lastInsertId();
 
-            $historialId = isset($this->usuario->historial_id) && is_numeric($this->usuario->historial_id)
-                ? (int) $this->usuario->historial_id
-                : null;
-
-            DB::insert(
-                'INSERT INTO bitacoras (created_by, historial_id, affected_element_type, affected_element_id,
-                    affected_element_new_value_string, created_at)
-                 VALUES (?, ?, "Nueva subunidad", ?, ?, ?)',
-                [$this->usuario->user_id, $historialId, $id, $nombre.' -- '.$peso.'%', $ahora]
-            );
-
+            // Desde el 30 sep 2026 el rastro va sólo a `auditoria` (contrato 5).
             $this->porCuentaDe(
                 Auditoria::registrar()
                     ->crear('subunidad', $id)

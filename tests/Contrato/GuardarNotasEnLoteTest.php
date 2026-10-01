@@ -253,7 +253,8 @@ class GuardarNotasEnLoteTest extends CasoDeContrato
     }
 
     /**
-     * **La bitácora del lote es la misma que la de `putUpdate`.**
+     * **La línea del lote es la misma que la de `putUpdate`.** Desde el 30 sep 2026
+     * es la de `auditoria`: `bitacoras` ya no se escribe (contrato 5).
      *
      * Es el rastro que mira el colegio cuando una familia reclama una nota, y el
      * historial de la app lo lee. Si el lote dejara un rastro distinto, cambiar de
@@ -261,8 +262,8 @@ class GuardarNotasEnLoteTest extends CasoDeContrato
      *
      * Se comparan las dos filas **columna a columna** en vez de comprobar que
      * «hay una bitácora»: lo que se puede perder por el camino es un campo
-     * —`affected_element_old_value_int`, que es el valor viejo y el que hace útil
-     * el rastro—, y contar filas no lo vería.
+     * —`valor_anterior`, que es el valor viejo y el que hace útil el rastro—, y
+     * contar filas no lo vería.
      */
     public function test_la_bitacora_del_lote_es_identica_a_la_de_editar_una_nota(): void
     {
@@ -282,16 +283,15 @@ class GuardarNotasEnLoteTest extends CasoDeContrato
 
         $this->assertNotNull($deLote, 'El lote no dejó bitácora.');
 
-        foreach (['created_by', 'historial_id', 'affected_user_id', 'affected_person_type',
-            'affected_element_type', 'affected_element_new_value_int',
-            'affected_element_old_value_int'] as $columna) {
+        foreach (['actor_user_id', 'historial_id', 'alumno_id', 'accion', 'entidad',
+            'periodo_id', 'valor_nuevo', 'valor_anterior'] as $columna) {
             $this->assertSame($deUpdate->{$columna}, $deLote->{$columna},
                 'La bitácora del lote difiere de la de putUpdate en `'.$columna.'`.');
         }
 
         // Y el id afectado es el de SU nota, no el de la otra: comparar las dos
         // filas columna a columna no lo cogería, porque ahí tienen que diferir.
-        $this->assertSame($ctx['notas'][1], (int) $deLote->affected_element_id);
+        $this->assertSame($ctx['notas'][1], (int) $deLote->entidad_id);
     }
 
     /**
@@ -305,14 +305,14 @@ class GuardarNotasEnLoteTest extends CasoDeContrato
     {
         [$token, $ctx] = $this->asignaturaConNotas();
 
-        $antes = (int) DB::table('bitacoras')->where('affected_element_type', 'Nota')->count();
+        $antes = (int) DB::table('auditoria')->where('entidad', 'nota')->count();
 
         $this->withToken($token)->putJson('/api/notas/lote', [
             'notas' => array_map(fn ($id) => ['id' => $id, 'nota' => 40], $ctx['notas']),
         ])->assertStatus(200);
 
-        $this->assertSame(4, (int) DB::table('bitacoras')
-            ->where('affected_element_type', 'Nota')->count() - $antes);
+        $this->assertSame(4, (int) DB::table('auditoria')
+            ->where('entidad', 'nota')->count() - $antes);
     }
 
     /**
@@ -345,7 +345,7 @@ class GuardarNotasEnLoteTest extends CasoDeContrato
 
         $bitacora = $this->ultimaBitacoraDe($ctx['notas'][0]);
 
-        $this->assertNotNull($bitacora, 'Sin historial no se anotó la bitácora, y eso sí se puede.');
+        $this->assertNotNull($bitacora, 'Sin historial no se anotó la línea de auditoría, y eso sí se puede.');
         $this->assertNull($bitacora->historial_id);
     }
 
@@ -499,11 +499,12 @@ class GuardarNotasEnLoteTest extends CasoDeContrato
         return $cuantos;
     }
 
+    /** La última línea de `auditoria` de esa nota: desde el 30 sep 2026 el rastro va sólo ahí (contrato 5). */
     private function ultimaBitacoraDe(int $notaId): ?object
     {
-        return DB::table('bitacoras')
-            ->where('affected_element_type', 'Nota')
-            ->where('affected_element_id', $notaId)
+        return DB::table('auditoria')
+            ->where('entidad', 'nota')
+            ->where('entidad_id', $notaId)
             ->orderByDesc('id')
             ->first();
     }

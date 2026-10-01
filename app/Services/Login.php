@@ -64,7 +64,7 @@ class Login
         if ($fila === null || ! Hash::check($clave, $fila->password)) {
             RateLimiter::hit($claveLimite, 900);
 
-            $this->anotarIntentoFallido($username, $ahora);
+            $this->anotarIntentoFallido($username);
 
             throw new HttpResponseException(response()->json(['error' => 'invalid_credentials'], 400));
         }
@@ -119,7 +119,7 @@ class Login
         return $filas[0] ?? null;
     }
 
-    private function anotarIntentoFallido(string $username, Carbon $ahora): void
+    private function anotarIntentoFallido(string $username): void
     {
         $maquina = 'Intento login>> Entorno: '.$this->entorno.', Dirección: '.$this->direccion
             .', plataforma: '.Browser::browserEngine()
@@ -127,17 +127,11 @@ class Login
             .', device_fami: '.Browser::deviceFamily()
             .', device_model: '.Browser::deviceModel();
 
-        DB::insert(
-            'INSERT INTO bitacoras (descripcion, affected_person_name, affected_element_type, created_at, created_by)
-             VALUES (?, ?, "intento_login", ?, 0)',
-            [$maquina, $username, $ahora]
-        );
-
         /*
-         * El rastro nuevo, al lado del viejo (18 §4).
+         * Desde el 30 sep 2026 el rastro va sólo a `auditoria` (contrato 5).
          *
          * `sinActor($username)` es la línea entera del cambio: el `created_by = 0`
-         * de arriba es **un id de usuario que no existe disfrazado de uno que sí**,
+         * que escribía `bitacoras` era **un id de usuario que no existe disfrazado de uno que sí**,
          * y cualquier `JOIN users` sobre `bitacoras` lo pierde o lo cuenta mal. Un
          * login fallido no tiene actor por definición —si lo tuviera, habría
          * entrado—, y lo único que se sabe es el nombre que se tecleó: eso va a

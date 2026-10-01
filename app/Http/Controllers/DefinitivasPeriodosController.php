@@ -385,10 +385,6 @@ class DefinitivasPeriodosController extends Controller {
 
 			$nota 		= DB::select($consulta, [$nf_id])[0];
 
-			$bit_by 	= $user->user_id;
-			$bit_hist 	= isset($user->historial_id) && is_numeric($user->historial_id)
-				? (int) $user->historial_id
-				: null;
 			$bit_old 	= $nota->nota; 				// Guardo la nota antigua
 			// La definitiva tecleada a mano pasa por la misma escala que una nota
 			// suelta: es el otro sitio por donde entra un número a pelo. 18 §4.5.1.
@@ -401,27 +397,10 @@ class DefinitivasPeriodosController extends Controller {
 			$consulta 	= 'UPDATE notas_finales SET nota=?, manual=true, updated_by=?, updated_at=? WHERE id=?';
 			DB::update($consulta, [ Request::input('nota'), $user->user_id, $now, $nf_id ]);
 			
-			$consulta 	= 'INSERT INTO bitacoras (created_by, historial_id, affected_user_id, affected_person_type, affected_element_type, affected_element_id, affected_element_new_value_int, affected_element_old_value_int, created_at) 
-						VALUES (?, ?, ?, "Al", "NF_UPDATE", ?, ?, ?, ?)';
-
-			// **Los dos valores van redondeados A PROPÓSITO, y sólo aquí.**
-			// `affected_element_new_value_int` y `_old_value_int` son columnas `int`, y
-			// desde que `notas_finales.nota` es `DECIMAL(7,4)` lo que llega es `43.7500`.
-			// Meter eso en un `int` no es inocuo: **con `sql_mode` vacío —el del
-			// contenedor— MySQL lo redondea en silencio a 44, y con `STRICT_TRANS_TABLES`
-			// lo rechaza**, o sea un 500 al guardar una definitiva a mano. Como no
-			// sabemos el `sql_mode` de los quince cPanel, se decide aquí y no allí.
+			// Desde el 30 sep 2026 el rastro va sólo a `auditoria` (contrato 5): `bitacoras`
+			// ya no se escribe, y con ella se fue el redondeo a `int` que pedían sus columnas.
 			//
-			// El decimal exacto **no se pierde**: el rastro nuevo de tres líneas más
-			// abajo guarda `valor_anterior`/`valor_nuevo` en columnas **JSON**, así que
-			// la verdad queda en `auditoria` y en `bitacoras` queda el entero de siempre.
-			// Ensanchar las dos columnas de `bitacoras` sería lo correcto, pero las
-			// comparten `Nota`, `Nueva subunidad` y `AlumnoPideAjeno:user_id`: es una
-			// migración con su propia decisión, no un efecto secundario de ésta.
-			DB::insert($consulta, [$bit_by, $bit_hist, $nota->alumno_id, $nf_id,
-				(int) round((float) $bit_new), (int) round((float) $bit_old), $now]);
-
-			// El rastro nuevo, al lado del viejo (18 §4). `nota_final` y no
+			// `nota_final` y no
 			// `"NF_UPDATE"`: en `bitacoras` esta columna es texto libre y hoy
 			// conviven ahí `Nota`, `NF_UPDATE`, `Nueva subunidad` y
 			// `AlumnoPideAjeno:user_id`, así que agrupar por tipo obliga a
@@ -671,27 +650,7 @@ class DefinitivasPeriodosController extends Controller {
 					$user->user_id, $now, $fila->id]
 			);
 
-			// El rastro viejo, con los dos valores **redondeados**: las columnas de
-			// `bitacoras` son `int` y con `sql_mode` vacío MySQL redondearía en
-			// silencio, con `STRICT_TRANS_TABLES` daría 500. Es la misma decisión que
-			// tomó `putUpdate` cuando la nota pasó a `DECIMAL`, y por eso se copia en
-			// vez de inventarse otra.
-			DB::insert(
-				'INSERT INTO bitacoras (created_by, historial_id, affected_user_id, affected_person_type,
-					affected_element_type, affected_element_id, affected_element_new_value_int,
-					affected_element_old_value_int, created_at)
-				 VALUES (?, ?, ?, "Al", "NF_UPDATE", ?, ?, ?, ?)',
-				[
-					$user->user_id,
-					isset($user->historial_id) && is_numeric($user->historial_id) ? (int) $user->historial_id : null,
-					$fila->alumno_id,
-					$fila->id,
-					(int) round($nueva),
-					(int) round($vigente),
-					$now,
-				]
-			);
-
+			// Desde el 30 sep 2026 el rastro va sólo a `auditoria` (contrato 5).
 			$alumnoDeLaLinea = $fila->alumno_id === null ? null : (int) $fila->alumno_id;
 
 			Auditoria::registrar()
@@ -862,10 +821,6 @@ class DefinitivasPeriodosController extends Controller {
 
 			$nota 		= DB::select($consulta, [$rf_id])[0];
 
-			$bit_by 	= $user->user_id;
-			$bit_hist 	= isset($user->historial_id) && is_numeric($user->historial_id)
-				? (int) $user->historial_id
-				: null;
 			$bit_old 	= $nota->nota; 				// Guardo la nota antigua
 
 			// La recuperación final es una nota como las demás y se teclea igual:
@@ -899,12 +854,7 @@ class DefinitivasPeriodosController extends Controller {
 			DB::update($consulta, [ Request::input('nota'), $acta['fecha'], $user->user_id, $acta['observacion'],
 				$user->user_id, $now, $rf_id ]);
 			
-			$consulta 	= 'INSERT INTO bitacoras (created_by, historial_id, affected_user_id, affected_person_type, affected_element_type, affected_element_id, affected_element_new_value_int, affected_element_old_value_int, created_at) 
-						VALUES (?, ?, ?, "Al", "RF_UPDATE", ?, ?, ?, ?)';
-
-			DB::insert($consulta, [$bit_by, $bit_hist, $nota->alumno_id, $rf_id, $bit_new, $bit_old, $now]);
-
-			// El rastro nuevo, al lado del viejo (18 §4).
+			// Desde el 30 sep 2026 el rastro va sólo a `auditoria` (contrato 5).
 			//
 			// `en(year: ...)` y no `periodo:`, y ésa es la única diferencia con su
 			// gemela de arriba: **`recuperacion_final` no tiene `periodo_id`**,

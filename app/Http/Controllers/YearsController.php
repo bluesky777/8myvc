@@ -1149,49 +1149,7 @@ class YearsController extends Controller {
 			}
 			
 			
-			// El ingreso sale del token (fase 2 de 18-auditoria.md). El `[0]` que
-			// había reventaba para quien no tuviera ninguna sesión anotada, y aquí
-			// eso caía en el `catch` de abajo: 422 «Datos incorrectos» **con el año
-			// ya guardado**.
-			$bit_by 	= $user->user_id;
-			$bit_hist 	= isset($user->historial_id) && is_numeric($user->historial_id)
-				? (int) $user->historial_id
-				: null;
-
-			$consulta 	= 'INSERT INTO bitacoras (created_by, historial_id, affected_element_type, affected_element_id, created_at, affected_element_new_value_string) 
-					VALUES (?,?,?,?,?,?)';
-
-			// `$year->id` y no `Request::input('id')`, que es lo que había. Es el
-			// **único de los diez escritores de bitácora** que derivaba el sujeto de
-			// la fila del CUERPO en vez de la fila leída; los otros nueve ya usan
-			// `$nota->alumno_id` o `$subunidad->id`. Medido en
-			// docs/migracion/noche-2026-08-24/med-2.md, y es la lección de la §50:
-			// *«qué MÁS lee este identificador del cuerpo»*.
-			//
-			// La fila está garantizada desde la línea 298 —`Year::findOrFail(...)`,
-			// fuera del `try`, así que un id que no existe es 404 antes de llegar
-			// aquí—, o sea que `$year->id` es el id de la fila que se acaba de
-			// guardar. No hay que fiarse de nada.
-			//
-			// **Hoy no cambia ningún resultado, y por eso hay que decir qué arregla:**
-			// `config/database.php` lleva `strict => false`, así que un `id` no
-			// numérico se convierte en silencio al entrar en la columna `int` y las
-			// dos formas guardan lo mismo. Con el modo estricto puesto —que es un
-			// endurecimiento razonable y no está descartado— la vieja lanzaría **después
-			// de `$year->save()`**, y como el `catch` de abajo contesta `abort(422)`,
-			// el año quedaría **cambiado**, el cliente leería «Datos incorrectos» y del
-			// rastro no quedaría nada. Era un fallo latente que la configuración tapa.
-			DB::insert($consulta, [ $bit_by, $bit_hist, 'YEAR CONFIGURACION', $year->id, $now, (string) $year ]);
-
-			// El rastro nuevo, al lado del viejo (18 §4). El décimo escritor, y el
-			// que ya traía arreglado el sujeto: `$year->id` sale de la fila leída
-			// con `findOrFail`, no de `Request::input('id')`.
-			//
-			// `(string) $year` y no `$year->toArray()`: el modelo se serializa a
-			// JSON al convertirlo a cadena, así que lo que entra en `valor_nuevo`
-			// ya es la estructura entera y no un `"[object]"`. Es la misma cadena
-			// que recibe `bitacoras`, y aquí sí cabe entera —`valor_nuevo` es
-			// `json`— mientras que allí va a un `varchar`.
+			// Desde el 30 sep 2026 el rastro va sólo a `auditoria` (contrato 5).
 			//
 			// Desde el 25 sep 2026 la línea la deja `AuditarFila` al guardar, con el
 			// antes y el después de las columnas que cambiaron (antes iba sin `de()`).
@@ -1455,8 +1413,7 @@ class YearsController extends Controller {
 		// día se retira, que sea con el front delante y no de paso.
 		$anterior = $antes['modelo_evaluacion'] ?? null;
 
-		// El rastro nuevo, sin el viejo: `bitacoras` tiene diez escritores fijados
-		// por un centinela y esto no es uno de ellos. `year_config` es la entidad que
+		// `year_config` es la entidad que
 		// ya usa `putGuardarCambios` para lo mismo. `$resumen` viene armado de arriba.
 		Auditoria::registrar()
 			->editar('year_config', (int) $year->id)

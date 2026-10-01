@@ -350,7 +350,8 @@ class NotasTest extends CasoDeContrato
     // -------------------------------------------------------------- Guardar
 
     /**
-     * Guardar una nota deja rastro en `bitacoras`, con el valor viejo y el nuevo.
+     * Guardar una nota deja rastro en `auditoria`, con el valor viejo y el nuevo.
+     * Desde el 30 sep 2026 el rastro va sólo ahí (contrato 5).
      *
      * Es la única auditoría que hay sobre las notas, y de la que depende poder
      * responder «quién le cambió esta nota a mi hijo».
@@ -374,16 +375,18 @@ class NotasTest extends CasoDeContrato
 
         $this->assertEquals($nueva, DB::table('notas')->where('id', $nota->id)->value('nota'));
 
-        $rastro = DB::table('bitacoras')
-            ->where('affected_element_type', 'Nota')
-            ->where('affected_element_id', $nota->id)
+        $rastro = DB::table('auditoria')
+            ->where('entidad', 'nota')
+            ->where('accion', 'editar')
+            ->where('entidad_id', $nota->id)
             ->latest('id')
             ->first();
 
-        $this->assertNotNull($rastro, 'Guardar una nota tiene que dejar una fila en bitacoras.');
-        $this->assertEquals($nueva, $rastro->affected_element_new_value_int);
-        $this->assertEquals($anterior, $rastro->affected_element_old_value_int);
-        $this->assertEquals($asignatura->user_id, $rastro->created_by);
+        $this->assertNotNull($rastro, 'Guardar una nota tiene que dejar una fila en auditoria.');
+        $this->assertEquals($nueva, $rastro->valor_nuevo_num);
+        $this->assertEquals($anterior, $rastro->valor_anterior_num);
+        $this->assertEquals($asignatura->user_id, $rastro->actor_user_id);
+        $this->assertEquals($nota->alumno_id, $rastro->alumno_id);
     }
 
     /**
@@ -551,7 +554,8 @@ class NotasTest extends CasoDeContrato
     }
 
     /**
-     * El intento rechazado queda anotado en `bitacoras`.
+     * El intento rechazado queda anotado en `auditoria` (sólo ahí desde el 30 sep
+     * 2026, contrato 5).
      *
      * Es el mismo rastro que ya dejaba el guard de boletines, y es lo que el
      * colegio mira cuando alguien reclama.
@@ -570,10 +574,13 @@ class NotasTest extends CasoDeContrato
         $this->getJson("/api/notas/alumno/{$ajeno}", ['Authorization' => 'Bearer '.$token])
             ->assertStatus(403);
 
-        $this->assertSame(1, DB::table('bitacoras')
-            ->where('created_by', $usuario->id)
-            ->where('affected_element_type', 'AlumnoVerBoletin')
-            ->where('affected_user_id', $ajeno)
+        $this->assertSame(1, DB::table('auditoria')
+            ->where('actor_user_id', $usuario->id)
+            ->where('accion', 'denegado')
+            ->where('entidad', 'boletin')
+            ->where('entidad_id', $ajeno)
+            ->where('alumno_id', $ajeno)
+            ->where('resumen', 'AlumnoVerBoletin')
             ->count());
     }
 

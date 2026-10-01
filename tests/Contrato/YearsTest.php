@@ -655,7 +655,8 @@ class YearsTest extends CasoDeContrato
         $token = $this->tokenDelPersonal();
         $year = DB::selectOne('SELECT * FROM years WHERE deleted_at IS NULL ORDER BY id LIMIT 1');
 
-        $antes = DB::table('bitacoras')->where('affected_element_type', 'YEAR CONFIGURACION')->count();
+        // Desde el 30 sep 2026 el rastro va sólo a `auditoria` (contrato 5).
+        $antes = DB::table('auditoria')->where('entidad', 'year_config')->count();
 
         $this->withToken($token)->putJson('/api/years/guardar-cambios', [
             'id' => $year->id,
@@ -663,16 +664,15 @@ class YearsTest extends CasoDeContrato
         ])->assertStatus(200);
 
         $linea = DB::selectOne(
-            "SELECT * FROM bitacoras WHERE affected_element_type = 'YEAR CONFIGURACION'
-             ORDER BY id DESC LIMIT 1"
+            "SELECT * FROM auditoria WHERE entidad = 'year_config' ORDER BY id DESC LIMIT 1"
         );
 
         $this->assertSame($antes + 1,
-            DB::table('bitacoras')->where('affected_element_type', 'YEAR CONFIGURACION')->count(),
-            'La llamada tiene que dejar UNA línea de bitácora. Si no la deja, lo que este '
+            DB::table('auditoria')->where('entidad', 'year_config')->count(),
+            'La llamada tiene que dejar UNA línea de auditoría. Si no la deja, lo que este '
             .'test comprueba abajo es una fila vieja de otra corrida.');
 
-        $this->assertSame((int) $year->id, (int) $linea->affected_element_id,
+        $this->assertSame((int) $year->id, (int) $linea->entidad_id,
             'El rastro tiene que apuntar al año que se guardó, y ese id sale de la fila '
             .'—`$year->id`—, nunca de `Request::input(\'id\')`.');
     }

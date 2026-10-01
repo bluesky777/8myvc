@@ -617,7 +617,6 @@ class NotasController extends Controller
 
             $nota = DB::select($consulta, [$id])[0];
 
-            $bit_by = $user->user_id;
             $bit_hist = isset($user->historial_id) && is_numeric($user->historial_id)
                 ? (int) $user->historial_id
                 : null;
@@ -644,13 +643,8 @@ class NotasController extends Controller
             $consulta = 'UPDATE notas SET nota=?, updated_by=?, updated_at=? WHERE id=?';
             DB::update($consulta, [$bit_new, $user->user_id, $now, $id]);
 
-            $consulta = 'INSERT INTO bitacoras (created_by, historial_id, affected_user_id, affected_person_type, affected_element_type, affected_element_id, affected_element_new_value_int, affected_element_old_value_int, created_at) 
-						VALUES (?, ?, ?, "Al", "Nota", ?, ?, ?, ?)';
-
-            DB::insert($consulta, [$bit_by, $bit_hist, $nota->alumno_id, $id, $bit_new, $bit_old, $now]);
-
-            // El rastro nuevo, al lado del viejo (18 §4), y **dentro del mismo
-            // `try` que el UPDATE**, que es donde dice que vaya la regla: después
+            // Desde el 30 sep 2026 el rastro va sólo a `auditoria` (contrato 5). Va
+            // **dentro del mismo `try` que el UPDATE**, que es donde dice que vaya la regla: después
             // de la escritura y después de la guarda (`pueden_editar_notas` está
             // arriba). Auditar antes de la guarda dejaría registrada una escritura
             // que nunca ocurrió.
@@ -1275,9 +1269,7 @@ class NotasController extends Controller
             }
         }
 
-        $historialId = $this->historialDelToken($user);
-
-        $resultado = DB::transaction(fn () => $this->nivelarLaFila($fila, $forma, $user, $now, $historialId));
+        $resultado = DB::transaction(fn () => $this->nivelarLaFila($fila, $forma, $user, $now));
 
         // Fuera de la transacción y después, como en `putUpdate`: el recálculo abre
         // la suya y un fallo suyo no puede convertirse en «no se pudo nivelar».
@@ -1313,9 +1305,7 @@ class NotasController extends Controller
             abort(409, 'Esta nota no tiene ninguna nivelación que quitar.');
         }
 
-        $historialId = $this->historialDelToken($user);
-
-        DB::transaction(function () use ($fila, $user, $now, $historialId) {
+        DB::transaction(function () use ($fila, $user, $now) {
             $original = (int) $fila->nota_original;
 
             DB::update(
@@ -1324,8 +1314,7 @@ class NotasController extends Controller
                 [$original, $user->user_id, $now, $fila->id]
             );
 
-            $this->bitacoraDeNota($fila, (int) $fila->nota, $original, $user, $now, $historialId);
-
+            // Desde el 30 sep 2026 el rastro va sólo a `auditoria` (contrato 5).
             $alumno = $fila->alumno_id === null ? null : (int) $fila->alumno_id;
 
             Auditoria::registrar()
@@ -1444,15 +1433,13 @@ class NotasController extends Controller
             $this->reglaValidaDelAnio((int) $item['fila']->year_id);
         }
 
-        $historialId = $this->historialDelToken($user);
-
         NombreDelAlumno::deVarios(array_map(fn ($i) => $i['fila']->alumno_id, $aNivelar));
 
-        $niveladas = DB::transaction(function () use ($aNivelar, $user, $now, $historialId) {
+        $niveladas = DB::transaction(function () use ($aNivelar, $user, $now) {
             $hechas = [];
 
             foreach ($aNivelar as $item) {
-                $resultado = $this->nivelarLaFila($item['fila'], $item['forma'], $user, $now, $historialId);
+                $resultado = $this->nivelarLaFila($item['fila'], $item['forma'], $user, $now);
                 $hechas[] = $this->notaNivelada($item['id'], $resultado['regla_aplicada'], null, conDefinitiva: false);
             }
 
@@ -1617,7 +1604,7 @@ class NotasController extends Controller
      * @param  array{nivelacion: ?int, original: ?int, obs: ?string, fecha: ?string}  $forma
      * @return array{regla_aplicada: array{regla: string, nota_minima: int, explicacion: string}}
      */
-    private function nivelarLaFila(object $fila, array $forma, object $user, Carbon $now, ?int $historialId): array
+    private function nivelarLaFila(object $fila, array $forma, object $user, Carbon $now): array
     {
         $config = $this->reglaValidaDelAnio((int) $fila->year_id);
 
@@ -1643,11 +1630,9 @@ class NotasController extends Controller
             [$nueva, $original, $nivelacion, $niveladaAt, $niveladaPor, $obs, $user->user_id, $now, $fila->id]
         );
 
-        // El rastro viejo, **idéntico al de `putUpdate`**: es lo que lee el
-        // historial de la app, y una nivelación no puede dejar un rastro distinto
-        // del que deja teclear la nota.
-        $this->bitacoraDeNota($fila, $vigente, $nueva, $user, $now, $historialId);
-
+        // Desde el 30 sep 2026 el rastro va sólo a `auditoria` (contrato 5). La
+        // corrección sola lleva en el resumen la nota de antes y la de después, que
+        // era lo que guardaba `bitacoras` y su `de`/`a` (la original) no dice.
         $alumno = $fila->alumno_id === null ? null : (int) $fila->alumno_id;
 
         $linea = Auditoria::registrar();
@@ -1657,7 +1642,7 @@ class NotasController extends Controller
                 ->de((int) $fila->nota_original)
                 ->a($original)
                 ->resumen('Valoración inicial corregida '.$fila->nota_original.' → '.$original
-                    .'; queda '.$nueva.' por regla '.$config['regla'].'.');
+                    .'; queda '.$nueva.' (antes '.$vigente.') por regla '.$config['regla'].'.');
         } else {
             $linea->nivelar('nota', (int) $fila->id)
                 ->de($vigente)
@@ -1677,18 +1662,6 @@ class NotasController extends Controller
                 'explicacion' => $aplicada['explicacion'],
             ],
         ];
-    }
-
-    /** La línea de `bitacoras` que dejan `putUpdate` y `putLote`, para que el historial de la app la lea igual. */
-    private function bitacoraDeNota(object $fila, int $vieja, int $nueva, object $user, Carbon $now, ?int $historialId): void
-    {
-        EscrituraDeNotas::bitacora($user, $historialId, $fila->alumno_id, (int) $fila->id, $nueva, $vieja, $now);
-    }
-
-    /** El ingreso del token (fase 2 de 18-auditoria.md), o `null` si el token es anterior. */
-    private function historialDelToken(object $user): ?int
-    {
-        return EscrituraDeNotas::historialDelToken($user);
     }
 
     /**

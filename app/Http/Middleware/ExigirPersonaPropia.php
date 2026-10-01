@@ -3,7 +3,6 @@
 namespace App\Http\Middleware;
 
 use App\Services\Auditoria;
-use App\Support\Reloj;
 use App\User;
 use Closure;
 use Illuminate\Http\Request;
@@ -289,43 +288,12 @@ class ExigirPersonaPropia
      */
     private function anotar(object $usuario, string $clave, int $valor): void
     {
-        // **El ingreso sale del token, no del último login de esta persona.**
-        // Era `order by id desc limit 1` sobre `historiales`, que con el refresco
-        // viviendo catorce días puede señalar un ingreso de hace meses (fase 2 de
-        // 18-auditoria.md). Ahora viene en el contexto que ya resolvió
-        // `auth.token`, y **no cuesta ninguna consulta**.
-        //
-        // Null si el token es anterior a la migración: NULL dice «no se sabe», y
-        // la adivinanza decía «fue ése» y se equivocaba sin avisar.
-        $historialId = isset($usuario->historial_id) && is_numeric($usuario->historial_id)
-            ? (int) $usuario->historial_id
-            : null;
-
-        DB::insert(
-            'INSERT INTO bitacoras (created_by, historial_id, affected_user_id, affected_person_type,
-                affected_element_type, created_at)
-             VALUES (?, ?, ?, "Al", ?, ?)',
-            [
-                $usuario->user_id,
-                $historialId,
-                $valor,
-                mb_substr($usuario->tipo.'PideAjeno:'.$clave, 0, 45),
-                // `Reloj::ahora()` y no `now()`: esto escribe en `bitacoras.created_at`,
-                // y `now()` da UTC (config/app.php) mientras los otros siete
-                // escritores de esa columna dan Bogotá. Cinco horas de diferencia
-                // en la misma columna, sin nada que diga cuál es cuál. Ver 18 §1.1.
-                Reloj::ahora(),
-            ]
-        );
-
         /*
-         * El rastro nuevo, **al lado del viejo y sin quitarlo**: `bitacoras`
-         * sigue escribiéndose hasta que el front deje de leerla y eso va detrás
-         * del despliegue (18 §4, JUB-1).
+         * Desde el 30 sep 2026 el rastro va sólo a `auditoria` (contrato 5).
          *
          * `denegado` y no una de las cuatro escrituras, que es la distinción que
-         * `bitacoras` no sabe hacer: aquí **no se guardó nada**, se rechazó. Con
-         * `affected_element_type = 'AlumnoPideAjeno:user_id'` la fila vieja se lee
+         * `bitacoras` no sabía hacer: aquí **no se guardó nada**, se rechazó. Con
+         * `affected_element_type = 'AlumnoPideAjeno:user_id'` la fila vieja se leía
          * igual que una edición, y en la pantalla de «qué hizo en este ingreso»
          * aparecería diciendo lo contrario de lo que pasó.
          *

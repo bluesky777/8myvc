@@ -6,211 +6,57 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /**
- * Los siete escritores de `bitacoras`, fijados — y con ellos su reloj.
+ * **Cero escritores de `bitacoras`** desde el 30 sep 2026 (contrato 5).
  *
- * `tools/salud-de-la-bitacora.php` es la fase 0 del plan de
- * [docs/migracion/18-auditoria.md](../../docs/migracion/18-auditoria.md), y
- * clasifica cada fila en «escrita en UTC» o «escrita en Bogotá» **por su
- * `affected_element_type`**, con una lista escrita a mano en dos constantes. Esa
- * lista sale de leer los `INSERT INTO bitacoras` del proyecto, uno a uno: eran diez
- * el 24 ago 2026 y son **catorce** desde el 21 sep.
+ * Hasta ese día este centinela fijaba los trece `INSERT INTO bitacoras` del
+ * proyecto, fichero a fichero y con el reloj de cada uno, para que
+ * `tools/salud-de-la-bitacora.php` supiera repartir las filas entre UTC y Bogotá.
+ * Joseth decidió dejar de alimentar la tabla: el rastro va sólo a `auditoria` y su
+ * escritor único, `App\Services\Auditoria`. La tabla se queda —la leen
+ * `GET bitacoras/{user_id?}` (congelado), los historiales de antes del corte y la
+ * limpieza—, pero ya no recibe filas nuevas.
  *
- * **Una lista a mano sin centinela dura hasta el siguiente que escriba.** Y el
- * modo en que fallaría es el peor de los dos posibles: un escritor nuevo con el
- * reloj en UTC no rompe la herramienta —la herramienta seguiría imprimiendo un
- * reparto con toda confianza— sino que cuenta de menos justo en la dirección que
- * tranquiliza, y la decisión que depende de ese número («¿se puede reinterpretar
- * la historia vieja?») se tomaría con el dato malo.
+ * O sea que la lista pasó a estar vacía, y **una lista vacía sin centinela dura
+ * hasta el siguiente que copie un escritor viejo**, que es justo lo que pasa
+ * cuando se clona un método de un controlador a otro. Si esto se pone rojo, la
+ * línea va por `Auditoria::registrar()` (o `AuditarFila`), no a `bitacoras`.
  *
- * Por eso este test **no comprueba que el código esté bien**: comprueba que la
- * población que la herramienta cree conocer sigue siendo la que hay. Si alguien
- * añade un `INSERT INTO bitacoras`, esto se pone rojo y le manda a decidir en
- * qué reloj escribe, que es la decisión que de verdad hay que tomar.
- *
- * Cuando la fase 3 del 18 sustituya `bitacoras` por `auditoria` y su escritor
- * único, este test se borra: ya no habrá lista que mantener.
+ * El caso que mira la tabla en vez del código, recorriendo los caminos que
+ * escribían en ella, es
+ * `AuditoriaDeLosDiezEscritoresTest::test_los_caminos_que_escribian_en_bitacoras_ya_no_la_tocan`.
  */
 class CentinelaDeLosEscritoresDeBitacoraTest extends TestCase
 {
-    /**
-     * Los ficheros que escriben una sola vez, con el reloj que usa cada uno.
-     * Medido el 24 ago 2026.
-     *
-     * Diez y no nueve: el primer recuento sumó mal ocho ficheros y publicó 9.
-     * Lo cazó este test en su primera ejecución, que es exactamente para lo que
-     * está — un número a mano se equivoca la primera vez, no la décima.
-     *
-     * El valor NO es cosmético: es lo que decide si las filas de ese sitio se
-     * cuentan como UTC o como Bogotá. `now()` y `Carbon::now()` son UTC porque
-     * `config/app.php` dice `'timezone' => 'UTC'`; el resto pasa la zona a mano.
-     *
-     * @var array<string, string>
-     */
-    private const ESCRITORES = [
-        'app/Http/Middleware/ExigirPersonaPropia.php' => 'UTC',
-        'app/Http/Middleware/ExigirBoletinPropio.php' => 'UTC',
-        'app/Services/Sesion.php' => 'UTC',
-        'app/Services/Login.php' => 'Bogotá',
-        'app/Http/Controllers/YearsController.php' => 'Bogotá',
-
-        // Actividades (commit `c0c953a`, 26 sep 2026): el alta de subunidad y la bitácora de
-        // `putLote` y de nivelar salen a servicios para que la nota de una actividad llegue a la
-        // planilla por el mismo camino. Mismos tipos (`Nueva subunidad`, `Nota`) y **Bogotá**:
-        // `SubunidadNueva::crear` hace `Carbon::now('America/Bogota')`, y a
-        // `EscrituraDeNotas::bitacora` le llega el `$now` de Bogotá de `NotasController` y de
-        // `Act\Planilla`. `SubunidadesController` deja de escribir y `NotasController` baja de 3
-        // a 1: las dos que salen se juntan en `EscrituraDeNotas::bitacora`.
-        'app/Services/SubunidadNueva.php' => 'Bogotá',
-        'app/Services/EscrituraDeNotas.php' => 'Bogotá',
-    ];
-
-    /**
-     * Los dos que escriben más de una vez, con cuántas. Van aparte porque el
-     * conteo por fichero es lo que caza un INSERT nuevo dentro de un fichero
-     * que ya escribía — el caso que una lista de nombres deja pasar entero.
-     *
-     * @var array<string, int>
-     */
-    private const CON_VARIOS = [
-        'app/Http/Controllers/NotasController.php' => 1,
-        'app/Http/Controllers/DefinitivasPeriodosController.php' => 3,
-
-        // «Notas sin internet» (fase 2, commit `3e16747`). **Escribe en Bogotá**
-        // —usa `Reloj::ahora()`, comprobado y no supuesto— y con los tipos que ya
-        // existían, `Nota` y `Nueva subunidad`, por lo mismo que las nivelaciones:
-        // las dos pantallas del front que buscan el historial de una nota lo buscan
-        // **por tipo**, y una importación con tipo nuevo desaparecería de ahí.
-        'app/Services/EscrituraDeNotasImportadas.php' => 2,
-    ];
-
-    /**
-     * **Trece desde el 26 sep 2026**: actividades junta en `EscrituraDeNotas::bitacora` las dos
-     * de `NotasController` (`putLote` y `bitacoraDeNota`), sin tipo ni reloj nuevos.
-     *
-     * Catorce desde el 21 sep 2026, y las dos últimas son de la planilla sin
-     * internet (`EscrituraDeNotasImportadas`, docs 49 y 50): una por nota escrita y
-     * otra por indicador creado desde una columna de reserva. Las dos van en
-     * **Bogotá**, que es la decisión del coordinador y no una casualidad del código:
-     * esas filas acaban en la misma tabla y en la misma pantalla que las de
-     * `putLote`, y se leen seguidas — dos relojes ahí son cinco horas de diferencia
-     * entre dos renglones que describen la misma clase de hecho.
-     *
-     * *Cuidado con la de al lado, que dice lo contrario y también es correcta:*
-     * `PuntoDeControlDeImportacion` **se queda en UTC** (ver `RelojUnicoTest`)
-     * porque sus marcas sólo se restan entre sí. Una escribe algo que una persona
-     * lee junto a otra cosa; la otra escribe algo que sólo se compara consigo mismo.
-     *
-     * Doce desde el 2 sep 2026, y las dos de entonces son de nivelaciones (22 §1.7):
-     * `NotasController::bitacoraDeNota` —que sirve a los tres endpoints de nivelar
-     * un indicador— y `DefinitivasPeriodosController::putNivelar`.
-     *
-     * **Las dos escriben en Bogotá y con los tipos que ya existían**, `Nota` y
-     * `NF_UPDATE`, a propósito: `bitacoras` la leen dos pantallas del front en los
-     * quince colegios buscando por tipo, y una nivelación que dejara un tipo nuevo
-     * desaparecería del historial de la nota sin que nadie lo notara. La distinción
-     * entre corregir y nivelar vive en `auditoria`, que es donde hay vocabulario
-     * cerrado para tenerla.
-     */
-    private const TOTAL_ESPERADO = 13;
-
     #[Test]
-    public function los_escritores_de_bitacora_siguen_siendo_los_mismos(): void
+    public function nadie_escribe_en_bitacoras(): void
     {
-        $encontrados = $this->insertsPorFichero();
-        $total = array_sum($encontrados);
+        $encontrados = $this->escritoresPorFichero();
 
-        $this->assertSame(
-            self::TOTAL_ESPERADO,
-            $total,
-            'Los `INSERT INTO bitacoras` han pasado de '.self::TOTAL_ESPERADO." a {$total}.\n\n".
-            "No es un fallo: es una decisión sin tomar. Quien haya añadido (o quitado) uno\n".
-            "tiene que decir EN QUÉ RELOJ escribe y actualizar las constantes\n".
-            "ESCRITOS_EN_UTC / ESCRITOS_EN_BOGOTA de tools/salud-de-la-bitacora.php,\n".
-            "que es lo que reparte las filas entre UTC y Bogotá. Sin eso la herramienta\n".
-            "sigue imprimiendo un reparto con toda confianza y cuenta de menos.\n\n".
-            'Encontrados ahora: '.json_encode($encontrados, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
+        $this->assertSame([], $encontrados,
+            "Alguien volvió a escribir en `bitacoras`, que dejó de alimentarse el 30 sep 2026\n".
+            "(contrato 5). El rastro va sólo a `auditoria`, con `Auditoria::registrar()` o\n".
+            "`AuditarFila`.\n\n".
+            'Encontrados: '.json_encode($encontrados, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
         );
-    }
-
-    #[Test]
-    public function cada_escritor_sigue_estando_donde_estaba(): void
-    {
-        $encontrados = $this->insertsPorFichero();
-        $esperados = array_merge(
-            array_map(static fn (): int => 1, self::ESCRITORES),
-            self::CON_VARIOS
-        );
-
-        ksort($encontrados);
-        ksort($esperados);
-
-        $this->assertSame(
-            $esperados,
-            $encontrados,
-            "La lista de ficheros que escriben en `bitacoras` ha cambiado.\n\n".
-            "Un fichero nuevo aquí necesita una entrada en ESCRITOS_EN_UTC o en\n".
-            "ESCRITOS_EN_BOGOTA de tools/salud-de-la-bitacora.php, con el tipo que\n".
-            'escribe y el reloj que usa. Ver docs/migracion/18-auditoria.md §1.1.'
-        );
-    }
-
-    /**
-     * Y el que de verdad muerde: que los tres de UTC lo sigan siendo.
-     *
-     * El centinela de arriba caza que aparezca un escritor. Éste caza lo
-     * contrario, que no se ve en ningún conteo: que alguien **cambie el reloj**
-     * de un escritor que ya existe —de `now()` a `Carbon::now('America/Bogota')`
-     * o al revés— sin tocar la herramienta. Los ficheros seguirían siendo los
-     * mismos, el total seguiría siendo diez, y el reparto pasaría a mentir.
-     */
-    #[Test]
-    public function los_escritores_en_utc_siguen_usando_el_reloj_en_utc(): void
-    {
-        foreach (self::ESCRITORES as $fichero => $reloj) {
-            if ($reloj !== 'UTC') {
-                continue;
-            }
-
-            $codigo = (string) file_get_contents(base_path($fichero));
-
-            $this->assertMatchesRegularExpression(
-                '/(?<![\w>])(?:Carbon::)?now\(\s*\)/',
-                $codigo,
-                "{$fichero} ya no usa `now()` / `Carbon::now()` sin zona.\n\n".
-                "Si se le ha puesto la zona, sus filas dejan de estar en UTC y\n".
-                "tools/salud-de-la-bitacora.php tiene que moverlo de ESCRITOS_EN_UTC\n".
-                "a ESCRITOS_EN_BOGOTA — con la fecha del cambio, porque a partir de\n".
-                'ese despliegue las filas viejas y las nuevas tienen relojes distintos.'
-            );
-        }
     }
 
     /**
      * **Un comentario que menciona `INSERT INTO bitacoras` NO es un escritor.**
      *
-     * Va con su propio test porque la primera versión de esto contaba con
-     * `preg_match_all` sobre el texto del fichero, comentarios incluidos, y eso
-     * **falló de verdad el 24 ago 2026**: `8myvc-39` escribió
-     * `App\Services\Auditoria` con un docblock que explicaba por qué existe
-     * —*«hoy hay 10 INSERT INTO bitacoras repartidos en 8 ficheros»*— y este
-     * centinela cantó **once**.
-     *
-     * **La documentación del escritor único contaba como el escritor número
-     * once.** Y el número era correcto: había once coincidencias. Lo que no había
-     * era once escritores.
-     *
-     * Es el mismo error que dio **257 en vez de 256** unas horas antes, y por eso
-     * la respuesta es la que este repo ya pagó: **contar sobre tokens y no con
-     * una regex.** Los comentarios llegan como `T_COMMENT`/`T_DOC_COMMENT` y una
-     * expresión regular no sabe la diferencia; `token_get_all()` sí.
+     * La primera versión de esto contaba con `preg_match_all` sobre el texto del
+     * fichero, comentarios incluidos, y **falló de verdad el 24 ago 2026**: el
+     * docblock de `App\Services\Auditoria` explicaba por qué existe —*«hoy hay 10
+     * INSERT INTO bitacoras repartidos en 8 ficheros»*— y el centinela cantó once.
+     * Con cero escritores importa más: los comentarios que dicen «aquí había un
+     * INSERT y se quitó el 30 sep» son justo los que quedan en el código.
      */
     #[Test]
     public function un_comentario_que_lo_menciona_no_cuenta_como_escritor(): void
     {
         $conComentario = <<<'PHP'
             <?php
-            // Aquí antes había un INSERT INTO bitacoras y se quitó.
-            /** Ver los INSERT INTO bitacoras del proyecto. */
+            // Aquí antes había un INSERT INTO bitacoras y se quitó; y un new Bitacora.
+            /** Ver los INSERT INTO bitacoras del proyecto y DB::table('bitacoras')->insert. */
             class X {
                 public function y() {
                     DB::insert('INSERT INTO bitacoras (created_by) VALUES (?)', [1]);
@@ -219,36 +65,66 @@ class CentinelaDeLosEscritoresDeBitacoraTest extends TestCase
             PHP;
 
         $this->assertSame(1, $this->contarEnCodigo($conComentario),
-            'Cuenta menciones en vez de consultas: es el fallo del 24 ago, cuando '.
-            'el docblock de `App\Services\Auditoria` contó como el escritor once.');
+            'Cuenta menciones en vez de escrituras: es el fallo del 24 ago, cuando '.
+            'el docblock de `App\Services\Auditoria` contó como un escritor.');
 
         $soloComentarios = <<<'PHP'
             <?php
             // INSERT INTO bitacoras
-            /* INSERT INTO bitacoras */
-            /** INSERT INTO bitacoras */
+            /* new Bitacora; */
+            /** DB::table('bitacoras')->insert([]) */
             PHP;
 
         $this->assertSame(0, $this->contarEnCodigo($soloComentarios));
     }
 
     /**
-     * Los `INSERT INTO bitacoras` que hay ahora mismo, por fichero.
+     * Y las otras formas de escribir, que el SQL a mano no cubre: el modelo y el
+     * constructor de consultas. Leer, borrar lógicamente (`DELETE bitacoras/destroy`)
+     * y la limpieza **no** cuentan: no dejan rastro nuevo.
+     */
+    #[Test]
+    public function caza_tambien_el_modelo_y_el_constructor_de_consultas(): void
+    {
+        $escrituras = <<<'PHP'
+            <?php
+            $b = new Bitacora;
+            $c = new \App\Models\Bitacora();
+            Bitacora::create([]);
+            DB::table('bitacoras')->insert([]);
+            DB::table("bitacoras")->insertGetId([]);
+            DB::statement("REPLACE INTO bitacoras (id) VALUES (1)");
+            PHP;
+
+        $this->assertSame(6, $this->contarEnCodigo($escrituras));
+
+        $lecturas = <<<'PHP'
+            <?php
+            DB::table('bitacoras')->where('id', 1)->count();
+            DB::select('SELECT * FROM bitacoras WHERE id = ?', [1]);
+            DB::update('UPDATE bitacoras SET deleted_at=? WHERE id=?', [1, 1]);
+            DB::delete('DELETE FROM bitacoras WHERE created_at < ?', [1]);
+            $x = Bitacora::class;
+            PHP;
+
+        $this->assertSame(0, $this->contarEnCodigo($lecturas));
+    }
+
+    /**
+     * Las escrituras que hay ahora mismo en `app/`, por fichero.
      *
-     * Cuenta sobre `app/` y no sobre el resultado de una petición a propósito:
-     * lo que se está fijando es **el código que puede escribir**, no el que
-     * escribió hoy. Un escritor que sólo se dispara en un caso raro cuenta igual
-     * — de hecho es el que más, porque es el que nadie recuerda.
+     * Sobre el código y no sobre una petición a propósito: lo que se fija es **el
+     * código que puede escribir**, no el que escribió hoy. Un escritor que sólo se
+     * dispara en un caso raro cuenta igual.
      *
      * @return array<string, int>
      */
-    private function insertsPorFichero(): array
+    private function escritoresPorFichero(): array
     {
         $encontrados = [];
-        $raiz = base_path('app');
 
         /** @var iterable<\SplFileInfo> $ficheros */
-        $ficheros = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($raiz));
+        $ficheros = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(base_path('app')));
 
         foreach ($ficheros as $fichero) {
             if ($fichero->getExtension() !== 'php') {
@@ -258,8 +134,7 @@ class CentinelaDeLosEscritoresDeBitacoraTest extends TestCase
             $cuantos = $this->contarEnCodigo((string) file_get_contents($fichero->getPathname()));
 
             if ($cuantos > 0) {
-                $relativa = str_replace(base_path().'/', '', $fichero->getPathname());
-                $encontrados[$relativa] = $cuantos;
+                $encontrados[str_replace(base_path().'/', '', $fichero->getPathname())] = $cuantos;
             }
         }
 
@@ -267,33 +142,45 @@ class CentinelaDeLosEscritoresDeBitacoraTest extends TestCase
     }
 
     /**
-     * Cuántas consultas —no menciones— hay en un trozo de código.
+     * Cuántas escrituras —no menciones— hay en un trozo de código.
      *
-     * Sólo mira **cadenas literales**: `T_CONSTANT_ENCAPSED_STRING` (las
-     * comillas simples y dobles, que es donde vive el SQL de este repo) y
-     * `T_ENCAPSED_AND_WHITESPACE` (heredocs y cadenas interpoladas). Los
-     * comentarios son `T_COMMENT` y `T_DOC_COMMENT` y **no entran**, que es todo
-     * el arreglo.
-     *
-     * Es método aparte y no un `private` enterrado en el bucle **para que se
-     * pueda probar con un trozo de código a mano**, que es lo que permite fijar
-     * el caso del docblock sin necesitar un fichero trampa dentro de `app/`.
+     * Sobre `token_get_all()` y no con una regex sobre el texto: los comentarios
+     * llegan como `T_COMMENT`/`T_DOC_COMMENT` y se tiran antes de buscar. El SQL se
+     * busca dentro de las cadenas; el modelo y `DB::table(...)->insert` en el código
+     * que queda sin comentarios.
      */
     private function contarEnCodigo(string $codigo): int
     {
         $cuantos = 0;
+        $sinComentarios = '';
 
         foreach (token_get_all($codigo) as $token) {
             if (! is_array($token)) {
+                $sinComentarios .= $token;
+
                 continue;
             }
 
-            if (! in_array($token[0], [T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE], true)) {
+            if (in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
                 continue;
             }
 
-            $cuantos += preg_match_all('/INSERT\s+INTO\s+bitacoras/i', $token[1]);
+            $sinComentarios .= $token[1];
+
+            if (in_array($token[0], [T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE], true)) {
+                $cuantos += preg_match_all('/(?:INSERT|REPLACE)\s+(?:IGNORE\s+)?INTO\s+`?bitacoras\b/i', $token[1]);
+            }
         }
+
+        $cuantos += preg_match_all('/\bnew\s+\\\\?(?:App\\\\Models\\\\)?Bitacora\b/', $sinComentarios);
+        $cuantos += preg_match_all(
+            '/\bBitacora::(?:create|forceCreate|insert|insertGetId|insertOrIgnore|firstOrCreate|updateOrCreate|upsert)\s*\(/',
+            $sinComentarios
+        );
+        $cuantos += preg_match_all(
+            '/table\(\s*[\'"]bitacoras[\'"]\s*\)\s*->\s*(?:insert|insertGetId|insertOrIgnore|upsert|updateOrInsert)\s*\(/',
+            $sinComentarios
+        );
 
         return $cuantos;
     }

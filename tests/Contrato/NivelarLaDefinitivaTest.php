@@ -264,19 +264,34 @@ class NivelarLaDefinitivaTest extends CasoDeContrato
             'Una nivelación registrada como `editar` es un teclazo más: la §1.2 del plan es que no se confundan.');
     }
 
-    /** Y el rastro viejo se sigue escribiendo, que es lo que lee el historial de la app. */
-    public function test_el_rastro_viejo_de_bitacoras_sigue_escribiendose(): void
+    /**
+     * Desde el 30 sep 2026 el rastro va sólo a `auditoria` (contrato 5): la línea
+     * lleva lo que llevaba la de `bitacoras` —alumno, antes y después— y
+     * `bitacoras` no crece.
+     */
+    public function test_el_rastro_va_solo_a_auditoria(): void
     {
         $token = $this->tokenDeSuperusuario();
         $nf = $this->unaDefinitiva();
+        $vigente = (float) DB::table('notas_finales')->where('id', $nf->id)->value('nota');
 
         $antes = DB::table('bitacoras')->count();
 
         $this->withToken($token)->putJson('/api/definitivas_periodos/nivelar',
             ['nf_id' => $nf->id, 'nota_nivelacion' => 40])->assertStatus(200);
 
-        $this->assertSame($antes + 1, DB::table('bitacoras')->count(),
-            'Sin la línea de `bitacoras`, la pantalla de historial de la app se queda vacía.');
+        $this->assertSame($antes, DB::table('bitacoras')->count(),
+            'Nivelar volvió a escribir en `bitacoras`, que dejó de alimentarse el 30 sep 2026.');
+
+        $linea = DB::selectOne('SELECT * FROM auditoria
+            WHERE entidad = "nota_final" AND entidad_id = ? ORDER BY id DESC LIMIT 1', [$nf->id]);
+
+        $this->assertNotNull($linea);
+        $this->assertEquals($nf->alumno_id, $linea->alumno_id);
+        $this->assertEquals($vigente, (float) json_decode($linea->valor_anterior));
+        $this->assertEquals((float) DB::table('notas_finales')->where('id', $nf->id)->value('nota'),
+            (float) json_decode($linea->valor_nuevo));
+        $this->assertNotNull($linea->actor_user_id);
     }
 
     // ─────────────────────────────────────────────────────────────────────

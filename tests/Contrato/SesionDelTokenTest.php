@@ -174,20 +174,14 @@ class SesionDelTokenTest extends CasoDeContrato
             ->putJson('/api/notas/update/'.$nota->id, ['nota' => $nueva])
             ->assertStatus(200);
 
-        $bitacora = DB::selectOne('SELECT historial_id FROM bitacoras
-            WHERE affected_element_id = ? AND affected_element_type = "Nota"
-            ORDER BY id DESC LIMIT 1', [$nota->id]);
-
-        $this->assertNotNull($bitacora, 'No se escribió la bitácora.');
-        $this->assertEquals($ingresoPrimera, $bitacora->historial_id,
-            'La bitácora colgó el cambio del ÚLTIMO ingreso en vez del de la sesión '.
-            'que lo hizo. Es la lista falsa que ve el colegio en «qué hizo en este ingreso».');
-
+        // Desde el 30 sep 2026 el rastro va sólo a `auditoria` (contrato 5).
         $linea = DB::selectOne('SELECT sesion_id, historial_id, atribucion FROM auditoria
             WHERE entidad = "nota" AND entidad_id = ? ORDER BY id DESC LIMIT 1', [$nota->id]);
 
         $this->assertNotNull($linea, 'No se escribió la línea de auditoría.');
-        $this->assertEquals($ingresoPrimera, $linea->historial_id);
+        $this->assertEquals($ingresoPrimera, $linea->historial_id,
+            'La línea colgó el cambio del ÚLTIMO ingreso en vez del de la sesión '.
+            'que lo hizo. Es la lista falsa que ve el colegio en «qué hizo en este ingreso».');
         $this->assertSame('sesion', $linea->atribucion,
             'La auditoría sigue diciendo «aproximada» teniendo la atribución cierta. '.
             'Es la columna con la que la pantalla distingue lo que se sabe de lo que '.
@@ -269,17 +263,11 @@ class SesionDelTokenTest extends CasoDeContrato
             ->putJson('/api/notas/update/'.$nota->id, ['nota' => (float) $nota->nota == 4.2 ? 3.1 : 4.2])
             ->assertStatus(200);
 
-        $bitacora = DB::selectOne('SELECT historial_id FROM bitacoras
-            WHERE affected_element_id = ? AND affected_element_type = "Nota"
-            ORDER BY id DESC LIMIT 1', [$nota->id]);
-
-        $this->assertNull($bitacora->historial_id,
-            'Sin ingreso conocido se volvió a adivinar el último login.');
-
         $linea = DB::selectOne('SELECT sesion_id, historial_id, atribucion FROM auditoria
             WHERE entidad = "nota" AND entidad_id = ? ORDER BY id DESC LIMIT 1', [$nota->id]);
 
-        $this->assertNull($linea->historial_id);
+        $this->assertNull($linea->historial_id,
+            'Sin ingreso conocido se volvió a adivinar el último login.');
         $this->assertNull($linea->sesion_id);
         $this->assertSame('aproximada', $linea->atribucion,
             'La línea dice que la atribución es cierta sin serlo.');

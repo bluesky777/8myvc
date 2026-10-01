@@ -591,17 +591,21 @@ class SuperficieDeUnAlumnoTest extends CasoDeContrato
         }
     }
 
-    /** El rechazo deja rastro, que es lo que mira el colegio cuando alguien reclama. */
-    public function test_el_intento_de_pedir_lo_ajeno_queda_en_bitacoras(): void
+    /**
+     * El rechazo deja rastro, que es lo que mira el colegio cuando alguien reclama.
+     * Desde el 30 sep 2026 va sólo a `auditoria` (contrato 5).
+     */
+    public function test_el_intento_de_pedir_lo_ajeno_queda_en_auditoria(): void
     {
         [, , $otro, , $cab] = $this->actores();
 
-        $antes = DB::table('bitacoras')->where('affected_element_type', 'like', 'AlumnoPideAjeno%')->count();
+        $rechazos = fn () => DB::table('auditoria')->where('accion', 'denegado')->where('entidad', 'persona')
+            ->where('entidad_id', $otro->id)->where('resumen', 'like', 'Alumno pidió%')->count();
+        $antes = $rechazos();
 
         $this->putJson('/api/detalles/alumno', ['alumno_id' => $otro->id], $cab)->assertStatus(403);
 
-        $this->assertSame($antes + 1,
-            DB::table('bitacoras')->where('affected_element_type', 'like', 'AlumnoPideAjeno%')->count(),
+        $this->assertSame($antes + 1, $rechazos(),
             'El intento de pedir los datos de otro no quedó registrado.');
     }
 

@@ -53,8 +53,8 @@ class MisActividadesIdAjenoTest extends CasoDeContrato
     /**
      * Un alumno pidiendo por otro: 403, y queda anotado.
      *
-     * El `abort(403)` del guard va acompañado de una fila en `bitacoras` con
-     * `affected_element_type = 'AlumnoPideAjeno:alumno_id'`. **Se comprueban las
+     * El `abort(403)` del guard va acompañado de una línea `denegado` en
+     * `auditoria` (sólo ahí desde el 30 sep 2026, contrato 5). **Se comprueban las
      * dos cosas**: un 403 sin rastro no le sirve al colegio el día que alguien
      * reclama, y el rastro es la mitad del guard que nadie mira.
      */
@@ -67,7 +67,7 @@ class MisActividadesIdAjenoTest extends CasoDeContrato
         $this->assertNotNull($otro,
             'El seed no tiene un segundo alumno: sin él este test no comprueba nada.');
 
-        $antes = DB::table('bitacoras')->count();
+        $antes = DB::table('auditoria')->where('accion', 'denegado')->where('entidad', 'persona')->count();
 
         $r = $this->putJson(self::RUTA, ['alumno_id' => $otro],
             ['Authorization' => 'Bearer '.$this->tokenDe($alumno->username)]);
@@ -75,8 +75,9 @@ class MisActividadesIdAjenoTest extends CasoDeContrato
         $this->assertSame(403, $r->getStatusCode(),
             'Un alumno recibió '.$r->getStatusCode().' pidiendo las actividades del alumno '.$otro.'.');
 
-        $this->assertGreaterThan($antes, DB::table('bitacoras')->count(),
-            'El 403 llegó sin dejar rastro en `bitacoras`: el colegio no puede saber que lo intentó.');
+        $this->assertGreaterThan($antes,
+            DB::table('auditoria')->where('accion', 'denegado')->where('entidad', 'persona')->count(),
+            'El 403 llegó sin dejar rastro en `auditoria`: el colegio no puede saber que lo intentó.');
     }
 
     /**

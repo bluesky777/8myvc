@@ -9,7 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
- * ESCRIBIR NOTAS DE LA PLANILLA: permiso, escala, una transacción con bitácora y auditoría por nota,
+ * ESCRIBIR NOTAS DE LA PLANILLA: permiso, escala, una transacción con auditoría por nota,
  * y la definitiva recalculada una vez por par asignatura × periodo.
  *
  * Es la segunda mitad de `NotasController::putLote` sacada a un servicio **sin cambiar nada** (el
@@ -106,17 +106,13 @@ class EscrituraDeNotas
             return ['guardadas' => 0, 'fallidas' => $fallidas, 'escritas' => []];
         }
 
-        // El ingreso sale del token (fase 2 de 18-auditoria.md), y con él se va una
-        // consulta por lote.
-        $historialId = self::historialDelToken($user);
-
         // Los nombres de las notas del lote, **en una consulta y fuera de la
         // transacción**: dentro del bucle `de()` ya no consulta. Fuera y no dentro
         // porque es una lectura que no necesita estar en la transacción, y meterla
         // alargaría lo que la transacción tiene abierto sin ninguna ganancia.
         NombreDelAlumno::deVarios(array_map(fn ($f) => $f['destino']->alumno_id, $aEscribir));
 
-        $guardadas = DB::transaction(function () use ($aEscribir, $user, $now, $historialId) {
+        $guardadas = DB::transaction(function () use ($aEscribir, $user, $now) {
             $hechas = 0;
 
             foreach ($aEscribir as $fila) {
@@ -125,9 +121,7 @@ class EscrituraDeNotas
                     [$fila['valor'], $user->user_id, $now, $fila['id']]
                 );
 
-                self::bitacora($user, $historialId, $fila['destino']->alumno_id, $fila['id'], $fila['valor'], $fila['destino']->nota, $now);
-
-                // El rastro nuevo, al lado del viejo (18 §4), y **dentro de la
+                // Desde el 30 sep 2026 el rastro va sólo a `auditoria` (contrato 5), y **dentro de la
                 // transacción del lote**: si el lote se deshace, las líneas se
                 // deshacen con él. Es la propiedad que `Auditoria` tiene por no
                 // abrir transacción propia, y la que hoy le falta a `putUpdate`.
@@ -163,24 +157,6 @@ class EscrituraDeNotas
         }
 
         return ['guardadas' => $guardadas, 'fallidas' => $fallidas, 'escritas' => $aEscribir];
-    }
-
-    /** La línea de `bitacoras` que dejan `putUpdate`, `putLote` y nivelar, para que el historial de la app la lea igual. */
-    public static function bitacora(object $user, ?int $historialId, $alumnoId, int $notaId, $nueva, $vieja, $now): void
-    {
-        DB::insert(
-            'INSERT INTO bitacoras (created_by, historial_id, affected_user_id, affected_person_type,
-				affected_element_type, affected_element_id, affected_element_new_value_int,
-				affected_element_old_value_int, created_at)
-			 VALUES (?, ?, ?, "Al", "Nota", ?, ?, ?, ?)',
-            [$user->user_id, $historialId, $alumnoId, $notaId, $nueva, $vieja, $now]
-        );
-    }
-
-    /** El ingreso del token (fase 2 de 18-auditoria.md), o `null` si el token es anterior. */
-    public static function historialDelToken(object $user): ?int
-    {
-        return isset($user->historial_id) && is_numeric($user->historial_id) ? (int) $user->historial_id : null;
     }
 
     /**

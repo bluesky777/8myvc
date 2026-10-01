@@ -86,7 +86,8 @@ class ActPlanillaTest extends CasoDeActividades
             'El indicador nació sin la casilla del alumno.');
         $this->assertGreaterThanOrEqual(count($this->escena()->alumnos), DB::table('notas')->where('subunidad_id', $sub)->count());
 
-        $this->assertSame(1, DB::table('bitacoras')->where('affected_element_type', 'Nueva subunidad')->where('affected_element_id', $sub)->count());
+        // Desde el 30 sep 2026 el rastro va sólo a `auditoria` (contrato 5).
+        $this->assertSame(1, DB::table('auditoria')->where('accion', 'crear')->where('entidad', 'subunidad')->where('entidad_id', $sub)->count());
         $this->assertSame($sub, $this->como('titular')->getJson("/api/act/{$id}")->json('subunidad_id'));
     }
 
@@ -156,10 +157,12 @@ class ActPlanillaTest extends CasoDeActividades
         $this->assertSame(25, $this->notaEnPlanilla($sub, $this->alumno()));
 
         $notaId = DB::table('notas')->where('subunidad_id', $sub)->where('alumno_id', $this->alumno()->alumno_id)->value('id');
-        $bitacora = DB::table('bitacoras')->where('affected_element_type', 'Nota')->where('affected_element_id', $notaId)->first();
-        $this->assertNotNull($bitacora, 'La nota se escribió sin bitácora.');
-        $this->assertSame(25, (int) $bitacora->affected_element_new_value_int);
-        $this->assertNull($bitacora->affected_element_old_value_int);
+        // Desde el 30 sep 2026 el rastro va sólo a `auditoria` (contrato 5).
+        $bitacora = DB::table('auditoria')->where('entidad', 'nota')->where('entidad_id', $notaId)->first();
+        $this->assertNotNull($bitacora, 'La nota se escribió sin línea de auditoría.');
+        $this->assertSame(25, (int) $bitacora->valor_nuevo_num);
+        $this->assertNull($bitacora->valor_anterior_num);
+        $this->assertSame((int) $this->alumno()->alumno_id, (int) $bitacora->alumno_id);
     }
 
     public function test_con_varios_intentos_la_planilla_lleva_la_mejor(): void

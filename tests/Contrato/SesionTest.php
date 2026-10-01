@@ -190,14 +190,15 @@ class SesionTest extends CasoDeContrato
 
         $this->caducar($par['refresco']);
 
-        $antes = DB::table('bitacoras')->where('affected_element_type', 'refresco_reutilizado')->count();
+        // Desde el 30 sep 2026 el rastro va sólo a `auditoria` (contrato 5).
+        $antes = DB::table('auditoria')->where('entidad', 'refresco_reutilizado')->where('accion', 'denegado')->count();
 
         $this->postJson('/api/auth/refresh', [], $this->cab($par['refresco']))->assertStatus(401);
 
         $this->assertSame(
             $antes + 1,
-            DB::table('bitacoras')->where('affected_element_type', 'refresco_reutilizado')->count(),
-            'Reutilizar un refresco ya rotado debería quedar escrito en bitacoras.'
+            DB::table('auditoria')->where('entidad', 'refresco_reutilizado')->where('accion', 'denegado')->count(),
+            'Reutilizar un refresco ya rotado debería quedar escrito en auditoria.'
         );
     }
 
