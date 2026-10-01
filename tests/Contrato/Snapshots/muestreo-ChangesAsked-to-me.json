@@ -81,8 +81,11 @@
             "imagen_nombre": "string",
             "ip": "null",
             "nombres": "string",
+            "pendientes": [
+                "string"
+            ],
             "platform_family": "null",
-            "porcentaje": "int",
+            "porcentaje": "float|int",
             "profesor_id": "int",
             "sexo": "string",
             "telefono": "null",

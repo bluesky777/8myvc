@@ -131,7 +131,10 @@ class EnviarNotificaciones extends Command
 
         $mandados = 0;
 
-        $mandados += $this->porFuente('notas', fn ($desde) => $this->avisosDeNotas($desde), $publicador, $seco);
+        // Las notas salen de `auditoria` desde el contrato 5, con su propia marca. La
+        // primera pasada con la marca vieja puesta la hereda: ver `herenciaDeLaBitacora`.
+        $herencia = $this->herenciaDeLaBitacora();
+        $mandados += $this->porFuente(self::FUENTE_NOTAS, fn ($desde) => $this->avisosDeNotas($herencia['desde'] ?? $desde, $herencia['excluir'] ?? null), $publicador, $seco, $herencia !== null);
         $mandados += $this->porFuente('asistencia', fn ($desde) => $this->avisosDeAsistencia($desde), $publicador, $seco);
         $mandados += $this->porFuente('disciplina', fn ($desde) => $this->avisosDeDisciplina($desde), $publicador, $seco);
         $mandados += $this->porFuente('muro', fn ($desde) => $this->avisosDelMuro($desde), $publicador, $seco);
@@ -165,7 +168,7 @@ class EnviarNotificaciones extends Command
      *
      * @param  callable(int): array{avisos: array<int, array<string, mixed>>, hasta: int, tope?: int, sigue?: bool}  $buscar
      */
-    private function porFuente(string $fuente, callable $buscar, Publicador $publicador, bool $seco): int
+    private function porFuente(string $fuente, callable $buscar, Publicador $publicador, bool $seco, bool $heredada = false): int
     {
         $clave = 'notificaciones.marca.'.$fuente;
         $marca = Cache::get($clave);
@@ -174,8 +177,11 @@ class EnviarNotificaciones extends Command
 
         // Primera pasada: se pone la marca y no se manda nada. Ver la nota de la
         // clase — sin esto, encender el push le manda a cada familia un aviso por
-        // cada fila del año.
-        if ($marca === null) {
+        // cada fila del año. **Salvo que la marca se herede** de otra fuente: entonces
+        // no es la primera pasada, es la misma con otro cursor, y lo pendiente se avisa.
+        if ($heredada) {
+            $this->line("[$fuente] marca heredada de la bitácora: se avisa desde donde iba.");
+        } elseif ($marca === null) {
             // `tope` es el final de verdad cuando la fuente entrega por tramos (actividades).
             $hasta = $resultado['tope'] ?? $resultado['hasta'];
 
@@ -225,6 +231,78 @@ class EnviarNotificaciones extends Command
     }
 
     /**
+     * La marca de las notas desde el contrato 5: va por `auditoria.id`. La vieja,
+     * `notificaciones.marca.notas`, iba por `bitacoras.id` y se deja donde está.
+     */
+    private const FUENTE_NOTAS = 'notas-auditoria';
+
+    /** Margen de la herencia: lo que puede tardar una petición entre empezar y escribir su última línea. */
+    private const MARGEN_DE_LA_HERENCIA = 3600;
+
+    /**
+     * **El cambio de cursor, sin avisos repetidos ni perdidos.**
+     *
+     * Sólo actúa una vez por colegio: la primera pasada con el código nuevo, cuando
+     * la marca nueva no existe y la vieja sí. Sin marca vieja es una primera pasada
+     * de verdad (encender el push) y no hay nada que heredar: devuelve null.
+     *
+     * Lo que hay que conseguir: avisar de toda línea de nota de `auditoria` que no se
+     * avisara ya por su gemela de `bitacoras`. Desde la fase 4 cada cambio de nota se
+     * escribe en las dos, así que lo ya avisado son **las gemelas de las filas de
+     * `bitacoras` hasta la marca vieja**, y lo pendiente es todo lo demás: las gemelas
+     * de las filas de después de la marca y lo que ya sólo está en `auditoria`.
+     *
+     * - **No sirve `MAX(auditoria.id)` de ahora**: el contrato 5 quita los escritores
+     *   de `bitacoras` en la misma tanda, así que lo que se califique entre el
+     *   despliegue y esta pasada (hasta quince minutos) sólo está en `auditoria` y se
+     *   perdería.
+     * - **Tampoco una fecha a secas**: `bitacoras.created_at` es `TIMESTAMP` con la
+     *   hora de inicio de la petición, y `auditoria.ocurrido_en` `DATETIME(3)` con la
+     *   de cada línea. En un lote de notas las dos difieren lo que dure el lote.
+     *
+     * Así que se arranca **una hora antes** de la última fila avisada (`desde`) y se
+     * quita de ese tramo lo que tenga gemela entre las filas de `bitacoras` ya
+     * avisadas (`excluir`: la misma nota con los mismos valores, de una a dos horas
+     * antes de la marca hasta la marca). Lo que quede, se avisa.
+     *
+     * @return array{desde: int, excluir: array{0: int, 1: int}}|null
+     */
+    private function herenciaDeLaBitacora(): ?array
+    {
+        if (Cache::get('notificaciones.marca.'.self::FUENTE_NOTAS) !== null) {
+            return null;
+        }
+
+        $vieja = Cache::get('notificaciones.marca.notas');
+
+        if (! is_numeric($vieja)) {
+            return null;
+        }
+
+        $vieja = (int) $vieja;
+
+        $ultima = DB::selectOne('SELECT created_at FROM bitacoras WHERE id <= ? ORDER BY id DESC LIMIT 1', [$vieja]);
+
+        if ($ultima === null || $ultima->created_at === null) {
+            return null;
+        }
+
+        $cuando = strtotime((string) $ultima->created_at);
+        $haceUnaHora = date('Y-m-d H:i:s', $cuando - self::MARGEN_DE_LA_HERENCIA);
+        $haceDos = date('Y-m-d H:i:s', $cuando - 2 * self::MARGEN_DE_LA_HERENCIA);
+
+        // Recorren la clave primaria hacia atrás hasta la primera fila más vieja que
+        // el margen: leen el tramo de la última hora o dos, no la tabla.
+        $desde = DB::selectOne('SELECT id FROM auditoria WHERE ocurrido_en < ? ORDER BY id DESC LIMIT 1', [$haceUnaHora]);
+        $piso = DB::selectOne('SELECT id FROM bitacoras WHERE id <= ? AND created_at < ? ORDER BY id DESC LIMIT 1', [$vieja, $haceDos]);
+
+        return [
+            'desde' => $desde === null ? 0 : (int) $desde->id,
+            'excluir' => [$piso === null ? 0 : (int) $piso->id, $vieja],
+        ];
+    }
+
+    /**
      * Notas nuevas o cambiadas: **un aviso por alumno y pasada**, diga cuántas
      * asignaturas diga.
      *
@@ -241,10 +319,11 @@ class EnviarNotificaciones extends Command
      * la app abre «Mis notas» entera. Un servidor viejo no la manda y la app sigue
      * leyendo el texto, así que conviven.
      *
-     * Sale de `bitacoras`, que ya registra cada `PUT notas/update/{id}` y cada
-     * nota de un lote con `affected_element_type = 'Nota'`. No hace falta tabla
-     * nueva ni columna nueva: el rastro que el colegio mira cuando alguien
-     * reclama es el mismo que dice qué avisar.
+     * **Sale de `auditoria`** (contrato 5): las líneas de `nota` que cambian el valor
+     * —crear, editar, nivelar y quitar la nivelación—, que son las que la bitácora
+     * vieja apuntaba como `Nota`. Las definitivas no avisaban y siguen sin avisar.
+     * Un reguardado con el mismo valor ya no avisa: `auditoria` no lo apunta, y no
+     * era una nota nueva.
      *
      * El `JOIN` hasta `materias` es lo que permite decir «en Matemáticas» en vez
      * de «hay notas nuevas», y es la diferencia entre un aviso que sirve y uno
@@ -257,7 +336,7 @@ class EnviarNotificaciones extends Command
      * `tools/unidades-sin-alcance.py` la marca porque une `unidades` sin comparar
      * `u.alumno_id`. Es cierto, y aquí **no hay nada que acotar**: el camino
      * `nota -> subunidad -> unidad -> asignatura -> materia` arranca de UNA nota ya
-     * identificada por `b.affected_element_id` y sube por claves ajenas. No
+     * identificada por `a.entidad_id` y sube por claves ajenas. No
      * selecciona un conjunto: **resuelve un nombre**. Una condición sobre
      * `u.alumno_id` no podría quitar filas de más — sólo quitar la única que hay, y
      * eso es una familia que se queda sin el aviso.
@@ -269,30 +348,42 @@ class EnviarNotificaciones extends Command
      * en silencio. La distinción con `grupos_desactualizados` —que tampoco se
      * acota— es que aquélla agrega sobre muchas notas y ésta sube desde una sola.
      *
+     * @param  array{0: int, 1: int}|null  $excluir  el tramo de `bitacoras` ya avisado, en la herencia
      * @return array{avisos: array<int, array<string, mixed>>, hasta: int}
      */
-    private function avisosDeNotas(int $desde): array
+    private function avisosDeNotas(int $desde, ?array $excluir = null): array
     {
-        $tope = (int) (DB::selectOne('SELECT COALESCE(MAX(id), 0) AS m FROM bitacoras')->m ?? 0);
+        $tope = (int) (DB::selectOne('SELECT COALESCE(MAX(id), 0) AS m FROM auditoria')->m ?? 0);
+
+        // Sólo en la herencia: lo que ya avisó la marca vieja por su gemela.
+        $sinLoAvisado = $excluir === null ? '' : '
+                AND NOT EXISTS (
+                    SELECT 1 FROM bitacoras b
+                     WHERE b.id > ? AND b.id <= ?
+                       AND b.affected_element_type = "Nota"
+                       AND b.deleted_at IS NULL
+                       AND b.affected_element_id = a.entidad_id
+                       AND b.affected_element_new_value_int <=> a.valor_nuevo_num
+                       AND b.affected_element_old_value_int <=> a.valor_anterior_num)';
 
         $filas = DB::select(
-            'SELECT b.affected_user_id AS alumno_id,
+            'SELECT n.alumno_id AS alumno_id,
                     COALESCE(NULLIF(mat.alias, ""), mat.materia) AS asignatura,
                     COUNT(*) AS cuantas
-               FROM bitacoras b
-               INNER JOIN notas n ON n.id = b.affected_element_id
+               FROM auditoria a
+               INNER JOIN notas n ON n.id = a.entidad_id
                INNER JOIN subunidades s ON s.id = n.subunidad_id
                INNER JOIN unidades u ON u.id = s.unidad_id
                INNER JOIN asignaturas asig ON asig.id = u.asignatura_id
                INNER JOIN materias mat ON mat.id = asig.materia_id
-              WHERE b.id > ? AND b.id <= ?
-                AND b.affected_element_type = "Nota"
-                AND b.affected_user_id IS NOT NULL
-                AND b.deleted_at IS NULL
-              GROUP BY b.affected_user_id, asignatura
-              ORDER BY b.affected_user_id
+              WHERE a.id > ? AND a.id <= ?
+                AND a.entidad = "nota"
+                AND a.accion IN ("crear", "editar", "nivelar", "quitar_nivelacion")
+                AND n.alumno_id IS NOT NULL'.$sinLoAvisado.'
+              GROUP BY n.alumno_id, asignatura
+              ORDER BY n.alumno_id
               LIMIT '.self::TOPE_POR_FUENTE,
-            [$desde, $tope]
+            $excluir === null ? [$desde, $tope] : [$desde, $tope, $excluir[0], $excluir[1]]
         );
 
         // Lista y no diccionario por nombre: PHP convierte en entero una clave

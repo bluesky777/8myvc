@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\DB;
 
 use App\Support\Autoriza;
+use App\Support\HistorialDeLasDosTablas;
 use App\User;
 use App\Models\Year;
 use App\Models\Grupo;
@@ -37,19 +38,10 @@ class HistorialesController extends Controller {
 		);
 
 
-		$consulta 	= '(SELECT b.id as bit_id, b.created_by as created_by_user_id, b.historial_id, b.created_at, b.affected_element_new_value_int as new_value, b.affected_element_old_value_int as old_value, concat(p.nombres, " ", p.apellidos) as creado_por
-							FROM bitacoras b 
-							inner join users u on u.id=b.created_by
-							inner join profesores p on p.user_id=u.id
-							where b.affected_element_type="Nota" and b.affected_element_id=?)
-						UNION 
-						(SELECT b.id as bit_id, b.created_by as created_by_user_id, b.historial_id, b.created_at, b.affected_element_new_value_int as new_value, b.affected_element_old_value_int as old_value, u.username as creado_por
-							FROM bitacoras b 
-							inner join users u on u.id=b.created_by AND u.tipo<>"Profesor"
-							where b.affected_element_type="Nota" and b.affected_element_id=?)';
-		
-
-		$bita = DB::select($consulta, [$nota_id, $nota_id] );
+		// `bitacoras` hasta el corte y `auditoria` después, con la forma de siempre:
+		// Flutter (`HistorialNotaApi.dart`) y `app/` leen `bit_id`, `old_value`,
+		// `new_value`, `creado_por` y `created_at`, y ordenan por `bit_id`. Contrato 5.
+		$bita = HistorialDeLasDosTablas::cambios('nota', 'Nota', (int) $nota_id);
 		
 		
 		// **Las diez columnas nombradas y no `n.*`**, desde el 2 sep 2026: esta fila
@@ -118,19 +110,9 @@ class HistorialesController extends Controller {
 			'No tiene permiso para ver la auditoría de otras personas'
 		);
 
-		$consulta 	= '(SELECT b.id as bit_id, b.created_by as created_by_user_id, b.historial_id, b.created_at, b.affected_element_new_value_int as new_value, b.affected_element_old_value_int as old_value, concat(p.nombres, " ", p.apellidos) as creado_por
-							FROM bitacoras b 
-							inner join users u on u.id=b.created_by
-							inner join profesores p on p.user_id=u.id
-							where b.affected_element_type="NF_UPDATE" and b.affected_element_id=?)
-						UNION 
-						(SELECT b.id as bit_id, b.created_by as created_by_user_id, b.historial_id, b.created_at, b.affected_element_new_value_int as new_value, b.affected_element_old_value_int as old_value, u.username as creado_por
-							FROM bitacoras b 
-							inner join users u on u.id=b.created_by AND u.tipo<>"Profesor"
-							where b.affected_element_type="NF_UPDATE" and b.affected_element_id=?)';
-		
-
-		$bita = DB::select($consulta, [$nf_id, $nf_id] );
+		// Lo mismo que `putNotaDetalle`, con `NF_UPDATE` en la vieja y `nota_final` en
+		// la nueva. Contrato 5.
+		$bita = HistorialDeLasDosTablas::cambios('nota_final', 'NF_UPDATE', (int) $nf_id);
 		
 		
 		// Una marca de parámetro y **un** valor. Llevaba dos —copiados de la consulta
@@ -191,13 +173,8 @@ class HistorialesController extends Controller {
 						WHERE b.historial_id=? and b.deleted_at is null';
 			*/
 			
-			$consulta   = 'SELECT b.*, a.nombres, a.apellidos, s.definicion FROM bitacoras b
-						inner join alumnos a ON b.affected_user_id=a.id and a.deleted_at is null
-						inner join notas n ON n.id=b.affected_element_id
-						inner join subunidades s ON s.id=n.subunidad_id and s.deleted_at is null
-						WHERE b.historial_id=? and b.deleted_at is null';
-						
-			$bitacoras_notas 	= DB::select($consulta, [$historial_id] );
+			// `bitacoras` o `auditoria` según el ingreso, con la forma de siempre (contrato 5).
+			$bitacoras_notas 	= HistorialDeLasDosTablas::cambiosDelIngreso((int) $historial_id, (int) $historial->user_id);
 			
 			$historial->bitacoras 	= $bitacoras_notas;
 		

@@ -4,6 +4,7 @@ namespace Tests\Contrato;
 
 use App\Services\Notificaciones\Publicador;
 use App\Services\Notificaciones\TemasDeNotificacion;
+use App\Support\Reloj;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\PendingCommand;
@@ -75,7 +76,7 @@ class EnviarNotificacionesTest extends CasoDeContrato
         // nada** —`compromisos` todavía no existe, así que devuelven cero—; se
         // olvidan igual porque el día que la tabla aterrice la marca heredada sería
         // justo lo que hace que un test publique un aviso que no pidió.
-        foreach (['notas', 'asistencia', 'disciplina', 'muro', 'compromiso', 'compromiso-resultado', 'actividades'] as $fuente) {
+        foreach (['notas', 'notas-auditoria', 'asistencia', 'disciplina', 'muro', 'compromiso', 'compromiso-resultado', 'actividades'] as $fuente) {
             Cache::forget('notificaciones.marca.'.$fuente);
         }
     }
@@ -94,7 +95,7 @@ class EnviarNotificacionesTest extends CasoDeContrato
         $this->assertSame([], $this->publicador->mandados,
             'La primera pasada avisó de lo que ya estaba en la base.');
 
-        $this->assertNotNull(Cache::get('notificaciones.marca.notas'),
+        $this->assertNotNull(Cache::get('notificaciones.marca.notas-auditoria'),
             'La primera pasada no dejó puesta la marca, así que la siguiente volvería a ser la primera.');
     }
 
@@ -113,7 +114,7 @@ class EnviarNotificacionesTest extends CasoDeContrato
         $this->publicador->mandados = [];
 
         foreach ($ctx['notas'] as $notaId) {
-            $this->bitacoraDeNota($notaId, $ctx['alumno']);
+            $this->lineaDeNota($notaId, $ctx['alumno']);
         }
 
         $this->correr();
@@ -154,7 +155,7 @@ class EnviarNotificacionesTest extends CasoDeContrato
         $this->publicador->mandados = [];
 
         foreach ([...$ctx['notas'], ...$otra['notas']] as $notaId) {
-            $this->bitacoraDeNota($notaId, $ctx['alumno']);
+            $this->lineaDeNota($notaId, $ctx['alumno']);
         }
 
         $this->correr();
@@ -192,7 +193,7 @@ class EnviarNotificacionesTest extends CasoDeContrato
 
         // Una nota con un valor inconfundible: si se colara, se vería.
         DB::table('notas')->where('id', $ctx['notas'][0])->update(['nota' => 37]);
-        $this->bitacoraDeNota($ctx['notas'][0], $ctx['alumno'], 37);
+        $this->lineaDeNota($ctx['notas'][0], $ctx['alumno'], 37);
 
         $this->correr();
 
@@ -219,7 +220,7 @@ class EnviarNotificacionesTest extends CasoDeContrato
         $this->correr();
         $this->publicador->mandados = [];
 
-        $this->bitacoraDeNota($ctx['notas'][0], $ctx['alumno']);
+        $this->lineaDeNota($ctx['notas'][0], $ctx['alumno']);
 
         $this->correr();
         $this->assertCount(1, $this->publicador->mandados);
@@ -415,7 +416,7 @@ class EnviarNotificacionesTest extends CasoDeContrato
 
         $this->correr();
 
-        $this->assertNull(Cache::get('notificaciones.marca.notas'),
+        $this->assertNull(Cache::get('notificaciones.marca.notas-auditoria'),
             'Sin credenciales movió la marca: lo ocurrido hasta que se configuren se perdería.');
     }
 
@@ -428,18 +429,110 @@ class EnviarNotificacionesTest extends CasoDeContrato
     public function test_el_modo_seco_no_manda_ni_mueve_la_marca(): void
     {
         $this->correr();
-        $marca = Cache::get('notificaciones.marca.notas');
+        $marca = Cache::get('notificaciones.marca.notas-auditoria');
 
         $ctx = $this->asignaturaConNotas();
-        $this->bitacoraDeNota($ctx['notas'][0], $ctx['alumno']);
+        $this->lineaDeNota($ctx['notas'][0], $ctx['alumno']);
 
         $this->publicador->mandados = [];
 
         $this->correr('--seco');
 
         $this->assertSame([], $this->publicador->mandados, 'En seco mandó de verdad.');
-        $this->assertSame($marca, Cache::get('notificaciones.marca.notas'),
+        $this->assertSame($marca, Cache::get('notificaciones.marca.notas-auditoria'),
             'En seco movió la marca, así que el aviso real ya no saldría.');
+    }
+
+    /**
+     * **El cambio de cursor de `bitacoras` a `auditoria` (contrato 5) no repite ni
+     * pierde.**
+     *
+     * Un colegio con el push encendido llega al despliegue con la marca vieja puesta
+     * (`bitacoras.id`) y tres clases de cambios de nota:
+     *
+     * 1. avisados ya por la marca vieja, y escritos también en `auditoria`;
+     * 2. de después de la marca vieja y antes del despliegue, escritos en las dos;
+     * 3. de después del despliegue, sólo en `auditoria` (los escritores de
+     *    `bitacoras` se van en la misma tanda).
+     *
+     * La primera pasada nueva tiene que avisar de 2 y 3 y de nada de 1, y la segunda
+     * de nada. Uno de los pendientes es **la misma nota** que uno ya avisado, con
+     * otros valores: excluir por nota sola lo perdería.
+     */
+    public function test_el_cambio_de_cursor_no_repite_ni_pierde(): void
+    {
+        $ctx = $this->asignaturaConNotas();
+        $tema = TemasDeNotificacion::deAlumnoYTipo($ctx['alumno'], 'notas');
+        [$n0, $n1, $n2, $n3] = $ctx['notas'];
+
+        // 1. Ya avisados: la marca vieja quedó detrás de ellos.
+        $this->cambioEnLasDos($n0, $ctx['alumno'], 30, 20);
+        $this->cambioEnLasDos($n2, $ctx['alumno'], 25, 20);
+        Cache::forever('notificaciones.marca.notas', (int) DB::table('bitacoras')->max('id'));
+
+        // 2. Pendientes de antes del despliegue, en las dos tablas.
+        $this->cambioEnLasDos($n0, $ctx['alumno'], 40, 30);
+        $this->cambioEnLasDos($n1, $ctx['alumno'], 31, 20);
+
+        // 3. Después del despliegue: sólo en `auditoria`.
+        $this->lineaDeNota($n3, $ctx['alumno'], 33, 20);
+
+        $this->correr();
+
+        $deNotas = $this->mandadosAlTema($tema);
+        $this->assertCount(1, $deNotas, 'La pasada del cambio de cursor dio '.count($deNotas).' avisos.');
+        $this->assertStringContainsString('3 notas nuevas', $deNotas[0]['cuerpo'],
+            'Con 2 ya avisadas y 3 pendientes tenía que decir 3: más es repetir lo avisado, menos es perder algo.');
+        $this->assertNotNull(Cache::get('notificaciones.marca.notas-auditoria'), 'No dejó la marca nueva puesta.');
+
+        $this->publicador->mandados = [];
+        $this->correr();
+        $this->assertSame([], $this->publicador->mandados, 'La segunda pasada volvió a avisar: la herencia se repite.');
+
+        // Y desde ahí, la marca nueva sola.
+        $this->lineaDeNota($n2, $ctx['alumno'], 45, 25);
+        $this->correr();
+        $deNotas = $this->mandadosAlTema($tema);
+        $this->assertCount(1, $deNotas);
+        $this->assertStringContainsString('1 nota nueva', $deNotas[0]['cuerpo']);
+    }
+
+    /**
+     * Sin marca vieja no hay nada que heredar: es encender el push, y la primera
+     * pasada sigue sin avisar de lo que ya estaba.
+     */
+    public function test_sin_marca_vieja_no_hay_herencia_y_la_primera_pasada_no_avisa(): void
+    {
+        $ctx = $this->asignaturaConNotas();
+        $this->cambioEnLasDos($ctx['notas'][0], $ctx['alumno'], 30, 20);
+        $this->lineaDeNota($ctx['notas'][1], $ctx['alumno'], 33, 20);
+
+        $this->correr();
+
+        $this->assertSame([], $this->publicador->mandados, 'Sin marca vieja avisó de lo que ya estaba.');
+        $this->assertSame((int) DB::table('auditoria')->max('id'), Cache::get('notificaciones.marca.notas-auditoria'));
+    }
+
+    /**
+     * Avisan las acciones que cambian el valor —nivelar y quitar la nivelación
+     * también, como avisaban por la bitácora—; borrar no.
+     */
+    public function test_avisan_las_acciones_que_cambian_el_valor(): void
+    {
+        $ctx = $this->asignaturaConNotas();
+
+        $this->correr();
+        $this->publicador->mandados = [];
+
+        $this->lineaDeNota($ctx['notas'][0], $ctx['alumno'], 30, 20, 'nivelar');
+        $this->lineaDeNota($ctx['notas'][1], $ctx['alumno'], 20, 30, 'quitar_nivelacion');
+        $this->lineaDeNota($ctx['notas'][2], $ctx['alumno'], 20, 20, 'borrar');
+
+        $this->correr();
+
+        $deNotas = $this->mandadosAlTema(TemasDeNotificacion::deAlumnoYTipo($ctx['alumno'], 'notas'));
+        $this->assertCount(1, $deNotas);
+        $this->assertStringContainsString('2 notas nuevas', $deNotas[0]['cuerpo']);
     }
 
     /**
@@ -470,20 +563,48 @@ class EnviarNotificacionesTest extends CasoDeContrato
     }
 
     /**
-     * La bitácora que deja `putUpdate` al guardar una nota, que es de donde el
-     * comando saca qué avisar.
+     * La línea de `auditoria` que deja `putUpdate` al guardar una nota, que es de
+     * donde el comando saca qué avisar desde el contrato 5.
      */
-    private function bitacoraDeNota(int $notaId, int $alumnoId, int $valor = 40): void
+    private function lineaDeNota(int $notaId, int $alumnoId, int $valor = 40, ?int $antes = 20, string $accion = 'editar'): int
     {
-        DB::table('bitacoras')->insert([
+        return (int) DB::table('auditoria')->insertGetId([
+            'actor_user_id' => 1,
+            'accion' => $accion,
+            'entidad' => 'nota',
+            'entidad_id' => $notaId,
+            'alumno_id' => $alumnoId,
+            'valor_anterior' => $antes === null ? null : json_encode($antes),
+            'valor_nuevo' => json_encode($valor),
+            'valor_anterior_num' => $antes,
+            'valor_nuevo_num' => $valor,
+            'atribucion' => 'aproximada',
+            'ocurrido_en' => Reloj::ahoraTexto(),
+        ]);
+    }
+
+    /** La fila de `bitacoras` que escribían los caminos de notas hasta el contrato 5. */
+    private function bitacoraDeNota(int $notaId, int $alumnoId, int $valor = 40, ?int $antes = 20): int
+    {
+        return (int) DB::table('bitacoras')->insertGetId([
             'created_by' => 1,
             'affected_user_id' => $alumnoId,
             'affected_person_type' => 'Al',
             'affected_element_type' => 'Nota',
             'affected_element_id' => $notaId,
             'affected_element_new_value_int' => $valor,
-            'created_at' => now(),
+            'affected_element_old_value_int' => $antes,
+            'created_at' => Reloj::ahora()->format('Y-m-d H:i:s'),
         ]);
+    }
+
+    /** Un cambio de nota del tramo en que se escribían las dos tablas. */
+    private function cambioEnLasDos(int $notaId, int $alumnoId, int $valor, int $antes): int
+    {
+        $id = $this->bitacoraDeNota($notaId, $alumnoId, $valor, $antes);
+        $this->lineaDeNota($notaId, $alumnoId, $valor, $antes);
+
+        return $id;
     }
 
     /**

@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Hash;
 use Carbon\Carbon;
 
 use App\User;
+use App\Support\HistorialDeLasDosTablas;
 use App\Models\Year;
 use App\Models\Periodo;
 
@@ -26,8 +27,9 @@ class HistorialCalc {
 								group by h.id
 								order by h.created_at desc 
 								limit 50', [ $user_id ]);
-                            
-        return $historial;
+
+        // `cant_cambios` de `auditoria` cuando el ingreso tiene algo allí (contrato 5).
+        return HistorialDeLasDosTablas::conCambiosDeAuditoria($historial, (int) $user_id);
 
 	}
 
@@ -35,11 +37,11 @@ class HistorialCalc {
 	public function intentos_fallidos_de_usuario($user_id)
 	{
 
-			# Intentos de Logueo Fallidos
-			$intentos_fallidos = DB::select('SELECT * FROM bitacoras 
-							WHERE affected_element_type="intento_login" and affected_person_name=? and deleted_at is null 
-							order by created_at desc limit 50', 
-							[ $user_id ]);
+			# Intentos de Logueo Fallidos, de `bitacoras` hasta el corte y de `auditoria`
+			# después (contrato 5). **Sigue buscando por el `user_id`**, que nunca casa con
+			# el nombre de cuenta: es el fallo que fija `HistorialesTest`, y arreglarlo es
+			# una decisión aparte, no un efecto de cambiar de tabla.
+			$intentos_fallidos = HistorialDeLasDosTablas::intentosFallidos($user_id);
 
                             
         return $intentos_fallidos;

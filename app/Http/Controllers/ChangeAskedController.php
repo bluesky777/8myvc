@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 
 use App\Support\Autoriza;
 use App\Support\EventosDelAnio;
+use App\Support\HistorialDeLasDosTablas;
 use App\Support\PedidoPropio;
 use App\User;
 use App\Models\ChangeAsked;
@@ -73,13 +74,11 @@ class ChangeAskedController extends Controller {
 								group by h.id
 								order by h.created_at desc 
 								limit 50', [ $user->user_id ]);
+			$historial = HistorialDeLasDosTablas::conCambiosDeAuditoria($historial, (int) $user->user_id);
 
 			
-			# Intentos de Logueo Fallidos
-			$intentos_fallidos = DB::select('SELECT * FROM bitacoras 
-							WHERE affected_element_type="intento_login" and affected_person_name=? and deleted_at is null 
-							order by created_at desc limit 50', 
-							[ $user->username ]);
+			# Intentos de Logueo Fallidos: `bitacoras` hasta el corte, `auditoria` después (contrato 5).
+			$intentos_fallidos = HistorialDeLasDosTablas::intentosFallidos($user->username);
 
 			
 			# Datos de los docentes de este año
@@ -186,13 +185,11 @@ class ChangeAskedController extends Controller {
 								group by h.id
 								order by h.created_at desc 
 								limit 50', [ $user->user_id ]);
+			$historial = HistorialDeLasDosTablas::conCambiosDeAuditoria($historial, (int) $user->user_id);
 
 			
-			# Intentos de Logueo Fallidos
-			$intentos_fallidos = DB::select('SELECT * FROM bitacoras 
-							WHERE affected_element_type="intento_login" and affected_person_name=? and deleted_at is null 
-							order by created_at desc limit 50', 
-							[ $user->username ]);
+			# Intentos de Logueo Fallidos: `bitacoras` hasta el corte, `auditoria` después (contrato 5).
+			$intentos_fallidos = HistorialDeLasDosTablas::intentosFallidos($user->username);
 
 			
 							
