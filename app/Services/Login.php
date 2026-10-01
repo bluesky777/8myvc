@@ -217,7 +217,19 @@ class Login
 
     private function datosDelEntorno(): void
     {
-        if (Browser::isMobile()) {
+        /*
+         * LA APP MyVC SE PRESENTA SOLA (30 sep 2026). Desde su versión 1.1 manda
+         * `X-MyVC-Cliente: app/<versión>` siempre, y en el móvil además un User-Agent
+         * `MyVC-App/<versión> (...)`. Va primero la cabecera, que también llega desde la web de
+         * la app, donde el User-Agent es el del navegador. Las versiones viejas no mandan
+         * ninguna de las dos y siguen cayendo en `Bot` (Dart no se reconoce), que el listado de
+         * la auditoría ya lee como app. Ver AUDITORIA-DE-ALUMNOS.md del front.
+         */
+        $cliente = (string) ($_SERVER['HTTP_X_MYVC_CLIENTE'] ?? '');
+        $agente = (string) ($_SERVER['HTTP_USER_AGENT'] ?? '');
+        if (str_starts_with($cliente, 'app/') || str_starts_with($agente, 'MyVC-App/')) {
+            $this->entorno = 'App';
+        } elseif (Browser::isMobile()) {
             $this->entorno = 'Mobile';
         } elseif (Browser::isTablet()) {
             $this->entorno = 'Tablet';
