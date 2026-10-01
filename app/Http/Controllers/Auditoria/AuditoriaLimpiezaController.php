@@ -18,7 +18,7 @@ use Throwable;
  * fecha. **Borra datos de producción**, así que todo se decide aquí y no en el cliente:
  *
  * - sólo el superusuario (`Autoriza::esSuperusuario`), no `veAuditoria`;
- * - la fecha es ayer como mucho: hoy o una futura, 422;
+ * - el último mes no se borra: la fecha es, como mucho, hoy menos un mes y un día; si no, 422;
  * - el `POST` pide la palabra `BORRAR` y vuelve a calcular la previa él mismo;
  * - la limpieza deja su fila en `auditoria_limpiezas` y su línea `limpieza` en
  *   `auditoria`, que ninguna limpieza borra.
@@ -152,9 +152,9 @@ class AuditoriaLimpiezaController extends Controller
             || ! checkdate((int) $m[2], (int) $m[3], (int) $m[1])) {
             return $mal("La fecha 'hasta' tiene que ser AAAA-MM-DD.");
         }
-        $ayer = LimpiezaDeAuditoria::ayer();
-        if ($hasta > $ayer) {
-            return $mal("La fecha 'hasta' puede ser, como mucho, ayer ($ayer).");
+        $tope = LimpiezaDeAuditoria::ultimoDiaQueSePuedeBorrar();
+        if ($hasta > $tope) {
+            return $mal("El último mes no se puede borrar: la fecha 'hasta' puede ser, como mucho, $tope.");
         }
 
         if (($incluir === null || $incluir === '') && $porDefecto) {

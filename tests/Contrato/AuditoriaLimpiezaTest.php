@@ -125,8 +125,10 @@ class AuditoriaLimpiezaTest extends CasoDeContrato
         $hoy = Reloj::ahora()->format('Y-m-d');
         $manana = Reloj::ahora()->addDay()->format('Y-m-d');
         $ayer = Reloj::ahora()->subDay()->format('Y-m-d');
+        $haceUnMes = Reloj::ahora()->subMonthNoOverflow()->format('Y-m-d');
+        $tope = Reloj::ahora()->subMonthNoOverflow()->subDay()->format('Y-m-d');
 
-        foreach ([$hoy, $manana, '2026-02-30', 'ayer', ''] as $hasta) {
+        foreach ([$hoy, $manana, $ayer, $haceUnMes, '2026-02-30', 'ayer', ''] as $hasta) {
             $this->withToken($this->token)->getJson('/api/auditoria/limpieza/previa?hasta='.$hasta)->assertStatus(422);
             $this->withToken($this->token)->postJson('/api/auditoria/limpieza', [
                 'hasta' => $hasta, 'incluir' => ['auditoria'], 'confirmacion' => 'BORRAR',
@@ -149,7 +151,7 @@ class AuditoriaLimpiezaTest extends CasoDeContrato
         $this->assertSame(0, DB::table('auditoria_limpiezas')->count());
 
         // Ayer sí vale.
-        $this->withToken($this->token)->getJson('/api/auditoria/limpieza/previa?hasta='.$ayer)->assertStatus(200);
+        $this->withToken($this->token)->getJson('/api/auditoria/limpieza/previa?hasta='.$tope)->assertStatus(200);
     }
 
     public function test_la_previa_cuenta_periodos_completos_y_parciales(): void

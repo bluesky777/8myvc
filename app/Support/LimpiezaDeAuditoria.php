@@ -55,10 +55,15 @@ final class LimpiezaDeAuditoria
 
     public const CORTADA = 'cortada';
 
-    /** El último día que se puede elegir: ayer, en la hora de pared del colegio. */
-    public static function ayer(): string
+    /**
+     * El último día que se puede elegir: **el último mes no se borra nunca** (Joseth, 30 sep 2026).
+     * Hoy menos un mes, y un día más atrás: el 30 de septiembre se puede borrar como mucho hasta
+     * el 29 de agosto, incluido. `NoOverflow` para que el 31 de marzo dé el 28 de febrero y no el
+     * 3 de marzo. En la hora de pared del colegio.
+     */
+    public static function ultimoDiaQueSePuedeBorrar(): string
     {
-        return Reloj::ahora()->subDay()->format('Y-m-d');
+        return Reloj::ahora()->subMonthNoOverflow()->subDay()->format('Y-m-d');
     }
 
     /** El primer instante que NO se borra: el día siguiente a `hasta`, a las 00:00. */
