@@ -249,6 +249,57 @@ class AlumnosDetrasDelNumeroTest extends CasoDeContrato
         $this->compararConInstantanea('grupos-alumnos-de-retirados', $this->formaUnida($retirados));
     }
 
+    /**
+     * Lo que pasa en el hueco entre dos periodos cuenta en el siguiente.
+     *
+     * Un colegio puede dejar semanas sin periodo (las vacaciones de mitad de año) y
+     * matricular o retirar a alguien justo ahí. Con `fecha_inicio..fecha_fin` literal
+     * ese movimiento no salía en ninguna celda; ahora el periodo 2 arranca el día
+     * siguiente al `fecha_fin` del 1, y el hueco es suyo.
+     */
+    public function test_el_hueco_entre_periodos_cuenta_en_el_siguiente(): void
+    {
+        [$grupo, $token] = $this->grupoYPersonal();
+
+        $cabecera = ['Authorization' => 'Bearer '.$token];
+
+        $periodos = DB::select('SELECT id FROM periodos
+            WHERE year_id = ? AND deleted_at IS NULL ORDER BY numero', [$grupo->year_id]);
+
+        $this->assertGreaterThanOrEqual(3, count($periodos), 'El año del seed necesita tres periodos para tener un hueco en medio.');
+
+        DB::table('periodos')->where('id', $periodos[0]->id)->update(['fecha_inicio' => '2025-01-10', 'fecha_fin' => '2025-03-20']);
+        DB::table('periodos')->where('id', $periodos[1]->id)->update(['fecha_inicio' => '2025-04-07', 'fecha_fin' => '2025-06-13']);
+
+        $matriculas = DB::select('SELECT m.id, m.alumno_id FROM matriculas m
+            INNER JOIN alumnos a ON a.id = m.alumno_id AND a.deleted_at IS NULL
+            WHERE m.grupo_id = ? AND m.deleted_at IS NULL ORDER BY m.id LIMIT 2', [$grupo->id]);
+
+        $this->assertCount(2, $matriculas);
+
+        // Los dos en la Semana Santa, entre el 20 mar y el 7 abr.
+        DB::table('matriculas')->where('id', $matriculas[0]->id)->update(['fecha_matricula' => '2025-03-31']);
+        DB::table('matriculas')->where('id', $matriculas[1]->id)->update(['estado' => 'RETI', 'fecha_retiro' => '2025-04-01']);
+
+        $conCantidad = collect($this->putJson('/api/grupos/con-cantidad-alumnos', [], $cabecera)
+            ->assertStatus(200)->json()['grupos'])->firstWhere('id', $grupo->id);
+
+        $this->assertNotNull($conCantidad);
+
+        foreach ([1 => false, 2 => true] as $n => $esSuyo) {
+            $matriculados = array_map('intval', array_column($this->listado($token, (int) $grupo->id, 'matriculados', $n), 'alumno_id'));
+            $retirados = array_map('intval', array_column($this->listado($token, (int) $grupo->id, 'retirados', $n), 'alumno_id'));
+
+            $this->assertSame($esSuyo, in_array((int) $matriculas[0]->alumno_id, $matriculados, true),
+                'La matrícula del hueco '.($esSuyo ? 'no está' : 'está')." en Mat{$n}.");
+            $this->assertSame($esSuyo, in_array((int) $matriculas[1]->alumno_id, $retirados, true),
+                'El retiro del hueco '.($esSuyo ? 'no está' : 'está')." en Ret{$n}.");
+
+            $this->assertCount((int) $conCantidad['periodos_matr'][$n - 1]['cant_matr'], $matriculados, "Mat{$n} y su listado descuadran.");
+            $this->assertCount((int) $conCantidad['periodos_ret'][$n - 1]['cant_reti'], $retirados, "Ret{$n} y su listado descuadran.");
+        }
+    }
+
     /** La fecha que trae una fila concreta del listado. */
     private function fechaDe(array $listado, int $alumnoId, string $campo): ?string
     {

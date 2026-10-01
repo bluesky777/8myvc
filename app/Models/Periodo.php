@@ -116,7 +116,50 @@ class Periodo extends Model {
 		$periodos = DB::select($consulta, ['year_id' => $year_id]);
 		return $periodos;
 	}
-	
+
+	/**
+	 * La ventana de fechas a la que pertenece un movimiento (matrícula, retiro)
+	 * del periodo en la POSICIÓN `$i` de `delYear`, como condición SQL sobre `$campo`.
+	 *
+	 * No se usa `fecha_inicio..fecha_fin` tal cual porque un colegio puede dejar
+	 * semanas sin periodo (vacaciones entre dos) y alguien matricularse o retirarse
+	 * justo ahí: con el rango literal ese movimiento no salía en ninguna celda.
+	 * Las ventanas se tocan sin huecos:
+	 *
+	 *   - el primer periodo arranca sin tope por abajo (las matrículas de enero);
+	 *   - cada uno de los demás arranca el día siguiente al `fecha_fin` del anterior,
+	 *     así lo de un hueco cuenta en el periodo que viene, que es cuando empieza a pesar;
+	 *   - el último no tiene tope por arriba (los retiros de después del cierre).
+	 *
+	 * Si falta la fecha que hace de borde, la ventana no se puede saber y la
+	 * condición es falsa: la celda sale vacía, como salía con las fechas en NULL,
+	 * en vez de inventarse un rango que se solape con el del vecino.
+	 *
+	 * @return array{0: string, 1: array} el fragmento ` and ...` y sus parámetros
+	 */
+	public static function rangoDeMovimientos(array $periodos, int $i, string $campo): array
+	{
+		$sql 	= '';
+		$params = [];
+
+		if ($i > 0) {
+			$fin_anterior = $periodos[$i - 1]->fecha_fin;
+			if (! $fin_anterior) return [' and 1=0', []];
+			$sql 		.= ' and '.$campo.'>?';
+			$params[] 	= substr((string) $fin_anterior, 0, 10);
+		}
+
+		if ($i < count($periodos) - 1) {
+			$fin = $periodos[$i]->fecha_fin;
+			if (! $fin) return [' and 1=0', []];
+			$sql 		.= ' and '.$campo.'<=?';
+			$params[] 	= substr((string) $fin, 0, 10);
+		}
+
+		// Un año con un solo periodo: todo movimiento del año es suyo.
+		return [$sql === '' ? ' and '.$campo.' is not null' : $sql, $params];
+	}
+
 	
 
 

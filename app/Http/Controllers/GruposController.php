@@ -397,6 +397,14 @@ class GruposController extends Controller {
 
 		$grupos 	= DB::select($consulta, [':year_id'=>$user->year_id] );
 		$periodos 	= Periodo::delYear($user->year_id);
+
+		// Las ventanas de cada periodo se tocan sin huecos: ver `Periodo::rangoDeMovimientos`.
+		$rango_reti = [];
+		$rango_matr = [];
+		for ($i=0; $i < count($periodos); $i++) {
+			$rango_reti[$i] = Periodo::rangoDeMovimientos($periodos, $i, 'm.fecha_retiro');
+			$rango_matr[$i] = Periodo::rangoDeMovimientos($periodos, $i, 'm.fecha_matricula');
+		}
 		
 		for ($j=0; $j < count($grupos); $j++) { 
 			
@@ -412,10 +420,10 @@ class GruposController extends Controller {
 							from grupos g
 							INNER JOIN matriculas m ON m.grupo_id=g.id and m.deleted_at is null and (m.estado="RETI" or m.estado="DESE")
 							INNER JOIN alumnos a ON a.id=m.alumno_id and a.deleted_at is null
-							where g.deleted_at is null and g.id=? and m.fecha_retiro>=? and m.fecha_retiro<=? 
+							where g.deleted_at is null and g.id=?'.$rango_reti[$i][0].'
 							order by g.orden';
 							
-				$cant_reti 			= DB::select($consulta, [$grupos[$j]->id, $periodos[$i]->fecha_inicio, $periodos[$i]->fecha_fin] )[0];
+				$cant_reti 			= DB::select($consulta, array_merge([$grupos[$j]->id], $rango_reti[$i][1]) )[0];
 				$peri['cant_reti'] 	= ($cant_reti->cant_alumnos==0 ? '' : $cant_reti->cant_alumnos);				
 				
 				array_push($grupos[$j]->periodos_ret, $peri);
@@ -429,10 +437,10 @@ class GruposController extends Controller {
 							from grupos g
 							INNER JOIN matriculas m ON m.grupo_id=g.id and m.deleted_at is null 
 							INNER JOIN alumnos a ON a.id=m.alumno_id and a.deleted_at is null
-							where g.deleted_at is null and g.id=? and m.fecha_matricula>=? and m.fecha_matricula<=?
+							where g.deleted_at is null and g.id=?'.$rango_matr[$i][0].'
 							order by g.orden';
 							
-				$cant_matr 			= DB::select($consulta, [$grupos[$j]->id, $periodos[$i]->fecha_inicio, $periodos[$i]->fecha_fin] )[0];
+				$cant_matr 			= DB::select($consulta, array_merge([$grupos[$j]->id], $rango_matr[$i][1]) )[0];
 				$peri['cant_matr'] 	= ($cant_matr->cant_alumnos==0 ? '' : $cant_matr->cant_alumnos);
 				
 				array_push($grupos[$j]->periodos_matr, $peri);
@@ -466,41 +474,26 @@ class GruposController extends Controller {
 		}
 		
 		
-		// Totales por periodo
-		$periodos 	= Periodo::delYear($user->year_id);
-		
+		// Totales por periodo. Con la misma ventana que las celdas, para que la fila
+		// de totales sea la suma de la columna; y con el año, porque el primer y el
+		// último periodo no tienen tope y sin él entrarían las matrículas de otros años.
 		for ($i=0; $i < count($periodos); $i++) { 
 			
-			$consulta = 'SELECT count(m.id) as cant_alumnos, g.nombre, g.id
+			$consulta = 'SELECT count(m.id) as cant_alumnos
 						from grupos g
 						INNER JOIN matriculas m ON m.grupo_id=g.id and m.deleted_at is null and (m.estado="RETI" or m.estado="DESE")
 						INNER JOIN alumnos a ON a.id=m.alumno_id and a.deleted_at is null
-						where g.deleted_at is null and m.fecha_retiro>=? and m.fecha_retiro<=? 
-						order by g.orden';
+						where g.deleted_at is null and g.year_id=?'.$rango_reti[$i][0];
 						
-			$periodos[$i]->total_reti = DB::select($consulta, [$periodos[$i]->fecha_inicio, $periodos[$i]->fecha_fin] )[0];
+			$periodos[$i]->total_reti = DB::select($consulta, array_merge([$user->year_id], $rango_reti[$i][1]) )[0];
 			
-			if ($periodos[$i]->numero == 1) {
-				$consulta = 'SELECT count(m.id) as cant_alumnos, g.nombre, g.id
-							from grupos g
-							INNER JOIN matriculas m ON m.grupo_id=g.id and m.deleted_at is null
-							INNER JOIN alumnos a ON a.id=m.alumno_id and a.deleted_at is null
-							where g.deleted_at is null and m.fecha_matricula<=?
-							order by g.orden';
-					
-				$periodos[$i]->total_matr = DB::select($consulta, [$periodos[$i]->fecha_fin] )[0];
-			
-			}else{
-				$consulta = 'SELECT count(m.id) as cant_alumnos, g.nombre, g.id
-							from grupos g
-							INNER JOIN matriculas m ON m.grupo_id=g.id and m.deleted_at is null
-							INNER JOIN alumnos a ON a.id=m.alumno_id and a.deleted_at is null
-							where g.deleted_at is null and m.fecha_matricula>=? and m.fecha_matricula<=?
-							order by g.orden';
-					
-				$periodos[$i]->total_matr = DB::select($consulta, [$periodos[$i]->fecha_inicio, $periodos[$i]->fecha_fin] )[0];
-			
-			}
+			$consulta = 'SELECT count(m.id) as cant_alumnos
+						from grupos g
+						INNER JOIN matriculas m ON m.grupo_id=g.id and m.deleted_at is null
+						INNER JOIN alumnos a ON a.id=m.alumno_id and a.deleted_at is null
+						where g.deleted_at is null and g.year_id=?'.$rango_matr[$i][0];
+				
+			$periodos[$i]->total_matr = DB::select($consulta, array_merge([$user->year_id], $rango_matr[$i][1]) )[0];
 			
 		}
 		
@@ -669,13 +662,13 @@ class GruposController extends Controller {
 			'retirados' => [
 				'estado' => 'and (m.estado="RETI" or m.estado="DESE")',
 				'sexo'   => '',
-				'rango'  => ' and m.fecha_retiro>=? and m.fecha_retiro<=?',
+				'rango'  => 'm.fecha_retiro',
 				'extra'  => ', m.fecha_retiro',
 			],
 			'matriculados' => [
 				'estado' => '',
 				'sexo'   => '',
-				'rango'  => ' and m.fecha_matricula>=? and m.fecha_matricula<=?',
+				'rango'  => 'm.fecha_matricula',
 				'extra'  => ', m.fecha_matricula',
 			],
 		];
@@ -688,10 +681,9 @@ class GruposController extends Controller {
 		$parametros 	= [$grupo_id, $user->year_id];
 
 		if ($caso['rango'] !== '') {
-			// Las fechas se comparan con `>=` y `<=`, y hasta la noche del 31 ago 2026
-			// eran `>` y `<` en los dos contadores. Se arreglaron los tres a la vez
-			// —los dos de `putConCantidadAlumnos` y éste—, que era la condición: quien
-			// se matricula el primer día de un periodo no estaba en ninguna cifra.
+			// La ventana sale de `Periodo::rangoDeMovimientos`, la misma que usan los
+			// contadores de `putConCantidadAlumnos`: si no, la celda y su listado
+			// descuadran. Desde el 1 oct 2026 las ventanas no dejan huecos entre periodos.
 			//
 			// El índice del periodo es el que pinta la cabecera Ret1/Mat1, que es la
 			// POSICIÓN en `Periodo::delYear` (`Per = $i + 1`) y no `periodos.numero`.
@@ -703,9 +695,10 @@ class GruposController extends Controller {
 				abort(422, 'El periodo tiene que ser un número entre 1 y '.count($periodos).'.');
 			}
 
-			$periodo 		= $periodos[(int) $numero - 1];
-			$parametros[] 	= $periodo->fecha_inicio;
-			$parametros[] 	= $periodo->fecha_fin;
+			// La ventana, no `fecha_inicio..fecha_fin`: la misma que pinta la celda.
+			[$rango, $params] 	= Periodo::rangoDeMovimientos($periodos, (int) $numero - 1, $caso['rango']);
+			$caso['rango'] 		= $rango;
+			$parametros 		= array_merge($parametros, $params);
 		}
 
 		// La foto se resuelve como en `getListado`: la imagen del alumno, y si no
