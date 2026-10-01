@@ -23,19 +23,36 @@ use Illuminate\Support\Facades\Schema;
  */
 class IndiceDeLosListadosDeAuditoria extends Migration
 {
+    /*
+     * **Idempotente, y no por manía**: son dos `ALTER` y MySQL/MariaDB no los deshacen juntos. Si
+     * el segundo fallara en algún colegio, la migración quedaría sin marcar con el índice nuevo
+     * ya puesto, y relanzarla sin estas guardas daría «Duplicate key name» para siempre.
+     */
     public function up()
     {
-        Schema::table('auditoria', function (Blueprint $tabla) {
-            $tabla->index(['entidad', 'ocurrido_en', 'alumno_id', 'actor_user_id'], 'aud_entidad_fecha');
-            $tabla->dropIndex('aud_sesion');
-        });
+        if (! Schema::hasIndex('auditoria', 'aud_entidad_fecha')) {
+            Schema::table('auditoria', function (Blueprint $tabla) {
+                $tabla->index(['entidad', 'ocurrido_en', 'alumno_id', 'actor_user_id'], 'aud_entidad_fecha');
+            });
+        }
+        if (Schema::hasIndex('auditoria', 'aud_sesion')) {
+            Schema::table('auditoria', function (Blueprint $tabla) {
+                $tabla->dropIndex('aud_sesion');
+            });
+        }
     }
 
     public function down()
     {
-        Schema::table('auditoria', function (Blueprint $tabla) {
-            $tabla->index(['sesion_id', 'id'], 'aud_sesion');
-            $tabla->dropIndex('aud_entidad_fecha');
-        });
+        if (! Schema::hasIndex('auditoria', 'aud_sesion')) {
+            Schema::table('auditoria', function (Blueprint $tabla) {
+                $tabla->index(['sesion_id', 'id'], 'aud_sesion');
+            });
+        }
+        if (Schema::hasIndex('auditoria', 'aud_entidad_fecha')) {
+            Schema::table('auditoria', function (Blueprint $tabla) {
+                $tabla->dropIndex('aud_entidad_fecha');
+            });
+        }
     }
 }
