@@ -47,6 +47,14 @@ use Illuminate\Support\Facades\DB;
  * demostrarla es borrar una nota y mirar qué pasa, y la única forma de que eso sea
  * inocuo es la transacción de un test.
  *
+ * **Desde el 30 sep 2026 `bitacoras` ya no se escribe** (contrato 5) y la pantalla
+ * lee de `auditoria` los ingresos que tienen líneas allí
+ * (`HistorialDeLasDosTablas::cambiosDelIngreso`). Los casos de abajo fijan cómo se
+ * ve **un ingreso viejo** —filas en `bitacoras` y ninguna en `auditoria`—, así que
+ * el montaje siembra esas filas a mano en vez de pasar por la ruta, que ya no las
+ * escribe. Los que siguen teniendo sentido con lo nuevo llevan su gemelo `_nuevo`
+ * al final, contra un ingreso que cambió la nota por la ruta.
+ *
  * Estos tests **fijan el estado actual**, no lo arreglan. Cambiar la consulta es
  * cambiarle la respuesta a una pantalla desplegada en dieciséis colegios, y hay
  * que decidir antes qué debe enseñar una bitácora que no es de una nota.
@@ -322,6 +330,89 @@ class HistorialDeSesionCuentaDeMenosTest extends CasoDeContrato
             .'sin comprobar nada.');
     }
 
+    // ─────────────────────────────────────────────────────────────────────
+    // Los gemelos contra `auditoria`: un ingreso de después del 30 sep 2026
+    // ─────────────────────────────────────────────────────────────────────
+
+    /** Causa 2 con lo nuevo: la línea sigue en `auditoria` y la pantalla ya no la enseña. */
+    public function test_al_borrar_la_nota_su_linea_desaparece_de_la_sesion_nuevo(): void
+    {
+        $ctx = $this->unaSesionNuevaQueTocoUnaNota();
+
+        $vistas = $this->bitacorasDeLaSesion($ctx);
+        $this->assertCount(1, $vistas, 'El cambio de la nota tenía que verse antes de borrar nada.');
+        $this->assertSame('Nota', $vistas[0]['affected_element_type']);
+        $this->assertSame(40, (int) $vistas[0]['affected_element_new_value_int']);
+        $this->assertSame(20, (int) $vistas[0]['affected_element_old_value_int']);
+        $this->assertSame($ctx['alumno'], (int) $vistas[0]['affected_user_id']);
+
+        $this->withToken($ctx['token_profesor'])
+            ->deleteJson('/api/notas/destroy/'.$ctx['nota'])
+            ->assertStatus(200);
+
+        $this->assertSame(1, DB::table('auditoria')->where('id', $ctx['linea'])->count(),
+            'La línea se fue con la nota: entonces el problema es otro y peor.');
+
+        $this->assertSame([], $this->bitacorasDeLaSesion($ctx),
+            'La línea sigue en `auditoria` y la pantalla ya no la enseña: el `INNER JOIN notas` '
+            .'es el mismo que en la consulta vieja.');
+    }
+
+    /**
+     * Causa 1 con lo nuevo, **y aquí sí está cerrada**: la consulta filtra por
+     * `entidad = "nota"`, así que un rechazo del mismo ingreso no se cuela —ni se
+     * cae una nota por su culpa—.
+     */
+    public function test_una_linea_que_no_es_de_una_nota_no_sale_en_la_sesion_nuevo(): void
+    {
+        $ctx = $this->unaSesionNuevaQueTocoUnaNota();
+
+        // Con `affected_element_id` = la nota de la sesión a propósito: es el borde
+        // que en la consulta vieja la hacía salir atribuida a otra cosa.
+        DB::table('auditoria')->insert([
+            'ocurrido_en' => now(),
+            'actor_user_id' => $ctx['user_profesor'],
+            'sesion_id' => $ctx['sesion'],
+            'historial_id' => $ctx['historial'],
+            'accion' => 'denegado',
+            'entidad' => 'boletin',
+            'entidad_id' => $ctx['nota'],
+            'alumno_id' => $ctx['alumno'],
+            'resumen' => 'AcudienteVerBoletin',
+        ]);
+
+        $vistas = $this->bitacorasDeLaSesion($ctx);
+
+        $this->assertCount(1, $vistas,
+            'La pantalla enseñó '.count($vistas).' de 1: la línea que no es de una nota se coló.');
+        $this->assertSame('Nota', $vistas[0]['affected_element_type']);
+        $this->assertSame($ctx['nota'], (int) $vistas[0]['affected_element_id']);
+    }
+
+    /** Causa 3 con lo nuevo: el mismo `s.deleted_at IS NULL`. */
+    public function test_una_subunidad_borrada_se_lleva_la_linea_de_sus_notas_nuevo(): void
+    {
+        $ctx = $this->unaSesionNuevaQueTocoUnaNota();
+
+        $this->assertCount(1, $this->bitacorasDeLaSesion($ctx));
+
+        DB::table('subunidades')->where('id', $ctx['subunidad'])->update(['deleted_at' => now()]);
+
+        $this->assertSame([], $this->bitacorasDeLaSesion($ctx));
+    }
+
+    /** Causa 4 con lo nuevo: el mismo `a.deleted_at IS NULL`. */
+    public function test_un_alumno_borrado_se_lleva_su_rastro_de_la_sesion_nuevo(): void
+    {
+        $ctx = $this->unaSesionNuevaQueTocoUnaNota();
+
+        $this->assertCount(1, $this->bitacorasDeLaSesion($ctx));
+
+        DB::table('alumnos')->where('id', $ctx['alumno'])->update(['deleted_at' => now()]);
+
+        $this->assertSame([], $this->bitacorasDeLaSesion($ctx));
+    }
+
     /**
      * Lo que la pantalla enseña de la sesión, tal cual sale de la respuesta.
      *
@@ -336,13 +427,15 @@ class HistorialDeSesionCuentaDeMenosTest extends CasoDeContrato
     }
 
     /**
-     * Una sesión de un profesor que **cambió una nota de verdad**, con su bitácora.
+     * Un ingreso **viejo** de un profesor que cambió una nota: la fila de
+     * `bitacoras` y ninguna en `auditoria`.
      *
-     * La nota se cambia **por la ruta** (`PUT notas/update`) y no insertando la
-     * bitácora a mano: lo que estos tests afirman es qué pasa con el rastro que
-     * deja la aplicación, y una bitácora escrita por el test podría tener las
-     * columnas que le convengan. Aquí el `affected_user_id` lo elige el
-     * controlador, que es la mitad del asunto.
+     * Hasta el 30 sep 2026 la nota se cambiaba **por la ruta** (`PUT notas/update`)
+     * para que el `affected_user_id` lo eligiera el controlador. La ruta ya no
+     * escribe en `bitacoras` (contrato 5), así que la fila se siembra **con las
+     * columnas exactas que escribía `putUpdate`** —`created_by`, `historial_id`,
+     * `affected_user_id` = el `alumnos.id`, `"Al"`, `"Nota"`, los dos valores—, que
+     * es lo que hay en las bases de los colegios de antes del corte.
      *
      * El token del profesor y el del personal son **dos**: el profesor es el que
      * puede tocar la nota, y `historiales/sesion` va detrás de `auth.personal`, que
@@ -352,6 +445,74 @@ class HistorialDeSesionCuentaDeMenosTest extends CasoDeContrato
      * @return array<string, mixed>
      */
     private function unaSesionQueTocoUnaNota(): array
+    {
+        $ctx = $this->unaNotaDeUnProfesor();
+
+        DB::table('notas')->where('id', $ctx['nota'])->update(['nota' => 40, 'updated_at' => now()]);
+
+        $historial = (int) DB::table('historiales')->where('user_id', $ctx['user_profesor'])->max('id');
+
+        $this->assertGreaterThan(0, $historial, 'El profesor entró y no tiene ingreso anotado.');
+
+        $ctx['historial'] = $historial;
+        $ctx['bitacora'] = (int) DB::table('bitacoras')->insertGetId([
+            'created_by' => $ctx['user_profesor'],
+            'historial_id' => $historial,
+            'affected_user_id' => $ctx['alumno'],
+            'affected_person_type' => 'Al',
+            'affected_element_type' => 'Nota',
+            'affected_element_id' => $ctx['nota'],
+            'affected_element_new_value_int' => 40,
+            'affected_element_old_value_int' => 20,
+            'created_at' => now(),
+        ]);
+
+        $this->assertSame(0, DB::table('auditoria')->where('historial_id', $historial)->count(),
+            'El ingreso tiene líneas en `auditoria`, así que la pantalla no lee `bitacoras` '
+            .'y estos casos no medirían el ingreso viejo.');
+
+        return $ctx;
+    }
+
+    /**
+     * Un ingreso **nuevo**: la nota se cambia por la ruta y la línea queda en
+     * `auditoria` con el ingreso del token. Es el montaje de los gemelos `_nuevo`.
+     *
+     * @return array<string, mixed>
+     */
+    private function unaSesionNuevaQueTocoUnaNota(): array
+    {
+        $ctx = $this->unaNotaDeUnProfesor();
+
+        $antes = DB::table('bitacoras')->count();
+
+        $this->withToken($ctx['token_profesor'])
+            ->putJson('/api/notas/update/'.$ctx['nota'], ['nota' => 40])
+            ->assertStatus(200);
+
+        $linea = DB::table('auditoria')->where('entidad', 'nota')->where('entidad_id', $ctx['nota'])
+            ->orderByDesc('id')->first();
+
+        $this->assertNotNull($linea, 'Editar la nota no dejó línea de auditoría.');
+        $this->assertNotNull($linea->historial_id,
+            'La línea salió sin `historial_id`, así que no cuelga de ningún ingreso.');
+        $this->assertSame($antes, DB::table('bitacoras')->count(),
+            'Editar la nota volvió a escribir en `bitacoras`.');
+
+        $ctx['historial'] = (int) $linea->historial_id;
+        $ctx['sesion'] = $linea->sesion_id === null ? null : (int) $linea->sesion_id;
+        $ctx['linea'] = (int) $linea->id;
+
+        return $ctx;
+    }
+
+    /**
+     * Lo común a los dos montajes: un profesor con el periodo abierto y una nota
+     * suya en 20, en una columna nueva.
+     *
+     * @return array<string, mixed>
+     */
+    private function unaNotaDeUnProfesor(): array
     {
         $profesor = $this->usuarioDeTipo('Profesor');
         $tokenProfesor = $this->tokenDe($profesor->username);
@@ -402,28 +563,10 @@ class HistorialDeSesionCuentaDeMenosTest extends CasoDeContrato
             'updated_at' => now(),
         ]);
 
-        // La bitácora la escribe el controlador, con el `historial_id` de la sesión
-        // que abrió el profesor al entrar.
-        $this->withToken($tokenProfesor)
-            ->putJson('/api/notas/update/'.$notaId, ['nota' => 40])
-            ->assertStatus(200);
-
-        $bitacora = DB::table('bitacoras')
-            ->where('affected_element_type', 'Nota')
-            ->where('affected_element_id', $notaId)
-            ->orderByDesc('id')->first();
-
-        $this->assertNotNull($bitacora, 'Editar la nota no dejó bitácora, así que no hay sesión que mirar.');
-        $this->assertNotNull($bitacora->historial_id,
-            'La bitácora salió sin `historial_id`, así que no cuelga de ninguna sesión y estos '
-            .'tests no medirían nada.');
-
         return [
             'token' => $this->tokenDelPersonalDe((int) $suyo->year_id),
             'token_profesor' => $tokenProfesor,
             'user_profesor' => (int) $profesor->id,
-            'historial' => (int) $bitacora->historial_id,
-            'bitacora' => (int) $bitacora->id,
             'nota' => $notaId,
             'subunidad' => $subId,
             'definicion_subunidad' => $definicion,
