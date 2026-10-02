@@ -563,7 +563,7 @@ final class Retos
         $pa = [];
 
         foreach (self::arr(self::g($c, 'pairs')) as $p) {
-            if (! is_array($p) && ! $p instanceof \stdClass) {
+            if (! is_array($p) && ! $p instanceof \stdClass && ! $p instanceof \Closure) {
                 self::lanza(); // `Object.fromEntries` sólo acepta entradas que sean objetos.
             }
 
@@ -654,11 +654,12 @@ final class Retos
 
     private static function lettersOf($W): array
     {
-        $W = self::cadena($W);
-        $d = array_values(array_filter(str_split(self::DECOY), fn ($x) => ! str_contains($W, $x)));
+        // `W.includes` y `[...W]` sirven con un texto y con una lista; con lo demás, `TypeError`.
+        $partes = is_array($W) ? array_values($W) : self::puntos(self::cadena($W));
+        $d = array_values(array_filter(str_split(self::DECOY), fn ($x) => ! self::incluye($partes, $x)));
         $extra = $d === [] ? self::u() : $d[self::hash($W) % count($d)];
 
-        return self::shuf(array_merge(self::puntos($W), [$extra]), $W);
+        return self::shuf(array_merge($partes, [$extra]), $W);
     }
 
     /** `LET`: sólo las letras, en mayúsculas. */
@@ -925,7 +926,7 @@ final class Retos
         $h = 2166136261;
 
         foreach (self::puntos(self::str($s)) as $ch) {
-            $cp = mb_ord($ch, 'UTF-8');
+            $cp = $ch[0] === "\xFF" ? (unpack('n', substr($ch, 1, 2)) ?: [1 => 0])[1] : mb_ord($ch, 'UTF-8');
             $unidad = $cp > 0xFFFF ? 0xD800 + (($cp - 0x10000) >> 10) : $cp;
             $h = self::i32(self::u32($h) ^ $unidad);
             $h = self::imul($h, 16777619);
@@ -1021,11 +1022,26 @@ final class Retos
                 return count($o);
             }
 
-            return preg_match('/^(0|[1-9]\d{0,9})$/', $k) && (int) $k < count($o) ? $o[(int) $k] : self::u();
+            return preg_match('/^(0|[1-9]\d{0,9})$/', $k) && (int) $k < count($o) ? $o[(int) $k] : self::heredado('Array', $k);
         }
 
         if ($o instanceof \stdClass) {
-            return property_exists($o, $k) ? $o->{$k} : self::u();
+            return property_exists($o, $k) ? $o->{$k} : self::heredado('Object', $k);
+        }
+
+        if ($o instanceof \Closure) {
+            [$nombre, $aridad] = self::$funciones[spl_object_id($o)];
+
+            return match ($k) {
+                'name' => $nombre,
+                'length' => $aridad,
+                'caller', 'arguments' => self::lanza(),
+                default => self::heredado('Function', $k),
+            };
+        }
+
+        if (self::esNumero($o) || is_bool($o)) {
+            return self::heredado(is_bool($o) ? 'Boolean' : 'Number', $k);
         }
 
         if (is_string($o)) {
@@ -1042,6 +1058,63 @@ final class Retos
                 // Media pareja suelta: una cadena que ningún JSON válido puede traer.
                 return $cu >= 0xD800 && $cu <= 0xDFFF ? "\xFF".$par : mb_convert_encoding($par, 'UTF-8', 'UTF-16BE');
             }
+
+            return self::heredado('String', $k);
+        }
+
+        return self::u();
+    }
+
+    /**
+     * Los métodos de los prototipos de JavaScript (nombre => `length`). `s.fill` con `s` una lista es
+     * `Array.prototype.fill`, no `undefined`: leerle una propiedad no lanza y da `undefined`.
+     */
+    private const PROTOTIPOS = [
+        'Object' => ['constructor' => 1, '__defineGetter__' => 2, '__defineSetter__' => 2, 'hasOwnProperty' => 1, '__lookupGetter__' => 1, '__lookupSetter__' => 1,
+            'isPrototypeOf' => 1, 'propertyIsEnumerable' => 1, 'toString' => 0, 'valueOf' => 0, 'toLocaleString' => 0],
+        'Array' => ['constructor' => 1, 'at' => 1, 'concat' => 1, 'copyWithin' => 2, 'fill' => 1, 'find' => 1, 'findIndex' => 1, 'findLast' => 1,
+            'findLastIndex' => 1, 'lastIndexOf' => 1, 'pop' => 0, 'push' => 1, 'reverse' => 0, 'shift' => 0, 'unshift' => 1, 'slice' => 2, 'sort' => 1,
+            'splice' => 2, 'includes' => 1, 'indexOf' => 1, 'join' => 1, 'keys' => 0, 'entries' => 0, 'values' => 0, 'forEach' => 1, 'filter' => 1,
+            'flat' => 0, 'flatMap' => 1, 'map' => 1, 'every' => 1, 'some' => 1, 'reduce' => 1, 'reduceRight' => 1, 'toReversed' => 0, 'toSorted' => 1,
+            'toSpliced' => 2, 'with' => 2, 'toLocaleString' => 0, 'toString' => 0],
+        'String' => ['constructor' => 1, 'anchor' => 1, 'at' => 1, 'big' => 0, 'blink' => 0, 'bold' => 0, 'charAt' => 1, 'charCodeAt' => 1,
+            'codePointAt' => 1, 'concat' => 1, 'endsWith' => 1, 'fontcolor' => 1, 'fontsize' => 1, 'fixed' => 0, 'includes' => 1, 'indexOf' => 1,
+            'isWellFormed' => 0, 'italics' => 0, 'lastIndexOf' => 1, 'link' => 1, 'localeCompare' => 1, 'match' => 1, 'matchAll' => 1, 'normalize' => 0,
+            'padEnd' => 1, 'padStart' => 1, 'repeat' => 1, 'replace' => 2, 'replaceAll' => 2, 'search' => 1, 'slice' => 2, 'small' => 0, 'split' => 2,
+            'strike' => 0, 'sub' => 0, 'substr' => 2, 'substring' => 2, 'sup' => 0, 'startsWith' => 1, 'toString' => 0, 'toWellFormed' => 0, 'trim' => 0,
+            'trimStart' => 0, 'trimLeft' => 0, 'trimEnd' => 0, 'trimRight' => 0, 'toLocaleLowerCase' => 0, 'toLocaleUpperCase' => 0,
+            'toLowerCase' => 0, 'toUpperCase' => 0, 'valueOf' => 0],
+        'Number' => ['constructor' => 1, 'toExponential' => 1, 'toFixed' => 1, 'toPrecision' => 1, 'toString' => 1, 'valueOf' => 0, 'toLocaleString' => 0],
+        'Boolean' => ['constructor' => 1, 'toString' => 0, 'valueOf' => 0],
+        'Function' => ['constructor' => 1, 'apply' => 2, 'bind' => 1, 'call' => 1, 'toString' => 0],
+    ];
+
+    /** @var array<int, array{0: string, 1: int}> nombre y `length` de cada función, por `spl_object_id` */
+    private static array $funciones = [];
+
+    /**
+     * Lo que `x[k]` encuentra en la cadena de prototipos: una función (un `Closure` único por método,
+     * para que `===` sea identidad) o `undefined`.
+     */
+    private static function heredado(string $proto, string $k)
+    {
+        static $cache = [];
+
+        foreach ([$proto, 'Object'] as $p) {
+            if (! isset(self::PROTOTIPOS[$p][$k])) {
+                continue;
+            }
+
+            // `trimLeft` y `trimRight` son la misma función que `trimStart` y `trimEnd`.
+            $nombre = $k === 'constructor' ? $p : (string) preg_replace(['/^trimLeft$/D', '/^trimRight$/D'], ['trimStart', 'trimEnd'], $k);
+            $clave = $p.'.'.$nombre;
+
+            if (! isset($cache[$clave])) {
+                $cache[$clave] = fn () => null;
+                self::$funciones[spl_object_id($cache[$clave])] = [$nombre, self::PROTOTIPOS[$p][$k]];
+            }
+
+            return $cache[$clave];
         }
 
         return self::u();
@@ -1134,10 +1207,19 @@ final class Retos
         return preg_split('/'.self::ESPACIO.'+/u', $s) ?: [];
     }
 
-    /** `[...x]`: los caracteres (puntos de código) de un texto. */
+    /** Una media pareja UTF-16 suelta (`"🍎"[0]`), como la escribe `prop`: `\xFF` y sus dos bytes. */
+    private const MEDIA = '/(\xFF[\x00-\xFF]{2})/';
+
+    /** `[...x]`: los caracteres (puntos de código) de un texto; una media pareja suelta es uno. */
     private static function puntos(string $s): array
     {
-        return $s === '' ? [] : mb_str_split($s, 1, 'UTF-8');
+        $fuera = [];
+
+        foreach (preg_split(self::MEDIA, $s, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) ?: [] as $trozo) {
+            array_push($fuera, ...($trozo[0] === "\xFF" ? [$trozo] : mb_str_split($trozo, 1, 'UTF-8')));
+        }
+
+        return $fuera;
     }
 
     /** Un valor sobre el que el motor llama a un método de texto (`replace`, `split`, `includes`). */
@@ -1152,7 +1234,13 @@ final class Retos
 
     private static function utf16(string $s): string
     {
-        return mb_convert_encoding($s, 'UTF-16BE', 'UTF-8');
+        $fuera = '';
+
+        foreach (preg_split(self::MEDIA, $s, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) ?: [] as $trozo) {
+            $fuera .= $trozo[0] === "\xFF" ? substr($trozo, 1) : mb_convert_encoding($trozo, 'UTF-16BE', 'UTF-8');
+        }
+
+        return $fuera;
     }
 
     /** `Array.prototype.join`: `null` y `undefined` van vacíos. */
@@ -1185,7 +1273,7 @@ final class Retos
 
         // Dos objetos son el mismo sólo si son el mismo (`===` de PHP entre objetos es identidad, como
         // en JS). Dos listas, nunca: PHP las compara por valor y JS por identidad.
-        if ($a instanceof \stdClass) {
+        if ($a instanceof \stdClass || $a instanceof \Closure) {
             return $a === $b;
         }
 
@@ -1207,7 +1295,7 @@ final class Retos
     /** `ToPrimitive`: listas y objetos pasan a texto. */
     private static function primitivo($x)
     {
-        return is_array($x) || $x instanceof \stdClass ? self::str($x) : $x;
+        return is_array($x) || $x instanceof \stdClass || $x instanceof \Closure ? self::str($x) : $x;
     }
 
     /** `Number(x)`. */
@@ -1270,6 +1358,7 @@ final class Retos
             is_string($x) => $x,
             self::esNumero($x) => self::numeroATexto((float) $x),
             is_array($x) => self::join($x, ','),
+            $x instanceof \Closure => 'function '.self::$funciones[spl_object_id($x)][0].'() { [native code] }',
             default => '[object Object]',
         };
     }
