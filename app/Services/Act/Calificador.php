@@ -16,6 +16,9 @@ namespace App\Services\Act;
  * pregunta; Joseth, 26 sep): cada correcta marcada suma `puntos / nº de correctas`, cada incorrecta
  * marcada resta lo mismo, y la pregunta no baja de 0. «Acertó» sigue siendo el conjunto exacto.
  *
+ * Una `interactiva` (tanda 7) es **siempre parcial**: vale `round(puntos × fracción, 2)`, con la
+ * fracción del motor (`Retos`, §2.8); «acertó» es fracción 1.
+ *
  * Las preguntas llegan como arrays con `tipo`, `puntos` y `opciones` (cada una con `id`,
  * `definicion`, `is_correct`).
  */
@@ -30,6 +33,10 @@ class Calificador
 
         if (in_array($p['tipo'], Recorrido::DE_OPCIONES, true)) {
             return true;
+        }
+
+        if ($p['tipo'] === Interactivas::TIPO) {
+            return ($p['config'] ?? null) !== null;
         }
 
         // `corta` califica sólo si tiene respuestas aceptadas (opciones `is_correct`).
@@ -54,6 +61,10 @@ class Calificador
 
         if ($r === null) {
             return false;
+        }
+
+        if ($p['tipo'] === Interactivas::TIPO) {
+            return Interactivas::fraccion($p, $r) >= 1.0;
         }
 
         if ($p['tipo'] === 'corta') {
@@ -99,6 +110,14 @@ class Calificador
 
             $max += (int) $p['puntos'];
             $r = $respuestas[$p['id']] ?? null;
+
+            if ($p['tipo'] === Interactivas::TIPO) {
+                $f = Interactivas::fraccion($p, $r);
+                $puntaje += round((int) $p['puntos'] * $f, 2);
+                $bien += $f >= 1.0 ? 1 : 0;
+
+                continue;
+            }
 
             if (self::acerto($p, $r)) {
                 $puntaje += (int) $p['puntos'];

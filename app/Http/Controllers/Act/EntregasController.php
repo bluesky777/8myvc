@@ -8,6 +8,7 @@ use App\Services\Act\Actividad;
 use App\Services\Act\Avisos;
 use App\Services\Act\Destinatarios;
 use App\Services\Act\Formas;
+use App\Services\Act\Interactivas;
 use App\Services\Act\Planilla;
 use App\Services\Act\Recorrido;
 use App\Services\Act\Respuestas;
@@ -270,7 +271,7 @@ class EntregasController extends Controller
 
         $visibles = Recorrido::visibles($preguntas, $respuestas);
         $faltan = array_values(array_filter($visibles,
-            fn ($pid) => $porId[$pid]['obligatoria'] && ! Recorrido::respondida($porId[$pid]['tipo'], $respuestas[$pid] ?? null)));
+            fn ($pid) => $porId[$pid]['obligatoria'] && ! Recorrido::respondida($porId[$pid]['tipo'], $respuestas[$pid] ?? null, $porId[$pid])));
 
         if ($faltan !== []) {
             response()->json(['mensaje' => 'Faltan preguntas obligatorias por responder.', 'faltan' => $faltan], 422)->throwResponse();
@@ -370,9 +371,27 @@ class EntregasController extends Controller
         $notas = $subunidad ? Planilla::notasDe((int) $subunidad->id) : [];
         $grupos = Destinatarios::nombresDeGrupos(array_values(array_unique(array_filter(array_column($alumnos, 'grupo_id')))));
 
-        $filas = array_map(function ($e) use ($act, $entregas, $subunidad, $notas, $grupos) {
+        // Tanda 7: las preguntas interactivas de la tarea y lo que hizo cada alumno en ellas. La
+        // tarea no tiene nota automática: la fracción es una ayuda para el docente que califica.
+        $interactivas = array_values(array_filter(Formas::preguntas((int) $act->id), fn ($p) => $p['tipo'] === Interactivas::TIPO));
+        $hojaDe = [];
+
+        if ($interactivas !== []) {
+            foreach (DB::select(
+                'SELECT id, alumno_id FROM ws_actividades_resueltas
+                  WHERE actividad_id = ? AND terminado = 1 AND deleted_at IS NULL AND alumno_id IS NOT NULL ORDER BY id',
+                [$act->id]
+            ) as $h) {
+                $hojaDe[(int) $h->alumno_id] = (int) $h->id;
+            }
+        }
+
+        $respuestasDe = Respuestas::deHojas(array_values($hojaDe));
+
+        $filas = array_map(function ($e) use ($act, $entregas, $subunidad, $notas, $grupos, $interactivas, $hojaDe, $respuestasDe) {
             $entrega = $entregas[$e['alumno_id']] ?? null;
             $nota = $notas[$e['alumno_id']] ?? null;
+            $hoja = $hojaDe[$e['alumno_id']] ?? null;
 
             $estado = match (true) {
                 $entrega === null || $entrega->entregada_at === null => $entrega && $entrega->nota !== null ? 'calificada' : 'sin_entregar',
@@ -389,6 +408,15 @@ class EntregasController extends Controller
                 'nota_planilla' => $nota && $nota->nota !== null ? (int) $nota->nota : null,
                 'editada_a_mano' => $subunidad !== null
                     && Planilla::editada($nota, $subunidad, Planilla::aLaEscala($act, $entrega && $entrega->nota !== null ? (int) $entrega->nota : null)),
+                'interactivas' => array_map(function ($p) use ($hoja, $respuestasDe) {
+                    $r = $hoja === null ? null : ($respuestasDe[$hoja][$p['id']] ?? null);
+
+                    return [
+                        'pregunta_id' => $p['id'],
+                        'estado' => $r['estado'] ?? null,
+                        'fraccion' => $hoja === null ? null : Interactivas::fraccion($p, $r),
+                    ];
+                }, $interactivas),
             ];
         }, $alumnos);
 
@@ -398,6 +426,7 @@ class EntregasController extends Controller
             'actividad' => Formas::enBandeja($act, $user),
             'nota_maxima' => (int) ($act->nota_maxima ?? Actividad::maximoDeLaEscala((int) $act->year_id)),
             'aprobatoria' => (int) ($year->nota_minima_aceptada ?? 0),
+            'interactivas' => $interactivas,
             'filas' => $filas,
         ];
     }

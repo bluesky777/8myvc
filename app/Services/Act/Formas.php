@@ -96,15 +96,21 @@ class Formas
             'compartir' => (bool) $p->compartir,
             'explicacion' => $p->explicacion,
             'puntaje_parcial' => (bool) $p->puntaje_parcial,
+            // Tanda 7: sólo en `interactiva`, `{reto, cfg, respuesta}` como objeto (ver `Interactivas`).
+            'config' => $p->tipo_pregunta === Interactivas::TIPO ? Interactivas::config($p->config ?? null) : null,
             'opciones' => $opciones[(int) $p->id] ?? [],
             'condiciones' => array_values($condiciones[(int) $p->id] ?? []),
         ], $filas);
     }
 
-    /** Una pregunta sin `is_correct`, `error_tipico` ni `explicacion`: la de quien responde. */
+    /** Una pregunta sin `is_correct`, `error_tipico`, `explicacion` ni la `respuesta` del reto: la de quien responde. */
     public static function sinSecretos(array $p): array
     {
         unset($p['explicacion']);
+
+        if (($p['config'] ?? null) !== null) {
+            $p['config'] = Interactivas::sinRespuesta($p['config']);
+        }
 
         $p['opciones'] = array_map(function ($o) {
             unset($o['is_correct'], $o['error_tipico']);

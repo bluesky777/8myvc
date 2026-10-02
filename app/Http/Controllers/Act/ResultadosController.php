@@ -8,6 +8,7 @@ use App\Services\Act\Actividad;
 use App\Services\Act\Calificador;
 use App\Services\Act\Destinatarios;
 use App\Services\Act\Formas;
+use App\Services\Act\Interactivas;
 use App\Services\Act\Recorrido;
 use App\Services\Act\Respuestas;
 use Illuminate\Support\Facades\DB;
@@ -311,6 +312,8 @@ class ResultadosController extends Controller
             $escala = [1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0];
             $textos = [];
             $aciertos = 0;
+            $esInteractiva = $p['tipo'] === Interactivas::TIPO;
+            $sumaDeFracciones = 0.0;
 
             foreach ($hojas as $h) {
                 $hid = (int) $h->id;
@@ -326,7 +329,13 @@ class ResultadosController extends Controller
                     $aciertos++;
                 }
 
-                if (! Recorrido::respondida($p['tipo'], $r)) {
+                // Tanda 7: la fracción cuenta en todas las hojas donde se mostró (sin responder, 0),
+                // igual que en el puntaje.
+                if ($esInteractiva) {
+                    $sumaDeFracciones += Interactivas::fraccion($p, $r);
+                }
+
+                if (! Recorrido::respondida($p['tipo'], $r, $p)) {
                     continue;
                 }
 
@@ -402,6 +411,8 @@ class ResultadosController extends Controller
                     : round(array_sum(array_map(fn ($v, $n) => $v * $n, array_keys($escala), array_values($escala))) / $votosEscala, 2),
                 'textos' => $sinTextos || ! $conTextos ? null : $textos,
                 'aciertos' => $oculto || ! $esCuestionario || ! Calificador::calificable($p) ? null : $aciertos,
+                // Tanda 7: el promedio de la fracción [0, 1] de una interactiva, con 4 decimales.
+                'fraccion_promedio' => $oculto || ! $esInteractiva || $mostrada === 0 ? null : round($sumaDeFracciones / $mostrada, 4),
             ];
         }
 

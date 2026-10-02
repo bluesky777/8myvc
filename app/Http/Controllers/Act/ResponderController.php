@@ -8,6 +8,7 @@ use App\Services\Act\Actividad;
 use App\Services\Act\Calificador;
 use App\Services\Act\Destinatarios;
 use App\Services\Act\Formas;
+use App\Services\Act\Interactivas;
 use App\Services\Act\Planilla;
 use App\Services\Act\Recorrido;
 use App\Services\Act\Respuestas;
@@ -330,6 +331,9 @@ class ResponderController extends Controller
                     'pregunta' => $publica,
                     'mia' => $mias[$p['id']] ?? null,
                     'acerto' => $verCorrectas ? Calificador::acerto($p, $mias[$p['id']] ?? null) : null,
+                    // Tanda 7: cuánto valió el reto [0, 1], con la misma espera que `acerto`.
+                    'fraccion' => $verCorrectas && $p['tipo'] === Interactivas::TIPO
+                        ? Interactivas::fraccion($p, $mias[$p['id']] ?? null) : null,
                 ];
             }
 
@@ -418,7 +422,7 @@ class ResponderController extends Controller
         $faltan = [];
 
         foreach ($visibles as $pid) {
-            if ($porId[$pid]['obligatoria'] && ! Recorrido::respondida($porId[$pid]['tipo'], $respuestas[$pid] ?? null)) {
+            if ($porId[$pid]['obligatoria'] && ! Recorrido::respondida($porId[$pid]['tipo'], $respuestas[$pid] ?? null, $porId[$pid])) {
                 $faltan[] = $pid;
             }
         }

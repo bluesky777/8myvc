@@ -74,11 +74,21 @@ class Recorrido
         return array_keys(array_filter($visible));
     }
 
-    /** Si una respuesta dice algo; una vacía cuenta como no respondida. */
-    public static function respondida(string $tipo, ?array $r): bool
+    /**
+     * Si una respuesta dice algo; una vacía cuenta como no respondida.
+     *
+     * Una `interactiva` está respondida si el reto está terminado (`done` del motor, §2.4), y para
+     * eso hace falta la pregunta (`$p`, con su `config`). Sin ella basta con que haya estado: es lo
+     * que usa `Respuestas::escribir`, que guarda también el reto a medias del borrador.
+     */
+    public static function respondida(string $tipo, ?array $r, ?array $p = null): bool
     {
         if ($r === null) {
             return false;
+        }
+
+        if ($tipo === Interactivas::TIPO) {
+            return ($r['estado'] ?? null) !== null && ($p === null || Interactivas::terminada($p, $r));
         }
 
         if (in_array($tipo, self::DE_OPCIONES, true)) {

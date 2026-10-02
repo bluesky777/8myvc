@@ -9,9 +9,11 @@ use App\Services\Act\Avisos;
 use App\Services\Act\Calificador;
 use App\Services\Act\Destinatarios;
 use App\Services\Act\Formas;
+use App\Services\Act\Interactivas;
 use App\Services\Act\Planilla;
 use App\Services\Act\Recorrido;
 use App\Services\Act\Respuestas;
+use App\Services\Act\Retos;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Request;
 
@@ -96,6 +98,10 @@ class EditarConNotasController extends Controller
                 }
 
                 DB::update('UPDATE ws_preguntas SET puntos = ?, updated_at = ? WHERE id = ?', [$p['puntos'], $ahora, $p['id']]);
+
+                if ($p['tipo'] === Interactivas::TIPO) {
+                    DB::update('UPDATE ws_preguntas SET config = ? WHERE id = ?', [Retos::json($p['config']), $p['id']]);
+                }
 
                 foreach ($p['opciones'] as $o) {
                     DB::update('UPDATE ws_opciones SET is_correct = ?, updated_at = ? WHERE id = ?',
@@ -352,7 +358,7 @@ class EditarConNotasController extends Controller
             $indice[$p['id']] = $i;
         }
 
-        foreach ((array) ($cambios['preguntas'] ?? []) as $c) {
+        foreach ((array) ($cambios['preguntas'] ?? []) as $i => $c) {
             $pid = is_array($c) ? Destinatarios::entero($c['id'] ?? null) : null;
 
             if ($pid === null || ! isset($indice[$pid])) {
@@ -360,7 +366,23 @@ class EditarConNotasController extends Controller
             }
 
             $p = &$preguntas[$indice[$pid]];
-            $calificable = in_array($p['tipo'], Recorrido::DE_OPCIONES, true) || $p['tipo'] === 'corta';
+            $esInteractiva = $p['tipo'] === Interactivas::TIPO;
+            $calificable = in_array($p['tipo'], Recorrido::DE_OPCIONES, true) || $p['tipo'] === 'corta' || $esInteractiva;
+
+            // Tanda 7: en una interactiva, «cambiar la correcta» es cambiar su reto (el cfg).
+            if (array_key_exists('config', $c) && $c['config'] !== null) {
+                if (! $esInteractiva) {
+                    abort(422, 'La pregunta '.$p['orden'].' no es interactiva: no lleva configuración de reto.');
+                }
+
+                $p['config'] = Interactivas::config(Interactivas::configValida(
+                    Interactivas::crudo(['cambios', 'preguntas', $i, 'config'], $c['config'])));
+                $p['_cambia'] = true;
+            }
+
+            if ($esInteractiva && array_key_exists('correctas', $c) && $c['correctas'] !== null) {
+                abort(422, 'La pregunta '.$p['orden'].' es interactiva: su respuesta correcta se cambia con «config».');
+            }
 
             if (array_key_exists('puntos', $c) && $c['puntos'] !== null) {
                 $puntos = Destinatarios::entero($c['puntos']);

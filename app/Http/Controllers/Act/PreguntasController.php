@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Services\Act\Actividad;
 use App\Services\Act\Destinatarios;
 use App\Services\Act\Formas;
+use App\Services\Act\Interactivas;
 use App\Services\Act\Recorrido;
 use App\Support\SafeUpload;
 use Illuminate\Support\Facades\DB;
@@ -29,7 +30,8 @@ class PreguntasController extends Controller
 {
     use ResuelveElUsuario;
 
-    public const TIPOS = ['unica', 'multiple', 'corta', 'parrafo', 'escala', 'sino', 'imagen_opciones', 'video', 'archivo', 'fecha'];
+    /** `interactiva`: uno de los 33 retos del motor de inglés (tanda 7, `Interactivas`). */
+    public const TIPOS = ['unica', 'multiple', 'corta', 'parrafo', 'escala', 'sino', 'imagen_opciones', 'video', 'archivo', 'fecha', 'interactiva'];
 
     /** Los tipos que llevan opciones: los de elegir, y `corta` (sus opciones son respuestas aceptadas). */
     private const CON_OPCIONES = ['unica', 'multiple', 'sino', 'imagen_opciones', 'video', 'corta'];
@@ -38,7 +40,7 @@ class PreguntasController extends Controller
     private const SIN_PUNTOS = ['parrafo', 'escala', 'archivo', 'fecha'];
 
     /** Por defecto no se comparten los textos libres ni los archivos (§2.10). */
-    private const NO_SE_COMPARTEN = ['corta', 'parrafo', 'archivo', 'fecha'];
+    private const NO_SE_COMPARTEN = ['corta', 'parrafo', 'archivo', 'fecha', 'interactiva'];
 
     /** Imágenes del enunciado y de las opciones: el cliente ya las reduce a 1600 px. */
     private const IMAGEN_TOPE_BYTES = 5 * 1024 * 1024;
@@ -136,7 +138,8 @@ class PreguntasController extends Controller
         }
 
         // Se validan TODAS antes de escribir la primera: un lote va entero o no va.
-        $validas = array_map(fn ($p) => $this->preguntaValida(is_array($p) ? $p : [], $act, null), array_values($dadas));
+        $validas = array_map(fn ($p, $i) => $this->preguntaValida(is_array($p) ? $p : [], $act, null, ['preguntas', $i]),
+            array_values($dadas), array_keys(array_values($dadas)));
 
         $ids = DB::transaction(function () use ($act, $validas) {
             $orden = $this->siguienteOrden((int) $act->id);
@@ -175,11 +178,13 @@ class PreguntasController extends Controller
             $this->exigirSoloTextos($antes, $columnas, $opciones);
         }
 
-        if ($columnas['tipo_pregunta'] === 'archivo' && $antes['tipo'] !== 'archivo') {
+        if (in_array($columnas['tipo_pregunta'], ['archivo', Interactivas::TIPO], true) && $antes['tipo'] !== $columnas['tipo_pregunta']) {
             $dependen = $this->queDependenDe([(int) $pid]);
 
             if ($dependen !== []) {
-                $this->conflicto(422, 'De una pregunta de archivo no puede depender ninguna condición.', $dependen);
+                $this->conflicto(422, $columnas['tipo_pregunta'] === 'archivo'
+                    ? 'De una pregunta de archivo no puede depender ninguna condición.'
+                    : 'De una pregunta interactiva no puede depender ninguna condición.', $dependen);
             }
         }
 
@@ -359,17 +364,28 @@ class PreguntasController extends Controller
 
     /**
      * `PreguntaNueva` → columnas de `ws_preguntas` y la lista de opciones. `$antes` es la pregunta
-     * guardada, al editar.
+     * guardada, al editar. `$camino` es dónde está esta pregunta en el cuerpo (`[]` si es el cuerpo
+     * entero, `['preguntas', $i]` en el lote): de ahí se lee crudo el `config` de una interactiva.
      *
+     * @param  list<string|int>  $camino
      * @return array{0: array<string, mixed>, 1: list<array{id: ?int, definicion: string, image_id: ?int, is_correct: bool, error_tipico: ?string}>}
      */
-    private function preguntaValida(array $d, object $act, ?array $antes): array
+    private function preguntaValida(array $d, object $act, ?array $antes, array $camino = []): array
     {
         $tipo = (string) ($d['tipo'] ?? $antes['tipo'] ?? '');
 
         if (! in_array($tipo, self::TIPOS, true)) {
             abort(422, 'Ese tipo de pregunta no existe.');
         }
+
+        // Una interactiva califica, y una encuesta no califica nada (decidido por Joseth, 1 oct).
+        if ($tipo === Interactivas::TIPO && $act->modo === 'encuesta') {
+            abort(422, 'Las preguntas interactivas no van en encuestas: son para cuestionarios y tareas.');
+        }
+
+        $config = $tipo === Interactivas::TIPO
+            ? Interactivas::configValida(Interactivas::crudo([...$camino, 'config'], $d['config'] ?? null))
+            : null;
 
         if ($tipo === 'archivo' && $act->anonimato !== 'nombre') {
             abort(422, 'Una pregunta de archivo no cabe en una encuesta anónima: el archivo lleva quién lo subió.');
@@ -496,6 +512,8 @@ class PreguntasController extends Controller
             'explicacion' => $texto('explicacion', 5000),
             // Sólo tiene sentido en `multiple`; en los demás tipos se guarda 0.
             'puntaje_parcial' => $tipo === 'multiple' && ! empty($d['puntaje_parcial']) ? 1 : 0,
+            // Sólo en `interactiva`; en los demás tipos, NULL.
+            'config' => $config,
         ], $opciones];
     }
 
@@ -515,6 +533,11 @@ class PreguntasController extends Controller
 
         if ($d['tipo'] === 'archivo') {
             $this->conflicto(422, 'Una condición no puede depender de una pregunta de archivo.', [$p['id']]);
+        }
+
+        // Su respuesta es el estado de un reto, no algo que se pueda comparar con «es» o «contiene».
+        if ($d['tipo'] === Interactivas::TIPO) {
+            $this->conflicto(422, 'Una condición no puede depender de una pregunta interactiva.', [$p['id']]);
         }
 
         $operador = (string) ($c['operador'] ?? '');
@@ -558,6 +581,12 @@ class PreguntasController extends Controller
             'opcion_otra' => (int) $antes['opcion_otra'], 'aleatorias' => (int) $antes['aleatorias'],
             'puntaje_parcial' => (int) $antes['puntaje_parcial'],
         ];
+
+        // El reto y su cfg son la «respuesta correcta» de una interactiva: cambiarlos va por
+        // `impacto` + `aplicar-cambios`. El texto de `respuesta` sí se puede tocar.
+        if (! Interactivas::mismoReto($antes['config'] ?? null, Interactivas::config($columnas['config']))) {
+            abort(409, 'Ya hay respuestas: el reto no se cambia aquí; si cambia la respuesta correcta, va por «Editar con notas».');
+        }
 
         foreach ($estructura as $col => $viejo) {
             if ((string) $columnas[$col] !== (string) $viejo) {

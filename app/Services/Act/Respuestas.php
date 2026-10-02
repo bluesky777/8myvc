@@ -164,8 +164,11 @@ class Respuestas
     /**
      * Lee y valida las respuestas del cuerpo contra las preguntas. 422 con la primera que no cuadra.
      *
+     * `$dadas` es siempre `respuestas` del cuerpo: el `estado` de una interactiva se vuelve a leer
+     * de ahí, crudo, por su posición (ver `Interactivas`).
+     *
      * @param  array<int, array>  $porId  las preguntas indexadas por id
-     * @return array<int, array{pregunta_id: int, opcion_ids: list<int>, texto: ?string, valor: ?int, fecha: ?string, archivo_id: ?int}>
+     * @return array<int, array{pregunta_id: int, opcion_ids: list<int>, texto: ?string, valor: ?int, fecha: ?string, archivo_id: ?int, estado: mixed}>
      */
     public static function leer($dadas, array $porId, object $act, object $user, array $entrada): array
     {
@@ -179,7 +182,7 @@ class Respuestas
 
         $leidas = [];
 
-        foreach ($dadas as $r) {
+        foreach ($dadas as $indice => $r) {
             if (! is_array($r)) {
                 abort(422, 'Una de las respuestas no tiene forma de respuesta.');
             }
@@ -191,12 +194,17 @@ class Respuestas
                 abort(422, 'Una respuesta apunta a una pregunta que no es de esta actividad.');
             }
 
-            $leida = ['pregunta_id' => $pid, 'opcion_ids' => [], 'texto' => null, 'valor' => null, 'fecha' => null, 'archivo_id' => null];
+            $leida = ['pregunta_id' => $pid, 'opcion_ids' => [], 'texto' => null, 'valor' => null, 'fecha' => null, 'archivo_id' => null, 'estado' => null];
             $tipo = $p['tipo'];
             $texto = isset($r['texto']) ? trim((string) $r['texto']) : null;
             $texto = $texto === '' ? null : $texto;
 
-            if (in_array($tipo, Recorrido::DE_OPCIONES, true)) {
+            if ($tipo === Interactivas::TIPO) {
+                // El estado del motor, crudo y como objeto; con tope de bytes (§2.4).
+                $estado = Interactivas::crudo(['respuestas', $indice, 'estado'], $r['estado'] ?? null);
+                Interactivas::estadoValido($estado);
+                $leida['estado'] = $estado;
+            } elseif (in_array($tipo, Recorrido::DE_OPCIONES, true)) {
                 $validas = array_map(fn ($o) => $o['id'], $p['opciones']);
                 $ids = array_values(array_unique(array_map('intval', is_array($r['opcion_ids'] ?? null) ? $r['opcion_ids'] : [])));
 
@@ -305,6 +313,13 @@ class Respuestas
                 continue;
             }
 
+            if ($tipo === Interactivas::TIPO) {
+                // El estado tal cual, aunque el reto esté a medias: el borrador lo guarda así.
+                DB::table('ws_respuestas')->insert(['estado' => Interactivas::estadoValido($r['estado'])] + $base);
+
+                continue;
+            }
+
             DB::table('ws_respuestas')->insert([
                 'texto' => $r['texto'],
                 'valor' => $r['valor'],
@@ -334,7 +349,7 @@ class Respuestas
         ) as $f) {
             $h = (int) $f->actividad_resuelta_id;
             $p = (int) $f->pregunta_id;
-            $r = $todas[$h][$p] ?? ['pregunta_id' => $p, 'opcion_ids' => [], 'texto' => null, 'valor' => null, 'fecha' => null, 'archivo_id' => null];
+            $r = $todas[$h][$p] ?? ['pregunta_id' => $p, 'opcion_ids' => [], 'texto' => null, 'valor' => null, 'fecha' => null, 'archivo_id' => null, 'estado' => null];
 
             if ($f->opcion_id !== null) {
                 $r['opcion_ids'][] = (int) $f->opcion_id;
@@ -344,6 +359,8 @@ class Respuestas
             $r['valor'] = $f->valor !== null ? (int) $f->valor : $r['valor'];
             $r['fecha'] = $f->fecha ?? $r['fecha'];
             $r['archivo_id'] = $f->archivo_id !== null ? (int) $f->archivo_id : $r['archivo_id'];
+            // Con objetos (`stdClass`): `{}` sale como `{}` y no como `[]` (ver `Interactivas`).
+            $r['estado'] = ($f->estado ?? null) !== null ? Retos::leer($f->estado) : $r['estado'];
 
             $todas[$h][$p] = $r;
         }

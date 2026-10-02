@@ -8,6 +8,17 @@
 > **Se actualiza en el mismo commit que el trabajo**, no en uno aparte al final:
 > un commit aparte es el que no se hace cuando la sesión se corta.
 
+> ## 🟡 PREGUNTAS INTERACTIVAS EN ACTIVIDADES (1 oct 2026), EN `main` Y SIN DESPLEGAR
+>
+> Tanda 7 del contrato (`myvc_front/ACTIVIDADES-CONTRATO.md` §1.7, §2.4, §2.8, tanda 7): tipo
+> `interactiva` con los 33 retos del motor de inglés. Migración
+> `2026_10_01_100000_las_preguntas_interactivas` (`ws_preguntas.config`, `ws_respuestas.estado`,
+> `TEXT NULL`), **corrida en el docker** (`caz_29sep_1252`). Califica `App\Services\Act\Retos`:
+> traducción del `score`/`done` del JS, paridad 291 868 pares con 0 diferencias (arnés de una vez,
+> no commiteado). Probado a mano contra el docker con curl; **sin tests de contrato todavía** (van
+> después de que Joseth lo pruebe) y **la suite entera no se ha corrido**. Al desplegar: la
+> migración en los 16, y el front de la tanda 7 cuando esté.
+
 > ## 🔴 COLJORDAN P3: 9.022 NOTAS REPUESTAS DESDE JETBACKUP (28 sep 2026) — FALTAN LAS DEFINITIVAS
 >
 > El rescate del 21 sep les había puesto `nota_default`, que en coljordan es 0. Repuestas desde
