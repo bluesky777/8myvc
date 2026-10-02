@@ -152,3 +152,41 @@ micolev1	HECHO	lal	f80e9fb1	f1579d3d	0 migracion(es), composer install, respaldo
 micolev1	HECHO	maranathaarauca	f80e9fb1	f1579d3d	0 migracion(es), composer install, respaldo vendor borrado tras comprobar
 micolev1	HECHO	semillitasdedios	f80e9fb1	f1579d3d	0 migracion(es), composer install, respaldo vendor borrado tras comprobar
 micolevi	HECHO	public_html	f80e9fb1	f1579d3d	0 migracion(es), composer install, respaldo vendor borrado tras comprobar
+== 2026-09-30 22:14:29 -0500 · 18 desplegado(s), 0 sin desplegar
+micolev1	HECHO	amiguitosdejesus	5efe9037	f80e9fb1	3 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_amiguitosdejesus-2026-09-30-231134-f80e9fb1.sql.gz
+micolev1	HECHO	bethelexplora	5efe9037	f80e9fb1	3 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_bethel_arauquita_db-2026-09-30-231138-f80e9fb1.sql.gz
+micolev1	HECHO	cads-itagui	5efe9037	f80e9fb1	3 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_cads_itagui_db-2026-09-30-231143-f80e9fb1.sql.gz
+micolev1	HECHO	casb-medellin	5efe9037	f80e9fb1	3 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_simonbolivar_medellin-2026-09-30-231151-f80e9fb1.sql.gz
+micolev1	HECHO	caz-zaragoza	5efe9037	f80e9fb1	3 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_caz_zaragoza_db-2026-09-30-231203-f80e9fb1.sql.gz
+micolev1	HECHO	coabsaravena	5efe9037	f80e9fb1	3 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_coab_saravena_db-2026-09-30-231209-f80e9fb1.sql.gz
+micolev1	HECHO	coal	5efe9037	f80e9fb1	3 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_coal_bucara-2026-09-30-231231-f80e9fb1.sql.gz
+micolev1	HECHO	colbosque	5efe9037	f80e9fb1	3 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_colbosque_tame-2026-09-30-231240-f80e9fb1.sql.gz
+micolev1	HECHO	coljordan	5efe9037	f80e9fb1	3 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_coljordan_db-2026-09-30-231243-f80e9fb1.sql.gz
+micolev1	HECHO	comad-san-andres	5efe9037	f80e9fb1	3 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_comad_san_andres_db-2026-09-30-231251-f80e9fb1.sql.gz
+micolev1	HECHO	demo	5efe9037	f80e9fb1	3 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_demo_db-2026-09-30-231257-f80e9fb1.sql.gz
+micolev1	HECHO	eal	5efe9037	f80e9fb1	3 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_la_hermosa-2026-09-30-231305-f80e9fb1.sql.gz
+micolev1	HECHO	fortul	5efe9037	f80e9fb1	3 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_fortul_adventista_db-2026-09-30-231309-f80e9fb1.sql.gz
+micolev1	HECHO	inseaq	5efe9037	f80e9fb1	3 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_quibdo_db-2026-09-30-231315-f80e9fb1.sql.gz
+micolev1	HECHO	lal	5efe9037	f80e9fb1	3 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_lal_db-2026-09-30-231337-f80e9fb1.sql.gz
+micolev1	HECHO	maranathaarauca	5efe9037	f80e9fb1	3 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_arauca_maranatha_db-2026-09-30-231354-f80e9fb1.sql.gz
+micolev1	HECHO	semillitasdedios	5efe9037	f80e9fb1	3 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_semillitas-2026-09-30-231405-f80e9fb1.sql.gz
+micolevi	HECHO	public_html	5efe9037	f80e9fb1	3 migracion(es), respaldo /home/micolevi/respaldos/antes-de-migrar/micolevi_lalvirtual-2026-09-30-231412-f80e9fb1.sql.gz
+== 2026-10-02 07:37:03 -0500 · 18 desplegado(s), 0 sin desplegar
+micolev1	HECHO	amiguitosdejesus	c0c505d4	5efe9037	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_amiguitosdejesus-2026-10-02-083407-5efe9037.sql.gz
+micolev1	HECHO	bethelexplora	c0c505d4	5efe9037	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_bethel_arauquita_db-2026-10-02-083411-5efe9037.sql.gz
+micolev1	HECHO	cads-itagui	c0c505d4	5efe9037	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_cads_itagui_db-2026-10-02-083417-5efe9037.sql.gz
+micolev1	HECHO	casb-medellin	c0c505d4	5efe9037	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_simonbolivar_medellin-2026-10-02-083424-5efe9037.sql.gz
+micolev1	HECHO	caz-zaragoza	c0c505d4	5efe9037	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_caz_zaragoza_db-2026-10-02-083435-5efe9037.sql.gz
+micolev1	HECHO	coabsaravena	c0c505d4	5efe9037	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_coab_saravena_db-2026-10-02-083441-5efe9037.sql.gz
+micolev1	HECHO	coal	c0c505d4	5efe9037	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_coal_bucara-2026-10-02-083459-5efe9037.sql.gz
+micolev1	HECHO	colbosque	c0c505d4	5efe9037	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_colbosque_tame-2026-10-02-083508-5efe9037.sql.gz
+micolev1	HECHO	coljordan	c0c505d4	5efe9037	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_coljordan_db-2026-10-02-083515-5efe9037.sql.gz
+micolev1	HECHO	comad-san-andres	c0c505d4	5efe9037	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_comad_san_andres_db-2026-10-02-083522-5efe9037.sql.gz
+micolev1	HECHO	demo	c0c505d4	5efe9037	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_demo_db-2026-10-02-083528-5efe9037.sql.gz
+micolev1	HECHO	eal	c0c505d4	5efe9037	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_la_hermosa-2026-10-02-083533-5efe9037.sql.gz
+micolev1	HECHO	fortul	c0c505d4	5efe9037	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_fortul_adventista_db-2026-10-02-083537-5efe9037.sql.gz
+micolev1	HECHO	inseaq	c0c505d4	5efe9037	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_quibdo_db-2026-10-02-083543-5efe9037.sql.gz
+micolev1	HECHO	lal	c0c505d4	5efe9037	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_lal_db-2026-10-02-083606-5efe9037.sql.gz
+micolev1	HECHO	maranathaarauca	c0c505d4	5efe9037	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_arauca_maranatha_db-2026-10-02-083625-5efe9037.sql.gz
+micolev1	HECHO	semillitasdedios	c0c505d4	5efe9037	1 migracion(es), respaldo /home/micolev1/respaldos/antes-de-migrar/micolev1_semillitas-2026-10-02-083636-5efe9037.sql.gz
+micolevi	HECHO	public_html	c0c505d4	5efe9037	1 migracion(es), respaldo /home/micolevi/respaldos/antes-de-migrar/micolevi_lalvirtual-2026-10-02-083643-5efe9037.sql.gz

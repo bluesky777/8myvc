@@ -11,6 +11,46 @@ preguntas lo imprescindible y le enseñas números, no procedimientos.
 Todo esto son **dieciocho colegios de verdad con clases dentro**. La regla que manda:
 *el guion prepara y comprueba, la persona decide.*
 
+## 0. Ir avisando mientras se hace — lo que más le importa a Joseth (pedido el 29 sep 2026)
+
+Durante la tanda se le escribe **una línea en cada hito**, sin esperar al final. Lo que más
+le importa son **los respaldos**, y de ellos, estos tres momentos, siempre, con números:
+
+1. **Antes de respaldar**: «Voy a respaldar N bases antes de migrar: <colegios>.» Si la
+   tanda no trae migraciones, se dice igual y en claro: «Sin migraciones: esta tanda **no**
+   respalda las bases.» Callarlo le hace creer que hay respaldo.
+2. **Respaldos hechos en el servidor**: en cuanto `--ejecutar` devuelva, se cuentan las
+   líneas `HECHO` que llevan `respaldo /home/...sql.gz`: «Respaldos hechos en el servidor:
+   18 de 18.» Si falta alguno, se nombra ese colegio el primero, en la misma línea.
+3. **Respaldos bajados al Mac**: al empezar, «Bajando N respaldos al Mac (~1 min cada
+   uno).»; mientras baja, cada pocos minutos «van X de N» (se cuentan los `.sql.gz` que ya
+   hay en la carpeta de destino); al acabar, «N respaldos en el Mac, <peso>, <k>
+   corruptos, en `~/DESARROLLOS/respaldos-myvc/antes-de-migrar/<fecha>/`».
+
+El resto de hitos van en una línea cada uno: plan listo, despliegue empezado, la cuenta
+`micolev1` terminada (17 colegios, salen juntos) y después LAL, el censo, los curl, el push
+del front, cada workflow en `success` y el `pull` de `up`/`up2`.
+
+Para poder avisar, lo largo se lanza **en segundo plano** (`run_in_background`) con la
+salida a un fichero del scratchpad, y se vigila con `Monitor` o `tail`: `--ejecutar` y
+`bajar-respaldos-del-despliegue.sh`. Nunca en primer plano esperando media hora en silencio.
+
+## 0b. Lo que NO va en la tanda se dice antes, con números (pedido por Joseth el 2 oct 2026)
+
+Antes del plan, en los dos repos (`8myvc` y `myvc_front`):
+
+```bash
+git status --short | wc -l                    # sin commitear
+git log --oneline origin/main..main | wc -l   # sin subir
+```
+
+Si hay ficheros sin commitear, **se le dice antes de preguntar cuándo**: «Quedan N
+ficheros sin commitear en <repo> (<carpetas>); esos NO se despliegan.» y él confirma que
+se quedan fuera. Sin esa confirmación no se despliega. Y en el aviso final nunca se dice
+«publicado» a secas: «publicado lo commiteado; quedan N ficheros sin commitear fuera».
+El 2 oct 2026 se dijo «up2 publicado» con 102 ficheros de `app2` sin commitear y Joseth
+creyó que iba todo.
+
 ## 1. Enseñar el plan antes de preguntar nada
 
 ```bash
@@ -100,7 +140,8 @@ tools/bajar-respaldos-del-despliegue.sh           # los de hoy; otra fecha: ... 
 ```
 
 Los deja en `~/DESARROLLOS/respaldos-myvc/antes-de-migrar/<fecha>/` y pasa `gzip -t` a cada
-uno. Dile a Joseth en una línea cuántos son, cuánto pesan y si alguno salió corrupto. Si el
+uno. Va en segundo plano y con los tres avisos del paso 0 (empieza, «van X de N», terminó):
+cuántos son, cuánto pesan y si alguno salió corrupto. Si el
 guion sale con 1, eso es lo primero que se cuenta. (No es `bajar-respaldos.sh`, que trae
 los volcados diarios del cron.)
 
