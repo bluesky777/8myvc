@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * LA NOTA DE UNA ACTIVIDAD EN LA PLANILLA (tanda 2).
  *
- * Contrato: `myvc_front/ACTIVIDADES-CONTRATO.md` §2.8, §3.9 y §3.11; el porqué en
+ * Contrato: `myvc_front/docs/funciones/ACTIVIDADES-CONTRATO.md` §2.8, §3.9 y §3.11; el porqué en
  * `ACTIVIDADES-Y-ENCUESTAS.md` §4c. Una tarea o un cuestionario con `califica = 1` crea, al
  * publicarse, un indicador (subunidad) en el logro (`unidad_id`) que eligió el docente, enlazado por
  * `subunidades.actividad_id`. Todo lo que escribe va por los caminos de siempre, sacados a servicios

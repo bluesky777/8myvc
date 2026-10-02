@@ -10,7 +10,7 @@
 
 > ## 🟡 PREGUNTAS INTERACTIVAS EN ACTIVIDADES (1 oct 2026), EN `main` Y SIN DESPLEGAR
 >
-> Tanda 7 del contrato (`myvc_front/ACTIVIDADES-CONTRATO.md` §1.7, §2.4, §2.8, tanda 7): tipo
+> Tanda 7 del contrato (`myvc_front/docs/funciones/ACTIVIDADES-CONTRATO.md` §1.7, §2.4, §2.8, tanda 7): tipo
 > `interactiva` con los 33 retos del motor de inglés. Migración
 > `2026_10_01_100000_las_preguntas_interactivas` (`ws_preguntas.config`, `ws_respuestas.estado`,
 > `TEXT NULL`), **corrida en el docker** (`caz_29sep_1252`). Califica `App\Services\Act\Retos`:
@@ -743,7 +743,7 @@
 > 3. **Dejarlo**: el papel sigue declarando el recorte, ahora con el aviso fuerte.
 >
 > **Nadie ha tocado `ver-ausencias` ni ha escrito la ruta nueva.** El detalle y las opciones
-> del lado del front están en `myvc_front/INFORMES-NUEVOS-CIERRE.md` §3.
+> del lado del front están en `myvc_front/docs/pantallas/INFORMES-NUEVOS-CIERRE.md` §3.
 >
 > > **Y de paso se cayó una premisa del relevo del front** —«no hay ni una ausencia en todo
 > > el año, 29 alumnos matriculados, cero registros»—: estaba medida **por esa misma puerta
@@ -2757,7 +2757,7 @@
 > ## ⚠️ ANTES DE LA FASE 1 DEL PROCESO: `requisitos_matricula` ESTÁ VACÍA **AQUÍ**, NO EN LOS DIECISÉIS
 >
 > **Medido el 20 sep 2026 en la copia de desarrollo (UN colegio), y el denominador es la mitad del
-> hallazgo.** La fase 1 del proceso de admisión —`myvc_front/PANTALLAS-MATRICULA.md`— **ensancha**
+> hallazgo.** La fase 1 del proceso de admisión —`myvc_front/docs/pantallas/PANTALLAS-MATRICULA.md`— **ensancha**
 > `requisitos_matricula` y `requisitos_alumno` en vez de empezar de cero. Aquí no hay nada sobre lo
 > que construir:
 >
@@ -3138,7 +3138,7 @@
 > ### Lo que NO hace, para que nadie lo suponga
 >
 > - **No crea el alumno**: ata a uno que ya existe. Es donde encajará `aspirantes` (§7 de
->   `myvc_front/INVESTIGACION-MATRICULAS.md`).
+>   `myvc_front/docs/investigaciones/INVESTIGACION-MATRICULAS.md`).
 > - **No engancha en el flujo de matrícula**, por el punto 1.
 > - **No manda ningún aviso**: sigue abierto y sigue dependiendo del correo, que está en rojo
 >   desde el 2 sep.
@@ -3149,7 +3149,7 @@
 > teléfono, sin web**, que al cerrar su paso le aparezca esa persona a la estación siguiente, y
 > que pueda seguir buscando a cualquier alumno del colegio para ver en qué va.
 >
-> El plan de matrículas del front —`myvc_front/INVESTIGACION-MATRICULAS.md` y
+> El plan de matrículas del front —`myvc_front/docs/investigaciones/INVESTIGACION-MATRICULAS.md` y
 > `PANTALLAS-MATRICULA.md`— pone las estaciones en **`app2`, o sea en la web**. Quien atiende
 > la estación 2 es un docente de pie con una fila delante. De ahí sale esto:
 >
@@ -3590,7 +3590,7 @@
 > `myvc_front` dejó sus pantallas terminadas y empujadas, y espera una sola cosa: **las rutas
 > desplegadas en los diecisiete ANTES que el bundle de `app2`**. Al revés, toda secretaría ve
 > «Formularios de inscripción» en el buscador de informes y **se come un 404**
-> (`myvc_front/INVESTIGACION-MATRICULAS.md` §11). Los dos interruptores de prematrícula son la
+> (`myvc_front/docs/investigaciones/INVESTIGACION-MATRICULAS.md` §11). Los dos interruptores de prematrícula son la
 > excepción: ya están en `main` y pueden ir cuando quieran.
 
 > ## ❌ WHATSAPP: ANALIZADO Y DESCARTADO — EL CANAL ES EL CORREO (19 sep 2026)
@@ -4277,7 +4277,7 @@
 >
 > **«Competencia» y «desempeño» son la misma cosa**, así que sobraba un piso entero. El contrato
 > está en **[39](39-el-modelo-plano-por-competencias.md)**; las decisiones y su porqué, en
-> `myvc_front/CORRECCIONES-MODELO-DE-EVALUACION.md` (P1.bis, P1.ter, P1.quater, D31, D32).
+> `myvc_front/docs/modelo-de-evaluacion/CORRECCIONES-MODELO-DE-EVALUACION.md` (P1.bis, P1.ter, P1.quater, D31, D32).
 >
 > | | |
 > |---|---|
@@ -5081,7 +5081,7 @@
 >
 > **Joseth cerró la noche del 13 sep las nueve decisiones que bloqueaban las competencias**, en una
 > tanda de 22 tomadas una a una con sus alternativas delante:
-> `myvc_front/DECISIONES-MODELO-DE-EVALUACION.md`. Lo que cambia el marco y no estaba en el doc 28:
+> `myvc_front/docs/modelo-de-evaluacion/DECISIONES-MODELO-DE-EVALUACION.md`. Lo que cambia el marco y no estaba en el doc 28:
 > **lo de hoy no se sustituye, se queda como una opción del colegio** —
 > `years.modelo_evaluacion enum('ponderado','competencias') DEFAULT 'ponderado'` — que gobierna **lo
 > que se ve y lo que se escribe** y **ningún cálculo**. Volver atrás es cambiar el enum.
@@ -8216,7 +8216,7 @@ mueve: siguen 567**
 > **Joseth lo decidió al revés de la regla, y a propósito: «hazlo tú y comunícale a front».**
 > Así que el aviso O **se corrigió a mano en `DESPLIEGUE.md`** —con el porqué de la excepción
 > escrito al lado de la tabla— y **el aviso se dio**, en
-> `~/DESARROLLOS/myvc_front/PANTALLAS-HISTORIAL-Y-BOLETIN.md`, sección C, fechado y firmado
+> `~/DESARROLLOS/myvc_front/docs/pantallas/PANTALLAS-HISTORIAL-Y-BOLETIN.md`, sección C, fechado y firmado
 > por esta sesión. **Escrito allí y sin commitear allí**, que es la regla del canal: una
 > sesión se cierra, el fichero queda, y ese repositorio es suyo.
 >
@@ -10151,7 +10151,7 @@ es una línea de SQL · lo decidió Joseth y lo montó la sesión que relevó al
 RESULTÓ SER OTRA COSA** · [`24-el-panel-de-inicio.md`](24-el-panel-de-inicio.md) nuevo, con
 `GET ChangesAsked/to-me` medido rol por rol · **el router sigue en 550**: no hay ruta nueva ·
 lo levantó la sesión de `myvc_flutter`, y **la pregunta ya estaba escrita en el otro repo desde
-el 1 sep** (`myvc_front/MIGRATION.md`, «un endpoint único para la portada»)
+el 1 sep** (`myvc_front/docs/planes/MIGRATION.md`, «un endpoint único para la portada»)
 
 > **Tres recortes hechos; las diez claves de la respuesta siguen todas** (la tercera sí cambia la
 > forma de una fila, y va explicada abajo):
@@ -10411,8 +10411,8 @@ coordina `8myvc-ab`
 
 > ### Nivelaciones — rama `niv/backend`, 2 sep 2026 (sesión A del reparto en tres)
 >
-> Joseth decidió el 2 sep las cuatro preguntas de `myvc_front/PLAN-NIVELACIONES-Y-RUBRICAS.md`
-> y el trabajo se repartió en tres sesiones (`myvc_front/TAREAS-NIVELACIONES-Y-RUBRICAS.md`):
+> Joseth decidió el 2 sep las cuatro preguntas de `myvc_front/docs/planes/PLAN-NIVELACIONES-Y-RUBRICAS.md`
+> y el trabajo se repartió en tres sesiones (`myvc_front/docs/tareas/TAREAS-NIVELACIONES-Y-RUBRICAS.md`):
 > **A** backend de nivelación (esta rama), **B** front, **C** rúbricas. Lo primero de A fue
 > **el contrato**, porque B construye contra un doble y estaba parada esperándolo:
 > [22-nivelaciones.md](22-nivelaciones.md). **Cambiar ese documento es avisar a B.**
@@ -10599,7 +10599,7 @@ coordina `8myvc-ab`
 
 > ### CARRIL C — RÚBRICAS, mitad backend: rama `niv/rubricas`, 2 sep 2026 — C2, C3 y C4 HECHAS
 >
-> Es la sesión C-back del reparto de `myvc_front/TAREAS-NIVELACIONES-Y-RUBRICAS.md` (§5 «C»),
+> Es la sesión C-back del reparto de `myvc_front/docs/tareas/TAREAS-NIVELACIONES-Y-RUBRICAS.md` (§5 «C»),
 > coordinada por `myvc-front-0f`; la mitad de `app2` la lleva `myvc-front-4f`. **No está en
 > `main`**: tres ramas —A `niv/backend`, B `niv/front`, C `niv/rubricas`— y se integran de una
 > en una, A, B y luego C. Nada de esto toca `NotasController`, `routes/api/academico.php` ni
@@ -10707,7 +10707,7 @@ coordina `8myvc-ab`
 > traía **cinco cosas que no cuadraban** —la primera pintaba de gris el caso del §9.1— y las cinco se
 > corrigieron antes de escribir una línea: está en la **§13** del
 > [19](19-boletin-independiente.md), y la respuesta al front en su canal
-> (`myvc_front/PANTALLAS-HISTORIAL-Y-BOLETIN.md`, §C, `8myvc-2d`), con el contrato ya rehecho por
+> (`myvc_front/docs/pantallas/PANTALLAS-HISTORIAL-Y-BOLETIN.md`, §C, `8myvc-2d`), con el contrato ya rehecho por
 > ellos.
 >
 > > **Y la corrida completa de este commit NO se puede dar por medida, que es distinto de darla por
@@ -11385,7 +11385,7 @@ revés** · `2026_08_31_100000_retirar_boletin_independiente_de_matriculas`
 > **Y esto NO está comiteado**: el árbol traía ya cinco ficheros modificados de otras sesiones y
 > `myvc-front-c5` había editado el 19 sin commitear. El OK de Joseth a otra sesión no vale para ésta
 > ([[autorizacion-no-se-delega]]). El aviso al front está escrito en su buzón
-> (`myvc_front/PANTALLAS-HISTORIAL-Y-BOLETIN.md`), que es donde manda el acuerdo del 24 ago.
+> (`myvc_front/docs/pantallas/PANTALLAS-HISTORIAL-Y-BOLETIN.md`), que es donde manda el acuerdo del 24 ago.
 
 **Y EN PARALELO, LA MISMA NOCHE — EL MODAL DE «ALUMNOS POR GRUPO» YA TIENE DE DÓNDE LEER**
 (sesión distinta, encargo del front `myvc-front-ca` para el panel de `app2`) · ruta **544**:
@@ -11541,7 +11541,7 @@ pint PASS, larastan nivel 7 `[OK]`**
 > con *«el docente teclea un entero y se guarda un entero»*. **Es mentira, y la verdad no está en este
 > repositorio**: las cuatro pantallas de los dos fronts llevan `<input type="number">` **sin `step`**
 > y ninguna valida, así que **sí se puede teclear `85,5`** — lo midió `myvc-front-10` el 23 ago 2026
-> en `myvc_front/PANTALLAS-HISTORIAL-Y-BOLETIN.md`. Lo que no hay es un `round()` **de PHP**; quien
+> en `myvc_front/docs/pantallas/PANTALLAS-HISTORIAL-Y-BOLETIN.md`. Lo que no hay es un `round()` **de PHP**; quien
 > redondea es **MySQL al meterlo en un `int`**. Lo encontré leyendo el fichero del front **después**
 > de haber escrito mi conclusión, y sólo porque la memoria dice que ese fichero existe. **Un camino
 > de escritura no se declara limpio mirando sólo el backend: el cliente es parte del camino.**
@@ -12317,7 +12317,7 @@ migración en quince producciones, no dentro de ella.** Detalle en
 
 ### Y las tareas del front quedaron escritas donde las van a leer
 
-`~/DESARROLLOS/myvc_front/TAREAS-AUDITORIA-CERTIFICADOS.md`, a petición tuya. Dentro va lo
+`~/DESARROLLOS/myvc_front/docs/tareas/TAREAS-AUDITORIA-CERTIFICADOS.md`, a petición tuya. Dentro va lo
 de los certificados, lo de la pantalla de la fase 5 y **una que nadie les había dicho: las
 cinco lecturas de auditoría ya exigen `can_view_auditoria` y están DESPLEGADAS desde el
 25** — no es un aviso de futuro, es algo que ya les está contestando 403 hoy. Con los
@@ -13347,7 +13347,7 @@ por las notas) y **la regla que lo hace desplegable**: con las migraciones
 puestas y nadie marcado, **los 1.344 tests pasan sin regenerar un solo
 snapshot**. Tres rutas nuevas, de 542 a 545.
 
-**El canal con el front es `myvc_front/PANTALLAS-HISTORIAL-Y-BOLETIN.md`, sección
+**El canal con el front es `myvc_front/docs/pantallas/PANTALLAS-HISTORIAL-Y-BOLETIN.md`, sección
 C**, no este repo: lo pidió Joseth el 24 ago porque **el front no lee `8myvc` por
 su cuenta** y este plan estuvo un día escrito sin que nadie lo viera. Toda
 decisión que cambie un cuerpo, un nombre de campo o una ruta se escribe **ahí
@@ -13522,7 +13522,7 @@ contestar:
   **(a)** ~~`/panel/bitacora`, ¿se jubila o se queda?~~ **CERRADA, y esta lista estaba mal:
   llevaba contestada desde el 24 ago.** El [18](18-auditoria.md) la tiene como **DECISIÓN 4
   — se jubila**, con sus tres consecuencias escritas y la tarea puesta como obligatoria en
-  `myvc_front/PANTALLAS-HISTORIAL-Y-BOLETIN.md`, que la nombra 13 veces. Joseth la volvió a
+  `myvc_front/docs/pantallas/PANTALLAS-HISTORIAL-Y-BOLETIN.md`, que la nombra 13 veces. Joseth la volvió a
   contestar el 26 ago —«se jubila cuando llegue la nueva»— **y dijo lo mismo**, así que no
   hay conflicto de fondo: lo que había era **una lista que no se releyó**, y de paso
   **decía que bloqueaba al front cuando ellos ya tenían la tarea escrita**. *Dos fuentes

@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 /*
  * EL HISTORIAL DE «BOLETINES DE OTROS COLEGIOS»  *(27 sep 2026, pedido)*: qué lote se aplicó, quién,
  * cuándo, por qué puerta, y qué pasó con cada boletín (creado, reemplazado, combinado, dejado,
- * omitido; y si se creó el alumno). `myvc_front/NOTAS-DE-OTRO-COLEGIO.md` §11.
+ * omitido; y si se creó el alumno). `myvc_front/docs/notas-de-otro-colegio/NOTAS-DE-OTRO-COLEGIO.md` §11.
  *
  * Una fila por lote, con el detalle en `boletines` (JSON en texto: MariaDB y MySQL lo leen igual).
  * No es la auditoría fila a fila --eso sería una línea por nota--: es lo que se quiere leer después,

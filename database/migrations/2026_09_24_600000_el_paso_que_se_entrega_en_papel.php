@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 /*
  * **¿Este paso del recorrido es un documento que la familia entrega?**
  *
- * Lo destapó la pantalla 06 del portal (`myvc_front/PANTALLAS-MATRICULA.md`) al pintarla
+ * Lo destapó la pantalla 06 del portal (`myvc_front/docs/pantallas/PANTALLAS-MATRICULA.md`) al pintarla
  * contra datos: el portal ofrece «Subir» y «Lo llevo en papel» por cada requisito de la
  * campaña, y **en el recorrido de un colegio los requisitos son también las estaciones**
  * —Recepción, Entrevista, Tesorería—. Sin esta columna, la familia veía un botón para

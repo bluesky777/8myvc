@@ -12,7 +12,7 @@ use Illuminate\Testing\TestResponse;
 /**
  * La base de los tests del módulo nuevo de actividades (`act/*`, `tests/Contrato/Act*Test.php`).
  *
- * Contrato: `myvc_front/ACTIVIDADES-CONTRATO.md`. Cuando el contrato y el código difieren manda el
+ * Contrato: `myvc_front/docs/funciones/ACTIVIDADES-CONTRATO.md`. Cuando el contrato y el código difieren manda el
  * código, y cada test que lo note lo dice en su docblock.
  *
  * ## La escena

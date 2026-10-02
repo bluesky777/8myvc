@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /*
- * **Cómo quedó la plantilla la última vez que se propagó** (`myvc_front/PLAN-COSAS-PENDIENTES.md`
+ * **Cómo quedó la plantilla la última vez que se propagó** (`myvc_front/docs/planes/PLAN-COSAS-PENDIENTES.md`
  * §2.3).
  *
  * Cada `PUT plantilla-notas/sembrar` guarda aquí las filas vivas de `unidades_por_defecto` y

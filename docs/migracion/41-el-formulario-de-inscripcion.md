@@ -8,7 +8,7 @@ puestos cuando es antiguo**.
 La pantalla la construyó `myvc-front-bf` en `myvc_front` (commits `04e8f003`, `6c60431d`,
 `43fab911`). **Las diez rutas autorizadas están escritas y probadas** (§7). El análisis largo del
 embudo de admisiones vive en
-[`myvc_front/INVESTIGACION-MATRICULAS.md`](../../../myvc_front/INVESTIGACION-MATRICULAS.md);
+[`myvc_front/docs/investigaciones/INVESTIGACION-MATRICULAS.md`](../../../myvc_front/docs/investigaciones/INVESTIGACION-MATRICULAS.md);
 esto es sólo el contrato y sus porqués.
 
 ---

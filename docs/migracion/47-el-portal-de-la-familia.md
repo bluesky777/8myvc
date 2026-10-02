@@ -26,7 +26,7 @@ antes en `.worktrees/mat`, que es la única forma de saber que coincidía.
 
 ## 1. De dónde sale el alcance: el censo de las veintisiete pantallas
 
-Antes de escribir nada se cruzaron **las quince pantallas de `myvc_front/PANTALLAS-MATRICULA.md`**
+Antes de escribir nada se cruzaron **las quince pantallas de `myvc_front/docs/pantallas/PANTALLAS-MATRICULA.md`**
 y **las doce de `myvc_flutter/docs/estaciones.md`** contra las rutas que ya existían. El resultado
 es lo que decidió qué se construye:
 
@@ -496,7 +496,7 @@ después le piden la colilla en físico.»*
 
 **Con eso se cae la pantalla 13 entera y con ella la «fase 4», que se queda sin contenido.** El
 contrato con firma electrónica, el pagaré, la huella del PDF, la IP y la Ley 527 salieron de
-`myvc_front/INVESTIGACION-MATRICULAS.md` §4 —una investigación de *qué hacen los buenos*— y **no
+`myvc_front/docs/investigaciones/INVESTIGACION-MATRICULAS.md` §4 —una investigación de *qué hacen los buenos*— y **no
 de un requisito suyo**: no reconoce eso como algo que su producto haga. *Una pregunta que llevaba
 días citada como «bloqueante» estaba bloqueando una pantalla que nadie había pedido.* Es la
 segunda de las dos que se retiraron el mismo día, y las dos por lo mismo.

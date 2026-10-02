@@ -205,7 +205,7 @@ Es la mitad que queda de la segunda respuesta de Joseth, y las dos son de las de
 > Lo midió `8myvc-43` el 26 ago (`f5f6235`).
 
 > **Escrito ya donde lo van a leer, el 26 ago por la tarde y a petición de Joseth:**
-> `~/DESARROLLOS/myvc_front/TAREAS-AUDITORIA-CERTIFICADOS.md`. Lleva los dos avisos de
+> `~/DESARROLLOS/myvc_front/docs/tareas/TAREAS-AUDITORIA-CERTIFICADOS.md`. Lleva los dos avisos de
 > arriba, **las cinco lecturas de auditoría que ya piden `can_view_auditoria` y que están
 > DESPLEGADAS desde el 25** —eso no era un aviso de futuro y nadie se lo había dicho—, lo
 > que hay que diseñar de la pantalla de la fase 5, y **el hallazgo de las N copias con el

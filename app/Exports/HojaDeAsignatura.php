@@ -19,7 +19,7 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
  * Una hoja de asignatura del libro «notas sin internet»: la rejilla que el
  * docente rellena.
  *
- * La estructura es la §4.2 del plan (`myvc_front/PLAN-NOTAS-SIN-INTERNET.md`)
+ * La estructura es la §4.2 del plan (`myvc_front/docs/planes/PLAN-NOTAS-SIN-INTERNET.md`)
  * **con las correcciones D11 y D12, que son posteriores al texto de esa sección y
  * mandan sobre él**:
  *

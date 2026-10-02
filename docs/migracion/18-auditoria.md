@@ -1107,7 +1107,7 @@ y es el que decidió.
 
 - **`myvc_front` retira `/panel/bitacora`** y pone la pantalla nueva en su sitio
   del menú. Está escrito como **tarea obligatoria** en la sección C de
-  `myvc_front/PANTALLAS-HISTORIAL-Y-BOLETIN.md`, no como una nota — se avisó el
+  `myvc_front/docs/pantallas/PANTALLAS-HISTORIAL-Y-BOLETIN.md`, no como una nota — se avisó el
   24 ago y era lo único que les bloqueaba.
 - **`GET bitacoras/{user_id?}` se retira con ella**, en la fase 7, y no antes: la
   pantalla vieja sigue viva hasta que la nueva esté desplegada en los quince.

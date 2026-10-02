@@ -15,7 +15,7 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
  * El libro de «notas sin internet»: **una portada, una hoja por asignatura y una
  * hoja oculta firmada**.
  *
- * Fase 1 de `myvc_front/PLAN-NOTAS-SIN-INTERNET.md`. La estructura es su §4.
+ * Fase 1 de `myvc_front/docs/planes/PLAN-NOTAS-SIN-INTERNET.md`. La estructura es su §4.
  *
  * ## PhpSpreadsheet directo y NO `FromView`, que es el patrón de al lado
  *

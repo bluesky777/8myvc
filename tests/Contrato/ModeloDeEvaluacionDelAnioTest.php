@@ -11,7 +11,7 @@ use PHPUnit\Framework\Attributes\Test;
 /**
  * **El modelo de evaluación del colegio** — Fase 1 de
  * [35](../../docs/migracion/35-el-modelo-de-evaluacion-del-colegio.md) §2, sobre
- * D1, D3, D13, D15 y D24 de `myvc_front/DECISIONES-MODELO-DE-EVALUACION.md`.
+ * D1, D3, D13, D15 y D24 de `myvc_front/docs/modelo-de-evaluacion/DECISIONES-MODELO-DE-EVALUACION.md`.
  *
  * ## Las cinco cosas que existe para cazar, y ninguna da error sola
  *

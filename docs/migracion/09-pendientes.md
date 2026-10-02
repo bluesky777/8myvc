@@ -174,7 +174,7 @@ tardanzas—, y el motivo está en `myvc_front`: la pantalla `/asistencias` ya s
 arregló el 19 de agosto, pero **la planilla de notas sigue creando faltas sin
 día** desde cuatro sitios, con la línea de la fecha **comentada justo debajo**.
 
-Queda apuntado en el plan del front —`myvc_front/MIGRATION.md` §4b punto **3b**,
+Queda apuntado en el plan del front —`myvc_front/docs/planes/MIGRATION.md` §4b punto **3b**,
 commit `965c9227`— para que lo arregle quien toque esas pantallas en la migración.
 **Aquí no hay nada que hacer**: la API guarda fielmente el `null` que le mandan, y
 poner un `now()` por defecto sería peor —`fecha_hora` es *el día que el alumno

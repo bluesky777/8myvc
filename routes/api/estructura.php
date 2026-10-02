@@ -270,7 +270,7 @@ Route::put('periodos/toggle-profes-pueden-nivelar', [PeriodosController::class, 
 Route::delete('periodos/destroy/{periodo_id}', [PeriodosController::class, 'deleteDestroy'])->middleware('auth.personal');
 Route::put('periodos/establecer-actual/{periodo_id}', [PeriodosController::class, 'putEstablecerActual'])->middleware('auth.personal');
 
-// **El cierre por asignatura** (fase 2 de `myvc_front/PLAN-CIERRE-DE-PERIODO.md`):
+// **El cierre por asignatura** (fase 2 de `myvc_front/docs/planes/PLAN-CIERRE-DE-PERIODO.md`):
 // el docente cierra la suya y coordinación la reabre con fecha y motivo; desde el
 // 24 sep 2026 el docente también reabre la suya, sin fecha, mientras el periodo esté
 // abierto. Las cuatro con `auth.personal` y el permiso fino DENTRO, como

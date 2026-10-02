@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 /*
  * **El compromiso académico de un alumno, y el dictamen de cada docente sobre él.**
  *
- * Diseño en `myvc_front/COMPROMISOS-ACADEMICOS.md` §3.1. Su hermana
+ * Diseño en `myvc_front/docs/funciones/COMPROMISOS-ACADEMICOS.md` §3.1. Su hermana
  * `2026_09_22_100000_la_plantilla_del_compromiso.php` creó lo que el colegio
  * **escribe una vez al año**; ésta crea lo que **le pasa a un alumno concreto**, y
  * las dos mitades se leen juntas: la de allá es configuración y se hereda en

@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * A QUIÉN VA UNA ACTIVIDAD, Y A QUIÉN LE TOCA RESPONDERLA.
  *
- * Contrato: `myvc_front/ACTIVIDADES-CONTRATO.md` §2.7 (y §2.3 para la aprobación). **Es el servicio
+ * Contrato: `myvc_front/docs/funciones/ACTIVIDADES-CONTRATO.md` §2.7 (y §2.3 para la aprobación). **Es el servicio
  * único**: lo usan el conteo en vivo, la bandeja, responder, «faltan» y —en la tanda 5— los avisos.
  * Si dos de esos sitios resolvieran por su cuenta, el docente vería «32 destinatarios» y a un alumno
  * del grupo no le saldría la encuesta.

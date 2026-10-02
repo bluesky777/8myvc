@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Schema;
  * Rúbricas: cinco tablas nuevas y una columna NULL en `subunidades`.
  *
  * Es la §2 de `docs/migracion/26-rubricas.md`, que sale del §3.6 del plan de
- * nivelaciones y rúbricas (`myvc_front/PLAN-NIVELACIONES-Y-RUBRICAS.md`). La
+ * nivelaciones y rúbricas (`myvc_front/docs/planes/PLAN-NIVELACIONES-Y-RUBRICAS.md`). La
  * propiedad que hace barata la migración es la decisión 4 de Joseth (2 sep
  * 2026): **la rúbrica produce la nota**, y por eso ninguna de estas tablas la
  * lee nadie que imprima un boletín. Definitivas, puestos y certificados siguen

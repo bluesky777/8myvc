@@ -5,7 +5,7 @@
 > aquí cambia, cambia **aquí primero** y se avisa; el código sigue al documento y no al
 > revés.
 >
-> Viene del **§3.6** del plan (`myvc_front/PLAN-NIVELACIONES-Y-RUBRICAS.md`) y cubre las
+> Viene del **§3.6** del plan (`myvc_front/docs/planes/PLAN-NIVELACIONES-Y-RUBRICAS.md`) y cubre las
 > tareas **C2, C3, C4 y C9** del reparto (`TAREAS-NIVELACIONES-Y-RUBRICAS.md`, §5 «C»).
 > Escrito el 2 sep 2026, rama `niv/rubricas`.
 

@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 /*
  * **Lo que cada colegio adapta del compromiso académico, guardado por año.**
  *
- * Diseño en `myvc_front/COMPROMISOS-ACADEMICOS.md` §8. Dos tablas y ninguna
+ * Diseño en `myvc_front/docs/funciones/COMPROMISOS-ACADEMICOS.md` §8. Dos tablas y ninguna
  * columna nueva en `years`, y las dos cosas son decisiones que conviene poder
  * releer.
  *

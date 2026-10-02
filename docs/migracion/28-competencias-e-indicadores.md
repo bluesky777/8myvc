@@ -225,7 +225,7 @@ ese endpoint multiplica también lo que no comprueba.
 ## 2. Cómo lo hacen otros sistemas
 
 > **12 sep 2026 — este apartado se quedó corto y hay una investigación entera que lo amplía**:
-> `myvc_front/INVESTIGACION-COMPETENCIAS-Y-DESEMPENOS.md` (cuatro decretos y una resolución
+> `myvc_front/docs/investigaciones/INVESTIGACION-COMPETENCIAS-Y-DESEMPENOS.md` (cuatro decretos y una resolución
 > leídos enteros, catorce SIEE, trece programas). Lo que cambia de este documento, en su §5.2:
 > **(1)** el texto del boletín va por **asignatura + periodo**, no por materia + grado + año —
 > es `frases_preescolar` con `periodo_id`, y se siembra como `unidades`; **(2)** se retira el
@@ -234,7 +234,7 @@ ese endpoint multiplica también lo que no comprueba.
 > **(3)** la decisión 10 («nada de marcar de oficio») hay que releerla: todo el mercado asigna
 > por rango de nota con corrección del docente, y eso no es «todos alcanzan». Las tres
 > decisiones que abre están en su §5.4. **Tomadas el 13 sep 2026**, junto con las seis abiertas de
-> §7: `myvc_front/DECISIONES-MODELO-DE-EVALUACION.md`, y el resumen está al principio de
+> §7: `myvc_front/docs/modelo-de-evaluacion/DECISIONES-MODELO-DE-EVALUACION.md`, y el resumen está al principio de
 > «Abiertas». §5.2 y §5.3 dejan de estar en revisión y se leen **con esas decisiones encima**.
 
 Master2000 se define por **modelos de evaluación**, en plural: *«calificación
@@ -1034,7 +1034,7 @@ trabajo y pasa a ser el final.
 
 > **12 sep 2026 — el `alumno_id` cambia de tabla, no de idea.** Joseth preguntó cómo encaja el
 > independiente en el modelo revisado (competencia del grado → desempeño por asignatura y periodo →
-> asignación por alumno). Respuesta, medida en `myvc_front/INVESTIGACION-COMPETENCIAS-Y-DESEMPENOS.md`
+> asignación por alumno). Respuesta, medida en `myvc_front/docs/investigaciones/INVESTIGACION-COMPETENCIAS-Y-DESEMPENOS.md`
 > §5.2-6: **la rejilla del independiente no se toca** (§a y §b siguen enteros), y lo que se le
 > escribe «propio» a un alumno PIAR **es el desempeño, no la competencia** — es lo que ajustan los
 > SIEE y el Decreto 1421. Así que **`competencias.alumno_id` se retira** y en su lugar va
@@ -1727,7 +1727,7 @@ se copian de año a año y **no lee nadie** (§3.2).
 
 > ## ✅ 13 sep 2026 — **las seis se cerraron**, y el modelo pasa a ser una ELECCIÓN del colegio
 >
-> Están en `myvc_front/DECISIONES-MODELO-DE-EVALUACION.md`, 22 decisiones tomadas por Joseth una a
+> Están en `myvc_front/docs/modelo-de-evaluacion/DECISIONES-MODELO-DE-EVALUACION.md`, 22 decisiones tomadas por Joseth una a
 > una con sus alternativas delante. Lo que cambia para este documento:
 >
 > - **Lo de hoy no se sustituye: se queda como una opción.** `years.modelo_evaluacion

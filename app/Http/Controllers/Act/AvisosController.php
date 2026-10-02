@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Request;
 
 /**
- * TANDA 5: la campana, «recordar» y la capa del calendario (`myvc_front/ACTIVIDADES-CONTRATO.md`
+ * TANDA 5: la campana, «recordar» y la capa del calendario (`myvc_front/docs/funciones/ACTIVIDADES-CONTRATO.md`
  * §3.10 y §3.16).
  *
  * - `GET act/avisos` y `POST act/avisos/leidos`: la bandeja de avisos de quien pregunta, que lee la

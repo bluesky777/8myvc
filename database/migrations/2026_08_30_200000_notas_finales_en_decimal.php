@@ -63,7 +63,7 @@ use Illuminate\Support\Facades\DB;
  *    La segunda mitad **no se sabe desde este repositorio y por poco se escribe mal
  *    aquí**: el docente **sí puede teclear `85,5`**. Las cuatro pantallas de los dos
  *    fronts llevan `<input type="number">` sin `step`, y ninguna lo valida — lo midió
- *    `myvc-front-10` el 23 ago 2026 (`myvc_front/PANTALLAS-HISTORIAL-Y-BOLETIN.md`).
+ *    `myvc-front-10` el 23 ago 2026 (`myvc_front/docs/pantallas/PANTALLAS-HISTORIAL-Y-BOLETIN.md`).
  *    O sea que **sí se pierde un decimal en `notas.nota`**; lo que no hay es un
  *    `round()` de PHP, porque quien lo redondea es **MySQL al insertar en un `int`**.
  *    Y **redondea, no trunca**, al contrario de lo que dice esa entrada del front:

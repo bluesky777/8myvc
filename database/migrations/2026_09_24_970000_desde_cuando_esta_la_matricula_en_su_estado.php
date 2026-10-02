@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 /*
  * **Desde cuándo está cada matrícula en su estado**, y cuántos días se tolera una
- * prematrícula o un asistente (`myvc_front/PLAN-COSAS-PENDIENTES.md` §4).
+ * prematrícula o un asistente (`myvc_front/docs/planes/PLAN-COSAS-PENDIENTES.md` §4).
  *
  * El encargo de Joseth del 24 sep 2026: *desde el segundo periodo no debería haber
  * prematriculados ni asistentes a los que se les puso ese estado hace más de 10 días, y los

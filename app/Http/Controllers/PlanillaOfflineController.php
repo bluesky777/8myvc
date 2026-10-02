@@ -23,7 +23,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  * **La planilla de notas en Excel, para trabajar sin internet.** Fase 1: la
  * descarga, y sólo la descarga.
  *
- * El plan entero está en `myvc_front/PLAN-NOTAS-SIN-INTERNET.md` y el resumen de
+ * El plan entero está en `myvc_front/docs/planes/PLAN-NOTAS-SIN-INTERNET.md` y el resumen de
  * lo construido en
  * [49](../../../docs/migracion/49-la-planilla-sin-internet.md). El encargo de
  * Joseth que decide el orden de las fases es literal: *«que la app también permita

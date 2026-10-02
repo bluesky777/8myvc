@@ -4,7 +4,7 @@
  * CÓMO USA UN COLEGIO DE VERDAD LOS REQUISITOS DE MATRÍCULA.
  *
  * Contesta una pregunta que desde el repositorio **no se puede contestar**: la
- * fase 1 del proceso de admisión —`myvc_front/PANTALLAS-MATRICULA.md`— **ensancha**
+ * fase 1 del proceso de admisión —`myvc_front/docs/pantallas/PANTALLAS-MATRICULA.md`— **ensancha**
  * `requisitos_matricula` y `requisitos_alumno` en vez de empezar de cero, así que
  * lo que hay que saber antes de escribirla es **cómo se usan hoy donde se usan**:
  * cuántos pasos configura un colegio, cómo los llama, en qué orden, quién los

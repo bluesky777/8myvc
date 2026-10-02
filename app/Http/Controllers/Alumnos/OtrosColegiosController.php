@@ -20,7 +20,7 @@ use Illuminate\Support\Str;
  * EL ARCHIVO DE OTROS COLEGIOS Y DE AÑOS ANTIGUOS DE UN ALUMNO  *(24 sep 2026)*.
  *
  * Los años que un alumno cursó en otro colegio --o en éste, antes de MYVC-- y el boletín o
- * certificado de cada uno. Es el nivel 1 de `myvc_front/NOTAS-DE-OTRO-COLEGIO.md` §8: se guarda
+ * certificado de cada uno. Es el nivel 1 de `myvc_front/docs/notas-de-otro-colegio/NOTAS-DE-OTRO-COLEGIO.md` §8: se guarda
  * el papel, no se leen notas. Tablas en la migración `2026_09_24_990000_el_archivo_de_otros_colegios`.
  *
  * **QUIÉN: quien edita alumnos** (`Autoriza::puedeEditarAlumnos`), para subir Y para ver. Lo

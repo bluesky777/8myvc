@@ -6,7 +6,7 @@ namespace App\Support;
  * El catálogo de los **Estándares Básicos de Competencias** del Ministerio de
  * Educación Nacional, empaquetado con el código.
  *
- * Es la **D11** de `myvc_front/DECISIONES-MODELO-DE-EVALUACION.md`, literal:
+ * Es la **D11** de `myvc_front/docs/modelo-de-evaluacion/DECISIONES-MODELO-DE-EVALUACION.md`, literal:
  * *«El programa las sugiere: catálogo del MEN empaquetado, y el colegio lo
  * adopta»*, porque *«una pantalla que nace en blanco es la que no se usa — es lo
  * que ya le pasó a `frases`»*.

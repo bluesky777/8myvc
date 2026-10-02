@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Route;
 | La plantilla del compromiso académico
 |--------------------------------------------------------------------------
 |
-| Diseño y porqués: `myvc_front/COMPROMISOS-ACADEMICOS.md` §8. Las columnas y por
+| Diseño y porqués: `myvc_front/docs/funciones/COMPROMISOS-ACADEMICOS.md` §8. Las columnas y por
 | qué son dos tablas, en el docblock de
 | `2026_09_22_100000_la_plantilla_del_compromiso`.
 |
@@ -80,7 +80,7 @@ Route::put('compromisos/bloques', [CompromisosConfigController::class, 'putBloqu
 |
 | Lo de arriba es lo que el colegio escribe **una vez al año**. Esto es el papel de
 | cada alumno: quién lo propone, quién lo firma, quién dictamina y quién se entera.
-| Diseño en `myvc_front/COMPROMISOS-ACADEMICOS.md` §3.3 y §5; el contrato que manda
+| Diseño en `myvc_front/docs/funciones/COMPROMISOS-ACADEMICOS.md` §3.3 y §5; el contrato que manda
 | es `myvc_front/app2/src/app/datos/compromisos.ts`.
 |
 | ## YA LLEGÓ EL COMODÍN QUE LA CABECERA DE ARRIBA ANUNCIABA

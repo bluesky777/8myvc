@@ -1,11 +1,11 @@
 # El modelo plano por competencias — el contrato del backend (B0)
 
 > **Éste es el documento que desbloquea al front.** La §7.2 de
-> `myvc_front/CORRECCIONES-MODELO-DE-EVALUACION.md` dice que **F0 no puede empezar hasta que
+> `myvc_front/docs/modelo-de-evaluacion/CORRECCIONES-MODELO-DE-EVALUACION.md` dice que **F0 no puede empezar hasta que
 > B0 publique el contrato, aunque sea en papel**. Esto es ese papel.
 >
 > Lo que hay **arriba** de esto: las decisiones y su porqué, en
-> `myvc_front/CORRECCIONES-MODELO-DE-EVALUACION.md` (P1.bis, P1.ter, P1.quater, D31, D32) y en
+> `myvc_front/docs/modelo-de-evaluacion/CORRECCIONES-MODELO-DE-EVALUACION.md` (P1.bis, P1.ter, P1.quater, D31, D32) y en
 > `docs/migracion/35-el-modelo-de-evaluacion-del-colegio.md`. **Aquí no se re-litiga nada de eso**:
 > aquí está la forma exacta de las rutas, la tabla y el permiso, y las **tres correcciones** que
 > salieron de abrir los ficheros en vez de heredar el veredicto.

@@ -112,7 +112,7 @@ class TemasDeNotificacionTest extends CasoDeContrato
      *
      * **Eran tres, fueron CUATRO el 20 sep 2026 y son CINCO desde el 22**: entró
      * `matricula` el día de las estaciones y `compromiso` el del compromiso académico
-     * (`myvc_front/COMPROMISOS-ACADEMICOS.md` §4). La lista va escrita a mano y **en
+     * (`myvc_front/docs/funciones/COMPROMISOS-ACADEMICOS.md` §4). La lista va escrita a mano y **en
      * orden**, no derivada de `TIPOS`: lo que este test protege es el contrato que lee
      * la app, y un `foreach (TIPOS)` se adaptaría solo a cualquier cambio futuro — o
      * sea que dejaría de avisar justo cuando hay algo de lo que avisar.

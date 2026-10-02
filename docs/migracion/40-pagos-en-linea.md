@@ -200,4 +200,4 @@ No pasa nada, y eso es **una exigencia de diseño, no una esperanza**. Tres regl
 - ACH Colombia — tarifario PSP 2025 (**la tabla es una imagen dentro del PDF: no se pudo
   extraer, y por eso la fila del convenio bancario va sin cifra**)
 - MinEducación — alza de matrículas y pensiones 2026 (IPC 5,10%, tope 9,1%)
-- Competencia: [`myvc_front/BEAM-QUE-TIENE-Y-PROPUESTAS.md`](../../../myvc_front/BEAM-QUE-TIENE-Y-PROPUESTAS.md) §1.4 y §4.3.18
+- Competencia: [`myvc_front/docs/investigaciones/BEAM-QUE-TIENE-Y-PROPUESTAS.md`](../../../myvc_front/docs/investigaciones/BEAM-QUE-TIENE-Y-PROPUESTAS.md) §1.4 y §4.3.18

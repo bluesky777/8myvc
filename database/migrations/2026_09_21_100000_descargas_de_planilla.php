@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 /*
  * **Qué libro de notas anda por fuera, y de quién.**
  *
- * Fase 1 de `myvc_front/PLAN-NOTAS-SIN-INTERNET.md`, §4.6: *«se anota aparte, en
+ * Fase 1 de `myvc_front/docs/planes/PLAN-NOTAS-SIN-INTERNET.md`, §4.6: *«se anota aparte, en
  * una tabla `descargas_de_planilla` (quién, qué, cuándo, huella), para la
  * auditoría y para coordinación»*.
  *

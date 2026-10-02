@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Route;
 | Rutas: act — tareas, cuestionarios y encuestas (el módulo nuevo)
 |--------------------------------------------------------------------------
 |
-| Contrato: `myvc_front/ACTIVIDADES-CONTRATO.md` §3. GET para leer, POST para acciones. El módulo
+| Contrato: `myvc_front/docs/funciones/ACTIVIDADES-CONTRATO.md` §3. GET para leer, POST para acciones. El módulo
 | viejo (`actividades/*`, `mis-actividades/*`) sigue en `actividades.php` sin cambiar de contrato, y
 | sus listados ya no ven lo nuevo (`modo IS NULL`, §2.11).
 |

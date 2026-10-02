@@ -19,7 +19,7 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 /**
  * **Las cosas pendientes del colegio**: el aviso que sale al ingresar y que queda además
  * en Inicio › Pendientes (`myvc_front/app2`, `comunes/pendientes/`). Diseño y decisiones de
- * Joseth: `myvc_front/PLAN-COSAS-PENDIENTES.md`.
+ * Joseth: `myvc_front/docs/planes/PLAN-COSAS-PENDIENTES.md`.
  *
  * `GET pendientes/mios` devuelve la lista **ya ordenada** —Importantes, Posponibles,
  * Silenciables, y dentro por urgencia— y **ya filtrada por quién pregunta**. Cada

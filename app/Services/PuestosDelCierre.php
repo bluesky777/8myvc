@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Schema;
  * alguien la borre; la tabla `puestos_del_cierre` se queda vacía.
  *
  * **La foto del puesto al cerrar el periodo** — fase 4 del cierre de periodo
- * (`myvc_front/PLAN-CIERRE-DE-PERIODO.md`, propuesta C, decisiones 4 y 5 de Joseth del
+ * (`myvc_front/docs/planes/PLAN-CIERRE-DE-PERIODO.md`, propuesta C, decisiones 4 y 5 de Joseth del
  * 23 sep 2026).
  *
  * ## El problema que arregla

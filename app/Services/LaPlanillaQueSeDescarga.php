@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
  * La consulta de la planilla **de sólo lectura**, para el libro de Excel que el
  * docente se lleva sin internet.
  *
- * Fase 1 de `myvc_front/PLAN-NOTAS-SIN-INTERNET.md`. Sirve a las tres rutas de
+ * Fase 1 de `myvc_front/docs/planes/PLAN-NOTAS-SIN-INTERNET.md`. Sirve a las tres rutas de
  * `planilla-offline/*` y no la llama nadie más.
  *
  * ## POR QUÉ NO REUTILIZA `NotasController::putDetailed`

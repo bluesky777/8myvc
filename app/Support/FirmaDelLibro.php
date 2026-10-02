@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Config;
  *
  * HMAC-SHA256 con `APP_KEY`, sobre la forma canónica de lo que se escribió en el
  * libro. Es la §4.6 del plan
- * (`myvc_front/PLAN-NOTAS-SIN-INTERNET.md`) y sólo tiene dos verbos, porque
+ * (`myvc_front/docs/planes/PLAN-NOTAS-SIN-INTERNET.md`) y sólo tiene dos verbos, porque
  * quien la usa sólo hace dos cosas: {@see firmar} al descargar y
  * {@see comprobar} al subir (fase 2).
  *

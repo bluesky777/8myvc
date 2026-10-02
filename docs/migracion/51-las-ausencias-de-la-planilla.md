@@ -2,7 +2,7 @@
 
 *21 sep 2026. Continúa [49](49-la-planilla-sin-internet.md) —la descarga— y
 [50](50-el-ensayo-y-la-escritura-de-la-planilla.md) —el ensayo, la escritura y «¿es este?»—. El
-plan aprobado vive en `~/DESARROLLOS/myvc_front/PLAN-NOTAS-SIN-INTERNET.md` y **manda sobre este
+plan aprobado vive en `~/DESARROLLOS/myvc_front/docs/planes/PLAN-NOTAS-SIN-INTERNET.md` y **manda sobre este
 documento**. Aquí va lo que se construyó, lo que se midió, y **los cuatro sitios donde el plan o el
 contrato resultaron estar equivocados**, cada uno con su medida al lado.*
 

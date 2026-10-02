@@ -1023,7 +1023,7 @@ final class ListadoDeAuditoria
      * Ingresos— (`historiales`, que llena
      * `Services/Login.php` con el User-Agent). `Bot` con navegador `Unknown` es la app:
      * es una inferencia —Dart no se reconoce y cae ahí—, la que documenta
-     * `myvc_front/AUDITORIA-DE-ALUMNOS.md`. `App` todavía no lo escribe nadie: se acepta
+     * `myvc_front/docs/auditoria-alumnos/AUDITORIA-DE-ALUMNOS.md`. `App` todavía no lo escribe nadie: se acepta
      * para el día que `Login.php` mire `X-MyVC-Cliente`.
      *
      * @return array{origen: string|null, navegador: string|null, plataforma: string|null}

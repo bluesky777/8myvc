@@ -22,7 +22,7 @@ use PHPUnit\Framework\Attributes\Test;
  * **La planilla sin internet, fase 2: el ensayo y la escritura.**
  *
  * `POST planilla-offline/ensayo` y `POST planilla-offline/importar`. El plan está
- * en `myvc_front/PLAN-NOTAS-SIN-INTERNET.md` (§5 y §7) y lo construido en
+ * en `myvc_front/docs/planes/PLAN-NOTAS-SIN-INTERNET.md` (§5 y §7) y lo construido en
  * `docs/migracion/49-la-planilla-sin-internet.md`.
  *
  * ## Qué se comprueba aquí, y por qué no se puede comprobar de otra manera

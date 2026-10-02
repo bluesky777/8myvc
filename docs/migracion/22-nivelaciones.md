@@ -1,9 +1,9 @@
 # 22 — Nivelaciones: el contrato
 
 **Escrito el 2 sep 2026**, el primer día del reparto en tres sesiones que describe
-`myvc_front/TAREAS-NIVELACIONES-Y-RUBRICAS.md` (§3: *«lo primero que hace A, antes de
+`myvc_front/docs/tareas/TAREAS-NIVELACIONES-Y-RUBRICAS.md` (§3: *«lo primero que hace A, antes de
 escribir una línea de implementación, es publicar el contrato»*). El *qué* y el *por qué*
-están en `myvc_front/PLAN-NIVELACIONES-Y-RUBRICAS.md`, decidido con Joseth ese mismo día;
+están en `myvc_front/docs/planes/PLAN-NIVELACIONES-Y-RUBRICAS.md`, decidido con Joseth ese mismo día;
 esto es **la forma exacta de lo que el backend va a contestar**, para que el front de
 nivelación (sesión B) construya entero contra un doble sin esperar a que exista el código.
 

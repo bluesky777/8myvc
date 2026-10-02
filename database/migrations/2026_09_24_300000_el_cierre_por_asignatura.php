@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 /*
  * **El cierre por asignatura: cada docente cierra la suya.**
  *
- * Fase 2 de `myvc_front/PLAN-CIERRE-DE-PERIODO.md` (propuesta B del mock). El
+ * Fase 2 de `myvc_front/docs/planes/PLAN-CIERRE-DE-PERIODO.md` (propuesta B del mock). El
  * candado del periodo —`periodos.profes_pueden_editar_notas`— sigue siendo el
  * sobre: marca la ventana en la que se puede trabajar. Dentro, el docente
  * **cierra su asignatura** cuando termina, y coordinación la **reabre con fecha

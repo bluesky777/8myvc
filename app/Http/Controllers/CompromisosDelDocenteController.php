@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Request;
  *     GET compromisos/mios                      auth.personal
  *     PUT compromisos/items/{id}/veredicto      auth.personal
  *
- * Diseño en `myvc_front/COMPROMISOS-ACADEMICOS.md` §3 y §5; el porqué de cada columna,
+ * Diseño en `myvc_front/docs/funciones/COMPROMISOS-ACADEMICOS.md` §3 y §5; el porqué de cada columna,
  * en el docblock de `2026_09_22_200000_el_compromiso_academico`. El contrato con el
  * front ya está escrito y manda: `app2/src/app/datos/compromisos.ts`, clase
  * `CompromisosDeAlumnosApi` (`mios`, `veredicto`) e `interface ItemDelCompromiso`.

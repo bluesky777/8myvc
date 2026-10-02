@@ -15,7 +15,7 @@ use Illuminate\Support\Str;
 
 /**
  * **EL PORTAL DE LA FAMILIA.** Pantallas 02, 04, 05 y 06 de
- * `myvc_front/PANTALLAS-MATRICULA.md`, y el contrato entero en
+ * `myvc_front/docs/pantallas/PANTALLAS-MATRICULA.md`, y el contrato entero en
  * `docs/migracion/47-el-portal-de-la-familia.md`.
  *
  * Tres rutas, las tres **públicas**, y conviene leer por qué antes de copiarlas.

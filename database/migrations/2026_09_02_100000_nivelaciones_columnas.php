@@ -6,7 +6,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /*
- * Nivelaciones: las columnas. Fase 1 del plan (`myvc_front/PLAN-NIVELACIONES-Y-RUBRICAS.md`
+ * Nivelaciones: las columnas. Fase 1 del plan (`myvc_front/docs/planes/PLAN-NIVELACIONES-Y-RUBRICAS.md`
  * §3.2, §3.3 y §3.5), tareas A3, A8 y A9 del reparto, contrato en
  * `docs/migracion/22-nivelaciones.md`.
  *

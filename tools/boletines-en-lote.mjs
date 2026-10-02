@@ -2,7 +2,7 @@
 /*
  * ════════════════════════════════════════════════════════════════════════════════════════════
  * BOLETINES DE OTROS COLEGIOS EN LOTE, DESDE UNA CARPETA  *(26 sep 2026)*
- * `myvc_front/NOTAS-DE-OTRO-COLEGIO.md` §11, puerta 3: Joseth con Claude Code.
+ * `myvc_front/docs/notas-de-otro-colegio/NOTAS-DE-OTRO-COLEGIO.md` §11, puerta 3: Joseth con Claude Code.
  *
  * El colegio le manda a Joseth las fotos y los PDF. Claude Code los lee y escribe `lote.tsv` con el
  * formato de §11.1 (las mismas columnas que pide el prompt de la pantalla). Este guion hace lo

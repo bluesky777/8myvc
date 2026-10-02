@@ -2250,7 +2250,7 @@ despliegue**.
 
 **A y B son de las de «quién puede llamarla».** El detalle en
 [`cert-2 §6`](migracion/noche-2026-08-26/cert-2.md) y el reparto completo de qué hace el backend
-y qué les toca a ellos en `myvc_front/TAREAS-AUDITORIA-CERTIFICADOS.md`.
+y qué les toca a ellos en `myvc_front/docs/tareas/TAREAS-AUDITORIA-CERTIFICADOS.md`.
 
 **A.** `PUT bolfinales/cambiar-contador-certificados` y `-folios` **contestan 403 a quien no sea
 administrativo**. Las dos pantallas que llaman a la primera —`certificadoEstudioDir.html` de la
@@ -2375,7 +2375,7 @@ móvil de los docentes a cualquier sesión válida —la de un alumno incluida�
 
 Lo que falló fue el censo de consumidores del propio commit, que dice «once consumidores y
 ninguno toca lo que se quita»: **acertó con Flutter y se dejó esta rejilla.** Lo midió la
-coordinación del front (`myvc_front/RELEVO-DEUDAS.md §1`) contra el docker.
+coordinación del front (`myvc_front/docs/relevos/RELEVO-DEUDAS.md §1`) contra el docker.
 
 > **Y una que salió bien por haber ido en la misma tanda, no por diseño.** Esa rejilla
 > guarda **la fila entera** al editar cualquier celda

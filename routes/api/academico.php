@@ -137,7 +137,7 @@ Route::put('notas/update/{id}', [NotasController::class, 'putUpdate'])->middlewa
 // subida (fase 2).
 //
 // Rutas NUEVAS y no banderas sobre `notas/detailed` ni sobre `notas/lote` (D8 del
-// plan `myvc_front/PLAN-NOTAS-SIN-INTERNET.md`). El motivo es el de siempre en esta
+// plan `myvc_front/docs/planes/PLAN-NOTAS-SIN-INTERNET.md`). El motivo es el de siempre en esta
 // familia: `PUT notas/detailed` tiene instantánea de contrato con **cuatro
 // clientes**, uno de ellos versiones viejas de `myvc_flutter` que conviven meses.
 // Es exactamente el caso de `notas/nivelar/*`, veinte líneas más arriba.

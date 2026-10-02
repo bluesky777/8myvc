@@ -965,7 +965,7 @@ buenas, y la segunda es la que imprime el boletín.
 ## §9 — Para el front
 
 Escrito también en la **sección C** de
-`~/DESARROLLOS/myvc_front/PANTALLAS-HISTORIAL-Y-BOLETIN.md`, que es el canal —el
+`~/DESARROLLOS/myvc_front/docs/pantallas/PANTALLAS-HISTORIAL-Y-BOLETIN.md`, que es el canal —el
 front no lee este repo por su cuenta—. En una línea: **esta noche ninguna
 respuesta que el front consuma cambia ni un byte**, no hay ruta nueva y el 422 de
 su §B.2 sigue vivo.

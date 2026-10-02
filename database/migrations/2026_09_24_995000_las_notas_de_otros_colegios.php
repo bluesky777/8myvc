@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 /*
  * LAS NOTAS DE OTROS COLEGIOS Y DE AÑOS ANTIGUOS  *(24 sep 2026, pedido por Joseth)*.
  *
- * Nivel 2 de `myvc_front/NOTAS-DE-OTRO-COLEGIO.md`: además del documento (nivel 1, migración
+ * Nivel 2 de `myvc_front/docs/notas-de-otro-colegio/NOTAS-DE-OTRO-COLEGIO.md`: además del documento (nivel 1, migración
  * `2026_09_24_990000`), la definitiva de cada asignatura de ese año, escrita a mano, para que el
  * certificado de todos los años la imprima junto a las cursadas aquí.
  *

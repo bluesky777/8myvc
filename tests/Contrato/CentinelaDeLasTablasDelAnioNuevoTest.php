@@ -315,7 +315,7 @@ class CentinelaDeLasTablasDelAnioNuevoTest extends TestCase
 
         // El expediente del alumno: las notas congeladas, los veredictos de sus
         // docentes y las dos firmas del acudiente (migración `2026_09_22_200000`,
-        // `myvc_front/COMPROMISOS-ACADEMICOS.md` §8.3).
+        // `myvc_front/docs/funciones/COMPROMISOS-ACADEMICOS.md` §8.3).
         //
         // **Su hermana `config_compromiso` SÍ se copia, y ésta no**, y las dos
         // decisiones son la misma regla mirada por sus dos caras: *lo que el colegio

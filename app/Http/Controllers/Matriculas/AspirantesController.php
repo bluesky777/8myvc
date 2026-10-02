@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Request;
 
 /**
  * **EL LADO DEL COLEGIO DEL PORTAL DE ADMISIÓN.** Pantallas 4, 5 y 6 del lado del
- * colegio en `myvc_front/INVESTIGACION-MATRICULAS.md` §8: la bandeja, la ficha del
+ * colegio en `myvc_front/docs/investigaciones/INVESTIGACION-MATRICULAS.md` §8: la bandeja, la ficha del
  * aspirante y la decisión. El contrato entero está en
  * `docs/migracion/47-el-portal-de-la-familia.md`.
  *

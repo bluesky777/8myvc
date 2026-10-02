@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * **Nivelar es sólo nivelar** — fase 3 del cierre de periodo
- * (`myvc_front/PLAN-CIERRE-DE-PERIODO.md`, decisión 3 de Joseth del 23 sep 2026).
+ * (`myvc_front/docs/planes/PLAN-CIERRE-DE-PERIODO.md`, decisión 3 de Joseth del 23 sep 2026).
  *
  * Hasta hoy `periodos.profes_pueden_nivelar` contestaba dos preguntas: *¿puede nivelar?*
  * (`User::puedeNivelar`) y *¿puede cambiar la definitiva a mano?*

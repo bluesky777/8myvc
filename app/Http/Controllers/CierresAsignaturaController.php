@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Request;
  * **El cierre por asignatura**: el docente cierra la suya; la reabre él mismo mientras
  * el periodo esté abierto, y coordinación siempre.
  *
- * Fase 2 de `myvc_front/PLAN-CIERRE-DE-PERIODO.md` (propuesta B del mock). Cuatro
+ * Fase 2 de `myvc_front/docs/planes/PLAN-CIERRE-DE-PERIODO.md` (propuesta B del mock). Cuatro
  * rutas, todas `auth.personal` con el permiso fino dentro:
  *
  * | ruta | quién |

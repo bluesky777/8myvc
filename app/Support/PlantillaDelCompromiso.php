@@ -5,7 +5,7 @@ namespace App\Support;
 /**
  * Los ocho bloques del compromiso académico, y con qué texto nacen.
  *
- * Diseño en `myvc_front/COMPROMISOS-ACADEMICOS.md` §8. Esto es **el catálogo y el
+ * Diseño en `myvc_front/docs/funciones/COMPROMISOS-ACADEMICOS.md` §8. Esto es **el catálogo y el
  * defecto**, no lo que imprime un colegio: lo que imprime sale de
  * `compromiso_bloques`, y esas filas sólo existen cuando el colegio guarda.
  * Mientras no las haya, se lee de aquí.

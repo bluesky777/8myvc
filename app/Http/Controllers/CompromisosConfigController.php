@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Request;
 /**
  * **La plantilla del compromiso académico**: lo que cada colegio adapta, guardado por año.
  *
- * Diseño en `myvc_front/COMPROMISOS-ACADEMICOS.md` §8, y el porqué de cada columna
+ * Diseño en `myvc_front/docs/funciones/COMPROMISOS-ACADEMICOS.md` §8, y el porqué de cada columna
  * en el docblock de la migración `2026_09_22_100000_la_plantilla_del_compromiso`.
  * Aquí va sólo lo que decide este controlador.
  *

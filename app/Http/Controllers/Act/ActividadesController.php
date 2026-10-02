@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Request;
  * LAS ACTIVIDADES NUEVAS, LADO DE QUIEN CREA: bandeja, catálogo, conteo, crear, guardar, leer,
  * borrar y publicar.
  *
- * Contrato: `myvc_front/ACTIVIDADES-CONTRATO.md` §3.1–§3.5 (tanda 1). La propuesta —el porqué— es
+ * Contrato: `myvc_front/docs/funciones/ACTIVIDADES-CONTRATO.md` §3.1–§3.5 (tanda 1). La propuesta —el porqué— es
  * `ACTIVIDADES-Y-ENCUESTAS.md`. Tareas, cuestionarios y encuestas en la misma `ws_actividades` que
  * el módulo viejo, distinguidas por `modo` (ver `App\Services\Act\Actividad`).
  *

@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Schema;
  *
  * `puestos_del_cierre`: la foto del puesto de cada alumno el día que se cerró el periodo.
  *
- * Fase 4 del cierre de periodo (`myvc_front/PLAN-CIERRE-DE-PERIODO.md`, decisiones 4 y 5
+ * Fase 4 del cierre de periodo (`myvc_front/docs/planes/PLAN-CIERRE-DE-PERIODO.md`, decisiones 4 y 5
  * de Joseth del 23 sep 2026): **el puesto se congela al cerrar**, y al recerrar tras una
  * rendija **la foto se rehace siempre**. La escribe `App\Services\PuestosDelCierre` y la lee
  * `BoletinIndependiente::ponerPuestos` cuando el informe es de un solo periodo y ese

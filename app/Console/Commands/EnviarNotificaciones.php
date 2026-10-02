@@ -967,7 +967,7 @@ class EnviarNotificaciones extends Command
     }
 
     /**
-     * **Las actividades: la bandeja de salida `ws_avisos`** (`myvc_front/ACTIVIDADES-CONTRATO.md`
+     * **Las actividades: la bandeja de salida `ws_avisos`** (`myvc_front/docs/funciones/ACTIVIDADES-CONTRATO.md`
      * tanda 5). La llenan los endpoints `act/*` y el reloj de arriba; aquí sólo se lee, se junta y
      * se publica. Marca = último `id`, como notas.
      *

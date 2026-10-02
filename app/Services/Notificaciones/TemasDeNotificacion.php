@@ -68,7 +68,7 @@ class TemasDeNotificacion
      *
      * ## EL QUINTO ENTRÓ EL 22 SEP 2026 Y ES `compromiso`
      *
-     * El compromiso académico. Diseño en `myvc_front/COMPROMISOS-ACADEMICOS.md`
+     * El compromiso académico. Diseño en `myvc_front/docs/funciones/COMPROMISOS-ACADEMICOS.md`
      * §4 y §5; lo escriben `EnviarNotificaciones::avisosDeCompromiso` y
      * `::avisosDelResultadoDelCompromiso`.
      *
@@ -96,7 +96,7 @@ class TemasDeNotificacion
      *
      * ## EL SEXTO ENTRÓ EL 26 SEP 2026 Y ES `actividad`
      *
-     * Tareas, cuestionarios y encuestas del módulo nuevo (`myvc_front/ACTIVIDADES-CONTRATO.md`
+     * Tareas, cuestionarios y encuestas del módulo nuevo (`myvc_front/docs/funciones/ACTIVIDADES-CONTRATO.md`
      * tanda 5): publicada, recordatorio, cierra pronto, calificada, nota cambiada y resultados.
      * Lo escribe `EnviarNotificaciones::avisosDeActividades` leyendo `ws_avisos`. Tipo propio por
      * la regla de siempre: apagar «Notas» no puede apagar «tienes una tarea que cierra mañana».

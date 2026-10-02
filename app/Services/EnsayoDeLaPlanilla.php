@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * Qué va a pasar si se sube este libro de notas — **sin escribir una sola fila**.
  *
- * Es la fase 2 de `myvc_front/PLAN-NOTAS-SIN-INTERNET.md` y el hermano de
+ * Es la fase 2 de `myvc_front/docs/planes/PLAN-NOTAS-SIN-INTERNET.md` y el hermano de
  * {@see EnsayoDeLaImportacion}, del que se hereda la máquina entera: la llave de
  * una decisión es **el valor** y no la fila, el plan se declara completo o
  * recortado, y **esto no escribe nada**.

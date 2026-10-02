@@ -645,7 +645,7 @@ class YearsController extends Controller {
 	/**
 	 * La configuración y los textos del compromiso académico — **el encargo es esto**.
 	 *
-	 * Diseño en `myvc_front/COMPROMISOS-ACADEMICOS.md` §8. La petición fue literal:
+	 * Diseño en `myvc_front/docs/funciones/COMPROMISOS-ACADEMICOS.md` §8. La petición fue literal:
 	 * *«que no tengan que estar seleccionando y editando las secciones cada
 	 * periodo»*, y esta línea es la mitad de la respuesta. La otra mitad —que sea
 	 * del año y no del periodo— la fija el esquema.
@@ -1948,7 +1948,7 @@ class YearsController extends Controller {
 	 * Si los docentes cambian la definitiva a mano mientras el periodo está abierto a
 	 * nivelar. `PUT years/definitivas-a-mano` -> `years.profes_pueden_cambiar_definitivas`.
 	 *
-	 * Fase 3 del cierre de periodo (`myvc_front/PLAN-CIERRE-DE-PERIODO.md`, decisión 3):
+	 * Fase 3 del cierre de periodo (`myvc_front/docs/planes/PLAN-CIERRE-DE-PERIODO.md`, decisión 3):
 	 * **nivelar es sólo nivelar**. Qué endpoints mira y por qué no son los siete de
 	 * `pueden_modificar_definitivas`, en {@see \App\Support\DefinitivasAMano}.
 	 *

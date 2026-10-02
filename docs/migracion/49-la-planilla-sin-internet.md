@@ -3,7 +3,7 @@
 *21 sep 2026. Encargo de Joseth: «trabajo sin internet a través de Excel, sólo para que los
 docentes pasen notas sin el sistema». El plan aprobado —doce pantallas dibujadas, doce
 decisiones y siete comprobaciones contra el docker— vive en
-`~/DESARROLLOS/myvc_front/PLAN-NOTAS-SIN-INTERNET.md` y **manda sobre este documento**. Aquí
+`~/DESARROLLOS/myvc_front/docs/planes/PLAN-NOTAS-SIN-INTERNET.md` y **manda sobre este documento**. Aquí
 va lo que se construyó, lo que se midió, y los **tres sitios donde el plan resultó estar
 equivocado**.*
 

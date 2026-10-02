@@ -160,8 +160,8 @@
 
 
 **Todo este documento es propuesta.** Escrito el **20 sep 2026** a partir del plan que ya
-existe en el front —`myvc_front/INVESTIGACION-MATRICULAS.md` (el embudo, las plataformas y el
-modelo de datos) y `myvc_front/PANTALLAS-MATRICULA.md` (las quince pantallas)— y de una
+existe en el front —`myvc_front/docs/investigaciones/INVESTIGACION-MATRICULAS.md` (el embudo, las plataformas y el
+modelo de datos) y `myvc_front/docs/pantallas/PANTALLAS-MATRICULA.md` (las quince pantallas)— y de una
 pregunta que aquel plan dejó sin contestar: **las estaciones del día de matrículas están
 diseñadas para `app2`, o sea para la web, y quien atiende una estación es un docente de pie en
 un aula con una fila delante.**

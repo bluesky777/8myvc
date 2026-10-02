@@ -11,7 +11,7 @@ use Illuminate\Testing\PendingCommand;
  * **El portal de la familia, el tablero del día y el vocabulario del paso.**
  *
  * Diez rutas. El contrato está en `docs/migracion/47-el-portal-de-la-familia.md`;
- * las pantallas, en `myvc_front/PANTALLAS-MATRICULA.md`.
+ * las pantallas, en `myvc_front/docs/pantallas/PANTALLAS-MATRICULA.md`.
  *
  * ## LO QUE ESTE FICHERO DEFIENDE DE VERDAD, y ninguna de las cuatro se ve leyendo el código
  *

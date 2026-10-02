@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Schema;
  * **El modelo de evaluación es una elección del colegio, y se guarda por año.**
  *
  * Fase 1 de `docs/migracion/35-el-modelo-de-evaluacion-del-colegio.md` §2, sobre
- * la decisión **D1** de `myvc_front/DECISIONES-MODELO-DE-EVALUACION.md` (13 sep
+ * la decisión **D1** de `myvc_front/docs/modelo-de-evaluacion/DECISIONES-MODELO-DE-EVALUACION.md` (13 sep
  * 2026). Las cuatro columnas van juntas porque son la misma decisión: **cuál es
  * el modelo y cómo llama el colegio a lo que ese modelo trae**.
  *

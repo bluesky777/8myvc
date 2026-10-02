@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Request;
 /**
  * APROBAR, RECHAZAR, CERRAR, COMPARTIR Y SUBIR EL ANONIMATO (tanda 3).
  *
- * Contrato: `myvc_front/ACTIVIDADES-CONTRATO.md` §2.3, §2.6, §2.10, §3.6 y §3.12.
+ * Contrato: `myvc_front/docs/funciones/ACTIVIDADES-CONTRATO.md` §2.3, §2.6, §2.10, §3.6 y §3.12.
  *
  * - Aprobar y rechazar son de los directivos (`Autoriza::puedeAprobarActividades`: superusuario o
  *   Admin, Secretario, Rector, Coord académico o disciplinario — la lista de las firmas). Nadie

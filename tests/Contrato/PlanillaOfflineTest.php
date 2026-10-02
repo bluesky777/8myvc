@@ -18,7 +18,7 @@ use PHPUnit\Framework\Attributes\Test;
  * **La planilla de notas sin internet, fase 1: la descarga.**
  *
  * Las tres rutas de `planilla-offline/*` y el `.xlsx` que producen. El plan está
- * en `myvc_front/PLAN-NOTAS-SIN-INTERNET.md` y lo construido en
+ * en `myvc_front/docs/planes/PLAN-NOTAS-SIN-INTERNET.md` y lo construido en
  * `docs/migracion/49-la-planilla-sin-internet.md`.
  *
  * ## Qué se mira, y por qué así

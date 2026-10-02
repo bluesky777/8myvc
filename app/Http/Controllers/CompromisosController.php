@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\Request;
  * **El compromiso académico de un alumno**: el coordinador lo propone, lo crea, lo
  * entrega, lo cierra y notifica cómo terminó.
  *
- * Diseño entero en `myvc_front/COMPROMISOS-ACADEMICOS.md` §3 y §5; el porqué de cada
+ * Diseño entero en `myvc_front/docs/funciones/COMPROMISOS-ACADEMICOS.md` §3 y §5; el porqué de cada
  * columna, en el docblock de `2026_09_22_200000_el_compromiso_academico`. Su hermano
  * `CompromisosConfigController` guarda lo que el colegio escribe **una vez al año**;
  * aquí vive lo que **le pasa a un alumno concreto**, y las dos mitades se leen juntas.
@@ -226,7 +226,7 @@ class CompromisosController extends Controller
      * y el corte del año. Es lo que pinta el aviso de `GET pendientes/mios`.
      *
      * Existe para que ese aviso cuente **con esta misma cuenta** y no con otra: §2.6 de
-     * `myvc_front/COMPROMISOS-ACADEMICOS.md` documenta tres «perdidas» distintas, y la
+     * `myvc_front/docs/funciones/COMPROMISOS-ACADEMICOS.md` documenta tres «perdidas» distintas, y la
      * que propone compromisos es `contarPerdidas` (definitiva del periodo contra la
      * mínima del año). Un aviso que contara `matriculas.cant_areas_perdidas` prometería
      * candidatos que esta pantalla no enseña.

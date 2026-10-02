@@ -126,7 +126,7 @@ front diciendo que ya lo miró.** Pero borrarlos **invalida documentación viva 
 otro repositorio**, y eso se avisa, no se descubre.
 
 **Avisado el 24 ago** en la sección C de
-`~/DESARROLLOS/myvc_front/PANTALLAS-HISTORIAL-Y-BOLETIN.md`, y **escrito como
+`~/DESARROLLOS/myvc_front/docs/pantallas/PANTALLAS-HISTORIAL-Y-BOLETIN.md`, y **escrito como
 cortesía y no como alarma** —si se lee como alarma, el front busca un fallo que no
 existe—. Con una mitad que se les debía: **su aviso de que el
 `BolfinalesController` de la raíz «no está enrutado» es correcto en la letra y

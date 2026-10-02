@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Schema;
  * Fase 2/3 del proceso de admisión, autorizada por Joseth el 20 sep 2026 con el
  * alcance delante. El contrato y los porqués están en
  * `docs/migracion/47-el-portal-de-la-familia.md`; las pantallas 02, 04, 05 y 06
- * en `myvc_front/PANTALLAS-MATRICULA.md`.
+ * en `myvc_front/docs/pantallas/PANTALLAS-MATRICULA.md`.
  *
  * ## LAS TRES TABLAS CUELGAN DE `ordenes_inscripcion`, QUE YA EXISTE
  *

@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * **El cierre por asignatura**: ¿el docente ya cerró esta asignatura en este periodo?
  *
- * Fase 2 de `myvc_front/PLAN-CIERRE-DE-PERIODO.md`. La tabla es
+ * Fase 2 de `myvc_front/docs/planes/PLAN-CIERRE-DE-PERIODO.md`. La tabla es
  * `cierres_asignatura` (`2026_09_24_300000_el_cierre_por_asignatura.php`) y la
  * regla, entera, es ésta:
  *

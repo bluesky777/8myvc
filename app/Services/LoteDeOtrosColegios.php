@@ -9,7 +9,7 @@ use App\Support\Reloj;
 use Illuminate\Support\Facades\DB;
 
 /**
- * BOLETINES DE OTROS COLEGIOS, EN LOTE  *(26 sep 2026)*, `myvc_front/NOTAS-DE-OTRO-COLEGIO.md` §11.
+ * BOLETINES DE OTROS COLEGIOS, EN LOTE  *(26 sep 2026)*, `myvc_front/docs/notas-de-otro-colegio/NOTAS-DE-OTRO-COLEGIO.md` §11.
  *
  * Las tres puertas --la IA personal del secretario, el chat de MyVc y el guion de Joseth-- traen lo
  * mismo: filas con el formato de §11.1, una por nota. Esto es lo que viene después, y se escribe

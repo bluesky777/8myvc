@@ -3,7 +3,7 @@
 > **Estado: medido el 2 sep 2026. Nada construido, y a propósito.** Este documento
 > es la mitad de backend de una pregunta que ya estaba escrita en el otro repo desde
 > el **1 sep**: *«un endpoint único para la portada, al estilo de `ChangesAsked/to-me`»*
-> (`myvc_front/MIGRATION.md`, PENDIENTE apuntado ese día). Allí está el lado del
+> (`myvc_front/docs/planes/MIGRATION.md`, PENDIENTE apuntado ese día). Allí está el lado del
 > cliente —once servicios en la portada de `app2`— y aquí lo que el servidor hace de
 > verdad cuando esa portada pregunta.
 >

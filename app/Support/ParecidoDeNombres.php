@@ -6,7 +6,7 @@ namespace App\Support;
  * ¿Este nombre escrito a mano es el de aquella persona?
  *
  * Nace para la F6 de «notas sin internet» (fase 3 del plan
- * `myvc_front/PLAN-NOTAS-SIN-INTERNET.md`, §6.4): el docente escribió
+ * `myvc_front/docs/planes/PLAN-NOTAS-SIN-INTERNET.md`, §6.4): el docente escribió
  * *«Jose Luis Cardenaz»* en el bloque del final de su planilla y hay que decirle
  * si se refería a *«CÁRDENAS PEÑA, José Luis»*, **sin crear a nadie**.
  *

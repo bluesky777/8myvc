@@ -290,7 +290,7 @@ class IaController extends Controller
     }
 
     /**
-     * `POST ia/boletin/leer` — la puerta 2 de `myvc_front/NOTAS-DE-OTRO-COLEGIO.md` §11 (26 sep 2026).
+     * `POST ia/boletin/leer` — la puerta 2 de `myvc_front/docs/notas-de-otro-colegio/NOTAS-DE-OTRO-COLEGIO.md` §11 (26 sep 2026).
      *
      * Recibe UNA foto o UN PDF de un boletín y devuelve sus notas en filas con el formato de §11.1,
      * listas para `otros-colegios/lote/ensayo`. Aquí no se guarda nada: el archivo va al proxy en

@@ -15,7 +15,7 @@ use PHPUnit\Framework\Attributes\Test;
  * que se recalcula, un `NULL` que se guarda como `0`, y un acudiente que firma el
  * papel de otro niño cambiando un número en la URL.
  *
- * Diseño entero en `myvc_front/COMPROMISOS-ACADEMICOS.md` §3, §5 y §6.
+ * Diseño entero en `myvc_front/docs/funciones/COMPROMISOS-ACADEMICOS.md` §3, §5 y §6.
  *
  * ## LOS DOS ANCLAJES DEL SEED, Y POR QUÉ ÉSTOS
  *

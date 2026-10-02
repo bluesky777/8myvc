@@ -26,7 +26,7 @@ use Illuminate\Queue\SerializesModels;
  * **Esta clase existe porque algún colegio lo encenderá, no porque sea el camino
  * principal.** El camino principal son el push —que llega al 94 %— y el papel
  * firmado el día de entrega de boletines, que además es la prueba más sólida.
- * Diseño: `myvc_front/COMPROMISOS-ACADEMICOS.md` §4 y §4.2.
+ * Diseño: `myvc_front/docs/funciones/COMPROMISOS-ACADEMICOS.md` §4 y §4.2.
  *
  * > Y un canal encendido que alcanza al 9 % es **peor** que uno apagado, porque
  * > el colegio cree que avisó. Si alguna pantalla ofrece encenderlo, tiene que

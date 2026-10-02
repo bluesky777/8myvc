@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Schema;
  *
  * ## TRES COLUMNAS, Y LAS QUE NO ENTRAN PESAN IGUAL
  *
- * La propuesta original (`myvc_front/PANTALLAS-MATRICULA.md` §4) pedía **seis** en
+ * La propuesta original (`myvc_front/docs/pantallas/PANTALLAS-MATRICULA.md` §4) pedía **seis** en
  * `requisitos_matricula` —tipo, rol_id, obligatorio, bloquea, estacion_nro,
  * dias_limite— y **cuatro** en `requisitos_alumno`. Entran **una y dos**, y las
  * otras siete no se quedan fuera por recorte: **cada una la cerró una respuesta**.

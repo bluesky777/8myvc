@@ -58,7 +58,7 @@ Route::get('estaciones', [EstacionesController::class, 'getIndex'])
 Route::get('estaciones/huella', [EstacionesController::class, 'getHuella'])
     ->middleware('auth.personal');
 
-// EL TABLERO DEL DÍA. Pantalla 15 de `myvc_front/PANTALLAS-MATRICULA.md`, la única
+// EL TABLERO DEL DÍA. Pantalla 15 de `myvc_front/docs/pantallas/PANTALLAS-MATRICULA.md`, la única
 // de las quince que no tenía endpoint.
 //
 // **No devuelve el informe de campaña**, que esa misma pantalla también pide: eso ya

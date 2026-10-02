@@ -9,7 +9,7 @@ use PHPUnit\Framework\Attributes\Test;
 
 /**
  * **Nivelar es sólo nivelar** — fase 3 del cierre de periodo
- * (`myvc_front/PLAN-CIERRE-DE-PERIODO.md`, decisión 3).
+ * (`myvc_front/docs/planes/PLAN-CIERRE-DE-PERIODO.md`, decisión 3).
  *
  * `years.profes_pueden_cambiar_definitivas` parte lo que `periodos.profes_pueden_nivelar`
  * gobernaba junto: con 0, el docente sigue nivelando pero no teclea la definitiva a mano.

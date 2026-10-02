@@ -5,7 +5,7 @@ colegio configura y un aviso automático de *«devuélvase a la estación 3»*. 
 pasarela y sin tocar dinero — eso son las fases 2 a 4.
 
 El análisis y las quince pantallas están en
-[`myvc_front/PANTALLAS-MATRICULA.md`](../../../myvc_front/PANTALLAS-MATRICULA.md); esto es lo
+[`myvc_front/docs/pantallas/PANTALLAS-MATRICULA.md`](../../../myvc_front/docs/pantallas/PANTALLAS-MATRICULA.md); esto es lo
 decidido, lo medido y lo que falta para poder escribirlo.
 
 ---

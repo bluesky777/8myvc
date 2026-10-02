@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /*
- * LAS ACTIVIDADES NUEVAS  *(26 sep 2026, tanda 1 de `myvc_front/ACTIVIDADES-CONTRATO.md` §1.1)*.
+ * LAS ACTIVIDADES NUEVAS  *(26 sep 2026, tanda 1 de `myvc_front/docs/funciones/ACTIVIDADES-CONTRATO.md` §1.1)*.
  *
  * Tareas, cuestionarios y encuestas viven en la misma `ws_actividades` que el módulo viejo, y se
  * distinguen por `modo`: **`modo IS NULL` es una actividad vieja**, y todo lo nuevo filtra

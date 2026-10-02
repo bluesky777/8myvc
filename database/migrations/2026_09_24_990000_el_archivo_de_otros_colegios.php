@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Schema;
  *   documentos_externos   el PDF o la foto de ese año. El fichero va en `storage/`, NO en `public/`:
  *                         son datos de un menor y se descargan con token (ver el controlador).
  *
- * Es el nivel 1 de `myvc_front/NOTAS-DE-OTRO-COLEGIO.md` §8: el archivo. Las notas en tablas
+ * Es el nivel 1 de `myvc_front/docs/notas-de-otro-colegio/NOTAS-DE-OTRO-COLEGIO.md` §8: el archivo. Las notas en tablas
  * (`notas_externas`) llegan después y cuelgan de `anos_externos`.
  *
  * Sólo AÑADE: dos tablas nuevas, ni una columna de una que ya exista.

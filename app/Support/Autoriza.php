@@ -592,7 +592,7 @@ class Autoriza
 
     /**
      * Quién reabre una asignatura que su docente cerró (fase 2 de
-     * `myvc_front/PLAN-CIERRE-DE-PERIODO.md`, `PUT cierres-asignatura/reabrir`).
+     * `myvc_front/docs/planes/PLAN-CIERRE-DE-PERIODO.md`, `PUT cierres-asignatura/reabrir`).
      *
      * **Decisión 2 de Joseth del 23 sep 2026: «cierra el docente su asignatura;
      * reabre coordinación»**. Y aquí `auth.personal` no vale, aunque el mock dijera
@@ -765,7 +765,7 @@ class Autoriza
      * La misma lista que `ROLES_QUE_APRUEBAN_FIRMAS` —administradores, secretaría, rector y las
      * dos coordinaciones—, con el superusuario por encima. Decidido por Joseth el 26 sep 2026
      * («alguien con rol de coordinador, rector, secretario o superusuario»); `Admin` entra por la
-     * misma razón que en las firmas. Ver `myvc_front/ACTIVIDADES-CONTRATO.md` §2.3.
+     * misma razón que en las firmas. Ver `myvc_front/docs/funciones/ACTIVIDADES-CONTRATO.md` §2.3.
      *
      * Hoy dice lo mismo que `puedeAprobarFirmas()`, y **se escribe aparte a propósito**: son dos
      * decisiones distintas que coinciden por población, y el día que una cambie no tiene que
@@ -1291,7 +1291,7 @@ class Autoriza
      * **Bajarse el libro de Excel de OTRO docente** — las tres rutas de
      * `planilla-offline/*` con `?profesor_id=` distinto del propio.
      *
-     * Fase 1 de `myvc_front/PLAN-NOTAS-SIN-INTERNET.md`, y nace de su §3.4, que es
+     * Fase 1 de `myvc_front/docs/planes/PLAN-NOTAS-SIN-INTERNET.md`, y nace de su §3.4, que es
      * una medición y no una opinión:
      *
      * ```php

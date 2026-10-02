@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Http;
 
 /**
  * LEER UN BOLETÍN CON LA IA DE MYVC (26 sep 2026), `IaController::postBoletin`. La puerta 2 de
- * `myvc_front/NOTAS-DE-OTRO-COLEGIO.md` §11.
+ * `myvc_front/docs/notas-de-otro-colegio/NOTAS-DE-OTRO-COLEGIO.md` §11.
  *
  * Lo que tiene que sostenerse: el archivo llega al proxy en base64 con su tipo; lo que no es PDF,
  * JPG o PNG no sale de aquí; quien no edita alumnos no lo manda; y la frase del proxy cuando el

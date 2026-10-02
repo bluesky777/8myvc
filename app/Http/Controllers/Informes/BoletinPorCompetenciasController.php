@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\Request;
  * final: **el modelo es plano** (D31 y P3 del
  * [39](../../../../docs/migracion/39-el-modelo-plano-por-competencias.md) §4), que es
  * la fila del plan de área tal como la teclea un colegio y como la leen los catorce
- * SIEE del corpus (`myvc_front/PLAN-FRONT-MODELO-DE-EVALUACION.md` §4.3).
+ * SIEE del corpus (`myvc_front/docs/modelo-de-evaluacion/PLAN-FRONT-MODELO-DE-EVALUACION.md` §4.3).
  *
  * ## No es una cuarta copia, y la Fase 5 es la que lo autoriza
  *

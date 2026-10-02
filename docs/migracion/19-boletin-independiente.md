@@ -65,7 +65,7 @@ dentro de este módulo, está construyendo lo que se pidió no construir.
 ### Las tres decisiones del 31 ago 2026 — y una de ellas REVISA la decisión 2
 
 **Tomadas por Joseth** en la sesión `myvc-front-c5`, con el plan y los dos repos delante.
-**Escritas también en el buzón del front** (`~/DESARROLLOS/myvc_front/PANTALLAS-HISTORIAL-Y-BOLETIN.md`,
+**Escritas también en el buzón del front** (`~/DESARROLLOS/myvc_front/docs/pantallas/PANTALLAS-HISTORIAL-Y-BOLETIN.md`,
 §B.5), que es donde manda el acuerdo del 24 ago.
 
 | | Decisión | Qué cierra |
@@ -1610,7 +1610,7 @@ acotarla»** y no la cifra grande, por lo que dice el aviso de la §5.
 ## §12 — La coordinación con el front
 
 > **El canal es un fichero del front, no este documento.**
-> `~/DESARROLLOS/myvc_front/PANTALLAS-HISTORIAL-Y-BOLETIN.md`, sección **C**, es
+> `~/DESARROLLOS/myvc_front/docs/pantallas/PANTALLAS-HISTORIAL-Y-BOLETIN.md`, sección **C**, es
 > el buzón: **toda decisión que cambie un cuerpo, un nombre de campo o una ruta se
 > escribe ahí**, además de aquí. Lo pidió Joseth el 24 ago después de que este
 > plan estuviera un día escrito sin que nadie del front lo viera — **el front no
@@ -1678,7 +1678,7 @@ no es esa decisión**: se midió, se contestó, y se le subió a Joseth con las 
 escribieron. De 547 a **549**.
 
 La respuesta técnica entera está en el canal del front
-(`myvc_front/PANTALLAS-HISTORIAL-Y-BOLETIN.md`, §C, 2026-09-01, `8myvc-2d`) y **no se duplica aquí a
+(`myvc_front/docs/pantallas/PANTALLAS-HISTORIAL-Y-BOLETIN.md`, §C, 2026-09-01, `8myvc-2d`) y **no se duplica aquí a
 propósito**: dos copias de un contrato es de donde salen dos contratos.
 
 **Lo que sí se mide y se queda:** el diseño trae **cinco cosas que no cuadran con el código**, y la

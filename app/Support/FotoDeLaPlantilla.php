@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * **Cómo quedó la plantilla la última vez que se propagó**, y qué ha cambiado desde entonces
- * (`myvc_front/PLAN-COSAS-PENDIENTES.md` §2.3). Tabla `plantilla_fotos`.
+ * (`myvc_front/docs/planes/PLAN-COSAS-PENDIENTES.md` §2.3). Tabla `plantilla_fotos`.
  *
  * - `tomar()` la llama `PlantillaNotasController::putSembrar` al terminar.
  * - `cambios()` compara la plantilla viva con la última foto, fila por fila y por `id`. Es lo

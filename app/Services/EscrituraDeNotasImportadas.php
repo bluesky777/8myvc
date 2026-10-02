@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
  * Escribir las notas que trae un libro de «notas sin internet». **La otra mitad
  * del ensayo, y ni una decisión más.**
  *
- * Es la fase 2 de `myvc_front/PLAN-NOTAS-SIN-INTERNET.md`. Lo único que hace es
+ * Es la fase 2 de `myvc_front/docs/planes/PLAN-NOTAS-SIN-INTERNET.md`. Lo único que hace es
  * aplicar el plan que {@see EnsayoDeLaPlanilla} ya construyó: qué celda va a qué
  * indicador, con qué valor y por qué. **No vuelve a decidir nada** —ni la D3, ni la
  * D9, ni un choque— y eso es el diseño entero, no una comodidad:

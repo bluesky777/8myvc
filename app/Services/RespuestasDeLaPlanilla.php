@@ -8,7 +8,7 @@ use App\Support\Autoriza;
  * Lo que el docente decidió sobre el libro de notas que está subiendo.
  *
  * Es la hermana de {@see RespuestasDeLaImportacion} para «notas sin internet»
- * (fase 2 del plan `myvc_front/PLAN-NOTAS-SIN-INTERNET.md`, §5). Viaja **con el
+ * (fase 2 del plan `myvc_front/docs/planes/PLAN-NOTAS-SIN-INTERNET.md`, §5). Viaja **con el
  * fichero** en el mismo multipart, no por una ruta propia: es parte de «sube esto
  * con estas instrucciones» y no un recurso aparte.
  *

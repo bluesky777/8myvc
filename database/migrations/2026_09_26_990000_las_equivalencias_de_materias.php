@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /*
- * LAS EQUIVALENCIAS DE MATERIAS  *(26 sep 2026)*, `myvc_front/NOTAS-DE-OTRO-COLEGIO.md` §1.2 y §11.
+ * LAS EQUIVALENCIAS DE MATERIAS  *(26 sep 2026)*, `myvc_front/docs/notas-de-otro-colegio/NOTAS-DE-OTRO-COLEGIO.md` §1.2 y §11.
  *
  * Cómo escribe otro colegio una materia --«Matemáticas III», «Castellano»-- y a qué materia de este
  * colegio corresponde. Se aprende en la revisión del lote: cada emparejamiento que confirma quien

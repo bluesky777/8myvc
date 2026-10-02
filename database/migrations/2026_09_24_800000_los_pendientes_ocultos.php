@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /*
- * **Los pendientes que cada usuario pospuso o silenció** (`myvc_front/PLAN-COSAS-PENDIENTES.md` §3).
+ * **Los pendientes que cada usuario pospuso o silenció** (`myvc_front/docs/planes/PLAN-COSAS-PENDIENTES.md` §3).
  *
  * Un pendiente se calcula siempre y desaparece solo cuando el dato deja de faltar; nadie lo
  * marca como hecho. Lo único que se guarda es que **esta persona** no quiere verlo:

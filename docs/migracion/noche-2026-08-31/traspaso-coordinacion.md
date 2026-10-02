@@ -33,7 +33,7 @@ relevo quien fusiona.
 | `8myvc-53` | **C** | `putCopiar` (§9.4), `Unidad::informacionAsignatura` y cuatro sueltos |
 | `8myvc-82` | **D** | **La marca**: ruta nueva, guarda de la decisión 5, `bol_independiente_periodos`, `bol_independiente_datos` |
 | `8myvc-8f` | **E** | Puestos e interruptor: migración, `puestosCuentanIndependientes()`, seis llamadores |
-| `myvc-front-c5` | — | El front. **Es el canal**: `myvc_front/PANTALLAS-HISTORIAL-Y-BOLETIN.md` |
+| `myvc-front-c5` | — | El front. **Es el canal**: `myvc_front/docs/pantallas/PANTALLAS-HISTORIAL-Y-BOLETIN.md` |
 | `myvc-front-24`, `myvc-front-60`, `myvc-flutter-70` | — | Otras sesiones vivas, no son de esta noche |
 
 **Hay una dependencia entre lotes y es la única:** A necesita
@@ -102,7 +102,7 @@ Está en la [§3 de reparto.md](reparto.md). En orden, y con lo que la desbloque
 
 ## 5. Lo abierto con el front, que es de quien coordina
 
-El canal es **su fichero**, no éste: `~/DESARROLLOS/myvc_front/PANTALLAS-HISTORIAL-Y-BOLETIN.md`.
+El canal es **su fichero**, no éste: `~/DESARROLLOS/myvc_front/docs/pantallas/PANTALLAS-HISTORIAL-Y-BOLETIN.md`.
 Lo pidió Joseth el 24 ago porque **el front no lee este repositorio por su cuenta**.
 
 **Lo acordado y ya escrito allí** (no hay que re-litigarlo): el campo

@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\DB;
  *     [aprueba_allá … máx_allá]  ->  [aprueba_aquí … máx_aquí]
  *
  * Con proporción simple, un 3,0 sobre 5 --aprobado allá-- da 60 sobre 100, que en un colegio que
- * aprueba con 70 es Bajo. Ver `myvc_front/NOTAS-DE-OTRO-COLEGIO.md` §1.3.
+ * aprueba con 70 es Bajo. Ver `myvc_front/docs/notas-de-otro-colegio/NOTAS-DE-OTRO-COLEGIO.md` §1.3.
  *
  * **Una nota en letras o en palabras** (S, A, Bs, Bj, «Superior»…) no tiene número: se toma el
  * punto medio de la banda de ese desempeño en la escala de aquí. Y si no se entiende, no se inventa:

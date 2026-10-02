@@ -1,7 +1,7 @@
 # La planilla sin internet — fases 2 y 3: el ensayo, la escritura y «¿es este?»
 
 *21 sep 2026. Continúa [49](49-la-planilla-sin-internet.md), que construyó la descarga. El plan
-aprobado vive en `~/DESARROLLOS/myvc_front/PLAN-NOTAS-SIN-INTERNET.md` y **manda sobre este
+aprobado vive en `~/DESARROLLOS/myvc_front/docs/planes/PLAN-NOTAS-SIN-INTERNET.md` y **manda sobre este
 documento**. Aquí va lo que se construyó, lo que se midió, y los sitios donde el plan resultó estar
 equivocado —**cinco en la fase 2 (§2) y dos en la fase 3 (§7.6)**—, cada uno con su medida al lado.*
 

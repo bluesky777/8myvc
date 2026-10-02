@@ -28,7 +28,7 @@ use Tests\TestCase;
  * `APP_KEY`**, y eso necesita la configuración del framework cargada. Es el mismo
  * caso que `HtmlDelEditorTest`, el otro de esta carpeta que la necesita.
  *
- * Ver `myvc_front/PLAN-NOTAS-SIN-INTERNET.md` §4.6 y §4.7.
+ * Ver `myvc_front/docs/planes/PLAN-NOTAS-SIN-INTERNET.md` §4.6 y §4.7.
  */
 class FirmaDelLibroTest extends TestCase
 {

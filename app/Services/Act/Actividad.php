@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * LO COMÚN DE UNA ACTIVIDAD NUEVA: cargarla, su estado efectivo y quién manda en ella.
  *
- * Contrato: `myvc_front/ACTIVIDADES-CONTRATO.md` §2.1 y §2.2.
+ * Contrato: `myvc_front/docs/funciones/ACTIVIDADES-CONTRATO.md` §2.1 y §2.2.
  *
  * **Una actividad nueva es la que tiene `modo`.** Las del módulo viejo (`modo IS NULL`) no existen
  * para `act/*`: 404, igual que una borrada. Así ninguna ruta nueva puede tocar lo viejo.

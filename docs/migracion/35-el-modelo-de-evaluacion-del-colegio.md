@@ -1,7 +1,7 @@
 # 35 · El modelo de evaluación es una elección del colegio — el plan del backend
 
 > **Qué es esto.** Las 22 decisiones que Joseth tomó el 13 sep 2026
-> (`myvc_front/DECISIONES-MODELO-DE-EVALUACION.md`) cierran las nueve que quedaban
+> (`myvc_front/docs/modelo-de-evaluacion/DECISIONES-MODELO-DE-EVALUACION.md`) cierran las nueve que quedaban
 > abiertas entre [28](28-competencias-e-indicadores.md) §7 y la investigación del
 > front. Este documento **no vuelve a decidir nada de eso**: traza **en qué orden se
 > construye**, qué cuesta cada trozo, qué test lo sujeta y **qué falta todavía por
@@ -10,7 +10,7 @@
 > **Nada de esto está construido.** No hay código nuevo en este commit.
 >
 > > **13 sep 2026, unas horas después: las tres decisiones que este plan abría YA ESTÁN
-> > CERRADAS** — D23, D24 y D25, §7.bis de `myvc_front/DECISIONES-MODELO-DE-EVALUACION.md`.
+> > CERRADAS** — D23, D24 y D25, §7.bis de `myvc_front/docs/modelo-de-evaluacion/DECISIONES-MODELO-DE-EVALUACION.md`.
 > > **Ninguna fase queda bloqueada.** Dos salieron como se proponían aquí; la tercera **no salió
 > > por ninguna de las dos puertas que este documento planteaba** y es la que hay que leer: §1.5.
 
@@ -604,7 +604,7 @@ lleva nivel**. Así que no hay ninguna función que lleve de «este alumno sacó
 «se le premarcan estos cuatro textos y estos seis no».
 
 > ## ✅ CONTESTADA el 13 sep 2026 por Joseth — **D23, y no es ninguna de las dos salidas que
-> este apartado planteaba**. `myvc_front/DECISIONES-MODELO-DE-EVALUACION.md` §7.bis.
+> este apartado planteaba**. `myvc_front/docs/modelo-de-evaluacion/DECISIONES-MODELO-DE-EVALUACION.md` §7.bis.
 >
 > **La celda ES el nivel.** Cada cruce alumno × desempeño guarda **Superior / Alto / Básico /
 > Bajo**, premarcado con el nivel que el alumno ya tiene por su nota. Con eso **el desajuste
@@ -2249,7 +2249,7 @@ gobiernan igual — y ésa es exactamente la suposición que hizo D18.
 de `desempenos` con `alumno_id`, una decisión del colegio alumno a alumno, y no una siembra
 automática al marcar.
 
-> **La D18 canónica vive en `myvc_front/DECISIONES-MODELO-DE-EVALUACION.md` §5**, que es del
+> **La D18 canónica vive en `myvc_front/docs/modelo-de-evaluacion/DECISIONES-MODELO-DE-EVALUACION.md` §5**, que es del
 > repositorio del front, y esta sesión tenía dicho que no lo tocara. **Allí sigue la frase
 > entera sin este matiz**: quien tenga el front tiene que llevárselo.
 
@@ -2575,14 +2575,14 @@ cPanel**, y el bucle de arriba sólo alcanza a una.
 
 ## 8. De dónde sale cada cosa
 
-- `myvc_front/DECISIONES-MODELO-DE-EVALUACION.md` — las 22 decisiones del 13 sep 2026.
-- `myvc_front/INVESTIGACION-COMPETENCIAS-Y-DESEMPENOS.md` — cuatro decretos, catorce
+- `myvc_front/docs/modelo-de-evaluacion/DECISIONES-MODELO-DE-EVALUACION.md` — las 22 decisiones del 13 sep 2026.
+- `myvc_front/docs/investigaciones/INVESTIGACION-COMPETENCIAS-Y-DESEMPENOS.md` — cuatro decretos, catorce
   SIEE, trece programas.
 - [28-competencias-e-indicadores.md](28-competencias-e-indicadores.md) — las siete
   entregas y su precio. Lo que aquí se traza es **el orden**, no otra propuesta.
 - [30-lo-que-reparte-una-columna-nueva.md](30-lo-que-reparte-una-columna-nueva.md) —
   por qué §1.3 cuenta treinta instantáneas y no cero.
-- `myvc_front/DECISIONES-MODELO-DE-EVALUACION.md` **§7.bis** — D23, D24 y D25, las tres que
+- `myvc_front/docs/modelo-de-evaluacion/DECISIONES-MODELO-DE-EVALUACION.md` **§7.bis** — D23, D24 y D25, las tres que
   este documento abrió y que se cerraron el mismo día (commit `8bedcaf6` del front).
 - Medido el **13 sep 2026** sobre `main` en **`c0ed278`**, árbol principal, **sin
   contenedor levantado**: `frases_asignatura.frase` todavía `varchar(255)`

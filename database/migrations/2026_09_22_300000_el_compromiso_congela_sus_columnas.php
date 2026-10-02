@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 /*
  * **Las dos columnas que el papel del compromiso prometía y no podía imprimir.**
  *
- * Diseño en `myvc_front/COMPROMISOS-ACADEMICOS.md` §8.8.1. Sus dos hermanas de esta
+ * Diseño en `myvc_front/docs/funciones/COMPROMISOS-ACADEMICOS.md` §8.8.1. Sus dos hermanas de esta
  * semana crearon lo que el colegio configura (`..._100000_la_plantilla_del_compromiso`)
  * y lo que le pasa a un alumno (`..._200000_el_compromiso_academico`); ésta cierra un
  * agujero que sólo se vio cuando alguien intentó **imprimir de verdad**.

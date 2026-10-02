@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 /*
  * years.profes_pueden_cambiar_definitivas  tinyint(1) NOT NULL DEFAULT 1
  *
- * Fase 3 del cierre de periodo (`myvc_front/PLAN-CIERRE-DE-PERIODO.md`, decisión 3 de
+ * Fase 3 del cierre de periodo (`myvc_front/docs/planes/PLAN-CIERRE-DE-PERIODO.md`, decisión 3 de
  * Joseth del 23 sep 2026): **nivelar es sólo nivelar**. Hasta hoy
  * `periodos.profes_pueden_nivelar` gobernaba dos cosas —nivelar y cambiar la definitiva
  * a mano— y un colegio que abría la semana de nivelaciones abría también la edición

@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 |
 | Contrato y porqués: `docs/migracion/47-el-portal-de-la-familia.md`.
-| Las pantallas: `myvc_front/PANTALLAS-MATRICULA.md` (02, 04, 05, 06 del lado de
+| Las pantallas: `myvc_front/docs/pantallas/PANTALLAS-MATRICULA.md` (02, 04, 05, 06 del lado de
 | la familia; 4, 5 y 6 del lado del colegio en `INVESTIGACION-MATRICULAS.md` §8).
 |
 | ## OCHO RUTAS, Y TRES SON PÚBLICAS — LAS DECIMOSÉPTIMA, DECIMOCTAVA Y DECIMONOVENA

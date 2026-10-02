@@ -30,7 +30,7 @@ class RequisitosController extends Controller {
 	 * Su frase es el requisito literal: *«si una estación busca al estudiante y ve
 	 * que el requisito 2 no está marcado y esta es la estación 4, entonces le dice
 	 * que se devuelva a la estación 3»*. Es la pantalla 09 de
-	 * `myvc_front/PANTALLAS-MATRICULA.md`, y es la que más tiempo ahorra del día.
+	 * `myvc_front/docs/pantallas/PANTALLAS-MATRICULA.md`, y es la que más tiempo ahorra del día.
 	 *
 	 * ## LO QUE FRENA LO DICE `bloquea`, ESTACIÓN POR ESTACIÓN
 	 *

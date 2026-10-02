@@ -353,7 +353,7 @@ class EstacionesController extends Controller
     }
 
     /**
-     * **EL TABLERO DEL DÍA.** Pantalla 15 de `myvc_front/PANTALLAS-MATRICULA.md`.
+     * **EL TABLERO DEL DÍA.** Pantalla 15 de `myvc_front/docs/pantallas/PANTALLAS-MATRICULA.md`.
      *
      * *«Cuántos pasaron por cada estación, dónde está el tapón —34 minutos en la 3
      * con un solo coordinador, mientras la 4 y la 5 están libres—, los que se fueron

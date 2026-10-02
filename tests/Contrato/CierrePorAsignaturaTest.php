@@ -7,7 +7,7 @@ use App\User;
 use Illuminate\Support\Facades\DB;
 
 /**
- * **El cierre por asignatura** (fase 2 de `myvc_front/PLAN-CIERRE-DE-PERIODO.md`).
+ * **El cierre por asignatura** (fase 2 de `myvc_front/docs/planes/PLAN-CIERRE-DE-PERIODO.md`).
  *
  * Tres cosas y en este orden, porque es el orden en que se rompen:
  *

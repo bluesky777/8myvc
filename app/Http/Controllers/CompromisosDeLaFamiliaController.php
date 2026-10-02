@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Request;
  *     PUT compromisos/{id}/acuse               persona.propia
  *     PUT compromisos/{id}/acuse-resultado     persona.propia
  *
- * Diseño en `myvc_front/COMPROMISOS-ACADEMICOS.md` §3.3, §4.3, §4.4 y §5; el contrato,
+ * Diseño en `myvc_front/docs/funciones/COMPROMISOS-ACADEMICOS.md` §3.3, §4.3, §4.4 y §5; el contrato,
  * en `app2/src/app/datos/compromisos.ts` (`deAlumno`, `acuse`, `acuseDelResultado`).
  *
  * ## Sin `auth.personal`, y el patrón ya existía

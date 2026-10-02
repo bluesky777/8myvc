@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 /**
  * **Lo que la importación de alumnos CAMBIÓ**, alumno por alumno y campo por campo.
  *
- * Decisión de Joseth del 30 sep 2026 (`myvc_front/AUDITORIA-DE-ALUMNOS.md`): la
+ * Decisión de Joseth del 30 sep 2026 (`myvc_front/docs/auditoria-alumnos/AUDITORIA-DE-ALUMNOS.md`): la
  * importación no deja una línea de `auditoria` por alumno —serían cientos de filas por
  * subida—, sino **un solo registro en su propia fila de `importaciones`**:
  *

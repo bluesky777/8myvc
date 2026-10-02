@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Schema;
  * hoy no estaba en ninguna parte. Por ahora sólo se configura (tabla de periodos de
  * la configuración del colegio, `periodos/cambiar-fecha-entrega-boletines`) y sale
  * en las respuestas que leen `periodos` con `SELECT *`; nadie la usa todavía. Dónde
- * podría usarse: `myvc_front/PLAN-CIERRE-DE-PERIODO.md`.
+ * podría usarse: `myvc_front/docs/planes/PLAN-CIERRE-DE-PERIODO.md`.
  *
  * **Nace en NULL** = «sin fecha»: un colegio que actualiza no ve ningún cambio.
  * Aditiva: no toca ninguna fila existente. `down()` quita la columna.

@@ -8,7 +8,7 @@ use App\Support\Reloj;
 use Illuminate\Support\Facades\DB;
 
 /**
- * **Los pendientes de la segunda tanda** (`myvc_front/PLAN-COSAS-PENDIENTES.md` §5b): periodos,
+ * **Los pendientes de la segunda tanda** (`myvc_front/docs/planes/PLAN-COSAS-PENDIENTES.md` §5b): periodos,
  * plantilla sin propagar, disciplina, matrícula, datos de personas, configuración del año y
  * firmas. `PendientesTest` cubre los de la primera.
  *
