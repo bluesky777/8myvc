@@ -334,7 +334,7 @@ class ImagenesTest extends CasoDeContrato
     {
         $token = $this->tokenDe($this->usuarioDeTipo('Alumno')->username);
 
-        $r = $this->post('/api/myimages/store-intacta',
+        $r = $this->post('/api/myimages/store-intacta-privada',
             ['file' => $this->imagenMarcada('mia.png', 320, 240)],
             ['Authorization' => 'Bearer '.$token]);
 
@@ -343,6 +343,33 @@ class ImagenesTest extends CasoDeContrato
         $this->delete("/api/images-users/destroy/{$r->json('id')}", [],
             ['Authorization' => 'Bearer '.$token])
             ->assertStatus(200);
+    }
+
+    /**
+     * Lo que ve todo el personal no lo pone un alumno *(2 oct 2026, pedido de Joseth)*.
+     * Una intacta nace pública, una firma es de docente, y publicar es enseñarla a
+     * todo el personal. Su álbum —`store` y `store-intacta-privada`— sigue abierto,
+     * y lo comprueba el test de arriba.
+     */
+    public function test_un_alumno_no_publica_ni_sube_firmas(): void
+    {
+        $token = $this->tokenDe($this->usuarioDeTipo('Alumno')->username);
+
+        foreach (['store-intacta', 'store-firma'] as $ruta) {
+            $this->post("/api/myimages/{$ruta}",
+                ['file' => $this->imagenMarcada('mia.png', 320, 240)],
+                ['Authorization' => 'Bearer '.$token])
+                ->assertStatus(403);
+        }
+
+        $mia = $this->post('/api/myimages/store-intacta-privada',
+            ['file' => $this->imagenMarcada('mia.png', 320, 240)],
+            ['Authorization' => 'Bearer '.$token])
+            ->assertStatus(201)->json('id');
+
+        $this->put("/api/myimages/publicar-imagen/{$mia}", [],
+            ['Authorization' => 'Bearer '.$token])
+            ->assertStatus(403);
     }
 
     /**

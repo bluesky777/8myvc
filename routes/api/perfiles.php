@@ -81,8 +81,12 @@ Route::put('myimages/cambiarlogocolegio', [ImagesController::class, 'putCambiarl
 Route::get('colegio/logo', [ImagesController::class, 'getLogoDelColegio'])->withoutMiddleware('auth.token');
 Route::put('myimages/datos-imagen', [ImagesController::class, 'putDatosImagen'])->middleware('persona.propia');
 Route::post('myimages/store', [ImagesController::class, 'postStore']);
-Route::post('myimages/store-firma', [ImagesController::class, 'postStoreFirma']);
-Route::post('myimages/store-intacta', [ImagesController::class, 'postStoreIntacta']);
+// Las dos de abajo y `publicar-imagen` piden personal desde el 2 oct 2026, pedido de
+// Joseth: «un estudiante no debe [...] tener permiso para estas cosas tampoco en el
+// backend». Una intacta nace pública —la ve todo el personal— y una firma es de docente;
+// a un alumno le queda `store` y `store-intacta-privada`, que es su álbum.
+Route::post('myimages/store-firma', [ImagesController::class, 'postStoreFirma'])->middleware('auth.personal');
+Route::post('myimages/store-intacta', [ImagesController::class, 'postStoreIntacta'])->middleware('auth.personal');
 Route::post('myimages/store-intacta-privada', [ImagesController::class, 'postStoreIntactaPrivada']);
 // La misma operación que `images-users/destroy/{id}` de más abajo, y la que usan
 // las familias, pero ésta iba sin guard. Con una imagen ajena no la borra: el
@@ -92,7 +96,7 @@ Route::post('myimages/store-intacta-privada', [ImagesController::class, 'postSto
 // revisa peticiones. Ver 05 §21.
 Route::delete('myimages/destroy/{id}', [ImagesController::class, 'deleteDestroy'])->middleware('persona.propia:imagen_id');
 Route::put('myimages/privatizar-imagen/{imagen_id}', [ImagesController::class, 'putPrivatizarImagen'])->middleware('persona.propia');
-Route::put('myimages/publicar-imagen/{imagen_id}', [ImagesController::class, 'putPublicarImagen'])->middleware('persona.propia');
+Route::put('myimages/publicar-imagen/{imagen_id}', [ImagesController::class, 'putPublicarImagen'])->middleware(['auth.personal', 'persona.propia']);
 
 // ImagesUsuariosController
 Route::put('images-users/imagenes-de-usuario', [ImagesUsuariosController::class, 'putImagenesDeUsuario']);
